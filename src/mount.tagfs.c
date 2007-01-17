@@ -1,6 +1,6 @@
 /*
    TAGFS -- mount.tagfs.c
-   Copyright (C) 2006 Tx0 <tx0@autistici.org>
+   Copyright (C) 2006-2007 Tx0 <tx0@autistici.org>
 
    TAGFS mount binary written using FUSE userspace library.
 
