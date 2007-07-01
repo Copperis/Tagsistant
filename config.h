@@ -26,6 +26,9 @@
 /* Define to 1 if you have the `fuse' library (-lfuse). */
 #define HAVE_LIBFUSE 1
 
+/* Define to 1 if you have the `sqlite3' library (-lsqlite3). */
+#define HAVE_LIBSQLITE3 1
+
 /* Define to 1 if `lstat' has the bug that it succeeds when given the
    zero-length file name argument. */
 /* #undef HAVE_LSTAT_EMPTY_STRING_BUG */

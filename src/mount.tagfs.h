@@ -73,14 +73,42 @@
 #define _FILE_OFFSET_BITS 64
 #endif
 
+#include <sqlite3.h>
 #include <fuse.h>
 #include <compat/fuse_opt.h>
 
-typedef struct path_tree {
-	char *name;
-	struct path_tree *OR;
-	struct path_tree *AND;
-} path_tree_t;
+#define MAX_TAG_LENGTH 255
+
+/***************\
+ * SQL QUERIES *
+\***************/
+#define CREATE_TAGS_TABLE	"create table tags(id integer primary key autoincrement not null, tagname varchar unique not null);"
+#define CREATE_TAGGED_TABLE	"create table tagged(id integer primary key autoincrement not null, tagname varchar not null, filename varchar not null);"
+#define CREATE_TAG			"insert into tags(tagname) values('%s');"
+#define DELETE_TAG			"delete from tags where tagname = '%s'; delete from tagged where tagname = '%s';"
+#define TAG_FILE 			"insert into tagged(tagname, filename) values('%s', '%s');"
+#define UNTAG_FILE			"delete from tagged where tagname = '%s' and filename = '%s';"
+#define RENAME_TAG			"update tags set tagname = '%s' where tagname = '%s'; update tagged set tagname = '%s' where tagname = '%s';"
+#define RENAME_FILE			"update tagged set filename = '%s' where filename = '%s';"
+#define IS_TAGGED			"select filename from tagged where filename = '%s' and tagname = '%s';"
+#define ALL_FILES_TAGGED	"select filename from tagged where tagname = '%s'"
+#define TAG_EXISTS			"select tagname from tags where tagname = '%s';"
+#define GET_ALL_TAGS		"select tagname from tags;"
+
+struct ptree_and_node {
+	char *tag;
+	struct ptree_and_node *next;
+};
+
+typedef struct ptree_and_node ptree_and_node_t;
+
+struct ptree_or_node {
+	struct ptree_or_node *next;
+	struct ptree_and_node *and_set;
+};
+
+typedef struct ptree_or_node ptree_or_node_t;
+
 
 typedef struct file_handle {
 	char *name;
@@ -89,15 +117,18 @@ typedef struct file_handle {
 
 /* defines command line options for tagfs mount tool */
 struct tagfs {
-	int   debug;
-	char *progname;
-	char *mountpoint;
-	char *repository;
-	char *archive;
-	char *tagsdir;
-#ifdef OBSOLETE_CODE
-	char *tmparchive;
-#endif /* OBSOLETE_CODE */
+	int      debug;			/* enable debug */
+	int		 foreground;	/* run in foreground */
+	int		 singlethread;	/* single thread? */
+	int		 readonly;		/* mount filesystem readonly */
+
+	char    *progname;		/* mount.tagfs */
+	char    *mountpoint;	/* no clue? */
+	char    *repository;	/* where's archived files and tags no? */
+	char    *archive;		/* a directory holding all the files */
+	char    *tags;			/* a SQLite database on file */
+
+	sqlite3 *dbh;			/* database handle to operate on SQLite thingy */
 };
 
 extern struct tagfs tagfs;
@@ -105,16 +136,15 @@ extern struct tagfs tagfs;
 extern int debug;
 extern int log_enabled;
 
-
 extern char *get_tag_name(const char *path);
 extern char *get_tag_path(const char *tag);
 extern char *get_file_path(const char *tag);
 extern char *get_tmp_file_path(const char *tag);
 
-extern path_tree_t *build_pathtree(const char *path);
-extern file_handle_t *build_filetree(path_tree_t *pt);
+extern ptree_or_node_t *build_querytree(const char *path);
+extern file_handle_t *build_filetree(ptree_or_node_t *query);
 
-extern void destroy_path_tree(path_tree_t *pt);
+extern void destroy_querytree(ptree_or_node_t *pt);
 extern void destroy_file_tree(file_handle_t *fh);
 
 // vim:ts=4:nocindent:nowrap

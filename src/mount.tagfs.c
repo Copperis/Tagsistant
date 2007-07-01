@@ -38,6 +38,82 @@ void init_syslog()
 }
 #endif
 
+static int report_if_exists(void *exists_buffer, int argc, char **argv, char **azColName)
+{
+	(void) argc;
+	(void) azColName;
+	int *exists = (int *) exists_buffer;
+	if (argv[0] != NULL) {
+		*exists = 1;
+	} else {
+		*exists = 0;
+	}
+	return 0;
+}
+
+/**
+ * return 1 if file filename is tagged with tag tagname, 0 otherwise.
+ */
+int is_tagged(char *filename, char *tagname)
+{
+	int exists = 0;
+	char *statement = calloc(sizeof(char), strlen(IS_TAGGED) + strlen(filename) + strlen(tagname));
+	sprintf(statement, IS_TAGGED, filename, tagname);
+	char *sqlerror;
+	if (sqlite3_exec(tagfs.dbh, statement, report_if_exists, &exists, &sqlerror) != SQLITE_OK) {
+		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+		sqlite3_free(sqlerror);
+	}
+	free(statement);
+	return exists;
+}
+
+/**
+ * add tag tagname to file filename
+ */
+int tag_file(char *filename, char *tagname)
+{
+	char *statement = NULL;
+	char *sqlerror = NULL;
+
+	/* check if file is already tagged */
+	if (is_tagged(filename, tagname)) return 1;
+
+	/* add tag to file */
+	statement = calloc(sizeof(char), strlen(TAG_FILE) + strlen(tagname) + strlen(filename));
+	sprintf(statement, TAG_FILE, tagname, filename);
+	if (sqlite3_exec(tagfs.dbh, statement, NULL, NULL, &sqlerror) != SQLITE_OK) {
+		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+		sqlite3_free(sqlerror);
+	}
+	free(statement);
+	dbg(LOG_INFO, "File %s tagged as %s", filename, tagname);
+
+	/* check if tag is already in db */
+	statement = calloc(sizeof(char), strlen(TAG_EXISTS) + strlen(tagname));
+	sprintf(statement, TAG_EXISTS, tagname);
+	char exists = 0;
+	if (sqlite3_exec(tagfs.dbh, statement, report_if_exists, &exists, &sqlerror) != SQLITE_OK) {
+		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+		sqlite3_free(sqlerror);
+	}
+	free(statement);
+	if (exists) return 1;
+
+	/* add tag to taglist */
+	statement = calloc(sizeof(char), strlen(CREATE_TAG) + strlen(tagname));
+	sprintf(statement, CREATE_TAG, tagname);
+	if (sqlite3_exec(tagfs.dbh, statement, NULL, NULL, &sqlerror) != SQLITE_OK) {
+		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+		sqlite3_free(sqlerror);
+	}
+	free(statement);
+	dbg(LOG_INFO, "Tag %s created", tagname);
+
+	return 1;
+}
+
+
 /**
  * lstat equivalent
  */
@@ -47,56 +123,69 @@ static int tagfs_getattr(const char *path, struct stat *stbuf)
 
 	init_time_profile();
 	start_time_profile();
+	if (strcmp(path, "/") == 0) {
+		dbg(LOG_INFO, "GETATTR on /!");
+		res = lstat(tagfs.archive, stbuf);
+		return (res == -1) ? -errno : 0;
+	}
 
 	char *tagname = get_tag_name(path);
 
 	/* special case */
 	if ((strcasecmp(tagname, "AND") == 0)
 	 || (strcasecmp(tagname, "OR") == 0)) {
-	 	lstat(tagfs.tagsdir, stbuf);	
+	 	dbg(LOG_INFO, "GETATTR on AND/OR logical operator!");
+	 	lstat(tagfs.archive, stbuf);	
 		free(tagname);
 		return 0;
 	}
 
-	char *tagpath = get_tag_path(tagname);
+	free(tagname);
 
-	dbg(LOG_INFO, "GETATTR %s -> %s", path, tagpath);
-	res = lstat(tagpath, stbuf);
-	tagfs_errno = errno;
+	char *dup = strdup(path);
+	char *last  = rindex(dup, '/');
+	*last = '\0';
+	last++;
+	char *last2 = rindex(dup, '/');
+	if (last2 != NULL) last2++;
 
-	if ((res == -1) && (tagfs_errno == ENOENT)) {
-		/* must be a file */
-		dbg(LOG_INFO, "%s is not a tag, must be a file", tagname);
-
-		path_tree_t *pt = build_pathtree(path);
-		path_tree_t *ptx = pt;
-		while (ptx != NULL) {
-
-			char *filepath = malloc(strlen(tagfs.tagsdir) + strlen(ptx->name) + strlen(tagname) + 3);
-			if (filepath != NULL) {
-				strcpy(filepath, tagfs.tagsdir);	
-				strcat(filepath, "/");
-				strcat(filepath, ptx->name);
-				strcat(filepath, "/");
-				strcat(filepath, tagname);
-				res = stat(filepath, stbuf);
-				tagfs_errno = errno;
-				free(filepath);
-				if (res != -1)
-					break;
-			}
-			
-			if (ptx->AND != NULL)
-				ptx = ptx->AND;
-			else
-				ptx = ptx->OR;
+	if ((last2 == NULL) || (strcmp(last2, "AND") == 0) || (strcmp(last2, "OR") == 0)) {
+		/* is a dir-tag */
+		dbg(LOG_INFO, "GETATTR on tag: %s", path);
+		tagname = strdup(last);
+		char *statement = calloc(sizeof(char), strlen(TAG_EXISTS) + strlen(tagname));
+		sprintf(statement, TAG_EXISTS, tagname);
+		dbg(LOG_INFO, "SQL: %s", statement);
+		int exists = 0;
+		char *sqlerror;
+		int sqlcode = sqlite3_exec(tagfs.dbh, statement, report_if_exists, &exists, &sqlerror);
+		if ( sqlcode != SQLITE_OK) {
+			dbg(LOG_ERR, "SQL error [%d]: %s @%s:%d", sqlcode, sqlerror, __FILE__, __LINE__);
+			sqlite3_free(sqlerror);
 		}
-		destroy_path_tree(pt);
+		free(statement);
 
+		if (exists) {
+			res = lstat(tagfs.archive, stbuf);
+			tagfs_errno = errno;
+		} else {
+			res = -1;
+			tagfs_errno = ENOENT;
+		}
+	} else {
+		/* is a file */
+		dbg(LOG_INFO, "GETATTR on file: %s", path);
+		tagname = strdup(last2);
+		char *filename = strdup(last);
+		char *filepath = get_file_path(filename);
+		res = lstat(filepath, stbuf);
+		tagfs_errno = errno;
+		free(filepath);
+		free(filename);
 	}
 
+	free(dup);
 	free(tagname);
-	free(tagpath);
 
 	stop_labeled_time_profile("getattr");
 	if ( res == -1 ) {
@@ -110,8 +199,35 @@ static int tagfs_getattr(const char *path, struct stat *stbuf)
 
 static int tagfs_readlink(const char *path, char *buf, size_t size)
 {
-	strncpy(buf, path, size);
-	return 0;
+	char *filename = get_tag_name(path);
+	char *filepath = get_file_path(filename);
+	free(filename);
+
+	dbg(LOG_INFO, "READLINK on %s", filepath);
+
+	int res = readlink(filepath, buf, size);
+	int tagfs_errno = errno;
+
+	free(filepath);
+	return (res == -1) ? -tagfs_errno : 0;
+}
+
+struct use_filler_struct {
+	fuse_fill_dir_t filler;
+	void *buf;
+};
+
+static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azColName)
+{
+	struct use_filler_struct *ufs = (struct use_filler_struct *) filler_ptr;
+	(void) argc;
+	(void) azColName;
+
+	if (argv[0] == NULL || strlen(argv[0]) == 0)
+		return 0;
+
+	dbg(LOG_INFO, "add_entry_to_dir: + %s", argv[0]);
+	return ufs->filler(ufs->buf, argv[0], NULL, 0);
 }
 
 static int tagfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
@@ -120,8 +236,9 @@ static int tagfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, of
 	(void) offset;
 
 	filler(buf, ".", NULL, 0);
-	if (strcmp(path, "/") != 0)
-		filler(buf, "..", NULL, 0);
+	filler(buf, "..", NULL, 0);
+
+	dbg(LOG_INFO, "READDIR on %s", path);
 
 	char *tagname = get_tag_name(path);
 	if (
@@ -129,6 +246,8 @@ static int tagfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, of
 		(strcasecmp(tagname,"AND") != 0) &&
 		(strcasecmp(tagname,"OR") != 0)
 	) {
+
+		dbg(LOG_INFO, "%s is a tag(set)", path);
 
 		/*
 		 * if path does not terminates with a logical operator,
@@ -142,7 +261,7 @@ static int tagfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, of
 
 		char *pathcopy = strdup(path);
 	
-		path_tree_t *pt = build_pathtree(pathcopy);
+		ptree_or_node_t *pt = build_querytree(pathcopy);
 		if (pt == NULL)
 			return -EBADF;
 	
@@ -159,27 +278,36 @@ static int tagfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, of
 			fh = fh->next;
 		} while ( fh != NULL && fh->name != NULL );
 	
-		destroy_path_tree(pt);
+		destroy_querytree(pt);
 		destroy_file_tree(fh);
 
 	} else {
+
+		dbg(LOG_INFO, "%s terminate with and operator or is root", path);
 
 		/*
 		 * if path does terminate with a logical operator
 		 * directory should be filled with tagsdir registered tags
 		 */
 
-		/* parse tagsdir list */
-		DIR *dp = opendir(tagfs.tagsdir);
-		struct dirent *de;
-		while ((de = readdir(dp))) {
-			if ((strcmp(de->d_name,".")!=0) && (strcmp(de->d_name,"..")!=1)) {
-				if (filler(buf, de->d_name, NULL, 0))
-					break;
-			}
+		struct use_filler_struct *ufs = calloc(sizeof(char), sizeof(struct use_filler_struct));
+		if (ufs == NULL) {
+			free(tagname);
+			return 0;
 		}
-		closedir(dp);
 
+		ufs->filler = filler;
+		ufs->buf = buf;
+
+		/* parse tagsdir list */
+		char *sqlerror;
+		int result = sqlite3_exec(tagfs.dbh, GET_ALL_TAGS, add_entry_to_dir, ufs, &sqlerror); 
+		if (result != SQLITE_OK) {
+			dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+			sqlite3_free(sqlerror);
+		}
+
+		free(ufs);
 	}
 	free(tagname);
 
@@ -194,26 +322,33 @@ static int tagfs_mknod(const char *path, mode_t mode, dev_t rdev)
 	init_time_profile();
 	start_time_profile();
 
-	char *tagname = get_tag_name(path);
-	char *filename = get_file_path(tagname);
+	char *filename = get_tag_name(path);
+	char *fullfilename = get_file_path(filename);
 
-	res = mknod(filename, mode, rdev);
+	dbg(LOG_INFO, "MKNOD on %s", fullfilename);
+
+	res = mknod(fullfilename, mode, rdev);
 	tagfs_errno = errno;
 
-	char *destpath = malloc(strlen(tagfs.tagsdir) + strlen(path));
-	if (destpath != NULL) {
-		strcpy(destpath, tagfs.tagsdir);
-		strcat(destpath, path);
-		dbg(LOG_INFO, "linking %s to %s", filename, destpath);
-		int err = symlink(filename, destpath);
-		if (err == -1) {
-			dbg(LOG_ERR, "Error linking: %s", strerror(errno));
+	/* tag the file */
+	char *path_dup = strdup(path);
+	char *tagname = path_dup;
+	char *ri = rindex(path_dup, '/');
+	if (ri != NULL) {
+		*ri = '\0';
+		ri = rindex(path_dup, '/');
+		if (ri == NULL) {
+			ri = path_dup;
+		} else {
+			ri++;
 		}
-		free(destpath);
+		tagname = ri;
 	}
+	tag_file(filename, tagname);
 
-	free(tagname);
+	free(path_dup);
 	free(filename);
+	free(fullfilename);
 
 	stop_labeled_time_profile("mknod");
 	return (res == -1) ? -tagfs_errno: 0;
@@ -222,27 +357,24 @@ static int tagfs_mknod(const char *path, mode_t mode, dev_t rdev)
 /* OK */
 static int tagfs_mkdir(const char *path, mode_t mode)
 {
+	(void) mode;
     int res = 0, tagfs_errno = 0;
 	init_time_profile();
 	start_time_profile();
 
 	char *tagname = get_tag_name(path);
-	if (tagname != NULL) {
-		char *relocated = get_tag_path(tagname);
-		if (mkdir(relocated,mode) == -1) {
-			tagfs_errno = errno;
-			dbg(LOG_ERR, "Can't create tagdir %s: %s", relocated, strerror(errno));
-			free(relocated);
-			goto MKDIRABORT;
-		}
-		chmod(relocated, mode);
-		/*
-		chmod(relocated, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
-		*/
-		free(relocated);
+
+	dbg(LOG_INFO, "MKDIR on %s", tagname);
+
+	char *statement = calloc(sizeof(char), strlen(CREATE_TAG) + strlen(tagname));
+	sprintf(statement, CREATE_TAG, tagname);
+	char *sqlerror;
+	if (sqlite3_exec(tagfs.dbh, statement, NULL, NULL, &sqlerror) != SQLITE_OK) {
+		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+		sqlite3_free(sqlerror);
 	}
 
-MKDIRABORT:
+	free(statement);
 	free(tagname);
 
 	stop_labeled_time_profile("mkdir");
@@ -257,47 +389,35 @@ static int tagfs_unlink(const char *path)
 	init_time_profile();
 	start_time_profile();
 
-	char *tagname = get_tag_name(path);
-	char *filepath = get_file_path(tagname);
+	char *filename = get_tag_name(path);
 
-	path_tree_t *pt = build_pathtree(path);
-	path_tree_t *element = pt;
+	dbg(LOG_INFO, "UNLINK on %s", filename);
+
+	ptree_or_node_t *pt = build_querytree(path);
+	ptree_or_node_t *ptx = pt;
+
+	char *statement = calloc(sizeof(char), strlen(UNTAG_FILE) + strlen(filename) + MAX_TAG_LENGTH);
 
 	/* is a file */
-	while (element != NULL) {
-		char *delpath = malloc(
-			strlen(tagfs.tagsdir) +
-			strlen(element->name) +
-			strlen(tagname) +
-			2
-		);
-		if (delpath != NULL) {
-			strcpy(delpath, tagfs.tagsdir);
-			strcat(delpath, element->name);
-			strcat(delpath, "/");
-			strcat(delpath, tagname);
-
-			dbg(LOG_INFO, "unlink(%s)", delpath);
-			unlink(delpath);
-			free(delpath);
+	while (ptx != NULL) {
+		ptree_and_node_t *element = ptx->and_set;
+		while (element != NULL) {
+			dbg(LOG_INFO, "removing tag %s from %s", element->tag, filename);
+			/* should check here if strlen(element->tag) > MAX_TAG_LENGTH */
+			sprintf(statement, UNTAG_FILE, element->tag, filename);
+			char *sqlerror;
+			if (sqlite3_exec(tagfs.dbh, statement, NULL, NULL, &sqlerror) != SQLITE_OK) {
+				dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+				sqlite3_free(sqlerror);
+			}
+			element = element->next;
 		}
-		if (element->AND != NULL)
-			element = element->AND;
-		else
-			element = element->OR;
+		ptx = ptx->next;
 	}
 
-	/*
-	stat(filepath, &filest);
-	if (filest.st_nlink == 1) {
-		dbg(LOG_INFO, "unlinking original copy too...");
-		unlink(filepath);
-	}
-	*/
-
-	free(tagname);
-	free(filepath);
-	destroy_path_tree(pt);
+	free(statement);
+	free(filename);
+	destroy_querytree(pt);
 
 	stop_labeled_time_profile("unlink");
 	return (res == -1) ? -tagfs_errno : 0;
@@ -310,29 +430,29 @@ static int tagfs_rmdir(const char *path)
 	init_time_profile();
 	start_time_profile();
 
-	path_tree_t *pt = build_pathtree(path);
+	ptree_or_node_t *pt = build_querytree(path);
+	ptree_or_node_t *ptx = pt;
 
-	path_tree_t *element = pt;
-	while (element != NULL) {
-		char *delpath = malloc(strlen(tagfs.tagsdir) + strlen(element->name) + 1);
-		if (delpath != NULL) {
-			strcpy(delpath, tagfs.tagsdir);
-			strcat(delpath, element->name);
+	/* tag name is inserted 2 times in query, that's why '* 2' */
+	char *statement = calloc(sizeof(char), strlen(DELETE_TAG) + MAX_TAG_LENGTH * 2);
 
-			dbg(LOG_INFO, "unlink(%s)", delpath);
-			res = rmdir(delpath);
-			tagfs_errno = errno;
-			free(delpath);
-			if (res == -1)
-				break;
+	while (ptx != NULL) {
+		ptree_and_node_t *element = ptx->and_set;
+		while (element != NULL) {
+			sprintf(statement, DELETE_TAG, element->tag, element->tag);
+			dbg(LOG_INFO, "RMDIR on %s", element->tag);
+			char *sqlerror;
+			if (sqlite3_exec(tagfs.dbh, statement, NULL, NULL, &sqlerror) != SQLITE_OK) {
+				dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+				sqlite3_free(sqlerror);
+			}
+			element = element->next;
 		}
-		if (element->AND != NULL)
-			element = element->AND;
-		else
-			element = element->OR;
+		ptx = ptx->next;
 	}
 
-	destroy_path_tree(pt);
+	free(statement);
+	destroy_querytree(pt);
 
 	stop_labeled_time_profile("rmdir");
 	return (res == -1) ? -tagfs_errno : 0;
@@ -353,115 +473,39 @@ static int tagfs_rename(const char *from, const char *to)
 	}
 
 	char *tagname = get_tag_name(from);
-	char *tagpath = get_tag_path(tagname);
-	struct stat stbuf;
-	dbg(LOG_INFO, "RENAME: stat(%s)", tagpath);
-	res = lstat(tagpath, &stbuf);
-	if (res == -1) {
-		char *filepath = get_file_path(tagname);
-		dbg(LOG_INFO, "RENAME: stat(%s)", filepath);
-		res = lstat(filepath, &stbuf);
-		if (res == -1) {
-			dbg(LOG_ERR, "RENAME: error -1- %s: %s", filepath, strerror(errno));
-			free(filepath);
-			free(tagname);
-			free(tagpath);
-			return -errno;
+
+	if (rindex(from, '/') == from) {
+		/* is a tag */
+		const char *newtagname = rindex(to, '/');
+		if (newtagname == NULL) newtagname = to;
+		char *statement = calloc(sizeof(char), strlen(RENAME_TAG) + strlen(tagname) * 2 + strlen(newtagname) * 2);
+		sprintf(statement, RENAME_TAG, tagname, newtagname, tagname, newtagname);
+		char *sqlerror;
+		if (sqlite3_exec(tagfs.dbh, statement, NULL, NULL, &sqlerror) != SQLITE_OK) {
+			dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+			sqlite3_free(sqlerror);
 		}
-		free(filepath);
-	}
-
-	if (S_ISDIR(stbuf.st_mode)) {
-		/* return if "from" path is complex, i.e. including logical operators */
-		if ((strstr(from, "/AND") != NULL) || (strstr(from, "/OR") != NULL)) {
-			dbg(LOG_ERR, "Logical operators not allowed in open path");
-			free(tagname);
-			free(tagpath);
-			return -ENOTDIR;
-		}
-
-		/* origin is a direcory */
-		char *toname = get_tag_name(to);
-		char *topath = get_tag_path(toname);
-		dbg(LOG_INFO, "Renaming directory %s to %s", from, to);
-		res = rename(tagpath, topath);
-		tagfs_errno = errno;
-		free(toname);
-		free(topath);
-
+		free(statement);
 	} else {
-
-		/* origin is a file */
-		path_tree_t *from_pt = build_pathtree(from);
-
-		char *orig = malloc(
-			strlen(tagfs.tagsdir) +
-			strlen(from_pt->name) +
-			strlen(tagname) +
-			3
-		);
-		if (orig == NULL) {
-			dbg(LOG_ERR, "RENAME: -2- Error allocating memory");
-			destroy_path_tree(from_pt);
-			free(tagname);
-			free(tagpath);
-			return -ENOMEM;
+		/* is a file */
+		const char *newfilename = rindex(to, '/');
+		if (newfilename == NULL) newfilename = to;
+		char *statement = calloc(sizeof(char), strlen(RENAME_FILE) + strlen(tagname) + strlen(newfilename));
+		sprintf(statement, RENAME_FILE, tagname, newfilename);
+		char *sqlerror;
+		if (sqlite3_exec(tagfs.dbh, statement, NULL, NULL, &sqlerror)) {
+			dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+			sqlite3_free(sqlerror);
 		}
-		strcpy(orig, tagfs.tagsdir);
-		strcat(orig, "/");
-		strcat(orig, from_pt->name);
-		strcat(orig, "/");
-		strcat(orig, tagname);
+		free(statement);
 
-		char *dest = malloc(
-			strlen(tagfs.tagsdir) +
-			strlen(to) +
-			2
-		);
-		if (dest == NULL) {
-			dbg(LOG_ERR, "RENAME: -3- Error allocating memory");
-			free(orig);
-			destroy_path_tree(from_pt);
-			free(tagname);
-			free(tagpath);
-			return -ENOMEM;
-		}
-		strcpy(dest, tagfs.tagsdir);
-		strcat(dest, "/");
-		strcat(dest, to);
-
-		dbg(LOG_INFO, "Renaming file %s to %s", orig, dest);
-		res = rename(orig, dest);
+		char *filepath = get_file_path(tagname);
+		char *newfilepath = get_file_path(newfilename);
+		res = rename(filepath, newfilepath);
 		tagfs_errno = errno;
-
-		free(orig);
-		free(dest);
-
-		path_tree_t *element = (from_pt->AND != NULL) ? from_pt->AND : from_pt->OR;
-		while (element != NULL) {
-			char *unlinkpath = malloc(
-				strlen(tagfs.tagsdir) +
-				strlen(element->name) +
-				strlen(tagname) +
-				3
-			);
-			if (unlinkpath != NULL) {
-				strcpy(unlinkpath, tagfs.tagsdir);
-				strcat(unlinkpath, "/");
-				strcat(unlinkpath, element->name);
-				strcat(unlinkpath, "/");
-				strcat(unlinkpath, tagname);
-				unlink(unlinkpath);
-				free(unlinkpath);
-			}
-			element = (from_pt->AND != NULL) ? from_pt->AND : from_pt->OR;
-		}
-
-		destroy_path_tree(from_pt);
+		free(filepath);
+		free(newfilepath);
 	}
-
-	free(tagname);
-	free(tagpath);
 
 	stop_labeled_time_profile("rename");
 	return (res == -1) ? -tagfs_errno : 0;
@@ -475,18 +519,33 @@ static int tagfs_link(const char *from, const char *to)
 	init_time_profile();
 	start_time_profile();
 
-	char *tagname = get_tag_name(from);
-	char *frompath = get_file_path(tagname);
+	char *filename = get_tag_name(to);
+	char *topath = get_file_path(filename);
 
-	tagname = get_tag_name(to);
-	char *topath = get_file_path(tagname);
+	char *path_dup = strdup(to);
+	char *ri = rindex(path_dup, '/');
+	*ri = '\0';
+	ri = rindex(path_dup, '/');
+	ri++;
+	char *tagname = strdup(ri);
+	free(path_dup);
 
-	dbg(LOG_INFO, "Linking %s as %s", frompath, topath);
-	res = symlink(frompath, topath);
-	tagfs_errno = errno;
+	/* tag the link */
+	tag_file(filename, tagname);
+
+	struct stat stbuf;
+	if ((lstat(topath, &stbuf) == -1) && (errno == ENOENT)) {
+		dbg(LOG_INFO, "Linking %s as %s", from, topath);
+		res = symlink(from, topath);
+		tagfs_errno = errno;
+	} else {
+		dbg(LOG_INFO, "A file named %s is already in archive.", filename);
+		res = -1;
+		tagfs_errno = EEXIST;
+	}
 
 	free(tagname);
-	free(frompath);
+	free(filename);
 	free(topath);
 
 	stop_labeled_time_profile("link");
@@ -587,8 +646,15 @@ static int tagfs_utime(const char *path, struct utimbuf *buf)
 /* OK */
 int internal_open(const char *path, int flags, int *_errno)
 {
-	char *tagname = get_tag_name(path);
-	char *filepath = get_file_path(tagname);
+	char *filename = get_tag_name(path);
+	char *filepath = get_file_path(filename);
+	char *path_dup = strdup(path);
+	char *ri = rindex(path_dup, '/');
+	*ri = '\0';
+	ri = rindex(path_dup, '/');
+	ri++;
+	char *tagname = strdup(ri);
+	free(path_dup);
 
 	dbg(LOG_INFO, "INTERNAL_OPEN: Opening file %s", filepath);
 
@@ -597,10 +663,15 @@ int internal_open(const char *path, int flags, int *_errno)
 	if (flags&O_TRUNC) dbg(LOG_INFO, "...O_TRUNC");
 	if (flags&O_LARGEFILE) dbg(LOG_INFO, "...O_LARGEFILE");
 
+	if (flags&O_CREAT || flags&O_WRONLY || flags&O_TRUNC) {
+		tag_file(filename, tagname);
+	}
+
 	int res = open(filepath, flags);
 	*_errno = errno;
 
 	free(tagname);
+	free(filename);
 	free(filepath);
 	return res;
 }
@@ -818,8 +889,11 @@ enum {
 #define TAGFS_OPT(t, p, v) { t, offsetof(struct tagfs, p), v }
 
 static struct fuse_opt tagfs_opts[] = {
-	TAGFS_OPT("-d",					debug,		1),
-	TAGFS_OPT("--repository=%s",	repository,	0),
+	TAGFS_OPT("-d",					debug,			1),
+	TAGFS_OPT("--repository=%s",	repository,		0),
+    TAGFS_OPT("-f",					foreground,		1),
+    TAGFS_OPT("-s",					singlethread,	1),
+    TAGFS_OPT("-r",					readonly,		1),
 
     FUSE_OPT_KEY("-V",          	KEY_VERSION),
     FUSE_OPT_KEY("--version",   	KEY_VERSION),
@@ -835,31 +909,30 @@ void usage(char *progname)
 		return;
 
 	fprintf(stderr, "\n"
-		" TAGFS v.%s\n"
-		" Semantic File System for Linux kernels\n"
-		" (c) 2006-2007 Tx0 <tx0@autistici.org>\n"
-		" FUSE_USE_VERSION: %d\n\n"
-		" This program is free software; you can redistribute it and/or modify\n"
-		" it under the terms of the GNU General Public License as published by\n"
-		" the Free Software Foundation; either version 2 of the License, or\n"
-		" (at your option) any later version.\n\n"
+		"TAGFS v.%s\n"
+		"Semantic File System for Linux kernels\n"
+		"(c) 2006-2007 Tx0 <tx0@autistici.org>\n"
+		"FUSE_USE_VERSION: %d\n\n"
+		"This program is free software; you can redistribute it and/or modify\n"
+		"it under the terms of the GNU General Public License as published by\n"
+		"the Free Software Foundation; either version 2 of the License, or\n"
+		"(at your option) any later version.\n\n"
 
-		" This program is distributed in the hope that it will be useful,\n"
-		" but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
-		" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
-		" GNU General Public License for more details.\n\n"
+		"This program is distributed in the hope that it will be useful,\n"
+		"but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
+		"MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
+		"GNU General Public License for more details.\n\n"
 
-		" You should have received a copy of the GNU General Public License\n"
-		" along with this program; if not, write to the Free Software\n"
-		" Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA\n"
+		"You should have received a copy of the GNU General Public License\n"
+		"along with this program; if not, write to the Free Software\n"
+		"Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA\n"
 		"\n"
-		" Usage: %s [OPTIONS] /mountpoint\n"
+		"Usage: %s [OPTIONS] --repository=<PATH> /mountpoint\n"
 		"\n"
-		" --repository=<PATH> Path of repository\n"
-		" -d                  Enables debug\n"
-		" -u                  unmount a mounted filesystem\n"
-		" -q                  be quiet\n"
-		" -z                  lazy unmount (can be dangerous!)\n"
+		"    -u  unmount a mounted filesystem\n"
+		"    -q  be quiet\n"
+		"    -r  mount readonly\n"
+		"    -z  lazy unmount (can be dangerous!)\n"
 		"\n" /*fuse options will follow... */
 		, PACKAGE_VERSION, FUSE_USE_VERSION, progname
 	);
@@ -903,6 +976,7 @@ static int tagfs_opt_proc(void *data, const char *arg, int key, struct fuse_args
 void cleanup(int s)
 {
 	dbg(LOG_ERR, "Got Signal %d in %s:%d", s, __FILE__, __LINE__);
+	sqlite3_close(tagfs.dbh);
 	exit(s);
 }
 
@@ -945,6 +1019,42 @@ int main(int argc, char *argv[])
 	}
 	chmod(tagfs.repository, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
 
+	/* opening (or creating) SQL tags database */
+	tagfs.tags = malloc(strlen(tagfs.repository) + strlen("/tags.sql") + 1);
+	strcpy(tagfs.tags,tagfs.repository);
+	strcat(tagfs.tags,"/tags.sql");
+
+	/* check if db exists or has to be created */
+	struct stat dbstat;
+	int db_exists = lstat(tagfs.tags, &dbstat);
+
+	/* open connection to sqlite database */
+	int result = sqlite3_open(tagfs.tags, &(tagfs.dbh));
+
+	/* check if open has been fullfilled */
+	if (result != SQLITE_OK) {
+		dbg(LOG_ERR, "Error [%d] opening database %s", result, tagfs.tags);
+		dbg(LOG_ERR, "%s", sqlite3_errmsg(tagfs.dbh));
+		exit(1);
+	}
+
+	/* if db does not existed, some SQL init is needed */
+	if (db_exists != 0) {
+		char *sqlerror;
+		int sqlcode;
+		
+		sqlcode = sqlite3_exec(tagfs.dbh, CREATE_TAGS_TABLE, NULL, NULL, &sqlerror);
+		if (sqlcode != SQLITE_OK) {
+			dbg(LOG_ERR, "SQL error [%d] while creating tags table: %s", sqlcode, sqlerror);
+			exit(1);
+		}
+		sqlcode = sqlite3_exec(tagfs.dbh, CREATE_TAGGED_TABLE, NULL, NULL, &sqlerror);
+		if (sqlcode != SQLITE_OK) {
+			dbg(LOG_ERR, "SQL error [%d] while creating tagged table: %s", sqlcode, sqlerror);
+			exit(1);
+		}
+	}
+
 	/* checking file archive directory */
 	tagfs.archive = malloc(strlen(tagfs.repository) + strlen("/archive/") + 1);
 	strcpy(tagfs.archive,tagfs.repository);
@@ -958,39 +1068,22 @@ int main(int argc, char *argv[])
 	}
 	chmod(tagfs.archive, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
 
-	/* checking tagged directory structure */
-	tagfs.tagsdir = malloc(strlen(tagfs.repository) + strlen("/tagsdir/") + 1);
-	strcpy(tagfs.tagsdir,tagfs.repository);
-	strcat(tagfs.tagsdir,"/tagsdir/");
-
-	if (lstat(tagfs.tagsdir, &repstat) == -1) {
-		if(mkdir(tagfs.tagsdir, 755) == -1) {
-			fprintf(stderr, "    *** TAGSDIR: Can't mkdir(%s): %s ***\n\n", tagfs.tagsdir, strerror(errno));
-			exit(2);
-		}
-	}
-	chmod(tagfs.tagsdir, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
-
-#ifdef OBSOLETE_CODE
-	/* checking tmp archive directory structure */
-	tagfs.tmparchive = malloc(strlen(tagfs.repository) + strlen("/tmparchive/") + 1);
-	strcpy(tagfs.tmparchive,tagfs.repository);
-	strcat(tagfs.tmparchive,"/tmparchive/");
-
-	if (lstat(tagfs.tmparchive, &repstat) == -1) {
-		if(mkdir(tagfs.tmparchive, 755) == -1) {
-			fprintf(stderr, "    *** TMPARCHIVE: Can't mkdir(%s): %s ***\n\n", tagfs.tmparchive, strerror(errno));
-			exit(2);
-		}
-	}
-	chmod(tagfs.tmparchive, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
-#endif /* OBSOLETE_CODE */
-
-	// fuse_opt_add_arg(&args, "-odefault_permissions,allow_other,fsname=tagfs");
+	fuse_opt_add_arg(&args, "-odefault_permissions,allow_other,fsname=tagfs");
 	fuse_opt_add_arg(&args, "-ouse_ino,readdir_ino");
+	if (tagfs.singlethread) {
+		fprintf(stderr, " *** operating in single thread mode ***\n");
+		fuse_opt_add_arg(&args, "-s");
+	}
+	if (tagfs.readonly) {
+		fprintf(stderr, " *** mounting tagfs read-only ***\n");
+		fuse_opt_add_arg(&args, "-r");
+	}
+	if (tagfs.foreground) {
+		fprintf(stderr, " *** will run in foreground ***\n");
+		fuse_opt_add_arg(&args, "-f");
+	}
 
 	fprintf(stderr, "\n");
-
 	fprintf(stderr,
 		" Tag based filesystem for Linux kernels\n"
 		" (c) 2006-2007 Tx0 <tx0@autistici.org>\n"
@@ -1002,7 +1095,7 @@ int main(int argc, char *argv[])
 	if (tagfs.debug) debug = tagfs.debug;
 
 	if (debug)
-		printf("\n    Debug is enabled");
+		dbg(LOG_INFO, "Debug is enabled");
 
 	umask(0);
 
@@ -1015,6 +1108,14 @@ int main(int argc, char *argv[])
 	signal(15, cleanup); /* SIGTERM */
 
 	dbg(LOG_INFO, "Mounting filesystem");
+
+	dbg(LOG_INFO, "Fuse options:");
+	int fargc = args.argc;
+	while (fargc) {
+		dbg(LOG_INFO, "%.2d: %s", fargc, args.argv[fargc]);
+		fargc--;
+	}
+
 	res = fuse_main(args.argc, args.argv, &tagfs_oper);
 
     fuse_opt_free_args(&args);

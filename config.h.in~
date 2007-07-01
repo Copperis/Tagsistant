@@ -25,9 +25,6 @@
 /* Define to 1 if you have the `fuse' library (-lfuse). */
 #undef HAVE_LIBFUSE
 
-/* Define to 1 if you have the `ssl' library (-lssl). */
-#undef HAVE_LIBSSL
-
 /* Define to 1 if `lstat' has the bug that it succeeds when given the
    zero-length file name argument. */
 #undef HAVE_LSTAT_EMPTY_STRING_BUG

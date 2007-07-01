@@ -19,6 +19,7 @@
    along with this program; if not, write to the Free Software Foundation,
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
 */
+
 #include "mount.tagfs.h"
 
 char *get_tag_name(const char *path)
@@ -27,18 +28,6 @@ char *get_tag_name(const char *path)
 	idx++;
 	char *tagname = strdup(idx);
 	return tagname;
-}
-
-char *get_tag_path(const char *tag)
-{
-	char *tagpath = malloc(strlen(tagfs.tagsdir) + strlen(tag) + 1);
-	if (tagpath == NULL) {
-		dbg(LOG_ERR, "error allocating memory in get_tag_path");
-		return NULL;
-	}
-	strcpy(tagpath,tagfs.tagsdir);
-	strcat(tagpath,tag);
-	return tagpath;
 }
 
 char *get_file_path(const char *tag)
@@ -53,142 +42,117 @@ char *get_file_path(const char *tag)
 	return filepath;
 }
 
-#ifdef OBSOLETE_CODE
-char *get_tmp_file_path(const char *tag)
-{
-	char *filepath = malloc(strlen(tagfs.tmparchive) + strlen(tag) + 1);
-	if (filepath == NULL) {
-		dbg(LOG_ERR, "error allocating memory in get_tmp_file_path");
-		return NULL;
-	}
-	strcpy(filepath,tagfs.tmparchive);
-	strcat(filepath,tag);
-	return filepath;
-}
-#endif /* OBSOLETE_CODE */
-
 /**
- * build tree from path, organizing relationship based on operators
+ * Build query tree from path. A querytree is composed of a linked
+ * list of ptree_or_node_t objects. Each or object has a descending
+ * linked list of ptree_and_node_t objects. This kind of structure
+ * should be considered as a collection (the or horizontal level)
+ * of queries (the and vertical lists). Each and list should be
+ * resolved using SQLite INTERSECT compound operator. All results
+ * should be then merged in a unique list of filenames.
  *
- * \param @path path to parse
+ * \param @path the path to be converted in a logical query
  */
-path_tree_t *build_pathtree(const char *path)
+ptree_or_node_t *build_querytree(const char *path)
 {
-	char *pcopy = strdup(path);
-	dbg(LOG_INFO, "Building tree for path %s", path);
+	const char *pathptx = path + 1; /* skip first slash */
 
-	path_tree_t *pt = malloc(sizeof(path_tree_t));
-	if (pt == NULL) {
-		dbg(LOG_ERR, "Can't allocate space for path_tree_t node");
-		return NULL;
-	}
-	pt->name = NULL;
-	pt->AND = pt->OR = NULL;
-	pcopy++; /* skip first slash */
+	ptree_or_node_t *result = calloc(sizeof(ptree_or_node_t), 1);
+	ptree_or_node_t *last_or = result;;
+	ptree_and_node_t *last_and = NULL;
 
-	if ( *pcopy == '\0' ) return pt; /* path end reached */
+	unsigned int orcount = 0, andcount = 0;
+	const char *idx = pathptx;
+	while (*idx != '\0') {
+		/* get next slash. if there are no more slashes, reach end of string */
+		idx = index(pathptx, '/');
+		if (idx == NULL) idx = index(pathptx, '\0');
 
-	char *idx = index(pcopy, '/');
-	if (idx == NULL) {
-		pt->name = strdup(pcopy);
-		dbg(LOG_INFO, "Next element is %s [%d]", pt->name, strlen(pt->name));
-		dbg(LOG_INFO, "Path end reached");
-		return pt;
-	}
+		/* duplicate next element */
+		char *element = strndup(pathptx, idx - pathptx);
 
-	pt->name = strndup(pcopy, idx - pcopy);
-
-	dbg(LOG_INFO, "Next element is %s [%d]", pt->name, strlen(pt->name));
-
-	idx++; /* skip slash after the name */
-
-	if ( *idx == '\0' ) return pt; /* path end reached */
-
-	dbg(LOG_INFO, "More path to parse: %s", idx);
-
-	if ( strncasecmp(idx, "OR", 2) == 0 ) {
-		dbg(LOG_INFO, "Continuing for an OR!");
-		idx += strlen("OR");
-		pt->OR = build_pathtree(idx);
-	} else if ( strncasecmp(idx, "AND", 3) == 0 ) {
-		dbg(LOG_INFO, "Continuing for an AND!");
-		idx += strlen("AND");
-		pt->AND = build_pathtree(idx);
-	} else {
-		dbg(LOG_INFO, "Should be just a file name: %s", idx);
-	}
-
-	return pt;
-}
-
-void destroy_path_tree(path_tree_t *pt)
-{
-	if (pt == NULL)
-		return;
-	
-	if (pt->name != NULL)
-		free(pt->name);
-	
-	if (pt->AND != NULL)
-		destroy_path_tree(pt->AND);
-
-	if (pt->OR != NULL)
-		destroy_path_tree(pt->OR);
-}
-
-#define ctx_AND 1
-#define ctx_OR  2
-
-int check_in_pathtree(char *filename, path_tree_t *pt)
-{
-	path_tree_t *ptx = pt;
-	int result = 1;
-
-	dbg(LOG_INFO, "Checking if %s is to be served", filename);
-	while (ptx != NULL) {
-		char *dirpath = get_tag_path(ptx->name);
-		char *inpath = malloc(strlen(dirpath) + strlen(filename) + 2);
-
-		if (inpath != NULL) {
-			strcpy(inpath, dirpath);
-			strcat(inpath, "/");
-			strcat(inpath, filename);
-			dbg(LOG_INFO, " ** Checking %s", inpath);
-
-			struct stat st;
-			if (stat(inpath, &st) == -1) {
-				dbg(LOG_INFO, " xx %s not found!", inpath);
-				/* skip to next OR */
-				while ( ptx->AND != NULL ) {
-					dbg(LOG_INFO, "Skipping next AND: %s", ptx->AND->name);
-					ptx = ptx->AND;
-				}
-				ptx = ptx->OR;
-				result = 0;
-			} else {
-				dbg(LOG_INFO, "%s exists!", inpath);
-				/* skip to next AND */
-				while ( ptx->OR != NULL ) {
-					dbg(LOG_INFO, "Skipping next OR: %s", ptx->OR->name);
-					ptx = ptx->OR;
-				}
-				ptx = ptx->AND;
-				result = 1;
-			}
+		if (strcmp(element, "AND") == 0) {
+			/* skip it? nothing should be done with AND elements */
+		} else if (strcmp(element, "OR") == 0) {
+			/* open new entry in OR level */
+			orcount++;
+			andcount = 0;
+			ptree_or_node_t *new_or = calloc(sizeof(ptree_or_node_t), 1);
+			last_or->next = new_or;
+			last_or = new_or;
+			last_and = NULL;
 		} else {
-			dbg(LOG_ERR, "Can't allocate room for inpath!");
+			/* save next element in new ptree_and_node_t slot */
+			ptree_and_node_t *and = calloc(sizeof(ptree_and_node_t), 1);
+			and->tag = strdup(element);
+			if (last_and == NULL) {
+				last_or->and_set = and;
+			} else {
+				last_and->next = and;
+			}
+			last_and = and;
+			dbg(LOG_INFO, "Query tree: %.2d.%.2d %s", orcount, andcount, element);
+			andcount++;
 		}
 
-		free(inpath);
-		free(dirpath);
+		free(element);
+		pathptx = idx + 1;
 	}
-
+	dbg(LOG_INFO, "returning from build_querytree...");
 	return result;
 }
 
-file_handle_t *build_filetree(path_tree_t *pt)
+void destroy_querytree(ptree_or_node_t *qt)
 {
-	file_handle_t *fh = malloc(sizeof(file_handle_t));
+	while (qt != NULL) {
+		ptree_and_node_t *tag = qt->and_set;
+		while (tag != NULL) {
+			ptree_and_node_t *next = tag->next;
+			free(tag->tag);
+			free(tag);
+			tag = next;
+		}
+		ptree_or_node_t *next = qt->next;
+		free(qt);
+		qt = next;
+	}
+}
+
+static int add_to_filetree(void *fhvoid, int argc, char **argv, char **azColName)
+{
+	(void) argc;
+	(void) azColName;
+	file_handle_t **fh = fhvoid;
+
+	dbg(LOG_INFO, "add_to_file_tree: %s", argv[0]);
+
+	/* no need to add empty files */
+	if (argv[0] == NULL || strlen(argv[0]) == 0)
+		return 0;
+
+	(*fh)->name = strdup(argv[0]);
+	dbg(LOG_INFO, "adding %s to filetree", (*fh)->name);
+	(*fh)->next = calloc(sizeof(file_handle_t), 1);
+	if ((*fh)->next == NULL) {
+		dbg(LOG_ERR, "Can't allocate memory in build_filetree");
+		return 1;
+	}
+	(*fh) = (*fh)->next;
+	(*fh)->next = NULL;
+	(*fh)->name = NULL;
+
+	dbg(LOG_INFO, "add_to_file_tree %s done!", argv[0]);
+	return 0;
+}
+
+file_handle_t *build_filetree(ptree_or_node_t *query)
+{
+	if (query == NULL) {
+		dbg(LOG_ERR, "NULL path_tree_t object provided to build_filetree");
+		return NULL;
+	}
+
+	file_handle_t *fh = calloc(sizeof(file_handle_t), 1);
 	if ( fh == NULL ) {
 		dbg(LOG_ERR, "Can't allocate memory in build_filetree");
 		return NULL;
@@ -198,73 +162,77 @@ file_handle_t *build_filetree(path_tree_t *pt)
 
 	file_handle_t *result = fh;
 
-	if (pt == NULL) {
-		dbg(LOG_ERR, "NULL path_tree_t object provided to build_filetree");
-		return NULL;
+	dbg(LOG_INFO, "building filetree...");
+
+	while (query != NULL) {
+		ptree_and_node_t *tag = query->and_set;
+
+		/* calculate number of tags and query string length */
+		int query_length = 0;
+		while (tag != NULL) {
+			query_length += strlen(ALL_FILES_TAGGED) + strlen(tag->tag);
+			if (tag->next != NULL) query_length += strlen(" intersect ");
+			tag = tag->next;
+		}
+		query_length++; /* closing semicolon */
+		dbg(LOG_INFO, "Query will be %d char long", query_length);
+
+		/* format the query */
+		char *statement = calloc(sizeof(char), query_length);
+		if (statement == NULL) {
+			dbg(LOG_ERR, "Error mallocating statement in build_filetree");
+			return 0;
+		}
+
+		tag = query->and_set;
+		while (tag != NULL) {
+			/* formatting sub-select */
+			char *mini = calloc(sizeof(char), strlen(ALL_FILES_TAGGED) + strlen(tag->tag) + strlen(" intersect ") + 1);
+			sprintf(mini, ALL_FILES_TAGGED, tag->tag);
+			if (tag->next != NULL) strcat(mini, " intersect ");
+
+			/* add sub-select to main statement */
+			strcat(statement, mini);
+			free(mini);
+
+			dbg(LOG_INFO, "SQL: [%s]", statement);
+
+			tag = tag->next;
+		}
+
+		strcat(statement, ";");
+		dbg(LOG_INFO, "SQL: final statement is [%s]", statement);
+
+		/* perform query */
+		dbg(LOG_INFO, "SQL query: %s", statement);
+		char *sqlerror;
+		if (sqlite3_exec(tagfs.dbh, statement, add_to_filetree, &fh, &sqlerror) != SQLITE_OK) {
+			dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+			sqlite3_free(sqlerror);
+		}
+		free(statement);
+		query = query->next;
 	}
 
-	/*
-	 * externally we traverse the tree to get all
-	 * the directory names to be opendir() to catch all
-	 * candidate files
-	 */
-	path_tree_t *ptextern = pt;
-	while (ptextern != NULL) {
-		char *dir = get_tag_path(ptextern->name);
-		DIR *dh;
-		if ((dh = opendir(dir)) != NULL) {
-			struct dirent *de;
-			while ( (de = readdir(dh)) != NULL ) {
-				/* catch each file in this directory */
-				if ((strcmp(de->d_name,".")!=0) && (strcmp(de->d_name,"..")!=0)) {
+	dbg(LOG_INFO, "filetree built!");
 
-					/*
-					 * internally we traverse the tree to check
-					 * if file in de->d_name fulfill all requirements
-					 * in logical path.
-					 *
-					 * to simplify code, this nested level is resolved
-					 * in separate function check_in_pathtree()
-					 */
-					if (check_in_pathtree(de->d_name, pt)) {
-						/* avoid duplicates */
-						int exists = 0;
-						file_handle_t *uniq_fh = result;
-						while (uniq_fh != NULL) {
-							if (uniq_fh->name == NULL)
-								break;
-							if (strcmp(uniq_fh->name, de->d_name) == 0) {
-								exists = 1;
-								break;
-							}
-							uniq_fh = uniq_fh->next;
-							dbg(LOG_INFO, "*****");
-						}
-
-						/* name is not in cache */
-						if (!exists) {
-							fh->name = strdup(de->d_name);
-							dbg(LOG_INFO, "adding %s to filetree", fh->name);
-							fh->next = malloc(sizeof(file_handle_t));
-							if (fh->next == NULL) {
-								dbg(LOG_ERR, "Can't allocate memory in build_filetree");
-								closedir(dh);
-								free(dir);
-								return result;
-							}
-							fh = fh->next;
-							fh->next = NULL;
-							fh->name = NULL;
-						}
-					}
-				}
+	/* set unique list of files */
+	fh = result;
+	file_handle_t *previous = fh;
+	file_handle_t *test = fh->next;
+	while ((fh != NULL) && (fh->name != NULL)) {
+		while ((test != NULL) && (test->name != NULL)) {
+			if (strcmp(test->name, fh->name) == 0) {
+				test = test->next;
+				free(previous->next->name);
+				free(previous->next);
+				previous->next = test;
+			} else {
+				previous = test;
+				test = test->next;
 			}
-			closedir(dh);
 		}
-		if (ptextern->AND != NULL)
-			ptextern = ptextern->AND;
-		else
-			ptextern = ptextern->OR;
+		fh = fh->next;
 	}
 
 	return result;

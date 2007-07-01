@@ -103,6 +103,15 @@ AC_CHECK_LIB([fuse],[fuse_main],,[
 	exit 1
 ])
 
+AC_CHECK_LIB([sqlite3],[sqlite3_open],,[
+	echo "SQLite it's an SQL implementation targeted to small and embedded systems."
+	echo "SQL database is kept inside a single file. Memory resources required are"
+	echo "less than normal client/server implementations. TagFS use SQLite to store"
+	echo "file<->tag relationship. For more informations please visit:"
+	echo "http://www.sqlite.org/"
+	exit 1
+])
+
 AC_CONFIG_FILES([Makefile
                  src/Makefile])
 AC_OUTPUT
