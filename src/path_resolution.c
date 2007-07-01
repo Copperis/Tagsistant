@@ -145,12 +145,33 @@ static int add_to_filetree(void *fhvoid, int argc, char **argv, char **azColName
 	return 0;
 }
 
+/**
+ * build a linked list of filenames that apply to querytree
+ * query expressed in query. querytree is used as follows:
+ * 
+ * 1. each ptree_and_node_t list converted in a INTERSECT
+ * multi-SELECT query, and is saved as a VIEW. The name of
+ * the view is the string tv%.8X where %.8X is the memory
+ * location of the ptree_or_node_t to which the list is
+ * linked.
+ *
+ * 2. a global select is built using all the views previously
+ * created joined by UNION operators. a sqlite3_exec call
+ * applies it using add_to_filetree() as callback function.
+ *
+ * 3. all the views are removed with a DROP VIEW query.
+ *
+ * @param query the ptree_or_node_t* query structure to
+ * be resolved.
+ */
 file_handle_t *build_filetree(ptree_or_node_t *query)
 {
 	if (query == NULL) {
 		dbg(LOG_ERR, "NULL path_tree_t object provided to build_filetree");
 		return NULL;
 	}
+
+	ptree_or_node_t *query_dup = query;
 
 	file_handle_t *fh = calloc(sizeof(file_handle_t), 1);
 	if ( fh == NULL ) {
@@ -164,18 +185,19 @@ file_handle_t *build_filetree(ptree_or_node_t *query)
 
 	dbg(LOG_INFO, "building filetree...");
 
+	unsigned int view_query_length = 2; /* for ending semicolon and \0 terminator */
 	while (query != NULL) {
 		ptree_and_node_t *tag = query->and_set;
 
 		/* calculate number of tags and query string length */
-		int query_length = 0;
+		/* using memory addresses as temporary view names */
+		unsigned int query_length = strlen("create temp view tv as ;") + 8 + 1;
+
 		while (tag != NULL) {
 			query_length += strlen(ALL_FILES_TAGGED) + strlen(tag->tag);
 			if (tag->next != NULL) query_length += strlen(" intersect ");
 			tag = tag->next;
 		}
-		query_length++; /* closing semicolon */
-		dbg(LOG_INFO, "Query will be %d char long", query_length);
 
 		/* format the query */
 		char *statement = calloc(sizeof(char), query_length);
@@ -184,16 +206,24 @@ file_handle_t *build_filetree(ptree_or_node_t *query)
 			return 0;
 		}
 
+		sprintf(statement, "create temp view tv%.8X as ", (unsigned int) query);
+
+		view_query_length += strlen("select filename from tv") + 8;
+		if (query->next != NULL) {
+			view_query_length += strlen(" union ");
+		}
+
 		tag = query->and_set;
 		while (tag != NULL) {
 			/* formatting sub-select */
-			char *mini = calloc(sizeof(char), strlen(ALL_FILES_TAGGED) + strlen(tag->tag) + strlen(" intersect ") + 1);
+			char *mini = calloc(sizeof(char), strlen(ALL_FILES_TAGGED) + strlen(tag->tag) + 1);
 			sprintf(mini, ALL_FILES_TAGGED, tag->tag);
-			if (tag->next != NULL) strcat(mini, " intersect ");
 
 			/* add sub-select to main statement */
 			strcat(statement, mini);
 			free(mini);
+
+			if (tag->next != NULL) strcat(statement, " intersect ");
 
 			dbg(LOG_INFO, "SQL: [%s]", statement);
 
@@ -201,12 +231,13 @@ file_handle_t *build_filetree(ptree_or_node_t *query)
 		}
 
 		strcat(statement, ";");
+		assert(query_length > strlen(statement));
 		dbg(LOG_INFO, "SQL: final statement is [%s]", statement);
 
-		/* perform query */
+		/* create view */
 		dbg(LOG_INFO, "SQL query: %s", statement);
 		char *sqlerror;
-		if (sqlite3_exec(tagfs.dbh, statement, add_to_filetree, &fh, &sqlerror) != SQLITE_OK) {
+		if (sqlite3_exec(tagfs.dbh, statement, NULL, NULL, &sqlerror) != SQLITE_OK) {
 			dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
 			sqlite3_free(sqlerror);
 		}
@@ -214,25 +245,40 @@ file_handle_t *build_filetree(ptree_or_node_t *query)
 		query = query->next;
 	}
 
-	dbg(LOG_INFO, "filetree built!");
+	/* format view statement */
+	char *view_statement = calloc(sizeof(char), view_query_length);
+	query = query_dup;
+	while (query != NULL) {
+		char *mini = calloc(sizeof(char), strlen("select filename from tv") + 8 + 1);
+		sprintf(mini, "select filename from tv%.8X", (unsigned int) query);
+		strcat(view_statement, mini);
+		free(mini);
 
-	/* set unique list of files */
-	fh = result;
-	file_handle_t *previous = fh;
-	file_handle_t *test = fh->next;
-	while ((fh != NULL) && (fh->name != NULL)) {
-		while ((test != NULL) && (test->name != NULL)) {
-			if (strcmp(test->name, fh->name) == 0) {
-				test = test->next;
-				free(previous->next->name);
-				free(previous->next);
-				previous->next = test;
-			} else {
-				previous = test;
-				test = test->next;
-			}
-		}
-		fh = fh->next;
+		if (query->next != NULL) strcat(view_statement, " union ");
+		query = query->next;
+	}
+
+	strcat(view_statement, ";");
+	assert(view_query_length > strlen(view_statement));
+	dbg(LOG_INFO, "SQL view statement: %s", view_statement);
+
+	/* apply view statement */
+	char *sqlerror;
+	if (sqlite3_exec(tagfs.dbh, view_statement, add_to_filetree, &fh, &sqlerror) != SQLITE_OK) {
+		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+		sqlite3_free(sqlerror);
+	}
+
+	free(view_statement);
+
+	/* drop select views */
+	query = query_dup;
+	while (query != NULL) {
+		char *mini = calloc(sizeof(char), strlen("drop view tv;") + 8 + 1);
+		sprintf(mini, "drop view tv%.8X;", (unsigned int) query);
+		sqlite3_exec(tagfs.dbh, mini, NULL, NULL, NULL);
+		free(mini);
+		query = query->next;
 	}
 
 	return result;
