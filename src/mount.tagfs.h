@@ -103,8 +103,9 @@
 #define ADD_CACHE_ENTRY		"insert into cache_queries(path, age) values('%s', datetime('now', '+15 minutes'));"
 #define ADD_RESULT_ENTRY	"insert into cache_results(id, filename, age) values('%lld','%s',datetime('now', '+15 minutes'));"
 #define GET_ID_OF_QUERY		"select id from cache_queries where path = '%s';"
-#define GET_ID_OF_TAG		"select id from cache_queries where path like '%%%s%%';"
+#define GET_ID_OF_TAG		"select id from cache_queries where path like '%%/%s/%%' or path like '%%/%s';"
 #define DROP_FILES			"delete from cache_results where id = %s;"
+#define DROP_FILE			"delete from cache_results where filename = '%s' and id = %s;"
 #define DROP_QUERY_BY_ID	"delete from cache_queries where id = %s;"
 #define DROP_QUERY			"delete from cache_queries where path like '%%%s%%';"
 

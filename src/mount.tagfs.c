@@ -102,12 +102,12 @@ static int drop_single_query(void *voidtagname, int argc, char **argv, char **az
 
 int drop_cached_queries(char *tagname)
 {
-	char *sql = calloc(sizeof(char), strlen(GET_ID_OF_TAG) + strlen(tagname) + 1);
+	char *sql = calloc(sizeof(char), strlen(GET_ID_OF_TAG) + strlen(tagname) * 2 + 1);
 	if (sql == NULL) {
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
 		return 0;
 	}
-	sprintf(sql, GET_ID_OF_TAG, tagname);
+	sprintf(sql, GET_ID_OF_TAG, tagname, tagname);
 	dbg(LOG_INFO, "SQL statement: %s", sql);
 
 	char *sqlerror;
@@ -537,6 +537,34 @@ static int tagfs_mkdir(const char *path, mode_t mode)
 	return (res == -1) ? -tagfs_errno : 0;
 }
 
+static int drop_single_file(void *filenamevoid, int argc, char **argv, char **azColName)
+{
+	(void) argc;
+	(void) azColName;
+	char *filename = (char *) filenamevoid;
+
+	if (argv[0] == NULL) {
+		return 0;
+	}
+
+	char *sql = calloc(sizeof(char), strlen(DROP_FILE) + strlen(filename) + strlen(argv[0]) + 1);
+	if (sql == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		return 0;
+	}
+
+	sprintf(sql, DROP_FILE, filename, argv[0]);
+	dbg(LOG_INFO, "SQL statement: %s", sql);
+	char *sqlerror;
+	if (sqlite3_exec(tagfs.dbh, sql, NULL, NULL, &sqlerror) != SQLITE_OK) {
+		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+		sqlite3_free(sqlerror);
+	}
+	free(sql);
+	
+	return 0;
+}
+
 /* OK */
 static int tagfs_unlink(const char *path)
 {
@@ -552,26 +580,38 @@ static int tagfs_unlink(const char *path)
 	ptree_or_node_t *pt = build_querytree(path);
 	ptree_or_node_t *ptx = pt;
 
-	char *statement = calloc(sizeof(char), strlen(UNTAG_FILE) + strlen(filename) + MAX_TAG_LENGTH);
+	char *statement1 = calloc(sizeof(char), strlen(UNTAG_FILE) + strlen(filename) + MAX_TAG_LENGTH);
+	char *statement2 = calloc(sizeof(char), strlen(GET_ID_OF_TAG) + MAX_TAG_LENGTH * 2);
 
 	/* is a file */
 	while (ptx != NULL) {
 		ptree_and_node_t *element = ptx->and_set;
 		while (element != NULL) {
 			dbg(LOG_INFO, "removing tag %s from %s", element->tag, filename);
+
 			/* should check here if strlen(element->tag) > MAX_TAG_LENGTH */
-			sprintf(statement, UNTAG_FILE, element->tag, filename);
+			sprintf(statement1, UNTAG_FILE, element->tag, filename);
 			char *sqlerror;
-			if (sqlite3_exec(tagfs.dbh, statement, NULL, NULL, &sqlerror) != SQLITE_OK) {
+			dbg(LOG_INFO, "SQL statement: %s", statement1);
+			if (sqlite3_exec(tagfs.dbh, statement1, NULL, NULL, &sqlerror) != SQLITE_OK) {
 				dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
 				sqlite3_free(sqlerror);
 			}
+
+			sprintf(statement2, GET_ID_OF_TAG, element->tag, element->tag);
+			dbg(LOG_INFO, "SQL statement: %s", statement2);
+			if (sqlite3_exec(tagfs.dbh, statement2, drop_single_file, filename, &sqlerror) != SQLITE_OK) {
+			dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+				sqlite3_free(sqlerror);
+			}
+
 			element = element->next;
 		}
 		ptx = ptx->next;
 	}
 
-	free(statement);
+	free(statement1);
+	free(statement2);
 	free(filename);
 	destroy_querytree(pt);
 
