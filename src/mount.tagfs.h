@@ -84,6 +84,9 @@
 \***************/
 #define CREATE_TAGS_TABLE	"create table tags(id integer primary key autoincrement not null, tagname varchar unique not null);"
 #define CREATE_TAGGED_TABLE	"create table tagged(id integer primary key autoincrement not null, tagname varchar not null, filename varchar not null);"
+#define CREATE_CACHE_TABLE	"create table cache_queries(id integer primary key autoincrement not null, path text not null, age datetime not null);"
+#define CREATE_RESULT_TABLE	"create table cache_results(id integer not null, age datetime not null, filename varchar not null);"
+
 #define CREATE_TAG			"insert into tags(tagname) values('%s');"
 #define DELETE_TAG			"delete from tags where tagname = '%s'; delete from tagged where tagname = '%s';"
 #define TAG_FILE 			"insert into tagged(tagname, filename) values('%s', '%s');"
@@ -94,6 +97,16 @@
 #define ALL_FILES_TAGGED	"select filename from tagged where tagname = '%s'"
 #define TAG_EXISTS			"select tagname from tags where tagname = '%s';"
 #define GET_ALL_TAGS		"select tagname from tags;"
+#define IS_CACHED			"select id from cache_queries where path = '%s';"
+#define ALL_FILES_IN_CACHE	"select filename from cache_results join cache_queries on cache_queries.id = cache_results.id where path = '%s';"
+#define CLEAN_CACHE			"delete from cache_queries where age < datetime('now'); delete from cache_results where age < datetime('now');"
+#define ADD_CACHE_ENTRY		"insert into cache_queries(path, age) values('%s', datetime('now', '+15 minutes'));"
+#define ADD_RESULT_ENTRY	"insert into cache_results(id, filename, age) values('%lld','%s',datetime('now', '+15 minutes'));"
+#define GET_ID_OF_QUERY		"select id from cache_queries where path = '%s';"
+#define GET_ID_OF_TAG		"select id from cache_queries where path like '%%%s%%';"
+#define DROP_FILES			"delete from cache_results where id = %s;"
+#define DROP_QUERY_BY_ID	"delete from cache_queries where id = %s;"
+#define DROP_QUERY			"delete from cache_queries where path like '%%%s%%';"
 
 struct ptree_and_node {
 	char *tag;
@@ -142,7 +155,7 @@ extern char *get_file_path(const char *tag);
 extern char *get_tmp_file_path(const char *tag);
 
 extern ptree_or_node_t *build_querytree(const char *path);
-extern file_handle_t *build_filetree(ptree_or_node_t *query);
+extern file_handle_t *build_filetree(ptree_or_node_t *query, const char *path);
 
 extern void destroy_querytree(ptree_or_node_t *pt);
 extern void destroy_file_tree(file_handle_t *fh);

@@ -118,11 +118,17 @@ void destroy_querytree(ptree_or_node_t *qt)
 	}
 }
 
-static int add_to_filetree(void *fhvoid, int argc, char **argv, char **azColName)
+struct atft {
+	sqlite_int64 id;
+	file_handle_t **fh;
+};
+
+static int add_to_filetree(void *atft_struct, int argc, char **argv, char **azColName)
 {
 	(void) argc;
 	(void) azColName;
-	file_handle_t **fh = fhvoid;
+	struct atft *atft = (struct atft*) atft_struct;
+	file_handle_t **fh = atft->fh;
 
 	dbg(LOG_INFO, "add_to_file_tree: %s", argv[0]);
 
@@ -141,7 +147,35 @@ static int add_to_filetree(void *fhvoid, int argc, char **argv, char **azColName
 	(*fh)->next = NULL;
 	(*fh)->name = NULL;
 
+	/* add this entry to cache */
+	char *sql = calloc(sizeof(char), strlen(ADD_RESULT_ENTRY) + strlen(argv[0]) + 14);
+	if (sql == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+	} else {
+		sprintf(sql, ADD_RESULT_ENTRY, atft->id, argv[0]);
+		char *sqlerror;
+		if (sqlite3_exec(tagfs.dbh, sql, NULL, NULL, &sqlerror) != SQLITE_OK) {
+			dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+			sqlite3_free(sqlerror);
+		}
+		free(sql);
+	}
+
 	dbg(LOG_INFO, "add_to_file_tree %s done!", argv[0]);
+	return 0;
+}
+
+static int get_id(void *id_buffer, int argc, char **argv, char **azColName)
+{
+	(void) argc;
+	(void) azColName;
+	int *exists = (int *) id_buffer;
+	if (argv[0] != NULL) {
+		sscanf(argv[0], "%d", exists);
+		dbg(LOG_INFO, "Last query id is %s (%d)", argv[0], *exists);
+	} else {
+		*exists = 0;
+	}
 	return 0;
 }
 
@@ -164,7 +198,7 @@ static int add_to_filetree(void *fhvoid, int argc, char **argv, char **azColName
  * @param query the ptree_or_node_t* query structure to
  * be resolved.
  */
-file_handle_t *build_filetree(ptree_or_node_t *query)
+file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 {
 	if (query == NULL) {
 		dbg(LOG_ERR, "NULL path_tree_t object provided to build_filetree");
@@ -245,6 +279,37 @@ file_handle_t *build_filetree(ptree_or_node_t *query)
 		query = query->next;
 	}
 
+	char *sqlerror;
+	char *sql = calloc(sizeof(char), strlen(ADD_CACHE_ENTRY) + strlen(path) + 1);
+	if (sql == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		return 0;
+	}
+	sprintf(sql, ADD_CACHE_ENTRY, path);
+
+	dbg(LOG_INFO, "Adding path %s to cache", path);
+	if (sqlite3_exec(tagfs.dbh, sql, NULL, NULL, &sqlerror) != SQLITE_OK) {
+		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+		sqlite3_free(sqlerror);
+	}
+	free(sql);
+ 
+	sqlite_int64 id = sqlite3_last_insert_rowid(tagfs.dbh);
+
+#if 0
+	sql = calloc(sizeof(char), strlen(GET_ID_OF_CACHE) + strlen(path) + 1);
+	if (sql == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		return 0;
+	}
+
+	if (sqlite3_exec(tagfs.dbh, sql, get_id, &id, &sqlerror) != SQLITE_OK) {
+		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+		sqlite3_free(sqlerror);
+	}
+	free(sql);
+#endif
+
 	/* format view statement */
 	char *view_statement = calloc(sizeof(char), view_query_length);
 	query = query_dup;
@@ -262,9 +327,16 @@ file_handle_t *build_filetree(ptree_or_node_t *query)
 	assert(view_query_length > strlen(view_statement));
 	dbg(LOG_INFO, "SQL view statement: %s", view_statement);
 
+	struct atft *atft = calloc(sizeof(struct atft), 1);
+	if (atft == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		return 0;
+	}
+	atft->fh = &fh;
+	atft->id = id;
+
 	/* apply view statement */
-	char *sqlerror;
-	if (sqlite3_exec(tagfs.dbh, view_statement, add_to_filetree, &fh, &sqlerror) != SQLITE_OK) {
+	if (sqlite3_exec(tagfs.dbh, view_statement, add_to_filetree, atft, &sqlerror) != SQLITE_OK) {
 		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
 		sqlite3_free(sqlerror);
 	}

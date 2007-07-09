@@ -68,6 +68,78 @@ int is_tagged(char *filename, char *tagname)
 	return exists;
 }
 
+static int drop_single_query(void *voidtagname, int argc, char **argv, char **azColName)
+{
+	(void) argc;
+	(void) azColName;
+	char *tagname = voidtagname;
+
+	if (argv[0] == NULL) {
+		return 1;
+	}
+
+	dbg(LOG_INFO, "Dropping tag %s.%s", argv[0], tagname);
+
+	/* drop all files in cache_results with id == argv[0] */
+	char *sql = calloc(sizeof(char), strlen(DROP_FILES) + strlen(argv[0]) + 1);
+	if (sql == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		return 1;
+	}
+	sprintf(sql, DROP_FILES, argv[0]);
+	dbg(LOG_INFO, "SQL statement: %s", sql);
+
+	char *sqlerror;
+	if (sqlite3_exec(tagfs.dbh, sql, NULL, NULL, &sqlerror) != SQLITE_OK) {
+		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+		sqlite3_free(sqlerror);
+		return 1;
+	}
+	free(sql);
+
+	return 0;
+}
+
+int drop_cached_queries(char *tagname)
+{
+	char *sql = calloc(sizeof(char), strlen(GET_ID_OF_TAG) + strlen(tagname) + 1);
+	if (sql == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		return 0;
+	}
+	sprintf(sql, GET_ID_OF_TAG, tagname);
+	dbg(LOG_INFO, "SQL statement: %s", sql);
+
+	char *sqlerror;
+	if (sqlite3_exec(tagfs.dbh, sql, drop_single_query, tagname, &sqlerror) != SQLITE_OK) {
+		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+		sqlite3_free(sqlerror);
+		free(sql);
+		return 0;
+	}
+	free(sql);
+
+	/* then drop the query in the cache_queries table */
+	sql = calloc(sizeof(char), strlen(DROP_QUERY) + strlen(tagname) + 1);
+	if (sql == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		return 0;
+	}
+	sprintf(sql, DROP_QUERY, tagname);
+	assert(strlen(DROP_QUERY) + strlen(tagname) + 1 > strlen(sql));
+	dbg(LOG_INFO, "SQL statement: %s", sql);
+
+	if (sqlite3_exec(tagfs.dbh, sql, NULL, NULL, &sqlerror) != SQLITE_OK) {
+		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+		sqlite3_free(sqlerror);
+		free(sql);
+		return 0;
+	}
+	free(sql);
+
+	return 1;
+}
+
 /**
  * add tag tagname to file filename
  */
@@ -75,6 +147,9 @@ int tag_file(char *filename, char *tagname)
 {
 	char *statement = NULL;
 	char *sqlerror = NULL;
+
+	/* drop cached queries containing tagname */
+	drop_cached_queries(tagname);
 
 	/* check if file is already tagged */
 	if (is_tagged(filename, tagname)) return 1;
@@ -113,6 +188,36 @@ int tag_file(char *filename, char *tagname)
 	return 1;
 }
 
+int is_cached(const char *path)
+{
+	char *mini;
+	char *sqlerror;
+	int result;
+
+	/* first clean cache table from old data */
+	result = sqlite3_exec(tagfs.dbh, CLEAN_CACHE, NULL, NULL, &sqlerror); 
+	if (result != SQLITE_OK) {
+		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+		sqlite3_free(sqlerror);
+		return 0;
+	}
+
+	mini = calloc(sizeof(char), strlen(IS_CACHED) + strlen(path) + 1);
+	if (mini == NULL) {
+		return 0;
+	}
+	sprintf(mini, IS_CACHED, path);
+
+	int exists = 0;
+	result = sqlite3_exec(tagfs.dbh, mini, report_if_exists, &exists, &sqlerror); 
+	if (result != SQLITE_OK) {
+		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+		sqlite3_free(sqlerror);
+	}
+
+	free(mini);
+	return exists;
+}
 
 /**
  * lstat equivalent
@@ -215,6 +320,8 @@ static int tagfs_readlink(const char *path, char *buf, size_t size)
 struct use_filler_struct {
 	fuse_fill_dir_t filler;
 	void *buf;
+	long int path_id;
+	int add_to_cache;
 };
 
 static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azColName)
@@ -227,6 +334,24 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 		return 0;
 
 	dbg(LOG_INFO, "add_entry_to_dir: + %s", argv[0]);
+
+	/* add also to cache */
+	if (ufs->add_to_cache) {
+		char *mini = calloc(sizeof(char), strlen(ADD_RESULT_ENTRY) + strlen(argv[0]) + 14);
+		if (mini == NULL) {
+			dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		} else {
+			sprintf(mini, ADD_RESULT_ENTRY, (int64_t) ufs->path_id, argv[0]);
+			char *sqlerror;
+			int result = sqlite3_exec(tagfs.dbh, mini, add_entry_to_dir, ufs, &sqlerror); 
+			if (result != SQLITE_OK) {
+				dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+				sqlite3_free(sqlerror);
+			}
+			free(mini);
+		}
+	}
+
 	return ufs->filler(ufs->buf, argv[0], NULL, 0);
 }
 
@@ -259,13 +384,43 @@ static int tagfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, of
 		filler(buf, "AND", NULL, 0);
 		filler(buf, "OR", NULL, 0);
 
+		if (is_cached(path)) {
+			/* query result exists in cache */
+			struct use_filler_struct *ufs = calloc(sizeof(struct use_filler_struct), 1);
+			if (ufs == NULL) {
+				return 1;
+			}
+	
+			ufs->filler = filler;
+			ufs->buf = buf;
+			ufs->add_to_cache = 0;
+	
+			/* parse tagsdir list */
+			char *mini = calloc(sizeof(char), strlen(ALL_FILES_IN_CACHE) + strlen(path) + 1);
+			if (mini == NULL) {
+				dbg(LOG_ERR, "Error allocating SQL statement @%s:%d", __FILE__, __LINE__);
+				return 1;
+			}
+			sprintf(mini, ALL_FILES_IN_CACHE, path);
+	
+			char *sqlerror;
+			int result = sqlite3_exec(tagfs.dbh, mini, add_entry_to_dir, ufs, &sqlerror); 
+			if (result != SQLITE_OK) {
+				dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
+				sqlite3_free(sqlerror);
+			}
+	
+			free(mini);
+			return 0;
+		}
+
 		char *pathcopy = strdup(path);
 	
 		ptree_or_node_t *pt = build_querytree(pathcopy);
 		if (pt == NULL)
 			return -EBADF;
 	
-		file_handle_t *fh = build_filetree(pt);
+		file_handle_t *fh = build_filetree(pt, path);
 		if (fh == NULL)
 			return -EBADF;
 	
@@ -284,13 +439,14 @@ static int tagfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, of
 	} else {
 
 		dbg(LOG_INFO, "%s terminate with and operator or is root", path);
+		char *sqlerror;
+		int result;
 
 		/*
 		 * if path does terminate with a logical operator
 		 * directory should be filled with tagsdir registered tags
 		 */
-
-		struct use_filler_struct *ufs = calloc(sizeof(char), sizeof(struct use_filler_struct));
+		struct use_filler_struct *ufs = calloc(sizeof(struct use_filler_struct), 1);
 		if (ufs == NULL) {
 			free(tagname);
 			return 0;
@@ -298,10 +454,10 @@ static int tagfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, of
 
 		ufs->filler = filler;
 		ufs->buf = buf;
+		ufs->add_to_cache = 0;
 
 		/* parse tagsdir list */
-		char *sqlerror;
-		int result = sqlite3_exec(tagfs.dbh, GET_ALL_TAGS, add_entry_to_dir, ufs, &sqlerror); 
+		result = sqlite3_exec(tagfs.dbh, GET_ALL_TAGS, add_entry_to_dir, ufs, &sqlerror); 
 		if (result != SQLITE_OK) {
 			dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
 			sqlite3_free(sqlerror);
@@ -1051,6 +1207,16 @@ int main(int argc, char *argv[])
 		sqlcode = sqlite3_exec(tagfs.dbh, CREATE_TAGGED_TABLE, NULL, NULL, &sqlerror);
 		if (sqlcode != SQLITE_OK) {
 			dbg(LOG_ERR, "SQL error [%d] while creating tagged table: %s", sqlcode, sqlerror);
+			exit(1);
+		}
+		sqlcode = sqlite3_exec(tagfs.dbh, CREATE_CACHE_TABLE, NULL, NULL, &sqlerror);
+		if (sqlcode != SQLITE_OK) {
+			dbg(LOG_ERR, "SQL error [%d] while creating cache main table: %s", sqlcode, sqlerror);
+			exit(1);
+		}
+		sqlcode = sqlite3_exec(tagfs.dbh, CREATE_RESULT_TABLE, NULL, NULL, &sqlerror);
+		if (sqlcode != SQLITE_OK) {
+			dbg(LOG_ERR, "SQL error [%d] while creating cache results table: %s", sqlcode, sqlerror);
 			exit(1);
 		}
 	}
