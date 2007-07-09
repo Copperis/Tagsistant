@@ -94,6 +94,7 @@
 #define RENAME_TAG			"update tags set tagname = '%s' where tagname = '%s'; update tagged set tagname = '%s' where tagname = '%s';"
 #define RENAME_FILE			"update tagged set filename = '%s' where filename = '%s';"
 #define IS_TAGGED			"select filename from tagged where filename = '%s' and tagname = '%s';"
+#define HAS_TAGS			"select tagname from tagged where filename = '%s';" 
 #define ALL_FILES_TAGGED	"select filename from tagged where tagname = '%s'"
 #define TAG_EXISTS			"select tagname from tags where tagname = '%s';"
 #define GET_ALL_TAGS		"select tagname from tags;"
@@ -107,7 +108,7 @@
 #define DROP_FILES			"delete from cache_results where id = %s;"
 #define DROP_FILE			"delete from cache_results where filename = '%s' and id = %s;"
 #define DROP_QUERY_BY_ID	"delete from cache_queries where id = %s;"
-#define DROP_QUERY			"delete from cache_queries where path like '%%%s%%';"
+#define DROP_QUERY			"delete from cache_queries where path like '%%/%s/%%' or path like '%%/%s;"
 
 struct ptree_and_node {
 	char *tag;

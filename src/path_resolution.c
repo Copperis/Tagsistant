@@ -58,11 +58,16 @@ ptree_or_node_t *build_querytree(const char *path)
 	const char *pathptx = path + 1; /* skip first slash */
 
 	ptree_or_node_t *result = calloc(sizeof(ptree_or_node_t), 1);
+	if (result == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		return NULL;
+	}
 	ptree_or_node_t *last_or = result;;
 	ptree_and_node_t *last_and = NULL;
 
 	unsigned int orcount = 0, andcount = 0;
 	const char *idx = pathptx;
+	int next_should_be_logical_op = 0;
 	while (*idx != '\0') {
 		/* get next slash. if there are no more slashes, reach end of string */
 		idx = index(pathptx, '/');
@@ -71,19 +76,35 @@ ptree_or_node_t *build_querytree(const char *path)
 		/* duplicate next element */
 		char *element = strndup(pathptx, idx - pathptx);
 
-		if (strcmp(element, "AND") == 0) {
-			/* skip it? nothing should be done with AND elements */
-		} else if (strcmp(element, "OR") == 0) {
-			/* open new entry in OR level */
-			orcount++;
-			andcount = 0;
-			ptree_or_node_t *new_or = calloc(sizeof(ptree_or_node_t), 1);
-			last_or->next = new_or;
-			last_or = new_or;
-			last_and = NULL;
+		if (next_should_be_logical_op) {
+			if (strcmp(element, "AND") == 0) {
+				/* skip it? nothing should be done with AND elements */
+			} else if (strcmp(element, "OR") == 0) {
+				/* open new entry in OR level */
+				orcount++;
+				andcount = 0;
+				ptree_or_node_t *new_or = calloc(sizeof(ptree_or_node_t), 1);
+				if (new_or == NULL) {
+					dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+					return NULL;
+				}
+				last_or->next = new_or;
+				last_or = new_or;
+				last_and = NULL;
+			} else {
+				/* filename or error in path */
+				dbg(LOG_INFO, "%s is not AND/OR operator, exiting build_querytree()", element);
+				free(element);
+				return result;
+			}
+			next_should_be_logical_op = 0;
 		} else {
 			/* save next element in new ptree_and_node_t slot */
 			ptree_and_node_t *and = calloc(sizeof(ptree_and_node_t), 1);
+			if (and == NULL) {
+				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+				return NULL;
+			}
 			and->tag = strdup(element);
 			if (last_and == NULL) {
 				last_or->and_set = and;
@@ -93,6 +114,7 @@ ptree_or_node_t *build_querytree(const char *path)
 			last_and = and;
 			dbg(LOG_INFO, "Query tree: %.2d.%.2d %s", orcount, andcount, element);
 			andcount++;
+			next_should_be_logical_op = 1;
 		}
 
 		free(element);
@@ -165,6 +187,7 @@ static int add_to_filetree(void *atft_struct, int argc, char **argv, char **azCo
 	return 0;
 }
 
+#if 0
 static int get_id(void *id_buffer, int argc, char **argv, char **azColName)
 {
 	(void) argc;
@@ -178,6 +201,7 @@ static int get_id(void *id_buffer, int argc, char **argv, char **azColName)
 	}
 	return 0;
 }
+#endif
 
 /**
  * build a linked list of filenames that apply to querytree
@@ -251,6 +275,10 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 		while (tag != NULL) {
 			/* formatting sub-select */
 			char *mini = calloc(sizeof(char), strlen(ALL_FILES_TAGGED) + strlen(tag->tag) + 1);
+			if (mini == NULL) {
+				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+				return NULL;
+			}
 			sprintf(mini, ALL_FILES_TAGGED, tag->tag);
 
 			/* add sub-select to main statement */
@@ -312,14 +340,23 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 
 	/* format view statement */
 	char *view_statement = calloc(sizeof(char), view_query_length);
+	if (view_statement == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		return NULL;
+	}
 	query = query_dup;
 	while (query != NULL) {
 		char *mini = calloc(sizeof(char), strlen("select filename from tv") + 8 + 1);
-		sprintf(mini, "select filename from tv%.8X", (unsigned int) query);
-		strcat(view_statement, mini);
-		free(mini);
+		if (sql == NULL) {
+			dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		} else {
+			sprintf(mini, "select filename from tv%.8X", (unsigned int) query);
+			strcat(view_statement, mini);
+			free(mini);
 
-		if (query->next != NULL) strcat(view_statement, " union ");
+			if (query->next != NULL) strcat(view_statement, " union ");
+		}
+
 		query = query->next;
 	}
 
@@ -347,9 +384,13 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	query = query_dup;
 	while (query != NULL) {
 		char *mini = calloc(sizeof(char), strlen("drop view tv;") + 8 + 1);
-		sprintf(mini, "drop view tv%.8X;", (unsigned int) query);
-		sqlite3_exec(tagfs.dbh, mini, NULL, NULL, NULL);
-		free(mini);
+		if (mini == NULL) {
+			dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		} else {
+			sprintf(mini, "drop view tv%.8X;", (unsigned int) query);
+			sqlite3_exec(tagfs.dbh, mini, NULL, NULL, NULL);
+			free(mini);
+		}
 		query = query->next;
 	}
 
