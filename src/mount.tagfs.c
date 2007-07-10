@@ -279,9 +279,12 @@ static int tagfs_getattr(const char *path, struct stat *stbuf)
 	if (last2 != NULL) last2++;
 
 	/* special case */
-	if ((strcasecmp(last, "AND") == 0)
-	 || (strcasecmp(last, "OR") == 0)) {
+	if ((strcasecmp(last, "AND") == 0) || (strcasecmp(last, "OR") == 0)) {
+
+#if VERBOSE_DEBUG
 	 	dbg(LOG_INFO, "GETATTR on AND/OR logical operator!");
+#endif
+
 	 	lstat(tagfs.archive, stbuf);	
 
 		/* 
@@ -312,7 +315,9 @@ static int tagfs_getattr(const char *path, struct stat *stbuf)
 	if ((last2 == NULL) || (strcmp(last2, "AND") == 0) || (strcmp(last2, "OR") == 0)) {
 		/* is a dir-tag */
 		/* last is the name of the tag */
+#if VERBOSE_DEBUG
 		dbg(LOG_INFO, "GETATTR on tag: '%s'", last);
+#endif
 		char *statement = calloc(sizeof(char), strlen(TAG_EXISTS) + strlen(last));
 		if (statement == NULL) {
 			dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
@@ -342,7 +347,6 @@ static int tagfs_getattr(const char *path, struct stat *stbuf)
 		/* is a file */
 		/* last is the filename */
 		/* last2 is the last tag in path */
-		dbg(LOG_INFO, "GETATTR on file: %s", path);
 
 		/* check if file is tagged */
 
@@ -362,12 +366,16 @@ static int tagfs_getattr(const char *path, struct stat *stbuf)
 					char *filepath = get_file_path(last);
 					res = lstat(filepath, stbuf);
 					tagfs_errno = (res == -1) ? errno : 0;
+#if VERBOSE_DEBUG
 					dbg(LOG_INFO, "lstat('%s/%s'): %d (%s)", andpt->tag, last, res, strerror(tagfs_errno));
+#endif
 					free(filepath);
 					destroy_querytree(pt);
 					goto GETATTR_EXIT;
 				}
+#if VERBOSE_DEBUG
 				dbg(LOG_INFO, "%s is not tagged %s", last, andpt->tag);
+#endif
 				andpt = andpt->next;
 			}
 			ptx = ptx->next;
@@ -384,10 +392,10 @@ GETATTR_EXIT:
 
 	stop_labeled_time_profile("getattr");
 	if ( res == -1 ) {
-		dbg(LOG_ERR, "GETATTR exited: %d %d: %s", res, tagfs_errno, strerror(tagfs_errno));
+		dbg(LOG_ERR, "GETATTR on %s: %d %d: %s", path, res, tagfs_errno, strerror(tagfs_errno));
 		return -tagfs_errno;
 	} else {
-		dbg(LOG_INFO, "GETATTR exited: %d", res);
+		dbg(LOG_INFO, "GETATTR on %s: OK", path);
 		return 0;
 	}
 }
@@ -423,7 +431,9 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 	if (argv[0] == NULL || strlen(argv[0]) == 0)
 		return 0;
 
+#if VERBOSE_DEBUG
 	dbg(LOG_INFO, "add_entry_to_dir: + %s", argv[0]);
+#endif
 
 	/* add also to cache */
 	if (ufs->add_to_cache) {
@@ -693,12 +703,14 @@ static int tagfs_unlink(const char *path)
 	ptree_or_node_t *pt = build_querytree(path);
 	ptree_or_node_t *ptx = pt;
 
-	char *statement1 = calloc(sizeof(char), strlen(UNTAG_FILE) + strlen(filename) + MAX_TAG_LENGTH);
+	unsigned int size1 = strlen(UNTAG_FILE) + strlen(filename) + MAX_TAG_LENGTH;
+	char *statement1 = calloc(sizeof(char), size1);
 	if (statement1 == NULL) {
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
 		return 1;
 	}
-	char *statement2 = calloc(sizeof(char), strlen(GET_ID_OF_TAG) + MAX_TAG_LENGTH * 2);
+	unsigned int size2 = strlen(GET_ID_OF_TAG) + MAX_TAG_LENGTH * 2;
+	char *statement2 = calloc(sizeof(char), size2);
 	if (statement2 == NULL) {
 		free(statement1);
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
@@ -711,8 +723,9 @@ static int tagfs_unlink(const char *path)
 			dbg(LOG_INFO, "removing tag %s from %s", element->tag, filename);
 
 			/* should check here if strlen(element->tag) > MAX_TAG_LENGTH */
+			memset(statement1, '\0', size1);
 			sprintf(statement1, UNTAG_FILE, element->tag, filename);
-			assert(strlen(UNTAG_FILE) + strlen(filename) + MAX_TAG_LENGTH > strlen(statement1));
+			assert(size1 > strlen(statement1));
 			char *sqlerror;
 			dbg(LOG_INFO, "SQL statement: %s", statement1);
 			if (sqlite3_exec(tagfs.dbh, statement1, NULL, NULL, &sqlerror) != SQLITE_OK) {
@@ -720,8 +733,9 @@ static int tagfs_unlink(const char *path)
 				sqlite3_free(sqlerror);
 			}
 
+			memset(statement2, '\0', size2);
 			sprintf(statement2, GET_ID_OF_TAG, element->tag, element->tag);
-			assert(strlen(GET_ID_OF_TAG) + MAX_TAG_LENGTH * 2 > strlen(statement2));
+			assert(size2 > strlen(statement2));
 			dbg(LOG_INFO, "SQL statement: %s", statement2);
 			if (sqlite3_exec(tagfs.dbh, statement2, drop_single_file, filename, &sqlerror) != SQLITE_OK) {
 			dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
@@ -1030,10 +1044,13 @@ int internal_open(const char *path, int flags, int *_errno)
 	if (flags&O_TRUNC) dbg(LOG_INFO, "...O_TRUNC");
 	if (flags&O_LARGEFILE) dbg(LOG_INFO, "...O_LARGEFILE");
 
+#if 0
+	/* this is WRONG code!!!! tagging should only happen on mknod, link or symlink */
 	if (flags&O_CREAT || flags&O_WRONLY || flags&O_TRUNC) {
 		dbg(LOG_INFO, "Tagging file inside internal_open()");
 		tag_file(filename, tagname);
 	}
+#endif
 
 	int res = open(filepath, flags);
 	*_errno = errno;

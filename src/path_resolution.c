@@ -93,7 +93,9 @@ ptree_or_node_t *build_querytree(const char *path)
 				last_and = NULL;
 			} else {
 				/* filename or error in path */
+#if VERBOSE_DEBUG
 				dbg(LOG_INFO, "%s is not AND/OR operator, exiting build_querytree()", element);
+#endif
 				free(element);
 				return result;
 			}
@@ -112,7 +114,9 @@ ptree_or_node_t *build_querytree(const char *path)
 				last_and->next = and;
 			}
 			last_and = and;
+#if VERBOSE_DEBUG
 			dbg(LOG_INFO, "Query tree: %.2d.%.2d %s", orcount, andcount, element);
+#endif
 			andcount++;
 			next_should_be_logical_op = 1;
 		}
