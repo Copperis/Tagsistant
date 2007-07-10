@@ -88,7 +88,7 @@
 #define CREATE_RESULT_TABLE	"create table cache_results(id integer not null, age datetime not null, filename varchar not null);"
 
 #define CREATE_TAG			"insert into tags(tagname) values('%s');"
-#define DELETE_TAG			"delete from tags where tagname = '%s'; delete from tagged where tagname = '%s';"
+#define DELETE_TAG			"delete from tags where tagname = '%s'; delete from tagged where tagname = '%s'; delete from cache_queries where path like '%%/%s/%%' or path like '%%/%s';"
 #define TAG_FILE 			"insert into tagged(tagname, filename) values('%s', '%s');"
 #define UNTAG_FILE			"delete from tagged where tagname = '%s' and filename = '%s';"
 #define RENAME_TAG			"update tags set tagname = '%s' where tagname = '%s'; update tagged set tagname = '%s' where tagname = '%s';"
@@ -108,7 +108,7 @@
 #define DROP_FILES			"delete from cache_results where id = %s;"
 #define DROP_FILE			"delete from cache_results where filename = '%s' and id = %s;"
 #define DROP_QUERY_BY_ID	"delete from cache_queries where id = %s;"
-#define DROP_QUERY			"delete from cache_queries where path like '%%/%s/%%' or path like '%%/%s;"
+#define DROP_QUERY			"delete from cache_queries where path like '%%/%s/%%' or path like '%%/%s';"
 
 struct ptree_and_node {
 	char *tag;

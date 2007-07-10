@@ -271,20 +271,42 @@ static int tagfs_getattr(const char *path, struct stat *stbuf)
 	*last = '\0';
 	last++;
 
-	/* special case */
-	if ((strcasecmp(last, "AND") == 0)
-	 || (strcasecmp(last, "OR") == 0)) {
-	 	dbg(LOG_INFO, "GETATTR on AND/OR logical operator!");
-	 	lstat(tagfs.archive, stbuf);	
-		return 0;
-	}
-
 	/*
 	 * last2 is the token before last (can be null for 1 token paths, like "/photos",
 	 * where last == "photos" and last2 == NULL)
 	 */
 	char *last2 = rindex(dup, '/');
 	if (last2 != NULL) last2++;
+
+	/* special case */
+	if ((strcasecmp(last, "AND") == 0)
+	 || (strcasecmp(last, "OR") == 0)) {
+	 	dbg(LOG_INFO, "GETATTR on AND/OR logical operator!");
+	 	lstat(tagfs.archive, stbuf);	
+
+		/* 
+		 * using tagfs.archive in lstat() returns its inode number
+		 * for all AND/OR ops. that is a problem while traversing
+		 * a dir tree with write approach, like in a rm -rf <dir>.
+		 * to avoid such a problem we add 1 to inode number to
+		 * differentiate it
+		 */
+		stbuf->st_ino++;
+
+		/* AND and OR can't be the same inode */
+		if (strcasecmp(last, "OR") == 0) stbuf->st_ino++;
+		
+		/* logical operators can't be written by anyone */
+		stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
+
+		/* not sure of that! */
+		/* stbuf->st_size = 0; */
+
+		stbuf->st_nlink = 1;
+
+		free(dup);
+		return 0;
+	}
 
 	/* last token in path is a file or a tag? */
 	if ((last2 == NULL) || (strcmp(last2, "AND") == 0) || (strcmp(last2, "OR") == 0)) {
@@ -332,20 +354,20 @@ static int tagfs_getattr(const char *path, struct stat *stbuf)
 		}
 		ptree_or_node_t *ptx = pt;
 
+		/* check in all tags */
 		while (ptx != NULL) {
-			ptree_and_node_t *andpt = pt->and_set;
+			ptree_and_node_t *andpt = ptx->and_set;
 			while (andpt != NULL) {
 				if (is_tagged(last, andpt->tag)) {
 					char *filepath = get_file_path(last);
 					res = lstat(filepath, stbuf);
 					tagfs_errno = (res == -1) ? errno : 0;
+					dbg(LOG_INFO, "lstat('%s/%s'): %d (%s)", andpt->tag, last, res, strerror(tagfs_errno));
 					free(filepath);
 					destroy_querytree(pt);
 					goto GETATTR_EXIT;
-				} else {
-					res = -1;
-					tagfs_errno = ENOENT;
 				}
+				dbg(LOG_INFO, "%s is not tagged %s", last, andpt->tag);
 				andpt = andpt->next;
 			}
 			ptx = ptx->next;
@@ -762,7 +784,7 @@ static int tagfs_rmdir(const char *path)
 	ptree_or_node_t *ptx = pt;
 
 	/* tag name is inserted 2 times in query, that's why '* 2' */
-	char *statement = calloc(sizeof(char), strlen(DELETE_TAG) + MAX_TAG_LENGTH * 2);
+	char *statement = calloc(sizeof(char), strlen(DELETE_TAG) + MAX_TAG_LENGTH * 4);
 	if (statement == NULL) {
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
 		return 1;
@@ -771,8 +793,8 @@ static int tagfs_rmdir(const char *path)
 	while (ptx != NULL) {
 		ptree_and_node_t *element = ptx->and_set;
 		while (element != NULL) {
-			sprintf(statement, DELETE_TAG, element->tag, element->tag);
-			assert(strlen(DELETE_TAG) + MAX_TAG_LENGTH * 2 > strlen(statement));
+			sprintf(statement, DELETE_TAG, element->tag, element->tag, element->tag, element->tag);
+			assert(strlen(DELETE_TAG) + MAX_TAG_LENGTH * 4 > strlen(statement));
 			dbg(LOG_INFO, "RMDIR on %s", element->tag);
 			char *sqlerror;
 			if (sqlite3_exec(tagfs.dbh, statement, NULL, NULL, &sqlerror) != SQLITE_OK) {
@@ -780,6 +802,7 @@ static int tagfs_rmdir(const char *path)
 				sqlite3_free(sqlerror);
 			}
 			element = element->next;
+			memset(statement, '\0', strlen(statement));
 		}
 		ptx = ptx->next;
 	}
