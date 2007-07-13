@@ -65,11 +65,7 @@ int is_tagged(char *filename, char *tagname)
 	}
 	sprintf(statement, IS_TAGGED, filename, tagname);
 	assert(strlen(IS_TAGGED) + strlen(filename) + strlen(tagname) > strlen(statement));
-	char *sqlerror;
-	if (sqlite3_exec(tagfs.dbh, statement, report_if_exists, &exists, &sqlerror) != SQLITE_OK) {
-		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-		sqlite3_free(sqlerror);
-	}
+	do_sql(NULL, statement, report_if_exists, &exists);
 	free(statement);
 	return exists;
 }
@@ -96,15 +92,10 @@ static int drop_single_query(void *voidtagname, int argc, char **argv, char **az
 	assert(strlen(DROP_FILES) + strlen(argv[0]) + 1 > strlen(sql));
 	dbg(LOG_INFO, "SQL statement: %s", sql);
 
-	char *sqlerror;
-	if (sqlite3_exec(tagfs.dbh, sql, NULL, NULL, &sqlerror) != SQLITE_OK) {
-		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-		sqlite3_free(sqlerror);
-		return 1;
-	}
+	int res = do_sql(NULL, sql, NULL, NULL);
 	free(sql);
 
-	return 0;
+	return res;
 }
 
 int drop_cached_queries(char *tagname)
@@ -116,12 +107,8 @@ int drop_cached_queries(char *tagname)
 	}
 	sprintf(sql, GET_ID_OF_TAG, tagname, tagname);
 	assert(strlen(GET_ID_OF_TAG) + strlen(tagname) * 2 + 1 > strlen(sql));
-	dbg(LOG_INFO, "SQL statement: %s", sql);
 
-	char *sqlerror;
-	if (sqlite3_exec(tagfs.dbh, sql, drop_single_query, tagname, &sqlerror) != SQLITE_OK) {
-		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-		sqlite3_free(sqlerror);
+	if (do_sql(&(tagfs.dbh), sql, drop_single_query, tagname) != SQLITE_OK) {
 		free(sql);
 		return 0;
 	}
@@ -135,11 +122,8 @@ int drop_cached_queries(char *tagname)
 	}
 	sprintf(sql, DROP_QUERY, tagname, tagname);
 	assert(strlen(DROP_QUERY) + strlen(tagname) * 2 + 1 > strlen(sql));
-	dbg(LOG_INFO, "SQL statement: %s", sql);
 
-	if (sqlite3_exec(tagfs.dbh, sql, NULL, NULL, &sqlerror) != SQLITE_OK) {
-		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-		sqlite3_free(sqlerror);
+	if (do_sql(&(tagfs.dbh), sql, NULL, NULL) != SQLITE_OK) {
 		free(sql);
 		return 0;
 	}
@@ -154,7 +138,6 @@ int drop_cached_queries(char *tagname)
 int tag_file(char *filename, char *tagname)
 {
 	char *statement = NULL;
-	char *sqlerror = NULL;
 
 	/* drop cached queries containing tagname */
 	drop_cached_queries(tagname);
@@ -170,10 +153,7 @@ int tag_file(char *filename, char *tagname)
 	}
 	sprintf(statement, TAG_FILE, tagname, filename);
 	assert(strlen(TAG_FILE) + strlen(tagname) + strlen(filename) > strlen(statement));
-	if (sqlite3_exec(tagfs.dbh, statement, NULL, NULL, &sqlerror) != SQLITE_OK) {
-		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-		sqlite3_free(sqlerror);
-	}
+	do_sql(NULL, statement, NULL, NULL);
 	free(statement);
 	dbg(LOG_INFO, "File %s tagged as %s", filename, tagname);
 
@@ -185,12 +165,9 @@ int tag_file(char *filename, char *tagname)
 	}
 	sprintf(statement, TAG_EXISTS, tagname);
 	assert(strlen(TAG_EXISTS) + strlen(tagname) > strlen(statement));
-	dbg(LOG_INFO, "SQL statement: %s", statement);
 	char exists = 0;
-	if (sqlite3_exec(tagfs.dbh, statement, report_if_exists, &exists, &sqlerror) != SQLITE_OK) {
-		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-		sqlite3_free(sqlerror);
-	}
+
+	do_sql(NULL, statement, report_if_exists, &exists);
 	free(statement);
 	if (exists) {
 		dbg(LOG_INFO, "Tag %s already exists", tagname);
@@ -206,11 +183,7 @@ int tag_file(char *filename, char *tagname)
 	}
 	sprintf(statement, CREATE_TAG, tagname);
 	assert(strlen(CREATE_TAG) + strlen(tagname) > strlen(statement));
-	dbg(LOG_INFO, "SQL statement: %s", statement);
-	if (sqlite3_exec(tagfs.dbh, statement, NULL, NULL, &sqlerror) != SQLITE_OK) {
-		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-		sqlite3_free(sqlerror);
-	}
+	do_sql(NULL, statement, NULL, NULL);
 	free(statement);
 	dbg(LOG_INFO, "Tag %s created", tagname);
 
@@ -220,16 +193,9 @@ int tag_file(char *filename, char *tagname)
 int is_cached(const char *path)
 {
 	char *mini;
-	char *sqlerror;
-	int result;
 
 	/* first clean cache table from old data */
-	result = sqlite3_exec(tagfs.dbh, CLEAN_CACHE, NULL, NULL, &sqlerror); 
-	if (result != SQLITE_OK) {
-		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-		sqlite3_free(sqlerror);
-		return 0;
-	}
+	if (do_sql(&(tagfs.dbh), CLEAN_CACHE, NULL, NULL) != SQLITE_OK) return 0;
 
 	mini = calloc(sizeof(char), strlen(IS_CACHED) + strlen(path) + 1);
 	if (mini == NULL) {
@@ -240,12 +206,7 @@ int is_cached(const char *path)
 	assert(strlen(IS_CACHED) + strlen(path) + 1 > strlen(mini));
 
 	int exists = 0;
-	result = sqlite3_exec(tagfs.dbh, mini, report_if_exists, &exists, &sqlerror); 
-	if (result != SQLITE_OK) {
-		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-		sqlite3_free(sqlerror);
-	}
-
+	do_sql(NULL, mini, report_if_exists, &exists);
 	free(mini);
 	return exists;
 }
@@ -328,12 +289,7 @@ static int tagfs_getattr(const char *path, struct stat *stbuf)
 		dbg(LOG_INFO, "SQL: %s", statement);
 
 		int exists = 0;
-		char *sqlerror;
-		int sqlcode = sqlite3_exec(tagfs.dbh, statement, report_if_exists, &exists, &sqlerror);
-		if ( sqlcode != SQLITE_OK) {
-			dbg(LOG_ERR, "SQL error [%d]: %s @%s:%d", sqlcode, sqlerror, __FILE__, __LINE__);
-			sqlite3_free(sqlerror);
-		}
+		do_sql(NULL, statement, report_if_exists, &exists);
 		free(statement);
 
 		if (exists) {
@@ -443,12 +399,7 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 		} else {
 			sprintf(mini, ADD_RESULT_ENTRY, (int64_t) ufs->path_id, argv[0]);
 			assert(strlen(ADD_RESULT_ENTRY) + strlen(argv[0]) + 14 > strlen(mini));
-			char *sqlerror;
-			int result = sqlite3_exec(tagfs.dbh, mini, add_entry_to_dir, ufs, &sqlerror); 
-			if (result != SQLITE_OK) {
-				dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-				sqlite3_free(sqlerror);
-			}
+			do_sql(NULL, mini, add_entry_to_dir, ufs);
 			free(mini);
 		}
 	}
@@ -508,13 +459,7 @@ static int tagfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, of
 			sprintf(mini, ALL_FILES_IN_CACHE, path);
 			assert(strlen(ALL_FILES_IN_CACHE) + strlen(path) + 1 > strlen(mini));
 	
-			char *sqlerror;
-			int result = sqlite3_exec(tagfs.dbh, mini, add_entry_to_dir, ufs, &sqlerror); 
-			if (result != SQLITE_OK) {
-				dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-				sqlite3_free(sqlerror);
-			}
-	
+			do_sql(NULL, mini, add_entry_to_dir, ufs);
 			free(mini);
 			return 0;
 		}
@@ -544,8 +489,6 @@ static int tagfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, of
 	} else {
 
 		dbg(LOG_INFO, "%s terminate with and operator or is root", path);
-		char *sqlerror;
-		int result;
 
 		/*
 		 * if path does terminate with a logical operator
@@ -563,12 +506,7 @@ static int tagfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, of
 		ufs->add_to_cache = 0;
 
 		/* parse tagsdir list */
-		result = sqlite3_exec(tagfs.dbh, GET_ALL_TAGS, add_entry_to_dir, ufs, &sqlerror); 
-		if (result != SQLITE_OK) {
-			dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-			sqlite3_free(sqlerror);
-		}
-
+		do_sql(NULL, GET_ALL_TAGS, add_entry_to_dir, ufs);
 		free(ufs);
 	}
 	free(tagname);
@@ -646,11 +584,7 @@ static int tagfs_mkdir(const char *path, mode_t mode)
 	}
 	sprintf(statement, CREATE_TAG, tagname);
 	assert(strlen(CREATE_TAG) + strlen(tagname) > strlen(statement));
-	char *sqlerror;
-	if (sqlite3_exec(tagfs.dbh, statement, NULL, NULL, &sqlerror) != SQLITE_OK) {
-		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-		sqlite3_free(sqlerror);
-	}
+	do_sql(NULL, statement, NULL, NULL);
 
 	free(statement);
 	free(tagname);
@@ -677,12 +611,7 @@ static int drop_single_file(void *filenamevoid, int argc, char **argv, char **az
 
 	sprintf(sql, DROP_FILE, filename, argv[0]);
 	assert(strlen(DROP_FILE) + strlen(filename) + strlen(argv[0]) + 1 > strlen(sql));
-	dbg(LOG_INFO, "SQL statement: %s", sql);
-	char *sqlerror;
-	if (sqlite3_exec(tagfs.dbh, sql, NULL, NULL, &sqlerror) != SQLITE_OK) {
-		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-		sqlite3_free(sqlerror);
-	}
+	do_sql(NULL, sql, NULL, NULL);
 	free(sql);
 	
 	return 0;
@@ -726,21 +655,12 @@ static int tagfs_unlink(const char *path)
 			memset(statement1, '\0', size1);
 			sprintf(statement1, UNTAG_FILE, element->tag, filename);
 			assert(size1 > strlen(statement1));
-			char *sqlerror;
-			dbg(LOG_INFO, "SQL statement: %s", statement1);
-			if (sqlite3_exec(tagfs.dbh, statement1, NULL, NULL, &sqlerror) != SQLITE_OK) {
-				dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-				sqlite3_free(sqlerror);
-			}
+			do_sql(NULL, statement1, NULL, NULL);
 
 			memset(statement2, '\0', size2);
 			sprintf(statement2, GET_ID_OF_TAG, element->tag, element->tag);
 			assert(size2 > strlen(statement2));
-			dbg(LOG_INFO, "SQL statement: %s", statement2);
-			if (sqlite3_exec(tagfs.dbh, statement2, drop_single_file, filename, &sqlerror) != SQLITE_OK) {
-			dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-				sqlite3_free(sqlerror);
-			}
+			do_sql(NULL, statement2, drop_single_file, filename);
 
 			element = element->next;
 		}
@@ -763,12 +683,8 @@ static int tagfs_unlink(const char *path)
 		assert(strlen(HAS_TAGS) + strlen(filename) + 1 > strlen(statement1));
 		dbg(LOG_INFO, "SQL statement: %s", statement1);
 
-		char *sqlerror;
 		int exists = 0;
-		if (sqlite3_exec(tagfs.dbh, statement1, report_if_exists, &exists, &sqlerror) != SQLITE_OK) {
-			dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-			sqlite3_free(sqlerror);
-		}
+		do_sql(NULL, statement1, report_if_exists, &exists);
 		free(statement1);
 
 		if (!exists) {
@@ -810,11 +726,7 @@ static int tagfs_rmdir(const char *path)
 			sprintf(statement, DELETE_TAG, element->tag, element->tag, element->tag, element->tag);
 			assert(strlen(DELETE_TAG) + MAX_TAG_LENGTH * 4 > strlen(statement));
 			dbg(LOG_INFO, "RMDIR on %s", element->tag);
-			char *sqlerror;
-			if (sqlite3_exec(tagfs.dbh, statement, NULL, NULL, &sqlerror) != SQLITE_OK) {
-				dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-				sqlite3_free(sqlerror);
-			}
+			do_sql(NULL, statement, NULL, NULL);
 			element = element->next;
 			memset(statement, '\0', strlen(statement));
 		}
@@ -855,11 +767,7 @@ static int tagfs_rename(const char *from, const char *to)
 		}
 		sprintf(statement, RENAME_TAG, tagname, newtagname, tagname, newtagname);
 		assert(strlen(RENAME_TAG) + strlen(tagname) * 2 + strlen(newtagname) * 2 > strlen(statement));
-		char *sqlerror;
-		if (sqlite3_exec(tagfs.dbh, statement, NULL, NULL, &sqlerror) != SQLITE_OK) {
-			dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-			sqlite3_free(sqlerror);
-		}
+		do_sql(NULL, statement, NULL, NULL);
 		free(statement);
 	} else {
 		/* is a file */
@@ -872,11 +780,7 @@ static int tagfs_rename(const char *from, const char *to)
 		}
 		sprintf(statement, RENAME_FILE, tagname, newfilename);
 		assert(strlen(RENAME_FILE) + strlen(tagname) + strlen(newfilename) > strlen(statement));
-		char *sqlerror;
-		if (sqlite3_exec(tagfs.dbh, statement, NULL, NULL, &sqlerror)) {
-			dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-			sqlite3_free(sqlerror);
-		}
+		do_sql(NULL, statement, NULL, NULL);
 		free(statement);
 
 		char *filepath = get_file_path(tagname);
@@ -1518,6 +1422,52 @@ int main(int argc, char *argv[])
     fuse_opt_free_args(&args);
 
 	return res;
+}
+
+int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, char **, char **), void *firstarg, char *file, unsigned int line)
+{
+	int result = SQLITE_OK;
+	sqlite3 **intdbh = malloc(sizeof(sqlite3 *));
+
+	if (statement == NULL) {
+		dbg(LOG_ERR, "Null SQL statement");
+		return 0;
+	}
+
+	/*
+	 * check if:
+	 * 1. no database handle location has been passed (means: use local dbh)
+	 * 2. database handle location is empty (means: create new dbh and return it)
+	 */
+	if ((dbh == NULL) || (*dbh == NULL)) {
+		result = sqlite3_open(tagfs.tags, intdbh);
+		if (result != SQLITE_OK) {
+			dbg(LOG_ERR, "Error [%d] opening database %s", result, tagfs.tags);
+			dbg(LOG_ERR, "%s", sqlite3_errmsg(*intdbh));
+			return 0;
+		}
+	} else {
+		*intdbh = *dbh;
+	}
+
+	char *sqlerror;
+	dbg(LOG_INFO, "SQL: \"%s\"", statement);
+	result = sqlite3_exec(tagfs.dbh, statement, callback, firstarg, &sqlerror);
+	if (result != SQLITE_OK) {
+		dbg(LOG_ERR, "SQL error: [%d] %s @%s:%u", result, sqlerror, file, line);
+		sqlite3_free(sqlerror);
+		return 0;
+	}
+	free(file);
+
+	if (dbh == NULL) {
+		sqlite3_close(*intdbh);
+		free(intdbh);
+	} else if (*dbh == NULL) {
+		*dbh = *intdbh;
+	}
+
+	return result;
 }
 
 // vim:ts=4:autoindent:nocindent:syntax=c

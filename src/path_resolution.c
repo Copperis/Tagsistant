@@ -179,11 +179,7 @@ static int add_to_filetree(void *atft_struct, int argc, char **argv, char **azCo
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
 	} else {
 		sprintf(sql, ADD_RESULT_ENTRY, atft->id, argv[0]);
-		char *sqlerror;
-		if (sqlite3_exec(tagfs.dbh, sql, NULL, NULL, &sqlerror) != SQLITE_OK) {
-			dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-			sqlite3_free(sqlerror);
-		}
+		do_sql(NULL, sql, NULL, NULL);
 		free(sql);
 	}
 
@@ -301,17 +297,11 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 		dbg(LOG_INFO, "SQL: final statement is [%s]", statement);
 
 		/* create view */
-		dbg(LOG_INFO, "SQL query: %s", statement);
-		char *sqlerror;
-		if (sqlite3_exec(tagfs.dbh, statement, NULL, NULL, &sqlerror) != SQLITE_OK) {
-			dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-			sqlite3_free(sqlerror);
-		}
+		do_sql(NULL, statement, NULL, NULL);
 		free(statement);
 		query = query->next;
 	}
 
-	char *sqlerror;
 	char *sql = calloc(sizeof(char), strlen(ADD_CACHE_ENTRY) + strlen(path) + 1);
 	if (sql == NULL) {
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
@@ -320,10 +310,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	sprintf(sql, ADD_CACHE_ENTRY, path);
 
 	dbg(LOG_INFO, "Adding path %s to cache", path);
-	if (sqlite3_exec(tagfs.dbh, sql, NULL, NULL, &sqlerror) != SQLITE_OK) {
-		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-		sqlite3_free(sqlerror);
-	}
+	do_sql(NULL, sql, NULL, NULL);
 	free(sql);
  
 	sqlite_int64 id = sqlite3_last_insert_rowid(tagfs.dbh);
@@ -377,10 +364,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	atft->id = id;
 
 	/* apply view statement */
-	if (sqlite3_exec(tagfs.dbh, view_statement, add_to_filetree, atft, &sqlerror) != SQLITE_OK) {
-		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-		sqlite3_free(sqlerror);
-	}
+	do_sql(NULL, view_statement, add_to_filetree, atft);
 
 	free(view_statement);
 
@@ -392,7 +376,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 			dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
 		} else {
 			sprintf(mini, "drop view tv%.8X;", (unsigned int) query);
-			sqlite3_exec(tagfs.dbh, mini, NULL, NULL, NULL);
+			do_sql(NULL, mini, NULL, NULL);
 			free(mini);
 		}
 		query = query->next;
