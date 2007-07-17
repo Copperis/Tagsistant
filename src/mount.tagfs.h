@@ -21,7 +21,7 @@
 */
 
 /* for developing purposes only */
-#define VERBOSE_DEBUG 0
+#define VERBOSE_DEBUG 1
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>

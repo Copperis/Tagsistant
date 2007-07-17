@@ -218,13 +218,14 @@ static int tagfs_getattr(const char *path, struct stat *stbuf)
 {
     int res = 0, tagfs_errno = 0;
 
-	init_time_profile();
-	start_time_profile();
 	if (strcmp(path, "/") == 0) {
 		dbg(LOG_INFO, "GETATTR on /!");
 		res = lstat(tagfs.archive, stbuf);
 		return (res == -1) ? -errno : 0;
 	}
+
+	init_time_profile();
+	start_time_profile();
 
 	/* last is the last token in path */
 	char *dup = strdup(path);
