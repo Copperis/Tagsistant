@@ -1368,7 +1368,10 @@ int main(int argc, char *argv[])
 	}
 	chmod(tagfs.archive, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
 
+	/*
 	fuse_opt_add_arg(&args, "-odefault_permissions,allow_other,fsname=tagfs");
+	*/
+	fuse_opt_add_arg(&args, "-odefault_permissions,fsname=tagfs");
 	fuse_opt_add_arg(&args, "-ouse_ino,readdir_ino");
 	if (tagfs.singlethread) {
 		fprintf(stderr, " *** operating in single thread mode ***\n");
