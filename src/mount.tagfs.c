@@ -219,9 +219,14 @@ static int tagfs_getattr(const char *path, struct stat *stbuf)
     int res = 0, tagfs_errno = 0;
 
 	if (strcmp(path, "/") == 0) {
-		dbg(LOG_INFO, "GETATTR on /!");
 		res = lstat(tagfs.archive, stbuf);
-		return (res == -1) ? -errno : 0;
+		if ( res == -1 ) {
+			tagfs_errno = errno;
+			dbg(LOG_INFO, "GETATTR on / using %s: %d %s", tagfs.archive, errno, strerror(tagfs_errno));
+			return -errno;
+		}
+		dbg(LOG_INFO, "GETATTR on / OK!");
+		return 0;
 	}
 
 	init_time_profile();
