@@ -1305,6 +1305,28 @@ int main(int argc, char *argv[])
 		tagfs.repository[replength] = '\0';
 	}
 
+	/* checking if repository is a relative path */
+	if (tagfs.repository[0] != '/') {
+		dbg(LOG_ERR, "Repository path is relative [%s]", tagfs.repository);
+		char *cwd = getcwd(NULL, 0);
+		if (cwd == NULL) {
+			dbg(LOG_ERR, "Error getting working directory, will leave repository path as is");
+		} else {
+			char *absolute_repository = calloc(sizeof(char), strlen(tagfs.repository) + strlen(cwd) + 2);
+			if (absolute_repository == NULL) {
+				dbg(LOG_ERR, "Error allocaing memory @%s:%d", __FILE__, __LINE__);
+				dbg(LOG_ERR, "Repository path will be left as is");
+			} else {
+				strcpy(absolute_repository, cwd);
+				strcat(absolute_repository, "/");
+				strcat(absolute_repository, tagfs.repository);
+				free(tagfs.repository);
+				tagfs.repository = absolute_repository;
+				dbg(LOG_ERR, "Repository path is %s", tagfs.repository);
+			}
+		}
+	}
+
 	struct stat repstat;
 	if (lstat(tagfs.repository, &repstat) == -1) {
 		if(mkdir(tagfs.repository, 755) == -1) {
