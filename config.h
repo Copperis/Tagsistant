@@ -145,19 +145,19 @@
 #define LSTAT_FOLLOWS_SLASHED_SYMLINK 1
 
 /* Name of package */
-#define PACKAGE "tagfs"
+#define PACKAGE "tagsistant"
 
 /* Define to the address where bug reports for this package should be sent. */
-#define PACKAGE_BUGREPORT "tx0@autistici.org"
+#define PACKAGE_BUGREPORT "tx0@strumentiresistenti.org"
 
 /* Define to the full name of this package. */
-#define PACKAGE_NAME "tagfs"
+#define PACKAGE_NAME "tagsistant"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "tagfs 0.0.20061220"
+#define PACKAGE_STRING "tagsistant 0.0.20061220"
 
 /* Define to the one symbol short name of this package. */
-#define PACKAGE_TARNAME "tagfs"
+#define PACKAGE_TARNAME "tagsistant"
 
 /* Define to the version of this package. */
 #define PACKAGE_VERSION "0.0.20061220"

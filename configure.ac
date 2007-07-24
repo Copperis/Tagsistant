@@ -2,10 +2,10 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([tagfs], [0.0.20061220], [tx0@autistici.org])
-AM_INIT_AUTOMAKE(tagfs, 0.0.20061220)
-AC_COPYRIGHT([tagfs is (C) Tx0 <tx0@autistici.org>])
-AC_CONFIG_SRCDIR([src/mount.tagfs.c])
+AC_INIT([tagsistant], [0.0.20061220], [tx0@strumentiresistenti.org])
+AM_INIT_AUTOMAKE(tagsistant, 0.0.20061220)
+AC_COPYRIGHT([tagsistant is (C) Tx0 <tx0@strumentiresistenti.org>])
+AC_CONFIG_SRCDIR([src/mount.tagsistant.c])
 AC_CONFIG_HEADER([config.h])
 
 # AC_PROG_LIBTOOL
@@ -96,7 +96,7 @@ fi
 AC_CHECK_LIB([fuse],[fuse_main],,[
 	echo "FUSE (Filesystem in USErspace) it's a great user space library"
 	echo "which allows linux kernel users to create filesystem implementations"
-	echo "without playing with complex kernel internals. Tagfs is entirely based"
+	echo "without playing with complex kernel internals. tagsistant is entirely based"
 	echo "on FUSE. Please install libfuse-dev package (or the one which best"
 	echo "fits your linux distribution) or download and compile sources at:"
 	echo "http://fuse.sourceforge.net/"
@@ -106,7 +106,7 @@ AC_CHECK_LIB([fuse],[fuse_main],,[
 AC_CHECK_LIB([sqlite3],[sqlite3_open],,[
 	echo "SQLite it's an SQL implementation targeted to small and embedded systems."
 	echo "SQL database is kept inside a single file. Memory resources required are"
-	echo "less than normal client/server implementations. TagFS use SQLite to store"
+	echo "less than normal client/server implementations. tagsistant use SQLite to store"
 	echo "file<->tag relationship. For more informations please visit:"
 	echo "http://www.sqlite.org/"
 	exit 1

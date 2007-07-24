@@ -1,8 +1,8 @@
 /*
-   TAGFS -- mount.tagfs.h
-   Copyright (C) 2006-2007 Tx0 <tx0@autistici.org>
+   Tagsistant (tagfs) -- mount.tagsistant.h
+   Copyright (C) 2006-2007 Tx0 <tx0@strumentiresistenti.org>
 
-   TAGFS mount binary written using FUSE userspace library.
+   Tagsistant (tagfs) mount binary written using FUSE userspace library.
    Header file
 
    This program is free software; you can redistribute it and/or modify
@@ -134,14 +134,14 @@ typedef struct file_handle {
 	struct file_handle *next;
 } file_handle_t;
 
-/* defines command line options for tagfs mount tool */
-struct tagfs {
+/* defines command line options for tagsistant mount tool */
+struct tagsistant {
 	int      debug;			/* enable debug */
 	int		 foreground;	/* run in foreground */
 	int		 singlethread;	/* single thread? */
 	int		 readonly;		/* mount filesystem readonly */
 
-	char    *progname;		/* mount.tagfs */
+	char    *progname;		/* mount.tagsistant */
 	char    *mountpoint;	/* no clue? */
 	char    *repository;	/* where's archived files and tags no? */
 	char    *archive;		/* a directory holding all the files */
@@ -150,7 +150,7 @@ struct tagfs {
 	sqlite3 *dbh;			/* database handle to operate on SQLite thingy */
 };
 
-extern struct tagfs tagfs;
+extern struct tagsistant tagsistant;
 
 extern int debug;
 extern int log_enabled;

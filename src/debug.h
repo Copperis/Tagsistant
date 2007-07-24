@@ -1,6 +1,6 @@
 /*
-   TAGFS -- debug.h
-   Copyright (C) 2006 Tx0 <tx0@autistici.org>
+   Tagsistant (tagfs) -- debug.h
+   Copyright (C) 2006 Tx0 <tx0@strumentiresistenti.org>
 
    Some debug code.
 

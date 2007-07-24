@@ -1,8 +1,8 @@
 /*
-   TAGFS -- mount.tagfs.c
-   Copyright (C) 2006-2007 Tx0 <tx0@autistici.org>
+   Tagsistant (tagfs) -- mount.tagsistant.c
+   Copyright (C) 2006-2007 Tx0 <tx0@strumentiresistenti.org>
 
-   TAGFS mount binary written using FUSE userspace library.
+   Tagsistant (tagfs) mount binary written using FUSE userspace library.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -20,13 +20,31 @@
 */
 
 #define REGISTER_CLEANUP 0
-#include "mount.tagfs.h"
+#include "tagsistant.h"
 
 int debug = 0;
 int log_enabled = 0;
 
-/* defines command line options for tagfs mount tool */
-/* static */ struct tagfs tagfs;
+/* defines command line options for tagsistant mount tool */
+/* static */ struct tagsistant tagsistant;
+
+/*
+ * given a full path, returns the filename, the filepath (relative
+ * to archive directory) and the tagname
+ */
+int get_filename_and_tagname(const char *path, char **filename, char **filepath, char **tagname)
+{
+	*filename = get_tag_name(path);
+	*filepath = get_file_path(*filename);
+	char *path_dup = strdup(path);
+	char *ri = rindex(path_dup, '/');
+	*ri = '\0';
+	ri = rindex(path_dup, '/');
+	ri++;
+	*tagname = strdup(ri);
+	free(path_dup);
+	return 1;
+}
 
 #ifdef _DEBUG_SYSLOG
 void init_syslog()
@@ -34,7 +52,7 @@ void init_syslog()
 	if (log_enabled)
 		return;
 
-	openlog("mount.tagfs", LOG_PID, LOG_DAEMON);
+	openlog("mount.tagsistant", LOG_PID, LOG_DAEMON);
 	log_enabled = 1;
 }
 #endif
@@ -108,7 +126,7 @@ int drop_cached_queries(char *tagname)
 	sprintf(sql, GET_ID_OF_TAG, tagname, tagname);
 	assert(strlen(GET_ID_OF_TAG) + strlen(tagname) * 2 + 1 > strlen(sql));
 
-	if (do_sql(&(tagfs.dbh), sql, drop_single_query, tagname) != SQLITE_OK) {
+	if (do_sql(&(tagsistant.dbh), sql, drop_single_query, tagname) != SQLITE_OK) {
 		free(sql);
 		return 0;
 	}
@@ -123,7 +141,7 @@ int drop_cached_queries(char *tagname)
 	sprintf(sql, DROP_QUERY, tagname, tagname);
 	assert(strlen(DROP_QUERY) + strlen(tagname) * 2 + 1 > strlen(sql));
 
-	if (do_sql(&(tagfs.dbh), sql, NULL, NULL) != SQLITE_OK) {
+	if (do_sql(&(tagsistant.dbh), sql, NULL, NULL) != SQLITE_OK) {
 		free(sql);
 		return 0;
 	}
@@ -190,12 +208,61 @@ int tag_file(char *filename, char *tagname)
 	return 1;
 }
 
+static int drop_single_file(void *filenamevoid, int argc, char **argv, char **azColName)
+{
+	(void) argc;
+	(void) azColName;
+	char *filename = (char *) filenamevoid;
+
+	if (argv[0] == NULL) {
+		return 0;
+	}
+
+	char *sql = calloc(sizeof(char), strlen(DROP_FILE) + strlen(filename) + strlen(argv[0]) + 1);
+	if (sql == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		return 0;
+	}
+
+	sprintf(sql, DROP_FILE, filename, argv[0]);
+	assert(strlen(DROP_FILE) + strlen(filename) + strlen(argv[0]) + 1 > strlen(sql));
+	do_sql(NULL, sql, NULL, NULL);
+	free(sql);
+	
+	return 0;
+}
+
+/**
+ * remove tag tagname from file filename
+ */
+int untag_file(char *filename, char *tagname)
+{
+	char *statement = calloc(sizeof(char), strlen(UNTAG_FILE) + strlen(filename) + strlen(tagname));
+	if (statement == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		return 0;
+	}
+	sprintf(statement, UNTAG_FILE, tagname, filename);
+	do_sql(NULL, statement, NULL, NULL);
+	free(statement);
+
+	statement = calloc(sizeof(char), strlen(GET_ID_OF_TAG) + strlen(tagname) * 2);
+	if (statement == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		return 0;
+	}
+	sprintf(statement, GET_ID_OF_TAG, tagname, tagname);
+	do_sql(NULL, statement, drop_single_file, filename);
+
+	return 1;
+}
+
 int is_cached(const char *path)
 {
 	char *mini;
 
 	/* first clean cache table from old data */
-	if (do_sql(&(tagfs.dbh), CLEAN_CACHE, NULL, NULL) != SQLITE_OK) return 0;
+	if (do_sql(&(tagsistant.dbh), CLEAN_CACHE, NULL, NULL) != SQLITE_OK) return 0;
 
 	mini = calloc(sizeof(char), strlen(IS_CACHED) + strlen(path) + 1);
 	if (mini == NULL) {
@@ -214,15 +281,15 @@ int is_cached(const char *path)
 /**
  * lstat equivalent
  */
-static int tagfs_getattr(const char *path, struct stat *stbuf)
+static int tagsistant_getattr(const char *path, struct stat *stbuf)
 {
-    int res = 0, tagfs_errno = 0;
+    int res = 0, tagsistant_errno = 0;
 
 	if (strcmp(path, "/") == 0) {
-		res = lstat(tagfs.archive, stbuf);
+		res = lstat(tagsistant.archive, stbuf);
 		if ( res == -1 ) {
-			tagfs_errno = errno;
-			dbg(LOG_INFO, "GETATTR on / using %s: %d %s", tagfs.archive, errno, strerror(tagfs_errno));
+			tagsistant_errno = errno;
+			dbg(LOG_INFO, "GETATTR on / using %s: %d %s", tagsistant.archive, errno, strerror(tagsistant_errno));
 			return -errno;
 		}
 		dbg(LOG_INFO, "GETATTR on / OK!");
@@ -252,10 +319,10 @@ static int tagfs_getattr(const char *path, struct stat *stbuf)
 	 	dbg(LOG_INFO, "GETATTR on AND/OR logical operator!");
 #endif
 
-	 	lstat(tagfs.archive, stbuf);	
+	 	lstat(tagsistant.archive, stbuf);	
 
 		/* 
-		 * using tagfs.archive in lstat() returns its inode number
+		 * using tagsistant.archive in lstat() returns its inode number
 		 * for all AND/OR ops. that is a problem while traversing
 		 * a dir tree with write approach, like in a rm -rf <dir>.
 		 * to avoid such a problem we add 1 to inode number to
@@ -292,18 +359,17 @@ static int tagfs_getattr(const char *path, struct stat *stbuf)
 		}
 		sprintf(statement, TAG_EXISTS, last);
 		assert(strlen(TAG_EXISTS) + strlen(last) > strlen(statement));
-		dbg(LOG_INFO, "SQL: %s", statement);
 
 		int exists = 0;
 		do_sql(NULL, statement, report_if_exists, &exists);
 		free(statement);
 
 		if (exists) {
-			res = lstat(tagfs.archive, stbuf);
-			tagfs_errno = errno;
+			res = lstat(tagsistant.archive, stbuf);
+			tagsistant_errno = errno;
 		} else {
 			res = -1;
-			tagfs_errno = ENOENT;
+			tagsistant_errno = ENOENT;
 		}
 	} else {
 		/* is a file */
@@ -327,9 +393,9 @@ static int tagfs_getattr(const char *path, struct stat *stbuf)
 				if (is_tagged(last, andpt->tag)) {
 					char *filepath = get_file_path(last);
 					res = lstat(filepath, stbuf);
-					tagfs_errno = (res == -1) ? errno : 0;
+					tagsistant_errno = (res == -1) ? errno : 0;
 #if VERBOSE_DEBUG
-					dbg(LOG_INFO, "lstat('%s/%s'): %d (%s)", andpt->tag, last, res, strerror(tagfs_errno));
+					dbg(LOG_INFO, "lstat('%s/%s'): %d (%s)", andpt->tag, last, res, strerror(tagsistant_errno));
 #endif
 					free(filepath);
 					destroy_querytree(pt);
@@ -344,7 +410,7 @@ static int tagfs_getattr(const char *path, struct stat *stbuf)
 		}
 		destroy_querytree(pt);
 		res = -1;
-		tagfs_errno = ENOENT;
+		tagsistant_errno = ENOENT;
 	}
 
 GETATTR_EXIT:
@@ -354,15 +420,15 @@ GETATTR_EXIT:
 
 	stop_labeled_time_profile("getattr");
 	if ( res == -1 ) {
-		dbg(LOG_ERR, "GETATTR on %s: %d %d: %s", path, res, tagfs_errno, strerror(tagfs_errno));
-		return -tagfs_errno;
+		dbg(LOG_ERR, "GETATTR on %s: %d %d: %s", path, res, tagsistant_errno, strerror(tagsistant_errno));
+		return -tagsistant_errno;
 	} else {
 		dbg(LOG_INFO, "GETATTR on %s: OK", path);
 		return 0;
 	}
 }
 
-static int tagfs_readlink(const char *path, char *buf, size_t size)
+static int tagsistant_readlink(const char *path, char *buf, size_t size)
 {
 	char *filename = get_tag_name(path);
 	char *filepath = get_file_path(filename);
@@ -371,10 +437,10 @@ static int tagfs_readlink(const char *path, char *buf, size_t size)
 	dbg(LOG_INFO, "READLINK on %s", filepath);
 
 	int res = readlink(filepath, buf, size);
-	int tagfs_errno = errno;
+	int tagsistant_errno = errno;
 
 	free(filepath);
-	return (res == -1) ? -tagfs_errno : 0;
+	return (res == -1) ? -tagsistant_errno : 0;
 }
 
 struct use_filler_struct {
@@ -413,7 +479,7 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 	return ufs->filler(ufs->buf, argv[0], NULL, 0);
 }
 
-static int tagfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
+static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
 {
 	(void) fi;
 	(void) offset;
@@ -521,61 +587,68 @@ static int tagfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, of
 }
 
 /* OK */
-static int tagfs_mknod(const char *path, mode_t mode, dev_t rdev)
+static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 {
-	int res = 0, tagfs_errno = 0;
+	int res = 0, tagsistant_errno = 0;
 
 	init_time_profile();
 	start_time_profile();
 
-	char *filename = get_tag_name(path);
-	char *fullfilename = get_file_path(filename);
+	char *filename, *fullfilename, *tagname;
+	get_filename_and_tagname(path, &filename, &fullfilename, &tagname);
+
+	if (tagname == NULL) {
+		/* can't create files outside tag/directories */
+		res = -1;
+		tagsistant_errno = ENOTDIR;
+	} else if (is_tagged(filename, tagname)) {
+		/* is already tagged so no mknod() is required */
+		dbg(LOG_INFO, "%s is already tagged as %s", filename, tagname);
+		res = -1;
+		tagsistant_errno = EEXIST;
+	} else {
+		/* file is not already tagged, doing it */
+		if (tag_file(filename, tagname)) {
+			dbg(LOG_INFO, "Tagging file %s as %s inside tagsistant_mknod()", filename, tagname);
+			res = mknod(fullfilename, mode, rdev);
+			tagsistant_errno = errno;
+			if (res == -1) {
+				/*
+				 * if real mknod() return -1 could be because file already exists
+				 * in /archive/ directory. if that's the case, just fake correct
+				 * operations.
+				 */
+				if (tagsistant_errno == EEXIST) {
+					res = 0;
+					tagsistant_errno = 0;
+				} else {
+					dbg(LOG_ERR, "Real mknod() failed: %s", strerror(tagsistant_errno));
+					untag_file(filename, tagname);
+				}
+			}
+		} else {
+			/* tagging failed, we should fake a mknod() error */
+			res = -1;
+			tagsistant_errno = ENOSPC;
+		}
+	}
 
 	dbg(LOG_INFO, "MKNOD on %s", path);
 
-	res = mknod(fullfilename, mode, rdev);
-	tagfs_errno = errno;
-
-	/* tag the file */
-	char *path_dup = strdup(path);
-	if (path_dup != NULL) {
-		dbg(LOG_INFO, "path_dup is %s", path_dup);
-		char *tagname = path_dup + 1;
-		char *ri = rindex(path_dup, '/');
-		if (ri != NULL) {
-			dbg(LOG_INFO, "Filename should be %s", ri + 1);
-			*ri = '\0';
-			ri = rindex(path_dup, '/');
-			if (ri == NULL) {
-				ri = path_dup;
-			} else {
-				ri++;
-			}
-			tagname = ri;
-			dbg(LOG_INFO, "Tagname should be %s", tagname);
-		}
-
-		dbg(LOG_INFO, "Tagging file %s as %s inside tagfs_mknod()", filename, tagname);
-		tag_file(filename, tagname);
-		assert(path_dup != NULL);
-		assert(strlen(path_dup));
-		free(path_dup);
-	}
-
-	dbg(LOG_INFO, "Tagging done, if was the case");
-
 	free(filename);
 	free(fullfilename);
+	free(tagname);
 
 	stop_labeled_time_profile("mknod");
-	return (res == -1) ? -tagfs_errno: 0;
+	dbg(LOG_INFO, "mknod(%s): %d %s", filename, res, strerror(tagsistant_errno));
+	return (res == -1) ? -tagsistant_errno: 0;
 }
 
 /* OK */
-static int tagfs_mkdir(const char *path, mode_t mode)
+static int tagsistant_mkdir(const char *path, mode_t mode)
 {
 	(void) mode;
-    int res = 0, tagfs_errno = 0;
+    int res = 0, tagsistant_errno = 0;
 	init_time_profile();
 	start_time_profile();
 
@@ -596,37 +669,13 @@ static int tagfs_mkdir(const char *path, mode_t mode)
 	free(tagname);
 
 	stop_labeled_time_profile("mkdir");
-	return (res == -1) ? -tagfs_errno : 0;
-}
-
-static int drop_single_file(void *filenamevoid, int argc, char **argv, char **azColName)
-{
-	(void) argc;
-	(void) azColName;
-	char *filename = (char *) filenamevoid;
-
-	if (argv[0] == NULL) {
-		return 0;
-	}
-
-	char *sql = calloc(sizeof(char), strlen(DROP_FILE) + strlen(filename) + strlen(argv[0]) + 1);
-	if (sql == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		return 0;
-	}
-
-	sprintf(sql, DROP_FILE, filename, argv[0]);
-	assert(strlen(DROP_FILE) + strlen(filename) + strlen(argv[0]) + 1 > strlen(sql));
-	do_sql(NULL, sql, NULL, NULL);
-	free(sql);
-	
-	return 0;
+	return (res == -1) ? -tagsistant_errno : 0;
 }
 
 /* OK */
-static int tagfs_unlink(const char *path)
+static int tagsistant_unlink(const char *path)
 {
-    int res = 0, tagfs_errno = 0;
+    int res = 0, tagsistant_errno = 0;
 
 	init_time_profile();
 	start_time_profile();
@@ -698,7 +747,7 @@ static int tagfs_unlink(const char *path)
 			char *filepath = get_file_path(filename);
 			dbg(LOG_INFO, "Unlinking file %s: it's no longer tagged!", filepath);
 			res = unlink(filepath);
-			tagfs_errno = errno;
+			tagsistant_errno = errno;
 			free(filepath);
 		}
 	}
@@ -706,13 +755,13 @@ static int tagfs_unlink(const char *path)
 	free(filename);
 
 	stop_labeled_time_profile("unlink");
-	return (res == -1) ? -tagfs_errno : 0;
+	return (res == -1) ? -tagsistant_errno : 0;
 }
 
 /* OK */
-static int tagfs_rmdir(const char *path)
+static int tagsistant_rmdir(const char *path)
 {
-    int res = 0, tagfs_errno = 0;
+    int res = 0, tagsistant_errno = 0;
 	init_time_profile();
 	start_time_profile();
 
@@ -743,13 +792,13 @@ static int tagfs_rmdir(const char *path)
 	destroy_querytree(pt);
 
 	stop_labeled_time_profile("rmdir");
-	return (res == -1) ? -tagfs_errno : 0;
+	return (res == -1) ? -tagsistant_errno : 0;
 }
 
 /* OK */
-static int tagfs_rename(const char *from, const char *to)
+static int tagsistant_rename(const char *from, const char *to)
 {
-    int res = 0, tagfs_errno = 0;
+    int res = 0, tagsistant_errno = 0;
 
 	init_time_profile();
 	start_time_profile();
@@ -792,19 +841,19 @@ static int tagfs_rename(const char *from, const char *to)
 		char *filepath = get_file_path(tagname);
 		char *newfilepath = get_file_path(newfilename);
 		res = rename(filepath, newfilepath);
-		tagfs_errno = errno;
+		tagsistant_errno = errno;
 		free(filepath);
 		free(newfilepath);
 	}
 
 	stop_labeled_time_profile("rename");
-	return (res == -1) ? -tagfs_errno : 0;
+	return (res == -1) ? -tagsistant_errno : 0;
 }
 
 /* OK */
-static int tagfs_link(const char *from, const char *to)
+static int tagsistant_link(const char *from, const char *to)
 {
-    int res = 0, tagfs_errno = 0;
+    int res = 0, tagsistant_errno = 0;
 
 	init_time_profile();
 	start_time_profile();
@@ -821,18 +870,18 @@ static int tagfs_link(const char *from, const char *to)
 	free(path_dup);
 
 	/* tag the link */
-	dbg(LOG_INFO, "Tagging file inside tagfs_link() or tagfs_symlink()");
+	dbg(LOG_INFO, "Tagging file inside tagsistant_link() or tagsistant_symlink()");
 	tag_file(filename, tagname);
 
 	struct stat stbuf;
 	if ((lstat(topath, &stbuf) == -1) && (errno == ENOENT)) {
 		dbg(LOG_INFO, "Linking %s as %s", from, topath);
 		res = symlink(from, topath);
-		tagfs_errno = errno;
+		tagsistant_errno = errno;
 	} else {
 		dbg(LOG_INFO, "A file named %s is already in archive.", filename);
 		res = -1;
-		tagfs_errno = EEXIST;
+		tagsistant_errno = EEXIST;
 	}
 
 	free(tagname);
@@ -840,19 +889,19 @@ static int tagfs_link(const char *from, const char *to)
 	free(topath);
 
 	stop_labeled_time_profile("link");
-	return (res == -1) ? -tagfs_errno : 0;
+	return (res == -1) ? -tagsistant_errno : 0;
 }
 
 /* OK */
-static int tagfs_symlink(const char *from, const char *to)
+static int tagsistant_symlink(const char *from, const char *to)
 {
-	return tagfs_link(from, to);
+	return tagsistant_link(from, to);
 }
 
 /* OK */
-static int tagfs_chmod(const char *path, mode_t mode)
+static int tagsistant_chmod(const char *path, mode_t mode)
 {
-    int res = 0, tagfs_errno = 0;
+    int res = 0, tagsistant_errno = 0;
 
 	init_time_profile();
 	start_time_profile();
@@ -861,19 +910,19 @@ static int tagfs_chmod(const char *path, mode_t mode)
 	char *filepath = get_file_path(tagname);
 
 	res = chmod(filepath, mode);
-	tagfs_errno = errno;
+	tagsistant_errno = errno;
 
 	free(tagname);
 	free(filepath);
 
 	stop_labeled_time_profile("chmod");
-	return (res == -1) ? -tagfs_errno : 0;
+	return (res == -1) ? -tagsistant_errno : 0;
 }
 
 /* OK */
-static int tagfs_chown(const char *path, uid_t uid, gid_t gid)
+static int tagsistant_chown(const char *path, uid_t uid, gid_t gid)
 {
-    int res = 0, tagfs_errno = 0;
+    int res = 0, tagsistant_errno = 0;
 
 	init_time_profile();
 	start_time_profile();
@@ -882,19 +931,19 @@ static int tagfs_chown(const char *path, uid_t uid, gid_t gid)
 	char *filepath = get_file_path(tagname);
 
 	res = chown(filepath, uid, gid);
-	tagfs_errno = errno;
+	tagsistant_errno = errno;
 
 	free(tagname);
 	free(filepath);
 
 	stop_labeled_time_profile("chown");
-	return (res == -1) ? -tagfs_errno : 0;
+	return (res == -1) ? -tagsistant_errno : 0;
 }
 
 /* OK */
-static int tagfs_truncate(const char *path, off_t size)
+static int tagsistant_truncate(const char *path, off_t size)
 {
-    int res = 0, tagfs_errno = 0;
+    int res = 0, tagsistant_errno = 0;
 
 	init_time_profile();
 	start_time_profile();
@@ -903,19 +952,19 @@ static int tagfs_truncate(const char *path, off_t size)
 	char *filepath = get_file_path(tagname);
 
 	res = truncate(filepath, size);
-	tagfs_errno = errno;
+	tagsistant_errno = errno;
 
 	free(tagname);
 	free(filepath);
 
 	stop_labeled_time_profile("truncate");
-	return (res == -1) ? -tagfs_errno : 0;
+	return (res == -1) ? -tagsistant_errno : 0;
 }
 
 /* OK */
-static int tagfs_utime(const char *path, struct utimbuf *buf)
+static int tagsistant_utime(const char *path, struct utimbuf *buf)
 {
-    int res = 0, tagfs_errno = 0;
+    int res = 0, tagsistant_errno = 0;
 	(void) path;
 
 	init_time_profile();
@@ -925,7 +974,7 @@ static int tagfs_utime(const char *path, struct utimbuf *buf)
 	char *filepath = get_file_path(tagname);
 
 	res = utime(filepath, buf);
-	tagfs_errno = errno;
+	tagsistant_errno = errno;
 
 	free(tagname);
 	free(filepath);
@@ -935,83 +984,82 @@ static int tagfs_utime(const char *path, struct utimbuf *buf)
 }
 
 /* OK */
-int internal_open(const char *path, int flags, int *_errno)
+int internal_open(const char *filepath, int flags, int *_errno)
 {
-	char *filename = get_tag_name(path);
-	char *filepath = get_file_path(filename);
-	char *path_dup = strdup(path);
-	char *ri = rindex(path_dup, '/');
-	*ri = '\0';
-	ri = rindex(path_dup, '/');
-	ri++;
-	char *tagname = strdup(ri);
-	free(path_dup);
-
-	dbg(LOG_INFO, "INTERNAL_OPEN: Opening file %s", filepath);
-
+	int res = open(filepath, flags);
+#if VERBOSE_DEBUG
+	dbg(LOG_INFO, "internal_open(%s): %d", filepath, res);
 	if (flags&O_CREAT) dbg(LOG_INFO, "...O_CREAT");
 	if (flags&O_WRONLY) dbg(LOG_INFO, "...O_WRONLY");
 	if (flags&O_TRUNC) dbg(LOG_INFO, "...O_TRUNC");
 	if (flags&O_LARGEFILE) dbg(LOG_INFO, "...O_LARGEFILE");
-
-#if 0
-	/* this is WRONG code!!!! tagging should only happen on mknod, link or symlink */
-	if (flags&O_CREAT || flags&O_WRONLY || flags&O_TRUNC) {
-		dbg(LOG_INFO, "Tagging file inside internal_open()");
-		tag_file(filename, tagname);
-	}
 #endif
 
-	int res = open(filepath, flags);
 	*_errno = errno;
 
-	free(tagname);
-	free(filename);
-	free(filepath);
 	return res;
 }
 
 /* OK */
-static int tagfs_open(const char *path, struct fuse_file_info *fi)
+static int tagsistant_open(const char *path, struct fuse_file_info *fi)
 {
-    int res = 0, tagfs_errno = 0;
+    int res = 0, tagsistant_errno = 0;
+	char *filename, *filepath, *tagname;
+	get_filename_and_tagname(path, &filename, &filepath, &tagname);
 
 	init_time_profile();
 	start_time_profile();
 
 	dbg(LOG_INFO, "OPEN: %s", path);
 
-	res = internal_open(path, fi->flags|O_RDONLY|O_CREAT, &tagfs_errno);
+	if (is_tagged(filename, tagname)) {
+		res = internal_open(filepath, fi->flags|O_RDONLY, &tagsistant_errno);
+	} else  {
+		res = -1;
+		tagsistant_errno = ENOENT;
+	}
+
+	free(filename);
+	free(filepath);
+	free(tagname);
 
 	stop_labeled_time_profile("open");
-	return (res == -1) ? -tagfs_errno : 0;
+	return (res == -1) ? -tagsistant_errno : 0;
 }
 
 /* OK */
-static int tagfs_read(const char *path, char *buf, size_t size, off_t offset,
+static int tagsistant_read(const char *path, char *buf, size_t size, off_t offset,
                     struct fuse_file_info *fi)
 {
-    int res = 0, tagfs_errno = 0;
+    int res = 0, tagsistant_errno = 0;
+	char *filename, *filepath, *tagname;
+	get_filename_and_tagname(path, &filename, &filepath, &tagname);
 
 	init_time_profile();
 	start_time_profile();
 
-	int fd = internal_open(path, fi->flags|O_RDONLY, &tagfs_errno); 
+	int fd = internal_open(filepath, fi->flags|O_RDONLY, &tagsistant_errno); 
 	if (fd != -1) {
 		res = pread(fd, buf, size, offset);
-		tagfs_errno = errno;
+		tagsistant_errno = errno;
 		close(fd);
 	}
 
+	free(filename);
+	free(filepath);
+	free(tagname);
+
 	stop_labeled_time_profile("read");
-	return (res == -1) ? -tagfs_errno : res;
+	return (res == -1) ? -tagsistant_errno : res;
 }
 
 /* OK */
-static int tagfs_write(const char *path, const char *buf, size_t size,
+static int tagsistant_write(const char *path, const char *buf, size_t size,
 	off_t offset, struct fuse_file_info *fi)
 {
-    int res = 0, tagfs_errno = 0;
+    int res = 0, tagsistant_errno = 0;
+	char *filename, *filepath, *tagname;
+	get_filename_and_tagname(path, &filename, &filepath, &tagname);
 
 	init_time_profile();
 	start_time_profile();
@@ -1022,65 +1070,69 @@ static int tagfs_write(const char *path, const char *buf, size_t size,
 		return -ENOTDIR;
 	}
 
-	int fd = internal_open(path, fi->flags|O_WRONLY, &tagfs_errno); 
+	int fd = internal_open(filepath, fi->flags|O_WRONLY, &tagsistant_errno); 
 	if (fd != -1) {
 		dbg(LOG_INFO, "writing %d bytes to %s", size, path);
 		res = pwrite(fd, buf, size, offset);
-		tagfs_errno = errno;
+		tagsistant_errno = errno;
 
 		if (res == -1)
-			dbg(LOG_INFO, "Error on fd.%d: %s", fd, strerror(tagfs_errno));
+			dbg(LOG_INFO, "Error on fd.%d: %s", fd, strerror(tagsistant_errno));
 
 		close(fd);
 
 	}
 
 	if (res == -1)
-		dbg(LOG_INFO, "WRITE: returning %d: %s", tagfs_errno, strerror(tagfs_errno));
+		dbg(LOG_INFO, "WRITE: returning %d: %s", tagsistant_errno, strerror(tagsistant_errno));
+
+	free(filename);
+	free(filepath);
+	free(tagname);
 
 	stop_labeled_time_profile("write");
-	return (res == -1) ? -tagfs_errno : res;
+	return (res == -1) ? -tagsistant_errno : res;
 }
 
 #if FUSE_USE_VERSION == 25
 
 /* OK */
-static int tagfs_statvfs(const char *path, struct statvfs *stbuf)
+static int tagsistant_statvfs(const char *path, struct statvfs *stbuf)
 {
-    int res = 0, tagfs_errno = 0;
+    int res = 0, tagsistant_errno = 0;
 	(void) path;
 
 	init_time_profile();
 	start_time_profile();
 	
-	res = statvfs(tagfs.repository, stbuf);
-	tagfs_errno = errno;
+	res = statvfs(tagsistant.repository, stbuf);
+	tagsistant_errno = errno;
 
 	stop_labeled_time_profile("statfs");
-    return (res == -1) ? -tagfs_errno : 0;
+    return (res == -1) ? -tagsistant_errno : 0;
 }
 
 #else
 
 /* OK */
-static int tagfs_statfs(const char *path, struct statfs *stbuf)
+static int tagsistant_statfs(const char *path, struct statfs *stbuf)
 {
-    int res = 0, tagfs_errno = 0;
+    int res = 0, tagsistant_errno = 0;
 	(void) path;
 
 	init_time_profile();
 	start_time_profile();
 	
-	res = statfs(tagfs.repository, stbuf);
-	tagfs_errno = errno;
+	res = statfs(tagsistant.repository, stbuf);
+	tagsistant_errno = errno;
 
 	stop_labeled_time_profile("statfs");
-    return (res == -1) ? -tagfs_errno : 0;
+    return (res == -1) ? -tagsistant_errno : 0;
 }
 
 #endif
 
-static int tagfs_release(const char *path, struct fuse_file_info *fi)
+static int tagsistant_release(const char *path, struct fuse_file_info *fi)
 {
     /* Just a stub.  This method is optional and can safely be left
        unimplemented */
@@ -1091,7 +1143,7 @@ static int tagfs_release(const char *path, struct fuse_file_info *fi)
 	return 0; /* REMOVE ME AFTER CODING */
 }
 
-static int tagfs_fsync(const char *path, int isdatasync,
+static int tagsistant_fsync(const char *path, int isdatasync,
                      struct fuse_file_info *fi)
 {
     /* Just a stub.  This method is optional and can safely be left
@@ -1106,7 +1158,7 @@ static int tagfs_fsync(const char *path, int isdatasync,
 
 #ifdef HAVE_SETXATTR
 /* xattr operations are optional and can safely be left unimplemented */
-static int tagfs_setxattr(const char *path, const char *name, const char *value,
+static int tagsistant_setxattr(const char *path, const char *name, const char *value,
                         size_t size, int flags)
 {
     int res;
@@ -1114,21 +1166,21 @@ static int tagfs_setxattr(const char *path, const char *name, const char *value,
 	return 0; /* REMOVE ME AFTER CODING */
 }
 
-static int tagfs_getxattr(const char *path, const char *name, char *value,
+static int tagsistant_getxattr(const char *path, const char *name, char *value,
                     size_t size)
 {
     int res;
 	return 0; /* REMOVE ME AFTER CODING */
 }
 
-static int tagfs_listxattr(const char *path, char *list, size_t size)
+static int tagsistant_listxattr(const char *path, char *list, size_t size)
 {
     int res;
 
 	return 0; /* REMOVE ME AFTER CODING */
 }
 
-static int tagfs_removexattr(const char *path, const char *name)
+static int tagsistant_removexattr(const char *path, const char *name)
 {
     int res;
 
@@ -1136,43 +1188,43 @@ static int tagfs_removexattr(const char *path, const char *name)
 }
 #endif /* HAVE_SETXATTR */
 
-static void *tagfs_init(void)
+static void *tagsistant_init(void)
 {
 	return 0;
 }
 
-static struct fuse_operations tagfs_oper = {
-    .getattr	= tagfs_getattr,
-    .readlink	= tagfs_readlink,
-    .readdir	= tagfs_readdir,
-    .mknod		= tagfs_mknod,
-    .mkdir		= tagfs_mkdir,
-    .symlink	= tagfs_symlink,
-    .unlink		= tagfs_unlink,
-    .rmdir		= tagfs_rmdir,
-    .rename		= tagfs_rename,
-    .link		= tagfs_link,
-    .chmod		= tagfs_chmod,
-    .chown		= tagfs_chown,
-    .truncate	= tagfs_truncate,
-    .utime		= tagfs_utime,
-    .open		= tagfs_open,
-    .read		= tagfs_read,
-    .write		= tagfs_write,
+static struct fuse_operations tagsistant_oper = {
+    .getattr	= tagsistant_getattr,
+    .readlink	= tagsistant_readlink,
+    .readdir	= tagsistant_readdir,
+    .mknod		= tagsistant_mknod,
+    .mkdir		= tagsistant_mkdir,
+    .symlink	= tagsistant_symlink,
+    .unlink		= tagsistant_unlink,
+    .rmdir		= tagsistant_rmdir,
+    .rename		= tagsistant_rename,
+    .link		= tagsistant_link,
+    .chmod		= tagsistant_chmod,
+    .chown		= tagsistant_chown,
+    .truncate	= tagsistant_truncate,
+    .utime		= tagsistant_utime,
+    .open		= tagsistant_open,
+    .read		= tagsistant_read,
+    .write		= tagsistant_write,
 #if FUSE_USE_VERSION == 25
-    .statfs		= tagfs_statvfs,
+    .statfs		= tagsistant_statvfs,
 #else
-    .statfs		= tagfs_statfs,
+    .statfs		= tagsistant_statfs,
 #endif
-    .release	= tagfs_release,
-    .fsync		= tagfs_fsync,
+    .release	= tagsistant_release,
+    .fsync		= tagsistant_fsync,
 #ifdef HAVE_SETXATTR
-    .setxattr	= tagfs_setxattr,
-    .getxattr	= tagfs_getxattr,
-    .listxattr	= tagfs_listxattr,
-    .removexattr= tagfs_removexattr,
+    .setxattr	= tagsistant_setxattr,
+    .getxattr	= tagsistant_getxattr,
+    .listxattr	= tagsistant_listxattr,
+    .removexattr= tagsistant_removexattr,
 #endif
-	.init		= tagfs_init,
+	.init		= tagsistant_init,
 };
 
 enum {
@@ -1181,20 +1233,20 @@ enum {
 };
 
 /* following code got from SSHfs sources */
-#define TAGFS_OPT(t, p, v) { t, offsetof(struct tagfs, p), v }
+#define TAGSISTANT_OPT(t, p, v) { t, offsetof(struct tagsistant, p), v }
 
-static struct fuse_opt tagfs_opts[] = {
-	TAGFS_OPT("-d",					debug,			1),
-	TAGFS_OPT("--repository=%s",	repository,		0),
-    TAGFS_OPT("-f",					foreground,		1),
-    TAGFS_OPT("-s",					singlethread,	1),
-    TAGFS_OPT("-r",					readonly,		1),
-
-    FUSE_OPT_KEY("-V",          	KEY_VERSION),
-    FUSE_OPT_KEY("--version",   	KEY_VERSION),
-    FUSE_OPT_KEY("-h",          	KEY_HELP),
-    FUSE_OPT_KEY("--help",      	KEY_HELP),
-    FUSE_OPT_END
+static struct fuse_opt tagsistant_opts[] = {
+	TAGSISTANT_OPT("-d",					debug,			1),
+	TAGSISTANT_OPT("--repository=%s",		repository,		0),
+	TAGSISTANT_OPT("-f",					foreground,		1),
+	TAGSISTANT_OPT("-s",					singlethread,	1),
+	TAGSISTANT_OPT("-r",					readonly,		1),
+	
+	FUSE_OPT_KEY("-V",          	KEY_VERSION),
+	FUSE_OPT_KEY("--version",   	KEY_VERSION),
+	FUSE_OPT_KEY("-h",          	KEY_HELP),
+	FUSE_OPT_KEY("--help",      	KEY_HELP),
+	FUSE_OPT_END
 };
 
 int usage_already_printed = 0;
@@ -1204,9 +1256,9 @@ void usage(char *progname)
 		return;
 
 	fprintf(stderr, "\n"
-		"TAGFS v.%s\n"
+		"Tagsistant (tagfs) v.%s\n"
 		"Semantic File System for Linux kernels\n"
-		"(c) 2006-2007 Tx0 <tx0@autistici.org>\n"
+		"(c) 2006-2007 Tx0 <tx0@strumentiresistenti.org>\n"
 		"FUSE_USE_VERSION: %d\n\n"
 		"This program is free software; you can redistribute it and/or modify\n"
 		"it under the terms of the GNU General Public License as published by\n"
@@ -1233,15 +1285,15 @@ void usage(char *progname)
 	);
 }
 
-static int tagfs_opt_proc(void *data, const char *arg, int key, struct fuse_args *outargs)
+static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse_args *outargs)
 {
     (void) data;
 	(void) arg;
 
     switch (key) {
 		case FUSE_OPT_KEY_NONOPT:
-			if (!tagfs.mountpoint) {
-				tagfs.mountpoint = strdup(arg);
+			if (!tagsistant.mountpoint) {
+				tagsistant.mountpoint = strdup(arg);
 				return 1;
 			}
 			return 0;
@@ -1249,14 +1301,14 @@ static int tagfs_opt_proc(void *data, const char *arg, int key, struct fuse_args
 	    case KEY_HELP:
 	        usage(outargs->argv[0]);
 	        fuse_opt_add_arg(outargs, "-ho");
-	        fuse_main(outargs->argc, outargs->argv, &tagfs_oper);
+	        fuse_main(outargs->argc, outargs->argv, &tagsistant_oper);
 	        exit(1);
 	
 	    case KEY_VERSION:
 	        fprintf(stderr, "Tagfs for Linux 0.1 (prerelease %s)\n", VERSION);
 #if FUSE_VERSION >= 25
 	        fuse_opt_add_arg(outargs, "--version");
-	        fuse_main(outargs->argc, outargs->argv, &tagfs_oper);
+	        fuse_main(outargs->argc, outargs->argv, &tagsistant_oper);
 #endif
 	        exit(0);
 	
@@ -1271,7 +1323,7 @@ static int tagfs_opt_proc(void *data, const char *arg, int key, struct fuse_args
 void cleanup(int s)
 {
 	dbg(LOG_ERR, "Got Signal %d in %s:%d", s, __FILE__, __LINE__);
-	sqlite3_close(tagfs.dbh);
+	sqlite3_close(tagsistant.dbh);
 	exit(s);
 }
 
@@ -1280,78 +1332,121 @@ int main(int argc, char *argv[])
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 	int res;
 
-	tagfs.progname = argv[0];
+	tagsistant.progname = argv[0];
 
-	if (fuse_opt_parse(&args, &tagfs, tagfs_opts, tagfs_opt_proc) == -1)
+	if (fuse_opt_parse(&args, &tagsistant, tagsistant_opts, tagsistant_opt_proc) == -1)
 		exit(1);
 
+	/*
+	fuse_opt_add_arg(&args, "-odefault_permissions,allow_other,fsname=tagsistant");
+	*/
+	fuse_opt_add_arg(&args, "-odefault_permissions,fsname=tagsistant");
+	fuse_opt_add_arg(&args, "-ouse_ino,readdir_ino");
+	if (tagsistant.singlethread) {
+		fprintf(stderr, " *** operating in single thread mode ***\n");
+		fuse_opt_add_arg(&args, "-s");
+	}
+	if (tagsistant.readonly) {
+		fprintf(stderr, " *** mounting tagsistant read-only ***\n");
+		fuse_opt_add_arg(&args, "-r");
+	}
+	if (tagsistant.foreground) {
+		fprintf(stderr, " *** will run in foreground ***\n");
+		fuse_opt_add_arg(&args, "-f");
+	}
+
+	fprintf(stderr, "\n");
+	fprintf(stderr,
+		" Tag based filesystem for Linux kernels\n"
+		" (c) 2006-2007 Tx0 <tx0@strumentiresistenti.org>\n"
+		" For license informations, see %s -h\n"
+		" FUSE_USE_VERSION: %d\n\n"
+		, tagsistant.progname, FUSE_USE_VERSION
+	);
+
 	/* checking mountpoint */
-	if (!tagfs.mountpoint) {
-		usage(tagfs.progname);
+	if (!tagsistant.mountpoint) {
+		usage(tagsistant.progname);
 		fprintf(stderr, "    *** No mountpoint provided *** \n\n");
 		exit(2);
 	}
 	
 	/* checking repository */
-	if (!tagfs.repository || (strcmp(tagfs.repository, "") == 0)) {
-		usage(tagfs.progname);
+	if (!tagsistant.repository || (strcmp(tagsistant.repository, "") == 0)) {
+		usage(tagsistant.progname);
 		fprintf(stderr, "    *** No repository provided with -r ***\n\n");
 		exit(2);
 	}
 
 	/* removing last slash */
-	int replength = strlen(tagfs.repository) - 1;
-	if (tagfs.repository[replength] == '/') {
-		tagfs.repository[replength] = '\0';
+	int replength = strlen(tagsistant.repository) - 1;
+	if (tagsistant.repository[replength] == '/') {
+		tagsistant.repository[replength] = '\0';
 	}
 
+	/* checking if repository path begings with ~ */
+	if (tagsistant.repository[0] == '~') {
+		char *home_path = getenv("HOME");
+		if (home_path != NULL) {
+			char *relative_path = strdup(tagsistant.repository + 1);
+			free(tagsistant.repository);
+			tagsistant.repository = calloc(sizeof(char), strlen(relative_path) + strlen(home_path) + 1);
+			strcpy(tagsistant.repository, home_path);
+			strcat(tagsistant.repository, relative_path);
+			free(relative_path);
+			dbg(LOG_INFO, "Repository path is %s", tagsistant.repository);
+		} else {
+			dbg(LOG_ERR, "Repository path starts with '~', but $HOME was not available!");
+		}
+	} else 
+
 	/* checking if repository is a relative path */
-	if (tagfs.repository[0] != '/') {
-		dbg(LOG_ERR, "Repository path is relative [%s]", tagfs.repository);
+	if (tagsistant.repository[0] != '/') {
+		dbg(LOG_ERR, "Repository path is relative [%s]", tagsistant.repository);
 		char *cwd = getcwd(NULL, 0);
 		if (cwd == NULL) {
 			dbg(LOG_ERR, "Error getting working directory, will leave repository path as is");
 		} else {
-			char *absolute_repository = calloc(sizeof(char), strlen(tagfs.repository) + strlen(cwd) + 2);
+			char *absolute_repository = calloc(sizeof(char), strlen(tagsistant.repository) + strlen(cwd) + 2);
 			if (absolute_repository == NULL) {
 				dbg(LOG_ERR, "Error allocaing memory @%s:%d", __FILE__, __LINE__);
 				dbg(LOG_ERR, "Repository path will be left as is");
 			} else {
 				strcpy(absolute_repository, cwd);
 				strcat(absolute_repository, "/");
-				strcat(absolute_repository, tagfs.repository);
-				free(tagfs.repository);
-				tagfs.repository = absolute_repository;
-				dbg(LOG_ERR, "Repository path is %s", tagfs.repository);
+				strcat(absolute_repository, tagsistant.repository);
+				free(tagsistant.repository);
+				tagsistant.repository = absolute_repository;
+				dbg(LOG_ERR, "Repository path is %s", tagsistant.repository);
 			}
 		}
 	}
 
 	struct stat repstat;
-	if (lstat(tagfs.repository, &repstat) == -1) {
-		if(mkdir(tagfs.repository, 755) == -1) {
-			fprintf(stderr, "    *** REPOSITORY: Can't mkdir(%s): %s ***\n\n", tagfs.repository, strerror(errno));
+	if (lstat(tagsistant.repository, &repstat) == -1) {
+		if(mkdir(tagsistant.repository, 755) == -1) {
+			fprintf(stderr, "    *** REPOSITORY: Can't mkdir(%s): %s ***\n\n", tagsistant.repository, strerror(errno));
 			exit(2);
 		}
 	}
-	chmod(tagfs.repository, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
+	chmod(tagsistant.repository, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
 
 	/* opening (or creating) SQL tags database */
-	tagfs.tags = malloc(strlen(tagfs.repository) + strlen("/tags.sql") + 1);
-	strcpy(tagfs.tags,tagfs.repository);
-	strcat(tagfs.tags,"/tags.sql");
+	tagsistant.tags = malloc(strlen(tagsistant.repository) + strlen("/tags.sql") + 1);
+	strcpy(tagsistant.tags,tagsistant.repository);
+	strcat(tagsistant.tags,"/tags.sql");
 
 	/* check if db exists or has to be created */
 	struct stat dbstat;
-	int db_exists = lstat(tagfs.tags, &dbstat);
+	int db_exists = lstat(tagsistant.tags, &dbstat);
 
 	/* open connection to sqlite database */
-	int result = sqlite3_open(tagfs.tags, &(tagfs.dbh));
+	int result = sqlite3_open(tagsistant.tags, &(tagsistant.dbh));
 
 	/* check if open has been fullfilled */
 	if (result != SQLITE_OK) {
-		dbg(LOG_ERR, "Error [%d] opening database %s", result, tagfs.tags);
-		dbg(LOG_ERR, "%s", sqlite3_errmsg(tagfs.dbh));
+		dbg(LOG_ERR, "Error [%d] opening database %s", result, tagsistant.tags);
+		dbg(LOG_ERR, "%s", sqlite3_errmsg(tagsistant.dbh));
 		exit(1);
 	}
 
@@ -1360,22 +1455,22 @@ int main(int argc, char *argv[])
 		char *sqlerror;
 		int sqlcode;
 		
-		sqlcode = sqlite3_exec(tagfs.dbh, CREATE_TAGS_TABLE, NULL, NULL, &sqlerror);
+		sqlcode = sqlite3_exec(tagsistant.dbh, CREATE_TAGS_TABLE, NULL, NULL, &sqlerror);
 		if (sqlcode != SQLITE_OK) {
 			dbg(LOG_ERR, "SQL error [%d] while creating tags table: %s", sqlcode, sqlerror);
 			exit(1);
 		}
-		sqlcode = sqlite3_exec(tagfs.dbh, CREATE_TAGGED_TABLE, NULL, NULL, &sqlerror);
+		sqlcode = sqlite3_exec(tagsistant.dbh, CREATE_TAGGED_TABLE, NULL, NULL, &sqlerror);
 		if (sqlcode != SQLITE_OK) {
 			dbg(LOG_ERR, "SQL error [%d] while creating tagged table: %s", sqlcode, sqlerror);
 			exit(1);
 		}
-		sqlcode = sqlite3_exec(tagfs.dbh, CREATE_CACHE_TABLE, NULL, NULL, &sqlerror);
+		sqlcode = sqlite3_exec(tagsistant.dbh, CREATE_CACHE_TABLE, NULL, NULL, &sqlerror);
 		if (sqlcode != SQLITE_OK) {
 			dbg(LOG_ERR, "SQL error [%d] while creating cache main table: %s", sqlcode, sqlerror);
 			exit(1);
 		}
-		sqlcode = sqlite3_exec(tagfs.dbh, CREATE_RESULT_TABLE, NULL, NULL, &sqlerror);
+		sqlcode = sqlite3_exec(tagsistant.dbh, CREATE_RESULT_TABLE, NULL, NULL, &sqlerror);
 		if (sqlcode != SQLITE_OK) {
 			dbg(LOG_ERR, "SQL error [%d] while creating cache results table: %s", sqlcode, sqlerror);
 			exit(1);
@@ -1383,46 +1478,19 @@ int main(int argc, char *argv[])
 	}
 
 	/* checking file archive directory */
-	tagfs.archive = malloc(strlen(tagfs.repository) + strlen("/archive/") + 1);
-	strcpy(tagfs.archive,tagfs.repository);
-	strcat(tagfs.archive,"/archive/");
+	tagsistant.archive = malloc(strlen(tagsistant.repository) + strlen("/archive/") + 1);
+	strcpy(tagsistant.archive,tagsistant.repository);
+	strcat(tagsistant.archive,"/archive/");
 
-	if (lstat(tagfs.archive, &repstat) == -1) {
-		if(mkdir(tagfs.archive, 755) == -1) {
-			fprintf(stderr, "    *** ARCHIVE: Can't mkdir(%s): %s ***\n\n", tagfs.archive, strerror(errno));
+	if (lstat(tagsistant.archive, &repstat) == -1) {
+		if(mkdir(tagsistant.archive, 755) == -1) {
+			fprintf(stderr, "    *** ARCHIVE: Can't mkdir(%s): %s ***\n\n", tagsistant.archive, strerror(errno));
 			exit(2);
 		}
 	}
-	chmod(tagfs.archive, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
+	chmod(tagsistant.archive, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
 
-	/*
-	fuse_opt_add_arg(&args, "-odefault_permissions,allow_other,fsname=tagfs");
-	*/
-	fuse_opt_add_arg(&args, "-odefault_permissions,fsname=tagfs");
-	fuse_opt_add_arg(&args, "-ouse_ino,readdir_ino");
-	if (tagfs.singlethread) {
-		fprintf(stderr, " *** operating in single thread mode ***\n");
-		fuse_opt_add_arg(&args, "-s");
-	}
-	if (tagfs.readonly) {
-		fprintf(stderr, " *** mounting tagfs read-only ***\n");
-		fuse_opt_add_arg(&args, "-r");
-	}
-	if (tagfs.foreground) {
-		fprintf(stderr, " *** will run in foreground ***\n");
-		fuse_opt_add_arg(&args, "-f");
-	}
-
-	fprintf(stderr, "\n");
-	fprintf(stderr,
-		" Tag based filesystem for Linux kernels\n"
-		" (c) 2006-2007 Tx0 <tx0@autistici.org>\n"
-		" For license informations, see %s -h\n"
-		" FUSE_USE_VERSION: %d\n\n"
-		, tagfs.progname, FUSE_USE_VERSION
-	);
-
-	if (tagfs.debug) debug = tagfs.debug;
+	if (tagsistant.debug) debug = tagsistant.debug;
 
 	if (debug)
 		dbg(LOG_INFO, "Debug is enabled");
@@ -1448,7 +1516,7 @@ int main(int argc, char *argv[])
 		fargc--;
 	}
 
-	res = fuse_main(args.argc, args.argv, &tagfs_oper);
+	res = fuse_main(args.argc, args.argv, &tagsistant_oper);
 
     fuse_opt_free_args(&args);
 
@@ -1471,9 +1539,9 @@ int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, cha
 	 * 2. database handle location is empty (means: create new dbh and return it)
 	 */
 	if ((dbh == NULL) || (*dbh == NULL)) {
-		result = sqlite3_open(tagfs.tags, intdbh);
+		result = sqlite3_open(tagsistant.tags, intdbh);
 		if (result != SQLITE_OK) {
-			dbg(LOG_ERR, "Error [%d] opening database %s", result, tagfs.tags);
+			dbg(LOG_ERR, "Error [%d] opening database %s", result, tagsistant.tags);
 			dbg(LOG_ERR, "%s", sqlite3_errmsg(*intdbh));
 			return 0;
 		}
@@ -1483,7 +1551,7 @@ int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, cha
 
 	char *sqlerror;
 	dbg(LOG_INFO, "SQL: \"%s\"", statement);
-	result = sqlite3_exec(tagfs.dbh, statement, callback, firstarg, &sqlerror);
+	result = sqlite3_exec(tagsistant.dbh, statement, callback, firstarg, &sqlerror);
 	if (result != SQLITE_OK) {
 		dbg(LOG_ERR, "SQL error: [%d] %s @%s:%u", result, sqlerror, file, line);
 		sqlite3_free(sqlerror);

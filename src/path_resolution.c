@@ -1,6 +1,6 @@
 /*
-   TAGFS -- path_resolution.h
-   Copyright (C) 2006-2007 Tx0 <tx0@autistici.org>
+   Tagsistant (tagfs) -- path_resolution.h
+   Copyright (C) 2006-2007 Tx0 <tx0@strumentiresistenti.org>
 
    Transform paths in queries and apply queries to file sets to
    grep files matching with queries.
@@ -20,7 +20,7 @@
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
 */
 
-#include "mount.tagfs.h"
+#include "tagsistant.h"
 
 char *get_tag_name(const char *path)
 {
@@ -32,12 +32,12 @@ char *get_tag_name(const char *path)
 
 char *get_file_path(const char *tag)
 {
-	char *filepath = malloc(strlen(tagfs.archive) + strlen(tag) + 1);
+	char *filepath = malloc(strlen(tagsistant.archive) + strlen(tag) + 1);
 	if (filepath == NULL) {
 		dbg(LOG_ERR, "error allocating memory in get_file_path");
 		return NULL;
 	}
-	strcpy(filepath,tagfs.archive);
+	strcpy(filepath,tagsistant.archive);
 	strcat(filepath,tag);
 	return filepath;
 }
@@ -313,7 +313,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	do_sql(NULL, sql, NULL, NULL);
 	free(sql);
  
-	sqlite_int64 id = sqlite3_last_insert_rowid(tagfs.dbh);
+	sqlite_int64 id = sqlite3_last_insert_rowid(tagsistant.dbh);
 
 #if 0
 	sql = calloc(sizeof(char), strlen(GET_ID_OF_CACHE) + strlen(path) + 1);
@@ -322,7 +322,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 		return 0;
 	}
 
-	if (sqlite3_exec(tagfs.dbh, sql, get_id, &id, &sqlerror) != SQLITE_OK) {
+	if (sqlite3_exec(tagsistant.dbh, sql, get_id, &id, &sqlerror) != SQLITE_OK) {
 		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
 		sqlite3_free(sqlerror);
 	}
