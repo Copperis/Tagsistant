@@ -1003,7 +1003,7 @@ int internal_open(const char *filepath, int flags, int *_errno)
 /* OK */
 static int tagsistant_open(const char *path, struct fuse_file_info *fi)
 {
-    int res = 0, tagsistant_errno = 0;
+    int res = -1, tagsistant_errno = ENOENT;
 	char *filename, *filepath, *tagname;
 	get_filename_and_tagname(path, &filename, &filepath, &tagname);
 
@@ -1012,11 +1012,18 @@ static int tagsistant_open(const char *path, struct fuse_file_info *fi)
 
 	dbg(LOG_INFO, "OPEN: %s", path);
 
-	if (is_tagged(filename, tagname)) {
-		res = internal_open(filepath, fi->flags|O_RDONLY, &tagsistant_errno);
-	} else  {
-		res = -1;
-		tagsistant_errno = ENOENT;
+	ptree_or_node_t *pt = build_querytree(path);
+	ptree_or_node_t *ptx = pt;
+	while (ptx != NULL && res == -1) {
+		ptree_and_node_t *and = ptx->and_set;
+		while (and != NULL && res == -1) {
+			if (is_tagged(filename, and->tag)) {
+				res = internal_open(filepath, fi->flags|O_RDONLY, &tagsistant_errno);
+				if (res != -1) close(res);
+			}
+			and = and->next;
+		}
+		ptx = ptx->next;
 	}
 
 	free(filename);
@@ -1342,6 +1349,17 @@ int main(int argc, char *argv[])
 	*/
 	fuse_opt_add_arg(&args, "-odefault_permissions,fsname=tagsistant");
 	fuse_opt_add_arg(&args, "-ouse_ino,readdir_ino");
+
+	/*
+	 * NOTE
+	 *
+	 * SQLite library is often called "out of sequence" like in
+	 * performing a query before having connected to sql database.
+	 * to temporary solve this problem we force here single threaded
+	 * operations. should be really solved by better read_do_sql()
+	 */
+	tagsistant.singlethread = 1;
+
 	if (tagsistant.singlethread) {
 		fprintf(stderr, " *** operating in single thread mode ***\n");
 		fuse_opt_add_arg(&args, "-s");
