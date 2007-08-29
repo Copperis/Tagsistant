@@ -154,13 +154,13 @@
 #define PACKAGE_NAME "tagsistant"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "tagsistant 0.0.20061220"
+#define PACKAGE_STRING "tagsistant 0.0.20070829"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "tagsistant"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "0.0.20061220"
+#define PACKAGE_VERSION "0.0.20070829"
 
 /* Define as the return type of signal handlers (`int' or `void'). */
 #define RETSIGTYPE void
@@ -169,7 +169,7 @@
 #define STDC_HEADERS 1
 
 /* Version number of package */
-#define VERSION "0.0.20061220"
+#define VERSION "0.0.20070829"
 
 /* Define to empty if `const' does not conform to ANSI C. */
 /* #undef const */
