@@ -5,7 +5,7 @@ AC_PREREQ(2.59)
 AC_INIT([tagsistant], [0.0.20061220], [tx0@strumentiresistenti.org])
 AM_INIT_AUTOMAKE(tagsistant, 0.0.20061220)
 AC_COPYRIGHT([tagsistant is (C) Tx0 <tx0@strumentiresistenti.org>])
-AC_CONFIG_SRCDIR([src/mount.tagsistant.c])
+AC_CONFIG_SRCDIR([src/tagsistant.c])
 AC_CONFIG_HEADER([config.h])
 
 # AC_PROG_LIBTOOL
@@ -43,17 +43,6 @@ AC_CHECK_FUNCS([inet_ntoa lchown mempcpy memset mkdir rmdir setenv socket strdup
 
 dnl AC_SUBST([CFLAGS],["${CFLAGS} -g -O0 -D_FILE_OFFSET_BITS=64 -Wall -W"])
 AC_SUBST([CFLAGS],["${CFLAGS} -D_FILE_OFFSET_BITS=64 -Wall -W"])
-
-# check for packed dump facility
-pkt_dump=no
-AC_ARG_ENABLE(
-	[pkt-dump],
-	[AS_HELP_STRING([--enable-pkt-dump], [support packet dumps @<:@default=no@:>@])],
-	[pkt_dump=yes]
-)
-if test [ "x$pkt_dump" == "xyes" ]; then
-	AC_SUBST([CFLAGS],["-D_ENABLE_DUMP_TO_FILE ${CFLAGS}"])
-fi
 
 # add option for debugging on console instead of through syslog facility
 debug_stderr=no

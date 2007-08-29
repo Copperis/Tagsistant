@@ -275,7 +275,7 @@ PACKAGE_VERSION='0.0.20061220'
 PACKAGE_STRING='tagsistant 0.0.20061220'
 PACKAGE_BUGREPORT='tx0@strumentiresistenti.org'
 
-ac_unique_file="src/mount.tagsistant.c"
+ac_unique_file="src/tagsistant.c"
 # Factoring default headers for most tests.
 ac_includes_default="\
 #include <stdio.h>
