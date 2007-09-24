@@ -1263,30 +1263,30 @@ void usage(char *progname)
 		return;
 
 	fprintf(stderr, "\n"
-		"Tagsistant (tagfs) v.%s\n"
-		"Semantic File System for Linux kernels\n"
-		"(c) 2006-2007 Tx0 <tx0@strumentiresistenti.org>\n"
-		"FUSE_USE_VERSION: %d\n\n"
-		"This program is free software; you can redistribute it and/or modify\n"
-		"it under the terms of the GNU General Public License as published by\n"
-		"the Free Software Foundation; either version 2 of the License, or\n"
-		"(at your option) any later version.\n\n"
+		" Tagsistant (tagfs) v.%s\n"
+		" Semantic File System for Linux kernels\n"
+		" (c) 2006-2007 Tx0 <tx0@strumentiresistenti.org>\n"
+		" FUSE_USE_VERSION: %d\n\n"
+		" This program is free software; you can redistribute it and/or modify\n"
+		" it under the terms of the GNU General Public License as published by\n"
+		" the Free Software Foundation; either version 2 of the License, or\n"
+		" (at your option) any later version.\n\n"
 
-		"This program is distributed in the hope that it will be useful,\n"
-		"but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
-		"MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
-		"GNU General Public License for more details.\n\n"
+		" This program is distributed in the hope that it will be useful,\n"
+		" but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
+		" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
+		" GNU General Public License for more details.\n\n"
 
-		"You should have received a copy of the GNU General Public License\n"
-		"along with this program; if not, write to the Free Software\n"
-		"Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA\n"
+		" You should have received a copy of the GNU General Public License\n"
+		" along with this program; if not, write to the Free Software\n"
+		" Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA\n"
+		" \n"
+		" Usage: %s [OPTIONS] [--repository=<PATH>] /mountpoint\n"
 		"\n"
-		"Usage: %s [OPTIONS] --repository=<PATH> /mountpoint\n"
-		"\n"
-		"    -u  unmount a mounted filesystem\n"
-		"    -q  be quiet\n"
-		"    -r  mount readonly\n"
-		"    -z  lazy unmount (can be dangerous!)\n"
+		"  -u  unmount a mounted filesystem\n"
+		"  -q  be quiet\n"
+		"  -r  mount readonly\n"
+		"  -z  lazy unmount (can be dangerous!)\n"
 		"\n" /*fuse options will follow... */
 		, PACKAGE_VERSION, FUSE_USE_VERSION, progname
 	);
@@ -1373,6 +1373,13 @@ int main(int argc, char *argv[])
 		fuse_opt_add_arg(&args, "-f");
 	}
 
+	/* checking mountpoint */
+	if (!tagsistant.mountpoint) {
+		usage(tagsistant.progname);
+		fprintf(stderr, " *** No mountpoint provided *** \n\n");
+		exit(2);
+	}
+
 	fprintf(stderr, "\n");
 	fprintf(stderr,
 		" Tag based filesystem for Linux kernels\n"
@@ -1381,19 +1388,21 @@ int main(int argc, char *argv[])
 		" FUSE_USE_VERSION: %d\n\n"
 		, tagsistant.progname, FUSE_USE_VERSION
 	);
-
-	/* checking mountpoint */
-	if (!tagsistant.mountpoint) {
-		usage(tagsistant.progname);
-		fprintf(stderr, "    *** No mountpoint provided *** \n\n");
-		exit(2);
-	}
 	
 	/* checking repository */
 	if (!tagsistant.repository || (strcmp(tagsistant.repository, "") == 0)) {
-		usage(tagsistant.progname);
-		fprintf(stderr, "    *** No repository provided with -r ***\n\n");
-		exit(2);
+		if (strlen(getenv("HOME"))) {
+			int replength = strlen(getenv("HOME")) + strlen("/.tagsistant") + 1;
+			free(tagsistant.repository);
+			tagsistant.repository = calloc(replength, sizeof(char));
+			strcat(tagsistant.repository, getenv("HOME"));
+			strcat(tagsistant.repository, "/.tagsistant");
+			fprintf(stderr, " Using default repository %s\n\n", tagsistant.repository);
+		} else {
+			usage(tagsistant.progname);
+			fprintf(stderr, " *** No repository provided with -r ***\n\n");
+			exit(2);
+		}
 	}
 
 	/* removing last slash */
@@ -1443,7 +1452,7 @@ int main(int argc, char *argv[])
 	struct stat repstat;
 	if (lstat(tagsistant.repository, &repstat) == -1) {
 		if(mkdir(tagsistant.repository, 755) == -1) {
-			fprintf(stderr, "    *** REPOSITORY: Can't mkdir(%s): %s ***\n\n", tagsistant.repository, strerror(errno));
+			fprintf(stderr, " *** REPOSITORY: Can't mkdir(%s): %s ***\n\n", tagsistant.repository, strerror(errno));
 			exit(2);
 		}
 	}
@@ -1502,7 +1511,7 @@ int main(int argc, char *argv[])
 
 	if (lstat(tagsistant.archive, &repstat) == -1) {
 		if(mkdir(tagsistant.archive, 755) == -1) {
-			fprintf(stderr, "    *** ARCHIVE: Can't mkdir(%s): %s ***\n\n", tagsistant.archive, strerror(errno));
+			fprintf(stderr, " *** ARCHIVE: Can't mkdir(%s): %s ***\n\n", tagsistant.archive, strerror(errno));
 			exit(2);
 		}
 	}
