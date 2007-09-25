@@ -64,13 +64,13 @@ DIST_SOURCES = $(tagsistant_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-ACLOCAL = ${SHELL} /home/andrea/t/missing --run aclocal-1.9
+ACLOCAL = ${SHELL} /media/cf/MySoft/C/tagsistant/missing --run aclocal-1.9
 AMDEP_FALSE = #
 AMDEP_TRUE = 
-AMTAR = ${SHELL} /home/andrea/t/missing --run tar
-AUTOCONF = ${SHELL} /home/andrea/t/missing --run autoconf
-AUTOHEADER = ${SHELL} /home/andrea/t/missing --run autoheader
-AUTOMAKE = ${SHELL} /home/andrea/t/missing --run automake-1.9
+AMTAR = ${SHELL} /media/cf/MySoft/C/tagsistant/missing --run tar
+AUTOCONF = ${SHELL} /media/cf/MySoft/C/tagsistant/missing --run autoconf
+AUTOHEADER = ${SHELL} /media/cf/MySoft/C/tagsistant/missing --run autoheader
+AUTOMAKE = ${SHELL} /media/cf/MySoft/C/tagsistant/missing --run automake-1.9
 AWK = gawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
@@ -93,7 +93,7 @@ LDFLAGS =
 LIBOBJS = 
 LIBS = -lsqlite3 -lfuse 
 LTLIBOBJS = 
-MAKEINFO = ${SHELL} /home/andrea/t/missing --run makeinfo
+MAKEINFO = ${SHELL} /media/cf/MySoft/C/tagsistant/missing --run makeinfo
 OBJEXT = o
 PACKAGE = tagsistant
 PACKAGE_BUGREPORT = tx0@strumentiresistenti.org
@@ -122,7 +122,7 @@ exec_prefix = ${prefix}
 host_alias = 
 includedir = ${prefix}/include
 infodir = ${prefix}/info
-install_sh = /home/andrea/t/install-sh
+install_sh = /media/cf/MySoft/C/tagsistant/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localstatedir = ${prefix}/var
@@ -138,8 +138,8 @@ target_alias =
 tagsistant_SOURCES = tagsistant.c path_resolution.c\
 	compat/fuse_opt.c debug.h debug_free_calls.h
 
-tagsistant_CFLAGS = 
-tagsistant_LDFLAGS = -lfuse -lsqlite3
+tagsistant_CFLAGS = -D'PLUGINS_DIR="${exec_prefix}/libexec/tagsistant"'
+tagsistant_LDFLAGS = -lfuse -lsqlite3 -ldl
 all: all-am
 
 .SUFFIXES:

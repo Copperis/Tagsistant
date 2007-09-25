@@ -68,6 +68,7 @@
 #include <netinet/in.h>
 #include <utime.h>
 #include <signal.h>
+#include <dlfcn.h> /* for dlopen() and friends */
 
 #ifdef HAVE_SETXATTR
 #include <sys/xattr.h>
@@ -114,40 +115,76 @@
 #define DROP_QUERY_BY_ID	"delete from cache_queries where id = %s;"
 #define DROP_QUERY			"delete from cache_queries where path like '%%/%s/%%' or path like '%%/%s';"
 
-struct ptree_and_node {
+/**
+ * defines an AND token in a query path
+ */
+typedef struct ptree_and_node {
+	/** the name of this token */
 	char *tag;
+
+	/** next AND token */
 	struct ptree_and_node *next;
-};
+} ptree_and_node_t;
 
-typedef struct ptree_and_node ptree_and_node_t;
-
-struct ptree_or_node {
+/**
+ * define an OR section in a query path
+ */
+typedef struct ptree_or_node {
+	/** the next OR section */	
 	struct ptree_or_node *next;
+
+	/** the list of AND tokens */
 	struct ptree_and_node *and_set;
-};
+} ptree_or_node_t;
 
-typedef struct ptree_or_node ptree_or_node_t;
-
-
+/**
+ * used in linked list of returned results
+ */
 typedef struct file_handle {
+	/** filename pointed by this structure */
 	char *name;
+
+	/** next element in results */
 	struct file_handle *next;
 } file_handle_t;
 
-/* defines command line options for tagsistant mount tool */
+/**
+ * holds a pointer to a processing funtion
+ * exported by a plugin
+ */
+typedef struct tagsistant_plugin {
+	/** MIME type managed by this plugins */
+	char *mime_type;
+
+	/** file name of this plugin */
+	char *filename;
+
+	/** handle to plugin returned by dlopen() */
+	void *handle;
+
+	/** hook to processing function */
+	int (*processor)(char *);
+
+	/** next plugin in linked list */
+	struct tagsistant_plugin *next;
+} tagsistant_plugin_t;
+
+/**
+ * defines command line options for tagsistant mount tool
+ */
 struct tagsistant {
-	int      debug;			/* enable debug */
-	int		 foreground;	/* run in foreground */
-	int		 singlethread;	/* single thread? */
-	int		 readonly;		/* mount filesystem readonly */
+	int      debug;			/**< enable debug */
+	int		 foreground;	/**< run in foreground */
+	int		 singlethread;	/**< single thread? */
+	int		 readonly;		/**< mount filesystem readonly */
 
-	char    *progname;		/* mount.tagsistant */
-	char    *mountpoint;	/* no clue? */
-	char    *repository;	/* where's archived files and tags no? */
-	char    *archive;		/* a directory holding all the files */
-	char    *tags;			/* a SQLite database on file */
+	char    *progname;		/**< mount.tagsistant */
+	char    *mountpoint;	/**< no clue? */
+	char    *repository;	/**< where's archived files and tags no? */
+	char    *archive;		/**< a directory holding all the files */
+	char    *tags;			/**< a SQLite database on file */
 
-	sqlite3 *dbh;			/* database handle to operate on SQLite thingy */
+	sqlite3 *dbh;			/**< database handle to operate on SQLite thingy */
 };
 
 extern struct tagsistant tagsistant;

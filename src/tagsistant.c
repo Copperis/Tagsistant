@@ -1334,6 +1334,11 @@ void cleanup(int s)
 	exit(s);
 }
 
+/**
+ * the head of plugin list
+ */
+tagsistant_plugin_t *plugins = NULL;
+
 int main(int argc, char *argv[])
 {
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
@@ -1533,6 +1538,72 @@ int main(int argc, char *argv[])
 	signal(11, cleanup); /* SIGSEGV */
 	signal(15, cleanup); /* SIGTERM */
 #endif
+
+	/*
+	 * loading plugins
+	 */
+	char *tagsistant_plugins = NULL;
+	if (getenv("TAGSISTANT_PLUGINS") != NULL) {
+		tagsistant_plugins = strdup(getenv("TAGSISTANT_PLUGINS"));
+		fprintf(stderr, " *** using user defined plugin dir: %s ***\n", tagsistant_plugins);
+	} else {
+		tagsistant_plugins = strdup(PLUGINS_DIR);
+		fprintf(stderr, " *** using default plugin dir: %s ***\n", tagsistant_plugins);
+	}
+
+	struct stat *st = NULL;
+	if ((lstat(tagsistant_plugins, st) != -1) && S_ISDIR(st->st_mode)) {
+		int ld_library_path_length = strlen(getenv("LD_LIBRARY_PATH")) + 1 + strlen(tagsistant_plugins);
+		char *NEW_LD_LIBRARY_PATH = calloc(ld_library_path_length, sizeof(char));
+		strcat(NEW_LD_LIBRARY_PATH, getenv("LD_LIBRARY_PATH"));
+		strcat(NEW_LD_LIBRARY_PATH, ":");
+		strcat(NEW_LD_LIBRARY_PATH, tagsistant_plugins);
+
+		DIR *p = opendir(tagsistant_plugins);
+		if (p != NULL) {
+			struct dirent *de;
+			while ((de = readdir(p)) != NULL) {
+				fprintf(stderr, " *** loading plugin: %s ***\n", de->d_name);
+
+				/* allocate new plugin object */
+				tagsistant_plugin_t *plugin = NULL;
+				while ((plugin = calloc(1, sizeof(tagsistant_plugin_t))) == NULL);
+
+				/* load the plugin */
+				plugin->handle = dlopen(de->d_name, RTLD_NOW);
+				if (plugin->handle != NULL) {
+
+					/* search for processor function */
+					plugin->processor = dlsym(plugin->handle, "processor");	
+					if (plugin->processor != NULL) {
+
+						/* add this plugin */
+						if (plugins == NULL) {
+							plugins = plugin;
+						} else {
+							tagsistant_plugin_t *cursor = plugins;
+							while (cursor->next != NULL) {
+								cursor = cursor->next;
+							}
+							cursor->next = plugin;
+						}
+						plugin->next = NULL;
+
+					} else {
+						fprintf(stderr, " *** error finding %s processor function: %s ***\n", de->d_name, dlerror());
+					}
+
+				} else {
+					fprintf(stderr, " *** error dlopen()ing plugin %s: %s ***\n", de->d_name, dlerror());
+				}
+			}
+			closedir(p);
+		} else {
+			fprintf(stderr, " *** error opening plugin directory %s ***\n", tagsistant_plugins);
+		}
+	} else {
+		fprintf(stderr, " *** error opening directory %s: %s ***\n", tagsistant_plugins, strerror(errno));
+	}
 
 	dbg(LOG_INFO, "Mounting filesystem");
 
