@@ -7,5 +7,6 @@ tagsistant_SOURCES = tagsistant.c path_resolution.c\
 tagsistant_CFLAGS = -D'PLUGINS_DIR="@libdir@/"'
 tagsistant_LDFLAGS = -lfuse -lsqlite3 -ldl
 
-lib_LTLIBRARIES = libtagsistant_generic-0.1.la
+lib_LTLIBRARIES = libtagsistant_generic-0.1.la libtagsistant_mp3-0.1.la
 libtagsistant_generic_0_1_la_SOURCES = tagsistant.h tp_generic.c
+libtagsistant_mp3_0_1_la_SOURCES = tagsistant.h tp_mp3.c

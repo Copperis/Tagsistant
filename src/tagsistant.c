@@ -1673,7 +1673,7 @@ int main(int argc, char *argv[])
 							/* add this plugin on queue head */
 							plugin->next = plugins;
 							plugins = plugin;
-							fprintf(stderr, " Loaded plugin: [%s]\n", de->d_name);
+							fprintf(stderr, " Loaded plugin %s for \"%s\"\n", de->d_name, plugin->mime_type);
 						}
 					}
 				}
