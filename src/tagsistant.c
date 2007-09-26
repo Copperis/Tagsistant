@@ -1,5 +1,5 @@
 /*
-   Tagsistant (tagfs) -- mount.tagsistant.c
+   Tagsistant (tagfs) -- tagsistant.c
    Copyright (C) 2006-2007 Tx0 <tx0@strumentiresistenti.org>
 
    Tagsistant (tagfs) mount binary written using FUSE userspace library.
@@ -52,7 +52,7 @@ void init_syslog()
 	if (log_enabled)
 		return;
 
-	openlog("mount.tagsistant", LOG_PID, LOG_DAEMON);
+	openlog("tagsistant", LOG_PID, LOG_DAEMON);
 	log_enabled = 1;
 }
 #endif
@@ -1339,6 +1339,52 @@ void cleanup(int s)
  */
 tagsistant_plugin_t *plugins = NULL;
 
+/**
+ * guess the MIME type of passed filename
+ *
+ * \param filename file to be processed (just the name, will be looked up in /archive)
+ * \return the string rappresenting MIME type (like "audio/mpeg"); the string is dynamically
+ *   allocated and need to be free()ed by outside code
+ * \todo still to be coded
+ */
+char *get_file_mimetype(const char *filename)
+{
+	(void) filename;
+	return strdup("audio/mpeg");
+}
+
+/**
+ * process a file using plugin chain
+ *
+ * \param filename file to be processed (just the name, will be looked up in /archive)
+ * \return zero on fault, one on success
+ */
+int process(const char *filename)
+{
+	int res = 0, process_res = 0;
+
+	char *mime_type = get_file_mimetype(filename);
+
+	/* apply plugins in order */
+	tagsistant_plugin_t *plugin = plugins;
+	while (plugin != NULL) {
+		if ((strcmp(plugin->mime_type, mime_type) == 0) || (strcmp(plugin->mime_type, "*/*") == 0)) {
+			process_res = (plugin->processor)(filename);
+
+			/* report about processing */
+			if (process_res == 0) {
+				dbg(LOG_ERR, "Plugin %s was supposed to apply to %s, but failed!", plugin->filename, filename);
+			} else if (process_res == 2) {
+				dbg(LOG_INFO, "Plugin %s terminated plugin chain on file %s", plugin->filename, filename);
+			}
+		}
+		plugin = plugin->next;
+	}
+
+	free(mime_type);
+	return res;
+}
+
 int main(int argc, char *argv[])
 {
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
@@ -1402,7 +1448,7 @@ int main(int argc, char *argv[])
 			tagsistant.repository = calloc(replength, sizeof(char));
 			strcat(tagsistant.repository, getenv("HOME"));
 			strcat(tagsistant.repository, "/.tagsistant");
-			fprintf(stderr, " Using default repository %s\n\n", tagsistant.repository);
+			fprintf(stderr, " Using default repository %s\n", tagsistant.repository);
 		} else {
 			usage(tagsistant.progname);
 			fprintf(stderr, " *** No repository provided with -r ***\n\n");
@@ -1545,64 +1591,96 @@ int main(int argc, char *argv[])
 	char *tagsistant_plugins = NULL;
 	if (getenv("TAGSISTANT_PLUGINS") != NULL) {
 		tagsistant_plugins = strdup(getenv("TAGSISTANT_PLUGINS"));
-		fprintf(stderr, " *** using user defined plugin dir: %s ***\n", tagsistant_plugins);
+		fprintf(stderr, " Using user defined plugin dir: %s\n", tagsistant_plugins);
 	} else {
 		tagsistant_plugins = strdup(PLUGINS_DIR);
-		fprintf(stderr, " *** using default plugin dir: %s ***\n", tagsistant_plugins);
+		fprintf(stderr, " Using default plugin dir: %s\n", tagsistant_plugins);
 	}
 
-	struct stat *st = NULL;
-	if ((lstat(tagsistant_plugins, st) != -1) && S_ISDIR(st->st_mode)) {
+	struct stat st;
+	if (lstat(tagsistant_plugins, &st) == -1) {
+		fprintf(stderr, " *** error opening directory %s: %s ***\n", tagsistant_plugins, strerror(errno));
+	} else if (!S_ISDIR(st.st_mode)) {
+		fprintf(stderr, " *** error opening directory %s: not a directory ***\n", tagsistant_plugins);
+	} else {
+#if 0
+		/* add this directory to LD_LIBRARY_PATH */
 		int ld_library_path_length = strlen(getenv("LD_LIBRARY_PATH")) + 1 + strlen(tagsistant_plugins);
 		char *NEW_LD_LIBRARY_PATH = calloc(ld_library_path_length, sizeof(char));
 		strcat(NEW_LD_LIBRARY_PATH, getenv("LD_LIBRARY_PATH"));
 		strcat(NEW_LD_LIBRARY_PATH, ":");
 		strcat(NEW_LD_LIBRARY_PATH, tagsistant_plugins);
+		setenv("LD_LIBRARY_PATH", NEW_LD_LIBRARY_PATH, 1);
+		free(NEW_LD_LIBRARY_PATH);
+		fprintf(stderr, " LD_LIBRARY_PATH = %s\n", getenv("LD_LIBRARY_PATH"));
+#endif
 
+		/* open directory and read contents */
 		DIR *p = opendir(tagsistant_plugins);
-		if (p != NULL) {
+		if (p == NULL) {
+			fprintf(stderr, " *** error opening plugin directory %s ***\n", tagsistant_plugins);
+		} else {
 			struct dirent *de;
 			while ((de = readdir(p)) != NULL) {
-				fprintf(stderr, " *** loading plugin: %s ***\n", de->d_name);
+				/* checking if file begins with tagsistant plugin prefix */
+				char *needle = strstr(de->d_name, TAGSISTANT_PLUGIN_PREFIX);
+				if ((needle == NULL) || (needle != de->d_name)) continue;
 
+				needle = strstr(de->d_name, ".so");
+				if ((needle == NULL) || (needle != de->d_name + strlen(de->d_name) - 3)) continue;
+
+				/* file is a tagsistant plugin (beginning by right prefix) and is processed */
 				/* allocate new plugin object */
 				tagsistant_plugin_t *plugin = NULL;
 				while ((plugin = calloc(1, sizeof(tagsistant_plugin_t))) == NULL);
 
+				char *pname = calloc(strlen(de->d_name) + strlen(tagsistant_plugins) + 2, sizeof(char));
+				strcat(pname, tagsistant_plugins);
+				strcat(pname, "/");
+				strcat(pname, de->d_name);
+
 				/* load the plugin */
-				plugin->handle = dlopen(de->d_name, RTLD_NOW);
-				if (plugin->handle != NULL) {
-
-					/* search for processor function */
-					plugin->processor = dlsym(plugin->handle, "processor");	
-					if (plugin->processor != NULL) {
-
-						/* add this plugin */
-						if (plugins == NULL) {
-							plugins = plugin;
-						} else {
-							tagsistant_plugin_t *cursor = plugins;
-							while (cursor->next != NULL) {
-								cursor = cursor->next;
-							}
-							cursor->next = plugin;
+				plugin->handle = dlopen(pname, RTLD_NOW);
+				if (plugin->handle == NULL) {
+					fprintf(stderr, " *** error dlopen()ing plugin %s: %s ***\n", de->d_name, dlerror());
+					free(plugin);
+				} else {
+					/* search for init function and call it */
+					int (*init_function)() = NULL;
+					init_function = dlsym(plugin->handle, "plugin_init");
+					if (init_function != NULL) {
+						int init_res = init_function();
+						if (!init_res) {
+							/* if init failed, ignore this plugin */
+							dbg(LOG_ERR, " *** error calling plugin_init() on %s ***\n", de->d_name);
+							free(plugin);
+							continue;
 						}
-						plugin->next = NULL;
-
-					} else {
-						fprintf(stderr, " *** error finding %s processor function: %s ***\n", de->d_name, dlerror());
 					}
 
-				} else {
-					fprintf(stderr, " *** error dlopen()ing plugin %s: %s ***\n", de->d_name, dlerror());
+					/* search for MIME type string */
+					plugin->mime_type = dlsym(plugin->handle, "mime_type");
+					if (plugin->mime_type == NULL) {
+						fprintf(stderr, " *** error finding %s processor function: %s ***\n", de->d_name, dlerror());
+						free(plugin);
+					} else {
+						/* search for processor function */
+						plugin->processor = dlsym(plugin->handle, "processor");	
+						if (plugin->processor == NULL) {
+							fprintf(stderr, " *** error finding %s processor function: %s ***\n", de->d_name, dlerror());
+							free(plugin);
+						} else {
+							/* add this plugin on queue head */
+							plugin->next = plugins;
+							plugins = plugin;
+							fprintf(stderr, " Loaded plugin: [%s]\n", de->d_name);
+						}
+					}
 				}
+				free(pname);
 			}
 			closedir(p);
-		} else {
-			fprintf(stderr, " *** error opening plugin directory %s ***\n", tagsistant_plugins);
 		}
-	} else {
-		fprintf(stderr, " *** error opening directory %s: %s ***\n", tagsistant_plugins, strerror(errno));
 	}
 
 	dbg(LOG_INFO, "Mounting filesystem");

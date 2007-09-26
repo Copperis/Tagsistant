@@ -23,6 +23,8 @@
 /* for developing purposes only */
 #define VERBOSE_DEBUG 1
 
+#define TAGSISTANT_PLUGIN_PREFIX "libtagsistant_"
+
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -162,8 +164,16 @@ typedef struct tagsistant_plugin {
 	/** handle to plugin returned by dlopen() */
 	void *handle;
 
-	/** hook to processing function */
-	int (*processor)(char *);
+	/**
+	 * hook to processing function
+	 *
+	 * \param filename the file to be processed
+	 * \return 0 on failure (the plugin wasn't unable to process the file), 1 on
+	 *   partial success (the plugin did processed the file, but later processing
+	 *   by other plugins is allowed) or 2 on successful processing (no further
+	 *   processing required).
+	 */
+	int (*processor)(const char *filename);
 
 	/** next plugin in linked list */
 	struct tagsistant_plugin *next;
