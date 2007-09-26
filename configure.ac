@@ -8,7 +8,7 @@ AC_COPYRIGHT([tagsistant is (C) Tx0 <tx0@strumentiresistenti.org>])
 AC_CONFIG_SRCDIR([src/tagsistant.c])
 AC_CONFIG_HEADER([config.h])
 
-# AC_PROG_LIBTOOL
+AC_PROG_LIBTOOL
 # AC_PROG_RANLIB
 
 # Checks for programs.
