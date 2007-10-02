@@ -1203,7 +1203,9 @@ static int tagsistant_write(const char *path, const char *buf, size_t size,
 
 	int fd = internal_open(filepath, fi->flags|O_WRONLY, &tagsistant_errno); 
 	if (fd != -1) {
+#if VERBOSE_DEBUG
 		dbg(LOG_INFO, "writing %d bytes to %s", size, path);
+#endif
 		res = pwrite(fd, buf, size, offset);
 		tagsistant_errno = errno;
 

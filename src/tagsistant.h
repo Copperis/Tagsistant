@@ -21,7 +21,7 @@
 */
 
 /* for developing purposes only */
-#define VERBOSE_DEBUG 1
+#define VERBOSE_DEBUG 0
 
 #define TAGSISTANT_PLUGIN_PREFIX "libtagsistant_"
 
