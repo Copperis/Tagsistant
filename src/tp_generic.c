@@ -35,6 +35,7 @@ int plugin_init()
 /* exported processor function */
 int processor(const char *filename)
 {
+	(void) filename;
 	return 2;
 }
 

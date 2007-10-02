@@ -278,6 +278,128 @@ int is_cached(const char *path)
 	return exists;
 }
 
+/******************\
+ * PLUGIN SUPPORT *
+\******************/
+
+/**
+ * the head of plugin list
+ */
+tagsistant_plugin_t *plugins = NULL;
+
+/**
+ * guess the MIME type of passed filename
+ *
+ * \param filename file to be processed (just the name, will be looked up in /archive)
+ * \return the string rappresenting MIME type (like "audio/mpeg"); the string is dynamically
+ *   allocated and need to be free()ed by outside code
+ * \todo still to be coded
+ */
+char *get_file_mimetype(const char *filename)
+{
+	char *type = NULL;
+
+	/* get file extension */
+	char *ext = rindex(filename, '.');
+	if (ext == NULL) {
+		return type;
+	}
+	ext++;
+	char *ext_space = malloc(strlen(ext)+2);
+	strcpy(ext_space, ext);
+	strcat(ext_space, " "); /* trailing space is used later in matching */
+
+	/* open /etc/mime.types */
+	FILE *f = fopen("/etc/mime.types", "r");
+	if (f == NULL) {
+		dbg(LOG_ERR, "Can't open /etc/mime.types");
+		return type;
+	}
+
+	/* parse /etc/mime.types */
+	char *line = NULL;
+	size_t len = 0;
+	while (getline(&line, &len, f) != -1) {
+		/* remove line break */
+		if (index(line, '\n') != NULL)
+			*(index(line, '\n')) = '\0';
+
+		/* get the mimetype and the extention list */
+		char *ext_list = index(line, '\t');
+		if (ext_list != NULL) {
+			while (*ext_list == '\t') {
+				*ext_list = '\0';
+				ext_list++;
+			}
+
+			while (*ext_list != '\0') {
+				if ((strstr(ext_list, ext) == ext_list) || (strstr(ext_list, ext_space) == ext_list)) {
+					type = strdup(line);
+					dbg(LOG_INFO, "File %s is %s", filename, type);
+					free(line);
+					goto BREAK_MIME_SEARCH;
+				}
+
+				/* advance to next extension */
+				while ((*ext_list != ' ') && (*ext_list != '\0')) ext_list++;
+				if (*ext_list == ' ') ext_list++;
+			}
+		}
+
+		if (line != NULL) free(line);
+		line = NULL;
+	}
+
+BREAK_MIME_SEARCH:
+	fclose(f);
+	return type;
+}
+
+/**
+ * process a file using plugin chain
+ *
+ * \param filename file to be processed (just the name, will be looked up in /archive)
+ * \return zero on fault, one on success
+ */
+int process(const char *filename)
+{
+	int res = 0, process_res = 0;
+
+	dbg(LOG_INFO, "Processing file %s", filename);
+
+	char *mime_type = get_file_mimetype(filename);
+	char *mime_generic = strdup(mime_type);
+	char *slash = index(mime_generic, '/');
+	slash++;
+	*slash = '*';
+	slash++;
+	*slash = '\0';
+
+	/* apply plugins in order */
+	tagsistant_plugin_t *plugin = plugins;
+	while (plugin != NULL) {
+		if (
+			(strcmp(plugin->mime_type, mime_type) == 0) ||
+			(strcmp(plugin->mime_type, mime_generic) == 0) ||
+			(strcmp(plugin->mime_type, "*/*") == 0)
+		) {
+			process_res = (plugin->processor)(filename);
+
+			/* report about processing */
+			if (process_res == 0) {
+				dbg(LOG_ERR, "Plugin %s was supposed to apply to %s, but failed!", plugin->filename, filename);
+			} else if (process_res == 2) {
+				dbg(LOG_INFO, "Plugin %s terminated plugin chain on file %s", plugin->filename, filename);
+			}
+		}
+		plugin = plugin->next;
+	}
+
+	free(mime_type);
+	free(mime_generic);
+	return res;
+}
+
 /**
  * lstat equivalent
  */
@@ -638,6 +760,8 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 	free(filename);
 	free(fullfilename);
 	free(tagname);
+
+	process(filename);
 
 	stop_labeled_time_profile("mknod");
 	dbg(LOG_INFO, "mknod(%s): %d %s", filename, res, strerror(tagsistant_errno));
@@ -1332,57 +1456,6 @@ void cleanup(int s)
 	dbg(LOG_ERR, "Got Signal %d in %s:%d", s, __FILE__, __LINE__);
 	sqlite3_close(tagsistant.dbh);
 	exit(s);
-}
-
-/**
- * the head of plugin list
- */
-tagsistant_plugin_t *plugins = NULL;
-
-/**
- * guess the MIME type of passed filename
- *
- * \param filename file to be processed (just the name, will be looked up in /archive)
- * \return the string rappresenting MIME type (like "audio/mpeg"); the string is dynamically
- *   allocated and need to be free()ed by outside code
- * \todo still to be coded
- */
-char *get_file_mimetype(const char *filename)
-{
-	(void) filename;
-	return strdup("audio/mpeg");
-}
-
-/**
- * process a file using plugin chain
- *
- * \param filename file to be processed (just the name, will be looked up in /archive)
- * \return zero on fault, one on success
- */
-int process(const char *filename)
-{
-	int res = 0, process_res = 0;
-
-	char *mime_type = get_file_mimetype(filename);
-
-	/* apply plugins in order */
-	tagsistant_plugin_t *plugin = plugins;
-	while (plugin != NULL) {
-		if ((strcmp(plugin->mime_type, mime_type) == 0) || (strcmp(plugin->mime_type, "*/*") == 0)) {
-			process_res = (plugin->processor)(filename);
-
-			/* report about processing */
-			if (process_res == 0) {
-				dbg(LOG_ERR, "Plugin %s was supposed to apply to %s, but failed!", plugin->filename, filename);
-			} else if (process_res == 2) {
-				dbg(LOG_INFO, "Plugin %s terminated plugin chain on file %s", plugin->filename, filename);
-			}
-		}
-		plugin = plugin->next;
-	}
-
-	free(mime_type);
-	return res;
 }
 
 int main(int argc, char *argv[])
