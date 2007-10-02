@@ -33,12 +33,14 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-subdir = .
+build_triplet = i686-pc-linux-gnu
+host_triplet = i686-pc-linux-gnu
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(srcdir)/config.h.in \
 	$(top_srcdir)/configure AUTHORS COPYING ChangeLog INSTALL NEWS \
 	compile config.guess config.sub depcomp install-sh ltmain.sh \
 	missing mkinstalldirs
+subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
@@ -70,27 +72,35 @@ DIST_ARCHIVES = $(distdir).tar.gz
 GZIP_ENV = --best
 distuninstallcheck_listfiles = find . -type f -print
 distcleancheck_listfiles = find . -type f -print
-ACLOCAL = ${SHELL} /media/cf/MySoft/C/tagsistant/missing --run aclocal-1.9
+ACLOCAL = ${SHELL} /home/andrea/tagsistant.diocane/missing --run aclocal-1.9
 AMDEP_FALSE = #
 AMDEP_TRUE = 
-AMTAR = ${SHELL} /media/cf/MySoft/C/tagsistant/missing --run tar
-AUTOCONF = ${SHELL} /media/cf/MySoft/C/tagsistant/missing --run autoconf
-AUTOHEADER = ${SHELL} /media/cf/MySoft/C/tagsistant/missing --run autoheader
-AUTOMAKE = ${SHELL} /media/cf/MySoft/C/tagsistant/missing --run automake-1.9
+AMTAR = ${SHELL} /home/andrea/tagsistant.diocane/missing --run tar
+AR = ar
+AUTOCONF = ${SHELL} /home/andrea/tagsistant.diocane/missing --run autoconf
+AUTOHEADER = ${SHELL} /home/andrea/tagsistant.diocane/missing --run autoheader
+AUTOMAKE = ${SHELL} /home/andrea/tagsistant.diocane/missing --run automake-1.9
 AWK = gawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
 CFLAGS = -D_DEBUG_SYSLOG -g -O2 -D_FILE_OFFSET_BITS=64 -Wall -W
 CPP = gcc -E
 CPPFLAGS = 
+CXX = g++
+CXXCPP = g++ -E
+CXXDEPMODE = depmode=gcc3
+CXXFLAGS = -g -O2
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
 DEPDIR = .deps
+ECHO = echo
 ECHO_C = 
 ECHO_N = -n
 ECHO_T = 
 EGREP = grep -E
 EXEEXT = 
+F77 = 
+FFLAGS = 
 INSTALL_DATA = ${INSTALL} -m 644
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_SCRIPT = ${INSTALL}
@@ -98,8 +108,10 @@ INSTALL_STRIP_PROGRAM = ${SHELL} $(install_sh) -c -s
 LDFLAGS = 
 LIBOBJS = 
 LIBS = -lsqlite3 -lfuse 
+LIBTOOL = $(SHELL) $(top_builddir)/libtool
+LN_S = ln -s
 LTLIBOBJS = 
-MAKEINFO = ${SHELL} /media/cf/MySoft/C/tagsistant/missing --run makeinfo
+MAKEINFO = ${SHELL} /home/andrea/tagsistant.diocane/missing --run makeinfo
 OBJEXT = o
 PACKAGE = tagsistant
 PACKAGE_BUGREPORT = tx0@strumentiresistenti.org
@@ -108,27 +120,42 @@ PACKAGE_STRING = tagsistant 0.0.20070829
 PACKAGE_TARNAME = tagsistant
 PACKAGE_VERSION = 0.0.20070829
 PATH_SEPARATOR = :
+RANLIB = ranlib
 SET_MAKE = 
 SHELL = /bin/sh
-STRIP = 
+STRIP = strip
 VERSION = 0.0.20070829
+ac_ct_AR = ar
 ac_ct_CC = gcc
-ac_ct_STRIP = 
+ac_ct_CXX = g++
+ac_ct_F77 = 
+ac_ct_RANLIB = ranlib
+ac_ct_STRIP = strip
 am__fastdepCC_FALSE = #
 am__fastdepCC_TRUE = 
+am__fastdepCXX_FALSE = #
+am__fastdepCXX_TRUE = 
 am__include = include
 am__leading_dot = .
 am__quote = 
 am__tar = ${AMTAR} chof - "$$tardir"
 am__untar = ${AMTAR} xf -
 bindir = ${exec_prefix}/bin
+build = i686-pc-linux-gnu
 build_alias = 
+build_cpu = i686
+build_os = linux-gnu
+build_vendor = pc
 datadir = ${prefix}/share
 exec_prefix = ${prefix}
+host = i686-pc-linux-gnu
 host_alias = 
+host_cpu = i686
+host_os = linux-gnu
+host_vendor = pc
 includedir = ${prefix}/include
 infodir = ${prefix}/info
-install_sh = /media/cf/MySoft/C/tagsistant/install-sh
+install_sh = /home/andrea/tagsistant.diocane/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localstatedir = ${prefix}/var
@@ -196,6 +223,15 @@ $(srcdir)/config.h.in:  $(am__configure_deps)
 
 distclean-hdr:
 	-rm -f config.h stamp-h1
+
+mostlyclean-libtool:
+	-rm -f *.lo
+
+clean-libtool:
+	-rm -rf .libs _libs
+
+distclean-libtool:
+	-rm -f libtool
 uninstall-info-am:
 
 # This directory's subdirectories are mostly independent; you can cd
@@ -502,12 +538,13 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-recursive
 
-clean-am: clean-generic mostlyclean-am
+clean-am: clean-generic clean-libtool mostlyclean-am
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -f Makefile
-distclean-am: clean-am distclean-generic distclean-hdr distclean-tags
+distclean-am: clean-am distclean-generic distclean-hdr \
+	distclean-libtool distclean-tags
 
 dvi: dvi-recursive
 
@@ -537,7 +574,7 @@ maintainer-clean-am: distclean-am maintainer-clean-generic
 
 mostlyclean: mostlyclean-recursive
 
-mostlyclean-am: mostlyclean-generic
+mostlyclean-am: mostlyclean-generic mostlyclean-libtool
 
 pdf: pdf-recursive
 
@@ -552,19 +589,19 @@ uninstall-am: uninstall-info-am
 uninstall-info: uninstall-info-recursive
 
 .PHONY: $(RECURSIVE_TARGETS) CTAGS GTAGS all all-am am--refresh check \
-	check-am clean clean-generic clean-recursive ctags \
-	ctags-recursive dist dist-all dist-bzip2 dist-gzip dist-shar \
-	dist-tarZ dist-zip distcheck distclean distclean-generic \
-	distclean-hdr distclean-recursive distclean-tags \
-	distcleancheck distdir distuninstallcheck dvi dvi-am html \
-	html-am info info-am install install-am install-data \
-	install-data-am install-exec install-exec-am install-info \
-	install-info-am install-man install-strip installcheck \
-	installcheck-am installdirs installdirs-am maintainer-clean \
-	maintainer-clean-generic maintainer-clean-recursive \
-	mostlyclean mostlyclean-generic mostlyclean-recursive pdf \
-	pdf-am ps ps-am tags tags-recursive uninstall uninstall-am \
-	uninstall-info-am
+	check-am clean clean-generic clean-libtool clean-recursive \
+	ctags ctags-recursive dist dist-all dist-bzip2 dist-gzip \
+	dist-shar dist-tarZ dist-zip distcheck distclean \
+	distclean-generic distclean-hdr distclean-libtool \
+	distclean-recursive distclean-tags distcleancheck distdir \
+	distuninstallcheck dvi dvi-am html html-am info info-am \
+	install install-am install-data install-data-am install-exec \
+	install-exec-am install-info install-info-am install-man \
+	install-strip installcheck installcheck-am installdirs \
+	installdirs-am maintainer-clean maintainer-clean-generic \
+	maintainer-clean-recursive mostlyclean mostlyclean-generic \
+	mostlyclean-libtool mostlyclean-recursive pdf pdf-am ps ps-am \
+	tags tags-recursive uninstall uninstall-am uninstall-info-am
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

@@ -489,22 +489,30 @@ s,@INSTALL_DATA@,${INSTALL} -m 644,;t t
 s,@CYGPATH_W@,echo,;t t
 s,@PACKAGE@,tagsistant,;t t
 s,@VERSION@,0.0.20070829,;t t
-s,@ACLOCAL@,${SHELL} /media/cf/MySoft/C/tagsistant/missing --run aclocal-1.9,;t t
-s,@AUTOCONF@,${SHELL} /media/cf/MySoft/C/tagsistant/missing --run autoconf,;t t
-s,@AUTOMAKE@,${SHELL} /media/cf/MySoft/C/tagsistant/missing --run automake-1.9,;t t
-s,@AUTOHEADER@,${SHELL} /media/cf/MySoft/C/tagsistant/missing --run autoheader,;t t
-s,@MAKEINFO@,${SHELL} /media/cf/MySoft/C/tagsistant/missing --run makeinfo,;t t
-s,@install_sh@,/media/cf/MySoft/C/tagsistant/install-sh,;t t
-s,@STRIP@,,;t t
-s,@ac_ct_STRIP@,,;t t
+s,@ACLOCAL@,${SHELL} /home/andrea/tagsistant.diocane/missing --run aclocal-1.9,;t t
+s,@AUTOCONF@,${SHELL} /home/andrea/tagsistant.diocane/missing --run autoconf,;t t
+s,@AUTOMAKE@,${SHELL} /home/andrea/tagsistant.diocane/missing --run automake-1.9,;t t
+s,@AUTOHEADER@,${SHELL} /home/andrea/tagsistant.diocane/missing --run autoheader,;t t
+s,@MAKEINFO@,${SHELL} /home/andrea/tagsistant.diocane/missing --run makeinfo,;t t
+s,@install_sh@,/home/andrea/tagsistant.diocane/install-sh,;t t
+s,@STRIP@,strip,;t t
+s,@ac_ct_STRIP@,strip,;t t
 s,@INSTALL_STRIP_PROGRAM@,${SHELL} $(install_sh) -c -s,;t t
 s,@mkdir_p@,mkdir -p --,;t t
 s,@AWK@,gawk,;t t
 s,@SET_MAKE@,,;t t
 s,@am__leading_dot@,.,;t t
-s,@AMTAR@,${SHELL} /media/cf/MySoft/C/tagsistant/missing --run tar,;t t
+s,@AMTAR@,${SHELL} /home/andrea/tagsistant.diocane/missing --run tar,;t t
 s,@am__tar@,${AMTAR} chof - "$$tardir",;t t
 s,@am__untar@,${AMTAR} xf -,;t t
+s,@build@,i686-pc-linux-gnu,;t t
+s,@build_cpu@,i686,;t t
+s,@build_vendor@,pc,;t t
+s,@build_os@,linux-gnu,;t t
+s,@host@,i686-pc-linux-gnu,;t t
+s,@host_cpu@,i686,;t t
+s,@host_vendor@,pc,;t t
+s,@host_os@,linux-gnu,;t t
 s,@CC@,gcc,;t t
 s,@CFLAGS@,-D_DEBUG_SYSLOG -g -O2 -D_FILE_OFFSET_BITS=64 -Wall -W,;t t
 s,@LDFLAGS@,,;t t
@@ -521,8 +529,25 @@ s,@AMDEPBACKSLASH@,\,;t t
 s,@CCDEPMODE@,depmode=gcc3,;t t
 s,@am__fastdepCC_TRUE@,,;t t
 s,@am__fastdepCC_FALSE@,#,;t t
-s,@CPP@,gcc -E,;t t
 s,@EGREP@,grep -E,;t t
+s,@LN_S@,ln -s,;t t
+s,@ECHO@,echo,;t t
+s,@AR@,ar,;t t
+s,@ac_ct_AR@,ar,;t t
+s,@RANLIB@,ranlib,;t t
+s,@ac_ct_RANLIB@,ranlib,;t t
+s,@CPP@,gcc -E,;t t
+s,@CXX@,g++,;t t
+s,@CXXFLAGS@,-g -O2,;t t
+s,@ac_ct_CXX@,g++,;t t
+s,@CXXDEPMODE@,depmode=gcc3,;t t
+s,@am__fastdepCXX_TRUE@,,;t t
+s,@am__fastdepCXX_FALSE@,#,;t t
+s,@CXXCPP@,g++ -E,;t t
+s,@F77@,,;t t
+s,@FFLAGS@,,;t t
+s,@ac_ct_F77@,,;t t
+s,@LIBTOOL@,$(SHELL) $(top_builddir)/libtool,;t t
 s,@LIBOBJS@,,;t t
 s,@LTLIBOBJS@,,;t t
 CEOF
@@ -841,7 +866,6 @@ ${ac_dA}PACKAGE_STRING${ac_dB}PACKAGE_STRING${ac_dC}"tagsistant 0.0.20070829"${a
 ${ac_dA}PACKAGE_BUGREPORT${ac_dB}PACKAGE_BUGREPORT${ac_dC}"tx0@strumentiresistenti.org"${ac_dD}
 ${ac_dA}PACKAGE${ac_dB}PACKAGE${ac_dC}"tagsistant"${ac_dD}
 ${ac_dA}VERSION${ac_dB}VERSION${ac_dC}"0.0.20070829"${ac_dD}
-${ac_dA}HAVE_DIRENT_H${ac_dB}HAVE_DIRENT_H${ac_dC}1${ac_dD}
 ${ac_dA}STDC_HEADERS${ac_dB}STDC_HEADERS${ac_dC}1${ac_dD}
 ${ac_dA}HAVE_SYS_TYPES_H${ac_dB}HAVE_SYS_TYPES_H${ac_dC}1${ac_dD}
 ${ac_dA}HAVE_SYS_STAT_H${ac_dB}HAVE_SYS_STAT_H${ac_dC}1${ac_dD}
@@ -852,6 +876,9 @@ ${ac_dA}HAVE_STRINGS_H${ac_dB}HAVE_STRINGS_H${ac_dC}1${ac_dD}
 ${ac_dA}HAVE_INTTYPES_H${ac_dB}HAVE_INTTYPES_H${ac_dC}1${ac_dD}
 ${ac_dA}HAVE_STDINT_H${ac_dB}HAVE_STDINT_H${ac_dC}1${ac_dD}
 ${ac_dA}HAVE_UNISTD_H${ac_dB}HAVE_UNISTD_H${ac_dC}1${ac_dD}
+${ac_dA}HAVE_DLFCN_H${ac_dB}HAVE_DLFCN_H${ac_dC}1${ac_dD}
+${ac_dA}HAVE_DIRENT_H${ac_dB}HAVE_DIRENT_H${ac_dC}1${ac_dD}
+${ac_dA}STDC_HEADERS${ac_dB}STDC_HEADERS${ac_dC}1${ac_dD}
 ${ac_dA}HAVE_ARPA_INET_H${ac_dB}HAVE_ARPA_INET_H${ac_dC}1${ac_dD}
 ${ac_dA}HAVE_FCNTL_H${ac_dB}HAVE_FCNTL_H${ac_dC}1${ac_dD}
 ${ac_dA}HAVE_NETINET_IN_H${ac_dB}HAVE_NETINET_IN_H${ac_dC}1${ac_dD}
@@ -870,8 +897,6 @@ ${ac_dA}HAVE_ST_BLOCKS${ac_dB}HAVE_ST_BLOCKS${ac_dC}1${ac_dD}
 ${ac_dA}HAVE_STRUCT_STAT_ST_RDEV${ac_dB}HAVE_STRUCT_STAT_ST_RDEV${ac_dC}1${ac_dD}
 ${ac_dA}LSTAT_FOLLOWS_SLASHED_SYMLINK${ac_dB}LSTAT_FOLLOWS_SLASHED_SYMLINK${ac_dC}1${ac_dD}
 ${ac_dA}HAVE_STDLIB_H${ac_dB}HAVE_STDLIB_H${ac_dC}1${ac_dD}
-${ac_dA}HAVE_MALLOC${ac_dB}HAVE_MALLOC${ac_dC}1${ac_dD}
-${ac_dA}RETSIGTYPE${ac_dB}RETSIGTYPE${ac_dC}void${ac_dD}
 CEOF
   sed -f $tmp/defines.sed $tmp/in >$tmp/out
   rm -f $tmp/in
@@ -881,6 +906,8 @@ CEOF
 /^[	 ]*#[	 ]*define/!b
 t clr
 : clr
+${ac_dA}HAVE_MALLOC${ac_dB}HAVE_MALLOC${ac_dC}1${ac_dD}
+${ac_dA}RETSIGTYPE${ac_dB}RETSIGTYPE${ac_dC}void${ac_dD}
 ${ac_dA}HAVE_UTIME_NULL${ac_dB}HAVE_UTIME_NULL${ac_dC}1${ac_dD}
 ${ac_dA}HAVE_INET_NTOA${ac_dB}HAVE_INET_NTOA${ac_dC}1${ac_dD}
 ${ac_dA}HAVE_LCHOWN${ac_dB}HAVE_LCHOWN${ac_dC}1${ac_dD}
@@ -914,7 +941,6 @@ ${ac_uA}PACKAGE_STRING${ac_uB}PACKAGE_STRING${ac_uC}"tagsistant 0.0.20070829"${a
 ${ac_uA}PACKAGE_BUGREPORT${ac_uB}PACKAGE_BUGREPORT${ac_uC}"tx0@strumentiresistenti.org"${ac_uD}
 ${ac_uA}PACKAGE${ac_uB}PACKAGE${ac_uC}"tagsistant"${ac_uD}
 ${ac_uA}VERSION${ac_uB}VERSION${ac_uC}"0.0.20070829"${ac_uD}
-${ac_uA}HAVE_DIRENT_H${ac_uB}HAVE_DIRENT_H${ac_uC}1${ac_uD}
 ${ac_uA}STDC_HEADERS${ac_uB}STDC_HEADERS${ac_uC}1${ac_uD}
 ${ac_uA}HAVE_SYS_TYPES_H${ac_uB}HAVE_SYS_TYPES_H${ac_uC}1${ac_uD}
 ${ac_uA}HAVE_SYS_STAT_H${ac_uB}HAVE_SYS_STAT_H${ac_uC}1${ac_uD}
@@ -925,6 +951,9 @@ ${ac_uA}HAVE_STRINGS_H${ac_uB}HAVE_STRINGS_H${ac_uC}1${ac_uD}
 ${ac_uA}HAVE_INTTYPES_H${ac_uB}HAVE_INTTYPES_H${ac_uC}1${ac_uD}
 ${ac_uA}HAVE_STDINT_H${ac_uB}HAVE_STDINT_H${ac_uC}1${ac_uD}
 ${ac_uA}HAVE_UNISTD_H${ac_uB}HAVE_UNISTD_H${ac_uC}1${ac_uD}
+${ac_uA}HAVE_DLFCN_H${ac_uB}HAVE_DLFCN_H${ac_uC}1${ac_uD}
+${ac_uA}HAVE_DIRENT_H${ac_uB}HAVE_DIRENT_H${ac_uC}1${ac_uD}
+${ac_uA}STDC_HEADERS${ac_uB}STDC_HEADERS${ac_uC}1${ac_uD}
 ${ac_uA}HAVE_ARPA_INET_H${ac_uB}HAVE_ARPA_INET_H${ac_uC}1${ac_uD}
 ${ac_uA}HAVE_FCNTL_H${ac_uB}HAVE_FCNTL_H${ac_uC}1${ac_uD}
 ${ac_uA}HAVE_NETINET_IN_H${ac_uB}HAVE_NETINET_IN_H${ac_uC}1${ac_uD}
@@ -943,8 +972,6 @@ ${ac_uA}HAVE_ST_BLOCKS${ac_uB}HAVE_ST_BLOCKS${ac_uC}1${ac_uD}
 ${ac_uA}HAVE_STRUCT_STAT_ST_RDEV${ac_uB}HAVE_STRUCT_STAT_ST_RDEV${ac_uC}1${ac_uD}
 ${ac_uA}LSTAT_FOLLOWS_SLASHED_SYMLINK${ac_uB}LSTAT_FOLLOWS_SLASHED_SYMLINK${ac_uC}1${ac_uD}
 ${ac_uA}HAVE_STDLIB_H${ac_uB}HAVE_STDLIB_H${ac_uC}1${ac_uD}
-${ac_uA}HAVE_MALLOC${ac_uB}HAVE_MALLOC${ac_uC}1${ac_uD}
-${ac_uA}RETSIGTYPE${ac_uB}RETSIGTYPE${ac_uC}void${ac_uD}
 CEOF
   sed -f $tmp/undefs.sed $tmp/in >$tmp/out
   rm -f $tmp/in
@@ -954,6 +981,8 @@ CEOF
 /^[	 ]*#[	 ]*undef/!b
 t clr
 : clr
+${ac_uA}HAVE_MALLOC${ac_uB}HAVE_MALLOC${ac_uC}1${ac_uD}
+${ac_uA}RETSIGTYPE${ac_uB}RETSIGTYPE${ac_uC}void${ac_uD}
 ${ac_uA}HAVE_UTIME_NULL${ac_uB}HAVE_UTIME_NULL${ac_uC}1${ac_uD}
 ${ac_uA}HAVE_INET_NTOA${ac_uB}HAVE_INET_NTOA${ac_uC}1${ac_uD}
 ${ac_uA}HAVE_LCHOWN${ac_uB}HAVE_LCHOWN${ac_uC}1${ac_uD}
