@@ -28,9 +28,16 @@ int log_enabled = 0;
 /* defines command line options for tagsistant mount tool */
 /* static */ struct tagsistant tagsistant;
 
-/*
+/**
  * given a full path, returns the filename, the filepath (relative
  * to archive directory) and the tagname
+ *
+ * \param path original path to analize
+ * \param filename pointer to path filename
+ * \param filepath pointer to path other part which is not filename
+ * \param tagname pointer to path last tag
+ * \return 1 if successfull, 0 otherwise
+ * \todo return value is not conditional, this function always returns 1!
  */
 int get_filename_and_tagname(const char *path, char **filename, char **filepath, char **tagname)
 {
@@ -57,6 +64,15 @@ void init_syslog()
 }
 #endif
 
+/**
+ * SQL callback. Report if an entity exists in database.
+ *
+ * \param exist_buffer integer pointer cast to void* which holds 1 if entity exists, 0 otherwise
+ * \param argc counter of argv arguments
+ * \param argv array of SQL given results
+ * \param azColName array of SQL column names
+ * \return 0 (always, due to SQLite policy)
+ */
 static int report_if_exists(void *exists_buffer, int argc, char **argv, char **azColName)
 {
 	(void) argc;
@@ -71,7 +87,11 @@ static int report_if_exists(void *exists_buffer, int argc, char **argv, char **a
 }
 
 /**
- * return 1 if file filename is tagged with tag tagname, 0 otherwise.
+ * Check if a file is associated with a given tag.
+ *
+ * \param filename the filename to be checked (no path)
+ * \param tagname the name of the tag to be searched on filename
+ * \return 1 if file filename is tagged with tag tagname, 0 otherwise.
  */
 int is_tagged(char *filename, char *tagname)
 {
@@ -151,7 +171,12 @@ int drop_cached_queries(char *tagname)
 }
 
 /**
- * add tag tagname to file filename
+ * add tag tagname to file.
+ *
+ * \param filename the file to be tagged (no path)
+ * \param tagname the tag to be added.
+ * \return 1 if successful, 0 otherwise
+ * \todo check return values of this function
  */
 int tag_file(char *filename, char *tagname)
 {
@@ -565,13 +590,25 @@ static int tagsistant_readlink(const char *path, char *buf, size_t size)
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
+/**
+ * used by add_entry_to_dir() SQL callback to perform readdir() ops.
+ */
 struct use_filler_struct {
-	fuse_fill_dir_t filler;
-	void *buf;
-	long int path_id;
-	int add_to_cache;
+	fuse_fill_dir_t filler;	/**< libfuse filler hook to return dir entries */
+	void *buf;				/**< libfuse buffer to hold readdir results */
+	long int path_id;		/**< numeric id used to cache results */
+	int add_to_cache;		/**< boolean trigger: if true, result will get cached */
 };
 
+/**
+ * SQL callback. Add dir entries to libfuse buffer.
+ *
+ * \param filler_ptr struct use_filler_struct pointer (cast to void*)
+ * \param argc argv counter
+ * \param argv array of SQL results
+ * \param azColName array of column names
+ * \return 0 (always, see SQLite policy)
+ */
 static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azColName)
 {
 	struct use_filler_struct *ufs = (struct use_filler_struct *) filler_ptr;
@@ -743,6 +780,9 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 				if (tagsistant_errno == EEXIST) {
 					res = 0;
 					tagsistant_errno = 0;
+
+					/* do stacked plugin operations */
+					process(filename);
 				} else {
 					dbg(LOG_ERR, "Real mknod() failed: %s", strerror(tagsistant_errno));
 					untag_file(filename, tagname);
@@ -757,14 +797,13 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 
 	dbg(LOG_INFO, "MKNOD on %s", path);
 
+	stop_labeled_time_profile("mknod");
+	dbg(LOG_INFO, "mknod(%s): %d %s", filename, res, strerror(tagsistant_errno));
+
 	free(filename);
 	free(fullfilename);
 	free(tagname);
 
-	process(filename);
-
-	stop_labeled_time_profile("mknod");
-	dbg(LOG_INFO, "mknod(%s): %d %s", filename, res, strerror(tagsistant_errno));
 	return (res == -1) ? -tagsistant_errno: 0;
 }
 
@@ -1746,6 +1785,7 @@ int main(int argc, char *argv[])
 							free(plugin);
 						} else {
 							/* add this plugin on queue head */
+							plugin->filename = strdup(de->d_name);
 							plugin->next = plugins;
 							plugins = plugin;
 							fprintf(stderr, " Loaded plugin %s for \"%s\"\n", de->d_name, plugin->mime_type);

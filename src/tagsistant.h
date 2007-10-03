@@ -207,6 +207,12 @@ extern char *get_tag_path(const char *tag);
 extern char *get_file_path(const char *tag);
 extern char *get_tmp_file_path(const char *tag);
 
+extern int is_tagged(char *filename, char *tagname);
+extern int drop_cached_queries(char *tagname);
+extern int tag_file(char *filename, char *tagname);
+extern int untag_file(char *filename, char *tagname);
+extern int is_cached(const char *path);
+
 extern ptree_or_node_t *build_querytree(const char *path);
 extern file_handle_t *build_filetree(ptree_or_node_t *query, const char *path);
 
