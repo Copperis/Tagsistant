@@ -54,6 +54,9 @@ int get_filename_and_tagname(const char *path, char **filename, char **filepath,
 }
 
 #ifdef _DEBUG_SYSLOG
+/**
+ * initialize syslog stream
+ */
 void init_syslog()
 {
 	if (log_enabled)
@@ -108,6 +111,15 @@ int is_tagged(char *filename, char *tagname)
 	return exists;
 }
 
+/**
+ * SQL callback. Delete a cached query from database.
+ *
+ * \param voidtagname char pointer cast to void* which holds the name of the tag to be removed
+ * \param argc counter of argv arguments
+ * \param argv array of SQL given results
+ * \param azColName array of SQL column names
+ * \return 0 (always, due to SQLite policy)
+ */
 static int drop_single_query(void *voidtagname, int argc, char **argv, char **azColName)
 {
 	(void) argc;
@@ -136,6 +148,12 @@ static int drop_single_query(void *voidtagname, int argc, char **argv, char **az
 	return res;
 }
 
+/**
+ * Deletes all cached queries related to given tag
+ *
+ * \param tagname the name of the tag which results should be cleared from database
+ * \return 1 on success, 0 otherwise
+ */
 int drop_cached_queries(char *tagname)
 {
 	char *sql = calloc(sizeof(char), strlen(GET_ID_OF_TAG) + strlen(tagname) * 2 + 1);
@@ -171,7 +189,7 @@ int drop_cached_queries(char *tagname)
 }
 
 /**
- * add tag tagname to file.
+ * Add tag tagname to file.
  *
  * \param filename the file to be tagged (no path)
  * \param tagname the tag to be added.
@@ -233,6 +251,15 @@ int tag_file(char *filename, char *tagname)
 	return 1;
 }
 
+/**
+ * SQL callback. Delete a file from cache results.
+ *
+ * \param filenamevoid char pointer cast to void* which holds the name of the file to be removed
+ * \param argc counter of argv arguments
+ * \param argv array of SQL given results
+ * \param azColName array of SQL column names
+ * \return 0 (always, due to SQLite policy)
+ */
 static int drop_single_file(void *filenamevoid, int argc, char **argv, char **azColName)
 {
 	(void) argc;
@@ -282,6 +309,12 @@ int untag_file(char *filename, char *tagname)
 	return 1;
 }
 
+/**
+ * Check if file is cached
+ *
+ * \param path the path of the file to be checked
+ * \return 1 if file exists, 0 otherwise (or if an error occurred)
+ */
 int is_cached(const char *path)
 {
 	char *mini;
@@ -318,7 +351,6 @@ tagsistant_plugin_t *plugins = NULL;
  * \param filename file to be processed (just the name, will be looked up in /archive)
  * \return the string rappresenting MIME type (like "audio/mpeg"); the string is dynamically
  *   allocated and need to be free()ed by outside code
- * \todo still to be coded
  */
 char *get_file_mimetype(const char *filename)
 {
@@ -427,6 +459,10 @@ int process(const char *filename)
 
 /**
  * lstat equivalent
+ *
+ * \param path the path to be lstat()ed
+ * \param stbuf pointer to struct stat buffer holding data about file
+ * \return 0 on success, -errno otherwise
  */
 static int tagsistant_getattr(const char *path, struct stat *stbuf)
 {
@@ -575,6 +611,14 @@ GETATTR_EXIT:
 	}
 }
 
+/**
+ * readlink equivalent
+ *
+ * \param path the path of the symlink to be read
+ * \param buf the path the symlink is pointing to
+ * \param size length of pointed path
+ * \return 0 on success, -errno otherwise
+ */
 static int tagsistant_readlink(const char *path, char *buf, size_t size)
 {
 	char *filename = get_tag_name(path);
@@ -638,6 +682,16 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 	return ufs->filler(ufs->buf, argv[0], NULL, 0);
 }
 
+/**
+ * readdir equivalent (in FUSE paradigm)
+ *
+ * \param path the path of the directory to be read
+ * \param buf buffer holding directory entries
+ * \param filler libfuse fuse_fill_dir_t function to save entries in *buf
+ * \param offset offset of next read
+ * \param fi struct fuse_file_info passed by libfuse; unused.
+ * \return 0 on success, -errno otherwise
+ */
 static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
 {
 	(void) fi;
@@ -745,7 +799,14 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 	return 0;
 }
 
-/* OK */
+/**
+ * mknod equivalent (used to create even regular files)
+ *
+ * \param path the path of the file (block, char, fifo) to be created
+ * \param mode file type and permissions
+ * \param rdev major and minor numbers, if applies
+ * \return 0 on success, -errno otherwise
+ */
 static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 {
 	int res = 0, tagsistant_errno = 0;
@@ -807,7 +868,13 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 	return (res == -1) ? -tagsistant_errno: 0;
 }
 
-/* OK */
+/**
+ * mkdir equivalent
+ *
+ * \param path the path of the directory to be created
+ * \param mode directory permissions (unused, since directories are tags saved in SQL backend)
+ * \return 0 on success, -errno otherwise
+ */
 static int tagsistant_mkdir(const char *path, mode_t mode)
 {
 	(void) mode;
@@ -835,7 +902,12 @@ static int tagsistant_mkdir(const char *path, mode_t mode)
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
-/* OK */
+/**
+ * unlink equivalent
+ *
+ * \param path the path to be unlinked (deleted)
+ * \return 0 on success, -errno otherwise
+ */
 static int tagsistant_unlink(const char *path)
 {
     int res = 0, tagsistant_errno = 0;
@@ -889,10 +961,7 @@ static int tagsistant_unlink(const char *path)
 	free(statement2);
 	destroy_querytree(pt);
 
-	/*
-	 * TODO check if file is no longer tagged in "tagged" table.
-	 * if no occurrence appear, delete file also from /archive/ directory.
-	 */
+	/* checking if file has more tags or is untagged */
 	statement1 = calloc(sizeof(char), strlen(HAS_TAGS) + strlen(filename) + 1);
 	if (statement1 == NULL) {
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
@@ -921,7 +990,12 @@ static int tagsistant_unlink(const char *path)
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
-/* OK */
+/**
+ * rmdir equivalent
+ *
+ * \param path the tag (directory) to be removed
+ * \return 0 on success, -errno otherwise
+ */
 static int tagsistant_rmdir(const char *path)
 {
     int res = 0, tagsistant_errno = 0;
@@ -958,7 +1032,13 @@ static int tagsistant_rmdir(const char *path)
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
-/* OK */
+/**
+ * rename equivalent
+ *
+ * \param from old file name
+ * \param to new file name
+ * \return 0 on success, -errno otherwise
+ */
 static int tagsistant_rename(const char *from, const char *to)
 {
     int res = 0, tagsistant_errno = 0;
@@ -968,7 +1048,7 @@ static int tagsistant_rename(const char *from, const char *to)
 
 	/* return if "to" path is complex, i.e. including logical operators */
 	if ((strstr(to, "/AND") != NULL) || (strstr(to, "/OR") != NULL)) {
-		dbg(LOG_ERR, "Logical operators not allowed in open path");
+		dbg(LOG_ERR, "Logical operators not allowed in destination path");
 		return -ENOTDIR;
 	}
 
@@ -1013,8 +1093,14 @@ static int tagsistant_rename(const char *from, const char *to)
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
-/* OK */
-static int tagsistant_link(const char *from, const char *to)
+/**
+ * symlink equivalent
+ *
+ * \param from existing file name
+ * \param to new file name
+ * \return 0 on success, -errno otherwise
+ */
+static int tagsistant_symlink(const char *from, const char *to)
 {
     int res = 0, tagsistant_errno = 0;
 
@@ -1033,7 +1119,7 @@ static int tagsistant_link(const char *from, const char *to)
 	free(path_dup);
 
 	/* tag the link */
-	dbg(LOG_INFO, "Tagging file inside tagsistant_link() or tagsistant_symlink()");
+	dbg(LOG_INFO, "Tagging file inside tagsistant_symlink() or tagsistant_link()");
 	tag_file(filename, tagname);
 
 	struct stat stbuf;
@@ -1051,17 +1137,30 @@ static int tagsistant_link(const char *from, const char *to)
 	free(filename);
 	free(topath);
 
-	stop_labeled_time_profile("link");
+	stop_labeled_time_profile("symlink");
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
-/* OK */
-static int tagsistant_symlink(const char *from, const char *to)
+/**
+ * link equivalent
+ *
+ * \param from existing file name
+ * \param to new file name
+ * \return 0 on success, -errno otherwise
+ * \todo why tagsistant_link() calls tagsistant_symlink()? We should be able to perform proper linking!
+ */
+static int tagsistant_link(const char *from, const char *to)
 {
-	return tagsistant_link(from, to);
+	return tagsistant_symlink(from, to);
 }
 
-/* OK */
+/**
+ * chmod equivalent
+ *
+ * \param path the path to be chmod()ed
+ * \param mode new mode for path
+ * \return 0 on success, -errno otherwise
+ */
 static int tagsistant_chmod(const char *path, mode_t mode)
 {
     int res = 0, tagsistant_errno = 0;
@@ -1082,7 +1181,14 @@ static int tagsistant_chmod(const char *path, mode_t mode)
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
-/* OK */
+/**
+ * chown equivalent
+ *
+ * \param path the path to be chown()ed
+ * \param uid new UID for path
+ * \param gid new GID for path
+ * \return 0 on success, -errno otherwise
+ */
 static int tagsistant_chown(const char *path, uid_t uid, gid_t gid)
 {
     int res = 0, tagsistant_errno = 0;
@@ -1103,7 +1209,13 @@ static int tagsistant_chown(const char *path, uid_t uid, gid_t gid)
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
-/* OK */
+/**
+ * truncate equivalent
+ *
+ * \param path the path to be truncate()ed
+ * \param size truncation offset
+ * \return 0 on success, -errno otherwise
+ */
 static int tagsistant_truncate(const char *path, off_t size)
 {
     int res = 0, tagsistant_errno = 0;
@@ -1124,7 +1236,13 @@ static int tagsistant_truncate(const char *path, off_t size)
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
-/* OK */
+/**
+ * utime equivalent
+ *
+ * \param path the path to utime()ed
+ * \param buf struct utimbuf pointer holding new access and modification times
+ * \return 0 on success, -errno otherwise
+ */
 static int tagsistant_utime(const char *path, struct utimbuf *buf)
 {
     int res = 0, tagsistant_errno = 0;
@@ -1146,10 +1264,20 @@ static int tagsistant_utime(const char *path, struct utimbuf *buf)
 	return (res == -1) ? -errno : 0;
 }
 
-/* OK */
+/**
+ * performs real open() on a file. Used by tagsistant_open(),
+ * tagsistant_read() and tagsistant_write().
+ *
+ * \param filepath the path to be open()ed
+ * \param flags how to open file (see open(2) for more informations)
+ * \param _errno returns open() errno
+ * \return open() return value
+ * \todo Should it perform permissions checking???
+ */
 int internal_open(const char *filepath, int flags, int *_errno)
 {
 	int res = open(filepath, flags);
+
 #if VERBOSE_DEBUG
 	dbg(LOG_INFO, "internal_open(%s): %d", filepath, res);
 	if (flags&O_CREAT) dbg(LOG_INFO, "...O_CREAT");
@@ -1163,7 +1291,13 @@ int internal_open(const char *filepath, int flags, int *_errno)
 	return res;
 }
 
-/* OK */
+/**
+ * open() equivalent
+ *
+ * \param path the path to be open()ed
+ * \param fi struct fuse_file_info holding open() flags
+ * \return 0 on success, -errno otherwise
+ */
 static int tagsistant_open(const char *path, struct fuse_file_info *fi)
 {
     int res = -1, tagsistant_errno = ENOENT;
@@ -1197,7 +1331,16 @@ static int tagsistant_open(const char *path, struct fuse_file_info *fi)
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
-/* OK */
+/**
+ * read() equivalent
+ *
+ * \param path the path of the file to be read
+ * \param buf buffer holding read() result
+ * \param size how many bytes should/can be read
+ * \param offset starting of the read
+ * \param fi struct fuse_file_info used for open() flags
+ * \return 0 on success, -errno otherwise
+ */
 static int tagsistant_read(const char *path, char *buf, size_t size, off_t offset,
                     struct fuse_file_info *fi)
 {
@@ -1223,7 +1366,16 @@ static int tagsistant_read(const char *path, char *buf, size_t size, off_t offse
 	return (res == -1) ? -tagsistant_errno : res;
 }
 
-/* OK */
+/**
+ * write() equivalent
+ *
+ * \param path the path of the file to be written
+ * \param buf buffer holding write() data
+ * \param size how many bytes should be written (size of *buf)
+ * \param offset starting of the write
+ * \param fi struct fuse_file_info used for open() flags
+ * \return 0 on success, -errno otherwise
+ */
 static int tagsistant_write(const char *path, const char *buf, size_t size,
 	off_t offset, struct fuse_file_info *fi)
 {
@@ -1268,7 +1420,13 @@ static int tagsistant_write(const char *path, const char *buf, size_t size,
 
 #if FUSE_USE_VERSION == 25
 
-/* OK */
+/**
+ * statvfs equivalent (used on fuse >= 25)
+ *
+ * \param path the path to be statvfs()ed
+ * \param stbuf pointer to struct statvfs holding filesystem informations
+ * \return 0 on success, -errno otherwise
+ */
 static int tagsistant_statvfs(const char *path, struct statvfs *stbuf)
 {
     int res = 0, tagsistant_errno = 0;
@@ -1286,7 +1444,13 @@ static int tagsistant_statvfs(const char *path, struct statvfs *stbuf)
 
 #else
 
-/* OK */
+/**
+ * statfs equivalent (used on fuse < 25)
+ *
+ * \param path the path to be statfs()ed
+ * \param stbuf pointer to struct statfs holding filesystem informations
+ * \return 0 on success, -errno otherwise
+ */
 static int tagsistant_statfs(const char *path, struct statfs *stbuf)
 {
     int res = 0, tagsistant_errno = 0;
@@ -1422,6 +1586,12 @@ static struct fuse_opt tagsistant_opts[] = {
 };
 
 int usage_already_printed = 0;
+
+/**
+ * print usage message on STDOUT
+ *
+ * \param progname the name tagsistant was invoked as
+ */
 void usage(char *progname)
 {
 	if (usage_already_printed++)
@@ -1448,19 +1618,27 @@ void usage(char *progname)
 		" \n"
 		" Usage: %s [OPTIONS] [--repository=<PATH>] /mountpoint\n"
 		"\n"
-		"  -u  unmount a mounted filesystem\n"
-		"  -q  be quiet\n"
-		"  -r  mount readonly\n"
-		"  -z  lazy unmount (can be dangerous!)\n"
-		"\n" /*fuse options will follow... */
+		"    -u  unmount a mounted filesystem\n"
+		"    -q  be quiet\n"
+		"    -r  mount readonly\n"
+		"    -z  lazy unmount (can be dangerous!)\n"
+		"\n " /*fuse options will follow... */
 		, PACKAGE_VERSION, FUSE_USE_VERSION, progname
 	);
 }
 
+/**
+ * process command line options
+ * 
+ * \param data pointer (unused)
+ * \param arg argument pointer (if key has one)
+ * \param key command line option to be processed
+ * \param outargs structure holding libfuse options
+ * \return 1 on success, 0 otherwise
+ */
 static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse_args *outargs)
 {
     (void) data;
-	(void) arg;
 
     switch (key) {
 		case FUSE_OPT_KEY_NONOPT:
@@ -1492,6 +1670,11 @@ static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse
 	return 0;
 }
 
+/**
+ * cleanup hook used by signal()
+ *
+ * \param s the signal number passed by signal()
+ */
 void cleanup(int s)
 {
 	dbg(LOG_ERR, "Got Signal %d in %s:%d", s, __FILE__, __LINE__);
@@ -1543,6 +1726,16 @@ int main(int argc, char *argv[])
 		usage(tagsistant.progname);
 		fprintf(stderr, " *** No mountpoint provided *** \n\n");
 		exit(2);
+	}
+
+	/* checking if mount point exists or can be created */
+	struct stat mst;
+	if ((lstat(tagsistant.mountpoint, &mst) == -1) && (errno == ENOENT)) {
+		if (mkdir(tagsistant.mountpoint, S_IRWXU|S_IRGRP|S_IXGRP) != 0) {
+			usage(tagsistant.progname);
+			fprintf(stderr, "\n    Mountpoint %s does not exists and can't be created!\n\n", tagsistant.mountpoint);
+			exit(1);
+		}
 	}
 
 	fprintf(stderr, "\n");
@@ -1814,7 +2007,25 @@ int main(int argc, char *argv[])
 	return res;
 }
 
-int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, char **, char **), void *firstarg, char *file, unsigned int line)
+/**
+ * Perform SQL queries. This function was added to avoid database opening
+ * duplication and better handle SQLite interfacement. If dbh is passed
+ * NULL, a new SQLite connection will be opened. Otherwise, existing
+ * connection will be used.
+ *
+ * NEVER use real_do_sql() directly. Always use do_sql() macro which adds
+ * __FILE__ and __LINE__ transparently for you. Code will be cleaner.
+ *
+ * \param dbh pointer to sqlite3 database handle
+ * \param statement SQL query to be performed
+ * \param callback pointer to function to be called on results of SQL query
+ * \param firstarg pointer to buffer for callback retured data
+ * \param file __FILE__ passed by calling function
+ * \param line __LINE__ passed by calling function
+ * \return 0 (always, due to SQLite policy)
+ */
+int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, char **, char **),
+	void *firstarg, char *file, unsigned int line)
 {
 	int result = SQLITE_OK;
 	sqlite3 **intdbh = malloc(sizeof(sqlite3 *));

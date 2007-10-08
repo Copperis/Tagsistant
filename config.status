@@ -489,22 +489,19 @@ s,@INSTALL_DATA@,${INSTALL} -m 644,;t t
 s,@CYGPATH_W@,echo,;t t
 s,@PACKAGE@,tagsistant,;t t
 s,@VERSION@,0.0.20070829,;t t
-s,@ACLOCAL@,${SHELL} /home/andrea/tagsistant.diocane/missing --run aclocal-1.9,;t t
-s,@AUTOCONF@,${SHELL} /home/andrea/tagsistant.diocane/missing --run autoconf,;t t
-s,@AUTOMAKE@,${SHELL} /home/andrea/tagsistant.diocane/missing --run automake-1.9,;t t
-s,@AUTOHEADER@,${SHELL} /home/andrea/tagsistant.diocane/missing --run autoheader,;t t
-s,@MAKEINFO@,${SHELL} /home/andrea/tagsistant.diocane/missing --run makeinfo,;t t
-s,@install_sh@,/home/andrea/tagsistant.diocane/install-sh,;t t
+s,@ACLOCAL@,${SHELL} /media/cf/MySoft/C/tagsistant/missing --run aclocal-1.7,;t t
+s,@AUTOCONF@,${SHELL} /media/cf/MySoft/C/tagsistant/missing --run autoconf,;t t
+s,@AUTOMAKE@,${SHELL} /media/cf/MySoft/C/tagsistant/missing --run automake-1.7,;t t
+s,@AUTOHEADER@,${SHELL} /media/cf/MySoft/C/tagsistant/missing --run autoheader,;t t
+s,@MAKEINFO@,${SHELL} /media/cf/MySoft/C/tagsistant/missing --run makeinfo,;t t
+s,@AMTAR@,${SHELL} /media/cf/MySoft/C/tagsistant/missing --run tar,;t t
+s,@install_sh@,/media/cf/MySoft/C/tagsistant/install-sh,;t t
 s,@STRIP@,strip,;t t
 s,@ac_ct_STRIP@,strip,;t t
 s,@INSTALL_STRIP_PROGRAM@,${SHELL} $(install_sh) -c -s,;t t
-s,@mkdir_p@,mkdir -p --,;t t
-s,@AWK@,gawk,;t t
+s,@AWK@,mawk,;t t
 s,@SET_MAKE@,,;t t
 s,@am__leading_dot@,.,;t t
-s,@AMTAR@,${SHELL} /home/andrea/tagsistant.diocane/missing --run tar,;t t
-s,@am__tar@,${AMTAR} chof - "$$tardir",;t t
-s,@am__untar@,${AMTAR} xf -,;t t
 s,@build@,i686-pc-linux-gnu,;t t
 s,@build_cpu@,i686,;t t
 s,@build_vendor@,pc,;t t
@@ -1223,21 +1220,27 @@ echo X"$mf" |
   else
     continue
   fi
-  # Extract the definition of DEPDIR, am__include, and am__quote
-  # from the Makefile without running `make'.
-  DEPDIR=`sed -n 's/^DEPDIR = //p' < "$mf"`
+  grep '^DEP_FILES *= *[^ #]' < "$mf" > /dev/null || continue
+  # Extract the definition of DEP_FILES from the Makefile without
+  # running `make'.
+  DEPDIR=`sed -n -e '/^DEPDIR = / s///p' < "$mf"`
   test -z "$DEPDIR" && continue
-  am__include=`sed -n 's/^am__include = //p' < "$mf"`
-  test -z "am__include" && continue
-  am__quote=`sed -n 's/^am__quote = //p' < "$mf"`
   # When using ansi2knr, U may be empty or an underscore; expand it
-  U=`sed -n 's/^U = //p' < "$mf"`
-  # Find all dependency output files, they are included files with
-  # $(DEPDIR) in their names.  We invoke sed twice because it is the
-  # simplest approach to changing $(DEPDIR) to its actual value in the
-  # expansion.
-  for file in `sed -n "
-    s/^$am__include $am__quote\(.*(DEPDIR).*\)$am__quote"'$/\1/p' <"$mf" | \
+  U=`sed -n -e '/^U = / s///p' < "$mf"`
+  test -d "$dirpart/$DEPDIR" || mkdir "$dirpart/$DEPDIR"
+  # We invoke sed twice because it is the simplest approach to
+  # changing $(DEPDIR) to its actual value in the expansion.
+  for file in `sed -n -e '
+    /^DEP_FILES = .*\\\\$/ {
+      s/^DEP_FILES = //
+      :loop
+	s/\\\\$//
+	p
+	n
+	/\\\\$/ b loop
+      p
+    }
+    /^DEP_FILES = / s/^DEP_FILES = //p' < "$mf" | \
        sed -e 's/\$(DEPDIR)/'"$DEPDIR"'/g' -e 's/\$U/'"$U"'/g'`; do
     # Make sure the directory exists.
     test -f "$dirpart/$file" && continue
