@@ -1,0 +1,3 @@
+0.0.20071009
+  - bug in tagsistant_rename fixed; both directory and file can now be
+  renamed properly

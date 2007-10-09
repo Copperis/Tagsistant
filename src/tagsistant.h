@@ -99,7 +99,7 @@
 #define TAG_FILE 			"insert into tagged(tagname, filename) values('%s', '%s');"
 #define UNTAG_FILE			"delete from tagged where tagname = '%s' and filename = '%s';"
 #define RENAME_TAG			"update tags set tagname = '%s' where tagname = '%s'; update tagged set tagname = '%s' where tagname = '%s';"
-#define RENAME_FILE			"update tagged set filename = '%s' where filename = '%s';"
+#define RENAME_FILE			"update tagged set filename = '%s' where filename = '%s'; update cache_results set filename = '%s' where filename = '%s'"
 #define IS_TAGGED			"select filename from tagged where filename = '%s' and tagname = '%s';"
 #define HAS_TAGS			"select tagname from tagged where filename = '%s';" 
 #define ALL_FILES_TAGGED	"select filename from tagged where tagname = '%s'"

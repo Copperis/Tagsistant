@@ -454,6 +454,8 @@ int process(const char *filename)
 
 	free(mime_type);
 	free(mime_generic);
+
+	dbg(LOG_INFO, "Processing of %s ended.", filename);
 	return res;
 }
 
@@ -1057,27 +1059,37 @@ static int tagsistant_rename(const char *from, const char *to)
 	if (rindex(from, '/') == from) {
 		/* is a tag */
 		const char *newtagname = rindex(to, '/');
-		if (newtagname == NULL) newtagname = to;
-		char *statement = calloc(sizeof(char), strlen(RENAME_TAG) + strlen(tagname) * 2 + strlen(newtagname) * 2);
+		if (newtagname == NULL) {
+			newtagname = to;
+		} else {
+			newtagname++; /* skip the slash */
+		}
+		char *statement = calloc(sizeof(char), strlen(RENAME_TAG) + strlen(tagname) * 2 + strlen(newtagname) * 2 + 2);
 		if (statement == NULL) {
 			dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+			free(tagname);
 			return 1;
 		}
-		sprintf(statement, RENAME_TAG, tagname, newtagname, tagname, newtagname);
-		assert(strlen(RENAME_TAG) + strlen(tagname) * 2 + strlen(newtagname) * 2 > strlen(statement));
+		sprintf(statement, RENAME_TAG, newtagname, tagname, newtagname, tagname);
+		assert(strlen(RENAME_TAG) + strlen(tagname) * 2 + strlen(newtagname) * 2 >= strlen(statement));
 		do_sql(NULL, statement, NULL, NULL);
 		free(statement);
 	} else {
 		/* is a file */
 		const char *newfilename = rindex(to, '/');
-		if (newfilename == NULL) newfilename = to;
-		char *statement = calloc(sizeof(char), strlen(RENAME_FILE) + strlen(tagname) + strlen(newfilename));
+		if (newfilename == NULL) {
+			newfilename = to;
+		} else {
+			newfilename++; /* skip the slash */
+		}
+		char *statement = calloc(sizeof(char), strlen(RENAME_FILE) + strlen(tagname) * 2 + strlen(newfilename) * 2 + 2);
 		if (statement == NULL) {
 			dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+			free(tagname);
 			return 1;
 		}
-		sprintf(statement, RENAME_FILE, tagname, newfilename);
-		assert(strlen(RENAME_FILE) + strlen(tagname) + strlen(newfilename) > strlen(statement));
+		sprintf(statement, RENAME_FILE, newfilename, tagname, newfilename, tagname);
+		assert(strlen(RENAME_FILE) + strlen(tagname) * 2 + strlen(newfilename) * 2 >= strlen(statement));
 		do_sql(NULL, statement, NULL, NULL);
 		free(statement);
 
@@ -1090,6 +1102,7 @@ static int tagsistant_rename(const char *from, const char *to)
 	}
 
 	stop_labeled_time_profile("rename");
+	free(tagname);
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
