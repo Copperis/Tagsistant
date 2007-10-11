@@ -196,32 +196,40 @@ int drop_cached_queries(char *tagname)
  * \return 1 if successful, 0 otherwise
  * \todo check return values of this function
  */
-int tag_file(char *filename, char *tagname)
+int tag_file(const char *filename, char *tagname)
 {
 	char *statement = NULL;
+
+	/* get pure filename */
+	char *purefile = get_tag_name(filename);
 
 	/* drop cached queries containing tagname */
 	drop_cached_queries(tagname);
 
 	/* check if file is already tagged */
-	if (is_tagged(filename, tagname)) return 1;
-
-	/* add tag to file */
-	statement = calloc(sizeof(char), strlen(TAG_FILE) + strlen(tagname) + strlen(filename));
-	if (statement == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+	if (is_tagged(purefile, tagname)) {
+		free(purefile);
 		return 1;
 	}
-	sprintf(statement, TAG_FILE, tagname, filename);
-	assert(strlen(TAG_FILE) + strlen(tagname) + strlen(filename) > strlen(statement));
+
+	/* add tag to file */
+	statement = calloc(sizeof(char), strlen(TAG_FILE) + strlen(tagname) + strlen(purefile));
+	if (statement == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		free(purefile);
+		return 1;
+	}
+	sprintf(statement, TAG_FILE, tagname, purefile);
+	assert(strlen(TAG_FILE) + strlen(tagname) + strlen(purefile) > strlen(statement));
 	do_sql(NULL, statement, NULL, NULL);
 	free(statement);
-	dbg(LOG_INFO, "File %s tagged as %s", filename, tagname);
+	dbg(LOG_INFO, "File %s tagged as %s", purefile, tagname);
 
 	/* check if tag is already in db */
 	statement = calloc(sizeof(char), strlen(TAG_EXISTS) + strlen(tagname));
 	if (statement == NULL) {
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		free(purefile);
 		return 0;
 	}
 	sprintf(statement, TAG_EXISTS, tagname);
@@ -232,6 +240,7 @@ int tag_file(char *filename, char *tagname)
 	free(statement);
 	if (exists) {
 		dbg(LOG_INFO, "Tag %s already exists", tagname);
+		free(purefile);
 		return 1;
 	}
 
@@ -240,6 +249,7 @@ int tag_file(char *filename, char *tagname)
 	statement = calloc(sizeof(char), strlen(CREATE_TAG) + strlen(tagname));
 	if (statement == NULL) {
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		free(purefile);
 		return 1;
 	}
 	sprintf(statement, CREATE_TAG, tagname);
@@ -248,6 +258,7 @@ int tag_file(char *filename, char *tagname)
 	free(statement);
 	dbg(LOG_INFO, "Tag %s created", tagname);
 
+	free(purefile);
 	return 1;
 }
 
@@ -425,6 +436,12 @@ int process(const char *filename)
 	dbg(LOG_INFO, "Processing file %s", filename);
 
 	char *mime_type = get_file_mimetype(filename);
+
+	if (mime_type == NULL) {
+		dbg(LOG_ERR, "process() wasn't able to guess mime type for %s", filename);
+		return 0;
+	}
+
 	char *mime_generic = strdup(mime_type);
 	char *slash = index(mime_generic, '/');
 	slash++;
@@ -440,23 +457,60 @@ int process(const char *filename)
 			(strcmp(plugin->mime_type, mime_generic) == 0) ||
 			(strcmp(plugin->mime_type, "*/*") == 0)
 		) {
+			/* call plugin processor */
 			process_res = (plugin->processor)(filename);
 
 			/* report about processing */
-			if (process_res == 0) {
-				dbg(LOG_ERR, "Plugin %s was supposed to apply to %s, but failed!", plugin->filename, filename);
-			} else if (process_res == 2) {
-				dbg(LOG_INFO, "Plugin %s terminated plugin chain on file %s", plugin->filename, filename);
+			switch (process_res) {
+				case TP_ERROR:
+					dbg(LOG_ERR, "Plugin %s was supposed to apply to %s, but failed!", plugin->filename, filename);
+					break;
+				case TP_OK:
+					dbg(LOG_INFO, "Plugin %s tagged %s", plugin->filename, filename);
+					break;
+				case TP_STOP:
+					dbg(LOG_INFO, "Plugin %s stopped chain on %s", plugin->filename, filename);
+					goto STOP_CHAIN_TAGGING;
+					break;
+				case TP_NULL:
+					dbg(LOG_INFO, "Plugin %s did not tagged %s", plugin->filename, filename);
+					break;
+				default:
+					dbg(LOG_ERR, "Plugin %s returned unknown result %d", plugin->filename, process_res);
+					break;
 			}
 		}
 		plugin = plugin->next;
 	}
+
+STOP_CHAIN_TAGGING:
 
 	free(mime_type);
 	free(mime_generic);
 
 	dbg(LOG_INFO, "Processing of %s ended.", filename);
 	return res;
+}
+
+/**
+ * SQL callback. Return an integer from a query
+ *
+ * \param return_integer integer pointer cast to void* which holds the integer to be returned
+ * \param argc counter of argv arguments
+ * \param argv array of SQL given results
+ * \param azColName array of SQL column names
+ * \return 0 (always, due to SQLite policy)
+ */
+static int return_integer(void *return_integer, int argc, char **argv, char **azColName)
+{
+	(void) argc;
+	(void) azColName;
+	uint32_t *buffer = (uint32_t *) return_integer;
+
+	if (argv[0] != NULL) {
+		sscanf(argv[0], "%u", buffer);
+	}
+	return 0;
 }
 
 /**
@@ -506,6 +560,19 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 	 	lstat(tagsistant.archive, stbuf);	
 
+		/* getting directory inode from filesystem */
+		ino_t inode = 0;
+		char *sql = calloc(sizeof(char), strlen(GET_EXACT_TAG_ID) + strlen(last2) + 1);
+		sprintf(sql, GET_EXACT_TAG_ID, last2);
+		/*
+		fprintf(stderr, "sql query: %s is %d char long\n", sql, strlen(sql));
+		fprintf(stderr, "sql proto: %s is %d char long\n", GET_EXACT_TAG_ID, strlen(GET_EXACT_TAG_ID));
+		*/
+		assert(strlen(GET_EXACT_TAG_ID) <= strlen(sql)); /* if dir is OR is long exactly as %s in format! */
+		do_sql(NULL, sql, return_integer, &inode);
+		stbuf->st_ino = inode * 3; /* each directory holds 3 inodes: itself/, itself/AND/, itself/OR/ */
+		free(sql);
+
 		/* 
 		 * using tagsistant.archive in lstat() returns its inode number
 		 * for all AND/OR ops. that is a problem while traversing
@@ -552,6 +619,15 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 		if (exists) {
 			res = lstat(tagsistant.archive, stbuf);
 			tagsistant_errno = errno;
+
+			/* getting directory inode from filesystem */
+			ino_t inode = 0;
+			char *sql = calloc(sizeof(char), strlen(GET_EXACT_TAG_ID) + strlen(last) + 1);
+			sprintf(sql, GET_EXACT_TAG_ID, last);
+			assert(strlen(GET_EXACT_TAG_ID) <= strlen(sql) - 1); /* -1 because we can have 1 char tags! */
+			do_sql(NULL, sql, return_integer, &inode);
+			stbuf->st_ino = inode * 3; /* each directory holds 3 inodes: itself/, itself/AND/, itself/OR/ */
+			free(sql);
 		} else {
 			res = -1;
 			tagsistant_errno = ENOENT;
@@ -832,8 +908,13 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 		/* file is not already tagged, doing it */
 		if (tag_file(filename, tagname)) {
 			dbg(LOG_INFO, "Tagging file %s as %s inside tagsistant_mknod()", filename, tagname);
+
 			res = mknod(fullfilename, mode, rdev);
 			tagsistant_errno = errno;
+
+			/* do stacked plugin operations */
+			process(filename);
+
 			if (res == -1) {
 				/*
 				 * if real mknod() return -1 could be because file already exists
@@ -843,9 +924,6 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 				if (tagsistant_errno == EEXIST) {
 					res = 0;
 					tagsistant_errno = 0;
-
-					/* do stacked plugin operations */
-					process(filename);
 				} else {
 					dbg(LOG_ERR, "Real mknod() failed: %s", strerror(tagsistant_errno));
 					untag_file(filename, tagname);
@@ -1960,7 +2038,7 @@ int main(int argc, char *argv[])
 				strcat(pname, de->d_name);
 
 				/* load the plugin */
-				plugin->handle = dlopen(pname, RTLD_NOW);
+				plugin->handle = dlopen(pname, RTLD_NOW|RTLD_GLOBAL);
 				if (plugin->handle == NULL) {
 					fprintf(stderr, " *** error dlopen()ing plugin %s: %s ***\n", de->d_name, dlerror());
 					free(plugin);
@@ -1994,7 +2072,7 @@ int main(int argc, char *argv[])
 							plugin->filename = strdup(de->d_name);
 							plugin->next = plugins;
 							plugins = plugin;
-							fprintf(stderr, " Loaded plugin %s for \"%s\"\n", de->d_name, plugin->mime_type);
+							fprintf(stderr, " Loaded plugin %s \t-> \"%s\"\n", de->d_name, plugin->mime_type);
 						}
 					}
 				}

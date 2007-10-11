@@ -27,8 +27,7 @@ char mime_type[] = "*/*";
 /* exported init function */
 int plugin_init()
 {
-	dbg(LOG_INFO, "Plugin generic loaded, nice to meet you!");
-	fprintf(stderr, " Plugin generic loaded, nice to meet you!\n");
+	/* dbg(LOG_INFO, "Plugin generic loaded, nice to meet you!"); */
 	return 1;
 }
 
@@ -36,14 +35,13 @@ int plugin_init()
 int processor(const char *filename)
 {
 	(void) filename;
-	return 2;
+	return TP_NULL;
 }
 
 /* exported finalize function */
 void plugin_free()
 {
-	dbg(LOG_INFO, "Plugin generic gets unloaded, see you!");
-	fprintf(stderr, " Plugin generic gets unloaded, see you!\n");
+	/* dbg(LOG_INFO, "Plugin generic gets unloaded, see you!"); */
 }
 
 // vim:ts=4:autoindent:nocindent:syntax=c

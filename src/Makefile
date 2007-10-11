@@ -47,7 +47,7 @@ AUTOMAKE = ${SHELL} /media/cf/MySoft/C/tagsistant/missing --run automake-1.7
 AWK = mawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
-CFLAGS = -D_DEBUG_SYSLOG -g -O2 -D_FILE_OFFSET_BITS=64 -Wall -W
+CFLAGS = -D_DEBUG_STDERR -g -O2 -D_FILE_OFFSET_BITS=64 -Wall -W
 CPP = gcc -E
 CPPFLAGS = 
 CXX = g++
@@ -80,15 +80,15 @@ OBJEXT = o
 PACKAGE = tagsistant
 PACKAGE_BUGREPORT = tx0@strumentiresistenti.org
 PACKAGE_NAME = tagsistant
-PACKAGE_STRING = tagsistant 0.0.20070829
+PACKAGE_STRING = tagsistant 0.0.20071009
 PACKAGE_TARNAME = tagsistant
-PACKAGE_VERSION = 0.0.20070829
+PACKAGE_VERSION = 0.0.20071009
 PATH_SEPARATOR = :
 RANLIB = ranlib
 SET_MAKE = 
 SHELL = /bin/sh
 STRIP = strip
-VERSION = 0.0.20070829
+VERSION = 0.0.20071009
 ac_ct_AR = ar
 ac_ct_CC = gcc
 ac_ct_CXX = g++
@@ -137,11 +137,19 @@ tagsistant_SOURCES = tagsistant.c path_resolution.c\
 
 #### tagsistant_CFLAGS = -D'PLUGINS_DIR="${exec_prefix}/libexec/tagsistant"'
 tagsistant_CFLAGS = -D'PLUGINS_DIR="${exec_prefix}/lib/"'
-tagsistant_LDFLAGS = -lfuse -lsqlite3 -ldl
+tagsistant_LDFLAGS = -lfuse -lsqlite3 -ldl -rdynamic
 
-lib_LTLIBRARIES = libtagsistant_generic-0.1.la libtagsistant_mp3-0.1.la
+lib_LTLIBRARIES = libtagsistant_generic-0.1.la libtagsistant_mp3-0.1.la\
+	libtagsistant_gif-0.1.la libtagsistant_html-0.1.la libtagsistant_jpeg-0.1.la\
+	libtagsistant_ogg-0.1.la libtagsistant_xml-0.1.la
+
 libtagsistant_generic_0_1_la_SOURCES = tagsistant.h tp_generic.c
 libtagsistant_mp3_0_1_la_SOURCES = tagsistant.h tp_mp3.c
+libtagsistant_gif_0_1_la_SOURCES = tagsistant.h tp_gif.c
+libtagsistant_html_0_1_la_SOURCES = tagsistant.h tp_html.c
+libtagsistant_jpeg_0_1_la_SOURCES = tagsistant.h tp_jpeg.c
+libtagsistant_ogg_0_1_la_SOURCES = tagsistant.h tp_ogg.c
+libtagsistant_xml_0_1_la_SOURCES = tagsistant.h tp_xml.c
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
@@ -154,11 +162,36 @@ libtagsistant_generic_0_1_la_LIBADD =
 am_libtagsistant_generic_0_1_la_OBJECTS = tp_generic.lo
 libtagsistant_generic_0_1_la_OBJECTS = \
 	$(am_libtagsistant_generic_0_1_la_OBJECTS)
+libtagsistant_gif_0_1_la_LDFLAGS =
+libtagsistant_gif_0_1_la_LIBADD =
+am_libtagsistant_gif_0_1_la_OBJECTS = tp_gif.lo
+libtagsistant_gif_0_1_la_OBJECTS = \
+	$(am_libtagsistant_gif_0_1_la_OBJECTS)
+libtagsistant_html_0_1_la_LDFLAGS =
+libtagsistant_html_0_1_la_LIBADD =
+am_libtagsistant_html_0_1_la_OBJECTS = tp_html.lo
+libtagsistant_html_0_1_la_OBJECTS = \
+	$(am_libtagsistant_html_0_1_la_OBJECTS)
+libtagsistant_jpeg_0_1_la_LDFLAGS =
+libtagsistant_jpeg_0_1_la_LIBADD =
+am_libtagsistant_jpeg_0_1_la_OBJECTS = tp_jpeg.lo
+libtagsistant_jpeg_0_1_la_OBJECTS = \
+	$(am_libtagsistant_jpeg_0_1_la_OBJECTS)
 libtagsistant_mp3_0_1_la_LDFLAGS =
 libtagsistant_mp3_0_1_la_LIBADD =
 am_libtagsistant_mp3_0_1_la_OBJECTS = tp_mp3.lo
 libtagsistant_mp3_0_1_la_OBJECTS = \
 	$(am_libtagsistant_mp3_0_1_la_OBJECTS)
+libtagsistant_ogg_0_1_la_LDFLAGS =
+libtagsistant_ogg_0_1_la_LIBADD =
+am_libtagsistant_ogg_0_1_la_OBJECTS = tp_ogg.lo
+libtagsistant_ogg_0_1_la_OBJECTS = \
+	$(am_libtagsistant_ogg_0_1_la_OBJECTS)
+libtagsistant_xml_0_1_la_LDFLAGS =
+libtagsistant_xml_0_1_la_LIBADD =
+am_libtagsistant_xml_0_1_la_OBJECTS = tp_xml.lo
+libtagsistant_xml_0_1_la_OBJECTS = \
+	$(am_libtagsistant_xml_0_1_la_OBJECTS)
 bin_PROGRAMS = tagsistant$(EXEEXT)
 PROGRAMS = $(bin_PROGRAMS)
 
@@ -175,7 +208,10 @@ am__depfiles_maybe = depfiles
 DEP_FILES = ./$(DEPDIR)/tagsistant-fuse_opt.Po \
 	./$(DEPDIR)/tagsistant-path_resolution.Po \
 	./$(DEPDIR)/tagsistant-tagsistant.Po \
-	./$(DEPDIR)/tp_generic.Plo ./$(DEPDIR)/tp_mp3.Plo
+	./$(DEPDIR)/tp_generic.Plo ./$(DEPDIR)/tp_gif.Plo \
+	./$(DEPDIR)/tp_html.Plo ./$(DEPDIR)/tp_jpeg.Plo \
+	./$(DEPDIR)/tp_mp3.Plo ./$(DEPDIR)/tp_ogg.Plo \
+	./$(DEPDIR)/tp_xml.Plo
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) \
@@ -184,9 +220,14 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(AM_LDFLAGS) $(LDFLAGS) -o $@
 DIST_SOURCES = $(libtagsistant_generic_0_1_la_SOURCES) \
-	$(libtagsistant_mp3_0_1_la_SOURCES) $(tagsistant_SOURCES)
+	$(libtagsistant_gif_0_1_la_SOURCES) \
+	$(libtagsistant_html_0_1_la_SOURCES) \
+	$(libtagsistant_jpeg_0_1_la_SOURCES) \
+	$(libtagsistant_mp3_0_1_la_SOURCES) \
+	$(libtagsistant_ogg_0_1_la_SOURCES) \
+	$(libtagsistant_xml_0_1_la_SOURCES) $(tagsistant_SOURCES)
 DIST_COMMON = $(srcdir)/Makefile.in Makefile.am
-SOURCES = $(libtagsistant_generic_0_1_la_SOURCES) $(libtagsistant_mp3_0_1_la_SOURCES) $(tagsistant_SOURCES)
+SOURCES = $(libtagsistant_generic_0_1_la_SOURCES) $(libtagsistant_gif_0_1_la_SOURCES) $(libtagsistant_html_0_1_la_SOURCES) $(libtagsistant_jpeg_0_1_la_SOURCES) $(libtagsistant_mp3_0_1_la_SOURCES) $(libtagsistant_ogg_0_1_la_SOURCES) $(libtagsistant_xml_0_1_la_SOURCES) $(tagsistant_SOURCES)
 
 all: all-am
 
@@ -227,8 +268,18 @@ clean-libLTLIBRARIES:
 	done
 libtagsistant_generic-0.1.la: $(libtagsistant_generic_0_1_la_OBJECTS) $(libtagsistant_generic_0_1_la_DEPENDENCIES) 
 	$(LINK) -rpath $(libdir) $(libtagsistant_generic_0_1_la_LDFLAGS) $(libtagsistant_generic_0_1_la_OBJECTS) $(libtagsistant_generic_0_1_la_LIBADD) $(LIBS)
+libtagsistant_gif-0.1.la: $(libtagsistant_gif_0_1_la_OBJECTS) $(libtagsistant_gif_0_1_la_DEPENDENCIES) 
+	$(LINK) -rpath $(libdir) $(libtagsistant_gif_0_1_la_LDFLAGS) $(libtagsistant_gif_0_1_la_OBJECTS) $(libtagsistant_gif_0_1_la_LIBADD) $(LIBS)
+libtagsistant_html-0.1.la: $(libtagsistant_html_0_1_la_OBJECTS) $(libtagsistant_html_0_1_la_DEPENDENCIES) 
+	$(LINK) -rpath $(libdir) $(libtagsistant_html_0_1_la_LDFLAGS) $(libtagsistant_html_0_1_la_OBJECTS) $(libtagsistant_html_0_1_la_LIBADD) $(LIBS)
+libtagsistant_jpeg-0.1.la: $(libtagsistant_jpeg_0_1_la_OBJECTS) $(libtagsistant_jpeg_0_1_la_DEPENDENCIES) 
+	$(LINK) -rpath $(libdir) $(libtagsistant_jpeg_0_1_la_LDFLAGS) $(libtagsistant_jpeg_0_1_la_OBJECTS) $(libtagsistant_jpeg_0_1_la_LIBADD) $(LIBS)
 libtagsistant_mp3-0.1.la: $(libtagsistant_mp3_0_1_la_OBJECTS) $(libtagsistant_mp3_0_1_la_DEPENDENCIES) 
 	$(LINK) -rpath $(libdir) $(libtagsistant_mp3_0_1_la_LDFLAGS) $(libtagsistant_mp3_0_1_la_OBJECTS) $(libtagsistant_mp3_0_1_la_LIBADD) $(LIBS)
+libtagsistant_ogg-0.1.la: $(libtagsistant_ogg_0_1_la_OBJECTS) $(libtagsistant_ogg_0_1_la_DEPENDENCIES) 
+	$(LINK) -rpath $(libdir) $(libtagsistant_ogg_0_1_la_LDFLAGS) $(libtagsistant_ogg_0_1_la_OBJECTS) $(libtagsistant_ogg_0_1_la_LIBADD) $(LIBS)
+libtagsistant_xml-0.1.la: $(libtagsistant_xml_0_1_la_OBJECTS) $(libtagsistant_xml_0_1_la_DEPENDENCIES) 
+	$(LINK) -rpath $(libdir) $(libtagsistant_xml_0_1_la_LDFLAGS) $(libtagsistant_xml_0_1_la_OBJECTS) $(libtagsistant_xml_0_1_la_LIBADD) $(LIBS)
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 install-binPROGRAMS: $(bin_PROGRAMS)
 	@$(NORMAL_INSTALL)
@@ -272,7 +323,12 @@ include ./$(DEPDIR)/tagsistant-fuse_opt.Po
 include ./$(DEPDIR)/tagsistant-path_resolution.Po
 include ./$(DEPDIR)/tagsistant-tagsistant.Po
 include ./$(DEPDIR)/tp_generic.Plo
+include ./$(DEPDIR)/tp_gif.Plo
+include ./$(DEPDIR)/tp_html.Plo
+include ./$(DEPDIR)/tp_jpeg.Plo
 include ./$(DEPDIR)/tp_mp3.Plo
+include ./$(DEPDIR)/tp_ogg.Plo
+include ./$(DEPDIR)/tp_xml.Plo
 
 .c.o:
 	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" \

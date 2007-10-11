@@ -117,6 +117,8 @@
 #define DROP_QUERY_BY_ID	"delete from cache_queries where id = %s;"
 #define DROP_QUERY			"delete from cache_queries where path like '%%/%s/%%' or path like '%%/%s';"
 
+#define GET_EXACT_TAG_ID	"select id from tags where tagname = '%s';"
+
 /**
  * defines an AND token in a query path
  */
@@ -149,6 +151,13 @@ typedef struct file_handle {
 	/** next element in results */
 	struct file_handle *next;
 } file_handle_t;
+
+/* codes used in plugin chain processing */
+
+#define TP_ERROR	0	/**< an error occurred while processing with this plugin */
+#define TP_OK		1	/**< ok, but further tagging can be done by other plugins */
+#define TP_STOP		2	/**< this plugin is authoritative for mimetype, stop chaining */
+#define TP_NULL		3	/**< no tagging has been done, but that's not an error */
 
 /**
  * holds a pointer to a processing funtion
@@ -209,7 +218,7 @@ extern char *get_tmp_file_path(const char *tag);
 
 extern int is_tagged(char *filename, char *tagname);
 extern int drop_cached_queries(char *tagname);
-extern int tag_file(char *filename, char *tagname);
+extern int tag_file(const char *filename, char *tagname);
 extern int untag_file(char *filename, char *tagname);
 extern int is_cached(const char *path);
 

@@ -20,21 +20,23 @@
 */
 
 #include "tagsistant.h"
+#define DEFAULT_TAG "audio"
 
 /* declaring mime type */
-char mime_type[] = "audio/mp3";
+char mime_type[] = "audio/mpeg";
 
 /* exported init function */
 int plugin_init()
 {
-	dbg(LOG_INFO, "MP3 plugin is still nothing doing!");
 	return 1;
 }
 
 /* exported processor function */
 int processor(const char *filename)
 {
-	return 2;
+	dbg(LOG_INFO, "Tagging %s as %s", filename, DEFAULT_TAG);
+	tag_file(filename, DEFAULT_TAG);
+	return TP_STOP;
 }
 
 /* exported finalize function */

@@ -25,9 +25,12 @@
 char *get_tag_name(const char *path)
 {
 	char *idx = rindex(path, '/');
-	idx++;
-	char *tagname = strdup(idx);
-	return tagname;
+	if (idx != NULL) {
+		idx++;
+		return strdup(idx);
+	} else {
+		return strdup(path);
+	}
 }
 
 char *get_file_path(const char *tag)
@@ -156,7 +159,9 @@ static int add_to_filetree(void *atft_struct, int argc, char **argv, char **azCo
 	struct atft *atft = (struct atft*) atft_struct;
 	file_handle_t **fh = atft->fh;
 
+#if VERBOSE_DEBUG
 	dbg(LOG_INFO, "add_to_file_tree: %s", argv[0]);
+#endif
 
 	/* no need to add empty files */
 	if (argv[0] == NULL || strlen(argv[0]) == 0)
@@ -183,7 +188,9 @@ static int add_to_filetree(void *atft_struct, int argc, char **argv, char **azCo
 		free(sql);
 	}
 
+#if VERBOSE_DEBUG
 	dbg(LOG_INFO, "add_to_file_tree %s done!", argv[0]);
+#endif
 	return 0;
 }
 

@@ -47,7 +47,7 @@ AUTOMAKE = ${SHELL} /media/cf/MySoft/C/tagsistant/missing --run automake-1.7
 AWK = mawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
-CFLAGS = -D_DEBUG_SYSLOG -g -O2 -D_FILE_OFFSET_BITS=64 -Wall -W
+CFLAGS = -D_DEBUG_STDERR -g -O2 -D_FILE_OFFSET_BITS=64 -Wall -W
 CPP = gcc -E
 CPPFLAGS = 
 CXX = g++
@@ -80,15 +80,15 @@ OBJEXT = o
 PACKAGE = tagsistant
 PACKAGE_BUGREPORT = tx0@strumentiresistenti.org
 PACKAGE_NAME = tagsistant
-PACKAGE_STRING = tagsistant 0.0.20070829
+PACKAGE_STRING = tagsistant 0.0.20071009
 PACKAGE_TARNAME = tagsistant
-PACKAGE_VERSION = 0.0.20070829
+PACKAGE_VERSION = 0.0.20071009
 PATH_SEPARATOR = :
 RANLIB = ranlib
 SET_MAKE = 
 SHELL = /bin/sh
 STRIP = strip
-VERSION = 0.0.20070829
+VERSION = 0.0.20071009
 ac_ct_AR = ar
 ac_ct_CC = gcc
 ac_ct_CXX = g++
