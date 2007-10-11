@@ -562,16 +562,20 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 		/* getting directory inode from filesystem */
 		ino_t inode = 0;
-		char *sql = calloc(sizeof(char), strlen(GET_EXACT_TAG_ID) + strlen(last2) + 1);
-		sprintf(sql, GET_EXACT_TAG_ID, last2);
-		/*
-		fprintf(stderr, "sql query: %s is %d char long\n", sql, strlen(sql));
-		fprintf(stderr, "sql proto: %s is %d char long\n", GET_EXACT_TAG_ID, strlen(GET_EXACT_TAG_ID));
-		*/
-		assert(strlen(GET_EXACT_TAG_ID) <= strlen(sql)); /* if dir is OR is long exactly as %s in format! */
-		do_sql(NULL, sql, return_integer, &inode);
+
+		if (last2 != NULL) {
+			char *sql = calloc(sizeof(char), strlen(GET_EXACT_TAG_ID) + strlen(last2) + 1);
+			sprintf(sql, GET_EXACT_TAG_ID, last2);
+			/*
+			fprintf(stderr, "sql query: %s is %d char long\n", sql, strlen(sql));
+			fprintf(stderr, "sql proto: %s is %d char long\n", GET_EXACT_TAG_ID, strlen(GET_EXACT_TAG_ID));
+			*/
+			assert(strlen(GET_EXACT_TAG_ID) <= strlen(sql)); /* if dir is OR is long exactly as %s in format! */
+			do_sql(NULL, sql, return_integer, &inode);
+			free(sql);
+		}
+
 		stbuf->st_ino = inode * 3; /* each directory holds 3 inodes: itself/, itself/AND/, itself/OR/ */
-		free(sql);
 
 		/* 
 		 * using tagsistant.archive in lstat() returns its inode number
