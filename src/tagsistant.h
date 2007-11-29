@@ -62,9 +62,13 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #if FUSE_USE_VERSION == 25
-#	include <sys/statvfs.h>
+#	if HAVE_SYS_STATVFS_H
+#		include <sys/statvfs.h>
+# endif
 #else
-#	include <sys/statfs.h>
+#	if HAVE_SYS_STATFS_H
+#		include <sys/statfs.h>
+#	endif
 #endif
 #include <stddef.h>
 #include <netinet/in.h>

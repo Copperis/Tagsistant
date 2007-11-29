@@ -19,7 +19,7 @@ AC_PROG_CC
 # Checks for header files.
 AC_HEADER_DIRENT
 AC_HEADER_STDC
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h netinet/in.h stddef.h stdlib.h string.h sys/socket.h sys/statfs.h sys/vfs.h syslog.h unistd.h utime.h])
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h netinet/in.h stddef.h stdlib.h string.h sys/socket.h sys/statfs.h sys/statvfs.h sys/vfs.h syslog.h unistd.h utime.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
