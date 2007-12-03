@@ -102,6 +102,16 @@ AC_CHECK_LIB([sqlite3],[sqlite3_open],,[
 	exit 1
 ])
 
+echo $host .. $target
+case $host in
+	*-*-linux*)
+		echo "Live long and prosper, GNU/Linux"
+		;;
+	*-*-darwin*)
+		AC_SUBST([CFLAGS],["${CFLAGS} -D__FreeBSD__=10 -DFUSE_USE_VERSION=25"])
+		;;
+esac
+
 AC_CONFIG_FILES([Makefile
                  src/Makefile])
 AC_OUTPUT

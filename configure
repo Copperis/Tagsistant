@@ -22677,6 +22677,17 @@ else
 fi
 
 
+echo $host .. $target
+case $host in
+	*-*-linux*)
+		echo "Live long and prosper, GNU/Linux"
+		;;
+	*-*-darwin*)
+		CFLAGS="${CFLAGS} -D__FreeBSD__=10 -DFUSE_USE_VERSION=25"
+
+		;;
+esac
+
 ac_config_files="$ac_config_files Makefile src/Makefile"
 
 cat >confcache <<\_ACEOF
