@@ -7,6 +7,7 @@ AM_INIT_AUTOMAKE(tagsistant, 0.0.20071011)
 AC_COPYRIGHT([tagsistant is (C) Tx0 <tx0@strumentiresistenti.org>])
 AC_CONFIG_SRCDIR([src/tagsistant.c])
 AC_CONFIG_HEADER([config.h])
+AC_CANONICAL_TARGET
 
 AC_PROG_LIBTOOL
 # AC_PROG_RANLIB
