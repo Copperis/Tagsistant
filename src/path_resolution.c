@@ -45,6 +45,18 @@ char *get_file_path(const char *tag)
 	return filepath;
 }
 
+#ifdef MACOSX
+char *strndup(const char *s, size_t n)
+{
+	char *result = calloc(sizeof(char), n+1);
+	if (result == NULL) return NULL;
+
+	memcpy(result, s, n);
+	result[n] = '\0';
+	return result;
+}
+#endif
+
 /**
  * Build query tree from path. A querytree is composed of a linked
  * list of ptree_or_node_t objects. Each or object has a descending
