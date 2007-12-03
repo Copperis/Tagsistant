@@ -22685,6 +22685,8 @@ case $host in
 	*-*-darwin*)
 		CFLAGS="${CFLAGS} -D__FreeBSD__=10 -DFUSE_USE_VERSION=25"
 
+		LDFLAGS="${LDFLAGS} -flat_namespace -force_flat_namespace"
+
 		;;
 esac
 
