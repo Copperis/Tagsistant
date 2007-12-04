@@ -22683,7 +22683,7 @@ case $host in
 		echo "Live long and prosper, GNU/Linux"
 		;;
 	*-*-darwin*)
-		CFLAGS="${CFLAGS} -D__FreeBSD__=10 -DFUSE_USE_VERSION=25"
+		CFLAGS="${CFLAGS} -D__FreeBSD__=10 -DMACOSX -DFUSE_USE_VERSION=25"
 
 		LDFLAGS="${LDFLAGS} -flat_namespace -force_flat_namespace"
 

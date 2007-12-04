@@ -943,7 +943,7 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 					res = 0;
 					tagsistant_errno = 0;
 				} else {
-					dbg(LOG_ERR, "Real mknod() failed: %s", strerror(tagsistant_errno));
+					dbg(LOG_ERR, "mknod(%s, %u, %u) failed: %s", fullfilename, mode, rdev, strerror(tagsistant_errno));
 					untag_file(filename, tagname);
 				}
 			}
