@@ -350,13 +350,17 @@ int is_cached(const char *path)
 #ifdef MACOSX
 ssize_t getline(char **lineptr, size_t *n, FILE *stream)
 {
-	*lineptr = calloc(sizeof(char), *n + 1);
-	if (*lineptr == NULL) return NULL;
-	if (fgets(*lineptr, *n, stream) == NULL) {
+	if (*lineptr == NULL)
+		*lineptr = calloc(sizeof(char), *n + 1);
+
+	if (*lineptr == NULL)
+		return NULL;
+
+	if (fgets(*lineptr, *n, stream) == NULL)
 		*n = 0;
-	} else {
+	else
 		*n = strlen(*lineptr);
-	}
+
 	return *n;
 }
 #endif

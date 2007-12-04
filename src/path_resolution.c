@@ -49,7 +49,8 @@ char *get_file_path(const char *tag)
 char *strndup(const char *s, size_t n)
 {
 	char *result = calloc(sizeof(char), n+1);
-	if (result == NULL) return NULL;
+	if (result == NULL)
+		return NULL;
 
 	memcpy(result, s, n);
 	result[n] = '\0';
