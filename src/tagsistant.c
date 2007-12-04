@@ -354,7 +354,7 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream)
 		*lineptr = calloc(sizeof(char), *n + 1);
 
 	if (*lineptr == NULL)
-		return NULL;
+		return 0;
 
 	if (fgets(*lineptr, *n, stream) == NULL)
 		*n = 0;
