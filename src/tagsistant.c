@@ -2045,8 +2045,15 @@ int main(int argc, char *argv[])
 				char *needle = strstr(de->d_name, TAGSISTANT_PLUGIN_PREFIX);
 				if ((needle == NULL) || (needle != de->d_name)) continue;
 
-				needle = strstr(de->d_name, ".so");
-				if ((needle == NULL) || (needle != de->d_name + strlen(de->d_name) - 3)) continue;
+#				ifdef MACOSX
+#					define PLUGIN_EXT ".dylib"
+#				else
+#					define PLUGIN_EXT ".so"
+#				endif
+
+				needle = strstr(de->d_name, PLUGIN_EXT);
+				if ((needle == NULL) || (needle != de->d_name + strlen(de->d_name) - strlen(PLUGIN_EXT)))
+					continue;
 
 				/* file is a tagsistant plugin (beginning by right prefix) and is processed */
 				/* allocate new plugin object */
