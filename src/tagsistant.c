@@ -1711,10 +1711,10 @@ void usage(char *progname)
 		return;
 
 	fprintf(stderr, "\n"
-		" Tagsistant (tagfs) v.%s\n"
+		" Tagsistant (tagfs) v.%s FUSE_USE_VERSION: %d\n"
 		" Semantic File System for Linux kernels\n"
 		" (c) 2006-2007 Tx0 <tx0@strumentiresistenti.org>\n"
-		" FUSE_USE_VERSION: %d\n\n"
+		" \n"
 		" This program is free software; you can redistribute it and/or modify\n"
 		" it under the terms of the GNU General Public License as published by\n"
 		" the Free Software Foundation; either version 2 of the License, or\n"
@@ -1853,11 +1853,10 @@ int main(int argc, char *argv[])
 
 	fprintf(stderr, "\n");
 	fprintf(stderr,
-		" Tag based filesystem for Linux kernels\n"
+		" Tagsistant (tagfs) v.%s FUSE_USE_VERSION: %d\n"
 		" (c) 2006-2007 Tx0 <tx0@strumentiresistenti.org>\n"
-		" For license informations, see %s -h\n"
-		" FUSE_USE_VERSION: %d\n\n"
-		, tagsistant.progname, FUSE_USE_VERSION
+		" For license informations, see %s -h\n\n"
+		, PACKAGE_VERSION, FUSE_USE_VERSION, tagsistant.progname
 	);
 	
 	/* checking repository */
