@@ -1690,6 +1690,7 @@ static struct fuse_opt tagsistant_opts[] = {
 	TAGSISTANT_OPT("-f",					foreground,		1),
 	TAGSISTANT_OPT("-s",					singlethread,	1),
 	TAGSISTANT_OPT("-r",					readonly,		1),
+	TAGSISTANT_OPT("-v",					verbose,		1),
 	
 	FUSE_OPT_KEY("-V",          	KEY_VERSION),
 	FUSE_OPT_KEY("--version",   	KEY_VERSION),
@@ -1734,8 +1735,9 @@ void usage(char *progname)
 		"    -u  unmount a mounted filesystem\n"
 		"    -q  be quiet\n"
 		"    -r  mount readonly\n"
+		"    -v  verbose syslogging\n"
 		"    -z  lazy unmount (can be dangerous!)\n"
-		"\n " /*fuse options will follow... */
+		"\n" /*fuse options will follow... */
 		, PACKAGE_VERSION, FUSE_USE_VERSION, progname
 	);
 }
@@ -1811,7 +1813,8 @@ int main(int argc, char *argv[])
 	fuse_opt_add_arg(&args, "-odefault_permissions,fsname=tagsistant");
 	fuse_opt_add_arg(&args, "-ouse_ino,readdir_ino");
 
-	/*
+	/***
+	 * TODO
 	 * NOTE
 	 *
 	 * SQLite library is often called "out of sequence" like in
@@ -1819,6 +1822,7 @@ int main(int argc, char *argv[])
 	 * to temporary solve this problem we force here single threaded
 	 * operations. should be really solved by better read_do_sql()
 	 */
+	fprintf(stderr, " *** forcing single thread mode until our SQLite interface is broken! ***\n");
 	tagsistant.singlethread = 1;
 
 	if (tagsistant.singlethread) {
@@ -1832,6 +1836,10 @@ int main(int argc, char *argv[])
 	if (tagsistant.foreground) {
 		fprintf(stderr, " *** will run in foreground ***\n");
 		fuse_opt_add_arg(&args, "-f");
+	}
+	if (tagsistant.verbose) {
+		fprintf(stderr, " *** will log verbosely ***\n");
+		fuse_opt_add_arg(&args, "-d");
 	}
 
 	/* checking mountpoint */
