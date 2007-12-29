@@ -744,6 +744,7 @@ struct use_filler_struct {
 	void *buf;				/**< libfuse buffer to hold readdir results */
 	long int path_id;		/**< numeric id used to cache results */
 	int add_to_cache;		/**< boolean trigger: if true, result will get cached */
+	const char *path;		/**< the path that generates the query */
 };
 
 /**
@@ -767,6 +768,22 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 #if VERBOSE_DEBUG
 	dbg(LOG_INFO, "add_entry_to_dir: + %s", argv[0]);
 #endif
+
+	/* check if this tag has been already listed inside the path */
+	char *path_duplicate = strdup(ufs->path);
+	if (path_duplicate == NULL) {
+		dbg(LOG_ERR, "Error duplicating path @%s:%d", __FILE__, __LINE__);
+		return 0;
+	}
+	char *last_subquery = path_duplicate;
+	while (strstr(last_subquery, "/OR") != NULL) {
+		last_subquery = strstr(last_subquery, "/OR") + strlen("/OR");
+	}
+	if (strstr(last_subquery, argv[0]) != NULL) {
+		free(path_duplicate);
+		return 0;
+	}
+	free(path_duplicate);
 
 	/* add also to cache */
 	if (ufs->add_to_cache) {
@@ -836,6 +853,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 			ufs->filler = filler;
 			ufs->buf = buf;
 			ufs->add_to_cache = 0;
+			ufs->path = path;
 	
 			/* parse tagsdir list */
 			char *mini = calloc(sizeof(char), strlen(ALL_FILES_IN_CACHE) + strlen(path) + 1);
@@ -891,6 +909,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 		ufs->filler = filler;
 		ufs->buf = buf;
 		ufs->add_to_cache = 0;
+		ufs->path = path;
 
 		/* parse tagsdir list */
 		do_sql(NULL, GET_ALL_TAGS, add_entry_to_dir, ufs);
@@ -949,7 +968,7 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 					res = 0;
 					tagsistant_errno = 0;
 				} else {
-					dbg(LOG_ERR, "mknod(%s, %u, %u) failed: %s", fullfilename, mode, rdev, strerror(tagsistant_errno));
+					dbg(LOG_ERR, "mknod(%s, %u, %u) failed: %s", fullfilename, mode, (unsigned int) rdev, strerror(tagsistant_errno));
 					untag_file(filename, tagname);
 				}
 			}
