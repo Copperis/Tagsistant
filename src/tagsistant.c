@@ -47,8 +47,10 @@ int get_filename_and_tagname(const char *path, char **filename, char **filepath,
 	char *ri = rindex(path_dup, '/');
 	*ri = '\0';
 	ri = rindex(path_dup, '/');
-	ri++;
-	*tagname = strdup(ri);
+	if (ri) {
+		ri++;
+		*tagname = strdup(ri);
+	}
 	free(path_dup);
 	return 1;
 }
@@ -914,7 +916,7 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 	init_time_profile();
 	start_time_profile();
 
-	char *filename, *fullfilename, *tagname;
+	char *filename = NULL, *fullfilename = NULL, *tagname = NULL;
 	get_filename_and_tagname(path, &filename, &fullfilename, &tagname);
 
 	if (tagname == NULL) {
