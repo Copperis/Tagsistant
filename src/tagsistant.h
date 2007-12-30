@@ -201,6 +201,7 @@ struct tagsistant {
 	int		 singlethread;	/**< single thread? */
 	int		 readonly;		/**< mount filesystem readonly */
 	int		 verbose;		/**< do verbose logging on syslog (stderr is always verbose) */
+	int		 quiet;			/**< don't log anything */
 
 	char    *progname;		/**< mount.tagsistant */
 	char    *mountpoint;	/**< no clue? */

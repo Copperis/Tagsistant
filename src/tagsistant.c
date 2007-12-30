@@ -1712,6 +1712,7 @@ static struct fuse_opt tagsistant_opts[] = {
 	TAGSISTANT_OPT("-s",					singlethread,	1),
 	TAGSISTANT_OPT("-r",					readonly,		1),
 	TAGSISTANT_OPT("-v",					verbose,		1),
+	TAGSISTANT_OPT("-q",					quiet,			1),
 	
 	FUSE_OPT_KEY("-V",          	KEY_VERSION),
 	FUSE_OPT_KEY("--version",   	KEY_VERSION),
@@ -1753,11 +1754,9 @@ void usage(char *progname)
 		" \n"
 		" Usage: %s [OPTIONS] [--repository=<PATH>] /mountpoint\n"
 		"\n"
-		"    -u  unmount a mounted filesystem\n"
 		"    -q  be quiet\n"
 		"    -r  mount readonly\n"
 		"    -v  verbose syslogging\n"
-		"    -z  lazy unmount (can be dangerous!)\n"
 		"\n" /*fuse options will follow... */
 		, PACKAGE_VERSION, FUSE_USE_VERSION, progname
 	);

@@ -32,8 +32,9 @@
 #ifdef _DEBUG_SYSLOG
 #include <syslog.h>
 #define dbg(facility,string,...) {\
-	if ((strstr(string, ("SQL")) == NULL) || tagsistant.verbose)\
-		syslog(facility,string,## __VA_ARGS__);\
+	if (!tagsistant.quiet)\
+		if ((strstr(string, ("SQL")) == NULL) || tagsistant.verbose)\
+			syslog(facility,string,## __VA_ARGS__);\
 }
 #endif
 
