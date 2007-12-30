@@ -1790,7 +1790,7 @@ static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse
 	        exit(1);
 	
 	    case KEY_VERSION:
-	        fprintf(stderr, "Tagfs for Linux 0.1 (prerelease %s)\n", VERSION);
+	        fprintf(stderr, "Tagsistant for Linux 0.1 (prerelease %s)\n", VERSION);
 #if FUSE_VERSION >= 25
 	        fuse_opt_add_arg(outargs, "--version");
 	        fuse_main(outargs->argc, outargs->argv, &tagsistant_oper);
@@ -1842,23 +1842,28 @@ int main(int argc, char *argv[])
 	 * to temporary solve this problem we force here single threaded
 	 * operations. should be really solved by better read_do_sql()
 	 */
-	fprintf(stderr, " *** forcing single thread mode until our SQLite interface is broken! ***\n");
+	if (!tagsistant.quiet)
+		fprintf(stderr, " *** forcing single thread mode until our SQLite interface is broken! ***\n");
 	tagsistant.singlethread = 1;
 
 	if (tagsistant.singlethread) {
-		fprintf(stderr, " *** operating in single thread mode ***\n");
+		if (!tagsistant.quiet)
+			fprintf(stderr, " *** operating in single thread mode ***\n");
 		fuse_opt_add_arg(&args, "-s");
 	}
 	if (tagsistant.readonly) {
-		fprintf(stderr, " *** mounting tagsistant read-only ***\n");
+		if (!tagsistant.quiet)
+			fprintf(stderr, " *** mounting tagsistant read-only ***\n");
 		fuse_opt_add_arg(&args, "-r");
 	}
 	if (tagsistant.foreground) {
-		fprintf(stderr, " *** will run in foreground ***\n");
+		if (!tagsistant.quiet)
+			fprintf(stderr, " *** will run in foreground ***\n");
 		fuse_opt_add_arg(&args, "-f");
 	}
 	if (tagsistant.verbose) {
-		fprintf(stderr, " *** will log verbosely ***\n");
+		if (!tagsistant.quiet)
+			fprintf(stderr, " *** will log verbosely ***\n");
 		fuse_opt_add_arg(&args, "-d");
 	}
 
@@ -1874,13 +1879,16 @@ int main(int argc, char *argv[])
 	if ((lstat(tagsistant.mountpoint, &mst) == -1) && (errno == ENOENT)) {
 		if (mkdir(tagsistant.mountpoint, S_IRWXU|S_IRGRP|S_IXGRP) != 0) {
 			usage(tagsistant.progname);
-			fprintf(stderr, "\n    Mountpoint %s does not exists and can't be created!\n\n", tagsistant.mountpoint);
+			if (!tagsistant.quiet)
+				fprintf(stderr, "\n    Mountpoint %s does not exists and can't be created!\n\n", tagsistant.mountpoint);
 			exit(1);
 		}
 	}
 
-	fprintf(stderr, "\n");
-	fprintf(stderr,
+	if (!tagsistant.quiet)
+		fprintf(stderr, "\n");
+	if (!tagsistant.quiet)
+		fprintf(stderr,
 		" Tagsistant (tagfs) v.%s FUSE_USE_VERSION: %d\n"
 		" (c) 2006-2007 Tx0 <tx0@strumentiresistenti.org>\n"
 		" For license informations, see %s -h\n\n"
@@ -1895,10 +1903,12 @@ int main(int argc, char *argv[])
 			tagsistant.repository = calloc(replength, sizeof(char));
 			strcat(tagsistant.repository, getenv("HOME"));
 			strcat(tagsistant.repository, "/.tagsistant");
-			fprintf(stderr, " Using default repository %s\n", tagsistant.repository);
+			if (!tagsistant.quiet)
+				fprintf(stderr, " Using default repository %s\n", tagsistant.repository);
 		} else {
 			usage(tagsistant.progname);
-			fprintf(stderr, " *** No repository provided with -r ***\n\n");
+			if (!tagsistant.quiet)
+				fprintf(stderr, " *** No repository provided with -r ***\n\n");
 			exit(2);
 		}
 	}
@@ -1950,7 +1960,8 @@ int main(int argc, char *argv[])
 	struct stat repstat;
 	if (lstat(tagsistant.repository, &repstat) == -1) {
 		if(mkdir(tagsistant.repository, 755) == -1) {
-			fprintf(stderr, " *** REPOSITORY: Can't mkdir(%s): %s ***\n\n", tagsistant.repository, strerror(errno));
+			if (!tagsistant.quiet)
+				fprintf(stderr, " *** REPOSITORY: Can't mkdir(%s): %s ***\n\n", tagsistant.repository, strerror(errno));
 			exit(2);
 		}
 	}
@@ -2009,7 +2020,8 @@ int main(int argc, char *argv[])
 
 	if (lstat(tagsistant.archive, &repstat) == -1) {
 		if(mkdir(tagsistant.archive, 755) == -1) {
-			fprintf(stderr, " *** ARCHIVE: Can't mkdir(%s): %s ***\n\n", tagsistant.archive, strerror(errno));
+			if (!tagsistant.quiet)
+				fprintf(stderr, " *** ARCHIVE: Can't mkdir(%s): %s ***\n\n", tagsistant.archive, strerror(errno));
 			exit(2);
 		}
 	}
@@ -2038,17 +2050,21 @@ int main(int argc, char *argv[])
 	char *tagsistant_plugins = NULL;
 	if (getenv("TAGSISTANT_PLUGINS") != NULL) {
 		tagsistant_plugins = strdup(getenv("TAGSISTANT_PLUGINS"));
-		fprintf(stderr, " Using user defined plugin dir: %s\n", tagsistant_plugins);
+		if (!tagsistant.quiet)
+			fprintf(stderr, " Using user defined plugin dir: %s\n", tagsistant_plugins);
 	} else {
 		tagsistant_plugins = strdup(PLUGINS_DIR);
-		fprintf(stderr, " Using default plugin dir: %s\n", tagsistant_plugins);
+		if (!tagsistant.quiet)
+			fprintf(stderr, " Using default plugin dir: %s\n", tagsistant_plugins);
 	}
 
 	struct stat st;
 	if (lstat(tagsistant_plugins, &st) == -1) {
-		fprintf(stderr, " *** error opening directory %s: %s ***\n", tagsistant_plugins, strerror(errno));
+		if (!tagsistant.quiet)
+			fprintf(stderr, " *** error opening directory %s: %s ***\n", tagsistant_plugins, strerror(errno));
 	} else if (!S_ISDIR(st.st_mode)) {
-		fprintf(stderr, " *** error opening directory %s: not a directory ***\n", tagsistant_plugins);
+		if (!tagsistant.quiet)
+			fprintf(stderr, " *** error opening directory %s: not a directory ***\n", tagsistant_plugins);
 	} else {
 #if 0
 		/* add this directory to LD_LIBRARY_PATH */
@@ -2059,13 +2075,15 @@ int main(int argc, char *argv[])
 		strcat(NEW_LD_LIBRARY_PATH, tagsistant_plugins);
 		setenv("LD_LIBRARY_PATH", NEW_LD_LIBRARY_PATH, 1);
 		free(NEW_LD_LIBRARY_PATH);
-		fprintf(stderr, " LD_LIBRARY_PATH = %s\n", getenv("LD_LIBRARY_PATH"));
+		if (!tagsistant.quiet)
+			fprintf(stderr, " LD_LIBRARY_PATH = %s\n", getenv("LD_LIBRARY_PATH"));
 #endif
 
 		/* open directory and read contents */
 		DIR *p = opendir(tagsistant_plugins);
 		if (p == NULL) {
-			fprintf(stderr, " *** error opening plugin directory %s ***\n", tagsistant_plugins);
+			if (!tagsistant.quiet)
+				fprintf(stderr, " *** error opening plugin directory %s ***\n", tagsistant_plugins);
 		} else {
 			struct dirent *de;
 			while ((de = readdir(p)) != NULL) {
@@ -2096,7 +2114,8 @@ int main(int argc, char *argv[])
 				/* load the plugin */
 				plugin->handle = dlopen(pname, RTLD_NOW|RTLD_GLOBAL);
 				if (plugin->handle == NULL) {
-					fprintf(stderr, " *** error dlopen()ing plugin %s: %s ***\n", de->d_name, dlerror());
+					if (!tagsistant.quiet)
+						fprintf(stderr, " *** error dlopen()ing plugin %s: %s ***\n", de->d_name, dlerror());
 					free(plugin);
 				} else {
 					/* search for init function and call it */
@@ -2115,20 +2134,23 @@ int main(int argc, char *argv[])
 					/* search for MIME type string */
 					plugin->mime_type = dlsym(plugin->handle, "mime_type");
 					if (plugin->mime_type == NULL) {
-						fprintf(stderr, " *** error finding %s processor function: %s ***\n", de->d_name, dlerror());
+						if (!tagsistant.quiet)
+							fprintf(stderr, " *** error finding %s processor function: %s ***\n", de->d_name, dlerror());
 						free(plugin);
 					} else {
 						/* search for processor function */
 						plugin->processor = dlsym(plugin->handle, "processor");	
 						if (plugin->processor == NULL) {
-							fprintf(stderr, " *** error finding %s processor function: %s ***\n", de->d_name, dlerror());
+							if (!tagsistant.quiet)
+								fprintf(stderr, " *** error finding %s processor function: %s ***\n", de->d_name, dlerror());
 							free(plugin);
 						} else {
 							/* add this plugin on queue head */
 							plugin->filename = strdup(de->d_name);
 							plugin->next = plugins;
 							plugins = plugin;
-							fprintf(stderr, " Loaded plugin %s \t-> \"%s\"\n", de->d_name, plugin->mime_type);
+							if (!tagsistant.quiet)
+								fprintf(stderr, " Loaded plugin %s \t-> \"%s\"\n", de->d_name, plugin->mime_type);
 						}
 					}
 				}
