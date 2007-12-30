@@ -2198,15 +2198,6 @@ int main(int argc, char *argv[])
 	return res;
 }
 
-/*
- * TODO:
- *
- * instead of using FUSE single thread feature, why not put a mutex
- * around real_do_sql() to use tagsistant.dbh sequentially without
- * preventing multithreading in other portions of the code and
- * don't need to issue a -s on commandline???
- */
-
 /**
  * Perform SQL queries. This function was added to avoid database opening
  * duplication and better handle SQLite interfacement. If dbh is passed
