@@ -197,7 +197,7 @@ static int add_to_filetree(void *atft_struct, int argc, char **argv, char **azCo
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
 	} else {
 		sprintf(sql, ADD_RESULT_ENTRY, atft->id, argv[0]);
-		do_sql(NULL, sql, NULL, NULL);
+		do_sql(&(tagsistant.dbh), sql, NULL, NULL);
 		free(sql);
 	}
 
@@ -269,6 +269,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 
 		/* calculate number of tags and query string length */
 		/* using memory addresses as temporary view names */
+		/* 8 is sizeof(void *) and 1 is for \0 */
 		unsigned int query_length = strlen("create temp view tv as ;") + 8 + 1;
 
 		while (tag != NULL) {
@@ -317,7 +318,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 		dbg(LOG_INFO, "SQL: final statement is [%s]", statement);
 
 		/* create view */
-		do_sql(NULL, statement, NULL, NULL);
+		do_sql(&(tagsistant.dbh), statement, NULL, NULL);
 		free(statement);
 		query = query->next;
 	}
@@ -330,7 +331,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	sprintf(sql, ADD_CACHE_ENTRY, path);
 
 	dbg(LOG_INFO, "Adding path %s to cache", path);
-	do_sql(NULL, sql, NULL, NULL);
+	do_sql(&(tagsistant.dbh), sql, NULL, NULL);
 	free(sql);
  
 	sqlite_int64 id = sqlite3_last_insert_rowid(tagsistant.dbh);
@@ -384,7 +385,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	atft->id = id;
 
 	/* apply view statement */
-	do_sql(NULL, view_statement, add_to_filetree, atft);
+	do_sql(&(tagsistant.dbh), view_statement, add_to_filetree, atft);
 
 	free(view_statement);
 
@@ -396,7 +397,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 			dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
 		} else {
 			sprintf(mini, "drop view tv%.8X;", (unsigned int) query);
-			do_sql(NULL, mini, NULL, NULL);
+			do_sql(&(tagsistant.dbh), mini, NULL, NULL);
 			free(mini);
 		}
 		query = query->next;

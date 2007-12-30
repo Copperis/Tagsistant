@@ -22,6 +22,10 @@
 #define REGISTER_CLEANUP 0
 #include "tagsistant.h"
 
+#ifndef MACOSX
+#include <mcheck.h>
+#endif
+
 int debug = 0;
 int log_enabled = 0;
 
@@ -108,7 +112,7 @@ int is_tagged(char *filename, char *tagname)
 	}
 	sprintf(statement, IS_TAGGED, filename, tagname);
 	assert(strlen(IS_TAGGED) + strlen(filename) + strlen(tagname) > strlen(statement));
-	do_sql(NULL, statement, report_if_exists, &exists);
+	do_sql(&(tagsistant.dbh), statement, report_if_exists, &exists);
 	free(statement);
 	return exists;
 }
@@ -144,7 +148,7 @@ static int drop_single_query(void *voidtagname, int argc, char **argv, char **az
 	assert(strlen(DROP_FILES) + strlen(argv[0]) + 1 > strlen(sql));
 	dbg(LOG_INFO, "SQL statement: %s", sql);
 
-	int res = do_sql(NULL, sql, NULL, NULL);
+	int res = do_sql(&(tagsistant.dbh), sql, NULL, NULL);
 	free(sql);
 
 	return res;
@@ -223,7 +227,7 @@ int tag_file(const char *filename, char *tagname)
 	}
 	sprintf(statement, TAG_FILE, tagname, purefile);
 	assert(strlen(TAG_FILE) + strlen(tagname) + strlen(purefile) > strlen(statement));
-	do_sql(NULL, statement, NULL, NULL);
+	do_sql(&(tagsistant.dbh), statement, NULL, NULL);
 	free(statement);
 	dbg(LOG_INFO, "File %s tagged as %s", purefile, tagname);
 
@@ -238,7 +242,7 @@ int tag_file(const char *filename, char *tagname)
 	assert(strlen(TAG_EXISTS) + strlen(tagname) > strlen(statement));
 	char exists = 0;
 
-	do_sql(NULL, statement, report_if_exists, &exists);
+	do_sql(&(tagsistant.dbh), statement, report_if_exists, &exists);
 	free(statement);
 	if (exists) {
 		dbg(LOG_INFO, "Tag %s already exists", tagname);
@@ -256,7 +260,7 @@ int tag_file(const char *filename, char *tagname)
 	}
 	sprintf(statement, CREATE_TAG, tagname);
 	assert(strlen(CREATE_TAG) + strlen(tagname) > strlen(statement));
-	do_sql(NULL, statement, NULL, NULL);
+	do_sql(&(tagsistant.dbh), statement, NULL, NULL);
 	free(statement);
 	dbg(LOG_INFO, "Tag %s created", tagname);
 
@@ -291,7 +295,7 @@ static int drop_single_file(void *filenamevoid, int argc, char **argv, char **az
 
 	sprintf(sql, DROP_FILE, filename, argv[0]);
 	assert(strlen(DROP_FILE) + strlen(filename) + strlen(argv[0]) + 1 > strlen(sql));
-	do_sql(NULL, sql, NULL, NULL);
+	do_sql(&(tagsistant.dbh), sql, NULL, NULL);
 	free(sql);
 	
 	return 0;
@@ -308,7 +312,7 @@ int untag_file(char *filename, char *tagname)
 		return 0;
 	}
 	sprintf(statement, UNTAG_FILE, tagname, filename);
-	do_sql(NULL, statement, NULL, NULL);
+	do_sql(&(tagsistant.dbh), statement, NULL, NULL);
 	free(statement);
 
 	statement = calloc(sizeof(char), strlen(GET_ID_OF_TAG) + strlen(tagname) * 2);
@@ -317,7 +321,7 @@ int untag_file(char *filename, char *tagname)
 		return 0;
 	}
 	sprintf(statement, GET_ID_OF_TAG, tagname, tagname);
-	do_sql(NULL, statement, drop_single_file, filename);
+	do_sql(&(tagsistant.dbh), statement, drop_single_file, filename);
 
 	return 1;
 }
@@ -344,7 +348,7 @@ int is_cached(const char *path)
 	assert(strlen(IS_CACHED) + strlen(path) + 1 > strlen(mini));
 
 	int exists = 0;
-	do_sql(NULL, mini, report_if_exists, &exists);
+	do_sql(&(tagsistant.dbh), mini, report_if_exists, &exists);
 	free(mini);
 	return exists;
 }
@@ -591,7 +595,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 			fprintf(stderr, "sql proto: %s is %d char long\n", GET_EXACT_TAG_ID, strlen(GET_EXACT_TAG_ID));
 			*/
 			assert(strlen(GET_EXACT_TAG_ID) <= strlen(sql)); /* if dir is OR is long exactly as %s in format! */
-			do_sql(NULL, sql, return_integer, &inode);
+			do_sql(&(tagsistant.dbh), sql, return_integer, &inode);
 			free(sql);
 		}
 
@@ -637,7 +641,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 		assert(strlen(TAG_EXISTS) + strlen(last) > strlen(statement));
 
 		int exists = 0;
-		do_sql(NULL, statement, report_if_exists, &exists);
+		do_sql(&(tagsistant.dbh), statement, report_if_exists, &exists);
 		free(statement);
 
 		if (exists) {
@@ -649,7 +653,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 			char *sql = calloc(sizeof(char), strlen(GET_EXACT_TAG_ID) + strlen(last) + 1);
 			sprintf(sql, GET_EXACT_TAG_ID, last);
 			assert(strlen(GET_EXACT_TAG_ID) <= strlen(sql) - 1); /* -1 because we can have 1 char tags! */
-			do_sql(NULL, sql, return_integer, &inode);
+			do_sql(&(tagsistant.dbh), sql, return_integer, &inode);
 			stbuf->st_ino = inode * 3; /* each directory holds 3 inodes: itself/, itself/AND/, itself/OR/ */
 			free(sql);
 		} else {
@@ -803,7 +807,7 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 		} else {
 			sprintf(mini, ADD_RESULT_ENTRY, (int64_t) ufs->path_id, argv[0]);
 			assert(strlen(ADD_RESULT_ENTRY) + strlen(argv[0]) + 14 > strlen(mini));
-			do_sql(NULL, mini, add_entry_to_dir, ufs);
+			do_sql(&(tagsistant.dbh), mini, add_entry_to_dir, ufs);
 			free(mini);
 		}
 	}
@@ -874,7 +878,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 			sprintf(mini, ALL_FILES_IN_CACHE, path);
 			assert(strlen(ALL_FILES_IN_CACHE) + strlen(path) + 1 > strlen(mini));
 	
-			do_sql(NULL, mini, add_entry_to_dir, ufs);
+			do_sql(&(tagsistant.dbh), mini, add_entry_to_dir, ufs);
 			free(mini);
 			return 0;
 		}
@@ -922,7 +926,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 		ufs->path = path;
 
 		/* parse tagsdir list */
-		do_sql(NULL, GET_ALL_TAGS, add_entry_to_dir, ufs);
+		do_sql(&(tagsistant.dbh), GET_ALL_TAGS, add_entry_to_dir, ufs);
 		free(ufs);
 	}
 	free(tagname);
@@ -1026,7 +1030,7 @@ static int tagsistant_mkdir(const char *path, mode_t mode)
 	}
 	sprintf(statement, CREATE_TAG, tagname);
 	assert(strlen(CREATE_TAG) + strlen(tagname) > strlen(statement));
-	do_sql(NULL, statement, NULL, NULL);
+	do_sql(&(tagsistant.dbh), statement, NULL, NULL);
 
 	free(statement);
 	free(tagname);
@@ -1078,12 +1082,12 @@ static int tagsistant_unlink(const char *path)
 			memset(statement1, '\0', size1);
 			sprintf(statement1, UNTAG_FILE, element->tag, filename);
 			assert(size1 > strlen(statement1));
-			do_sql(NULL, statement1, NULL, NULL);
+			do_sql(&(tagsistant.dbh), statement1, NULL, NULL);
 
 			memset(statement2, '\0', size2);
 			sprintf(statement2, GET_ID_OF_TAG, element->tag, element->tag);
 			assert(size2 > strlen(statement2));
-			do_sql(NULL, statement2, drop_single_file, filename);
+			do_sql(&(tagsistant.dbh), statement2, drop_single_file, filename);
 
 			element = element->next;
 		}
@@ -1104,7 +1108,7 @@ static int tagsistant_unlink(const char *path)
 		dbg(LOG_INFO, "SQL statement: %s", statement1);
 
 		int exists = 0;
-		do_sql(NULL, statement1, report_if_exists, &exists);
+		do_sql(&(tagsistant.dbh), statement1, report_if_exists, &exists);
 		free(statement1);
 
 		if (!exists) {
@@ -1151,7 +1155,7 @@ static int tagsistant_rmdir(const char *path)
 			sprintf(statement, DELETE_TAG, element->tag, element->tag, element->tag, element->tag);
 			assert(strlen(DELETE_TAG) + MAX_TAG_LENGTH * 4 > strlen(statement));
 			dbg(LOG_INFO, "RMDIR on %s", element->tag);
-			do_sql(NULL, statement, NULL, NULL);
+			do_sql(&(tagsistant.dbh), statement, NULL, NULL);
 			element = element->next;
 			memset(statement, '\0', strlen(statement));
 		}
@@ -1203,7 +1207,7 @@ static int tagsistant_rename(const char *from, const char *to)
 		}
 		sprintf(statement, RENAME_TAG, newtagname, tagname, newtagname, tagname);
 		assert(strlen(RENAME_TAG) + strlen(tagname) * 2 + strlen(newtagname) * 2 >= strlen(statement));
-		do_sql(NULL, statement, NULL, NULL);
+		do_sql(&(tagsistant.dbh), statement, NULL, NULL);
 		free(statement);
 	} else {
 		/* is a file */
@@ -1221,7 +1225,7 @@ static int tagsistant_rename(const char *from, const char *to)
 		}
 		sprintf(statement, RENAME_FILE, newfilename, tagname, newfilename, tagname);
 		assert(strlen(RENAME_FILE) + strlen(tagname) * 2 + strlen(newfilename) * 2 >= strlen(statement));
-		do_sql(NULL, statement, NULL, NULL);
+		do_sql(&(tagsistant.dbh), statement, NULL, NULL);
 		free(statement);
 
 		char *filepath = get_file_path(tagname);
@@ -1832,6 +1836,14 @@ int main(int argc, char *argv[])
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 	int res;
 
+#ifndef MACOSX
+	char *destfile = getenv("MALLOC_TRACE");
+	if (destfile != NULL && strlen(destfile)) {
+		fprintf(stderr, " *** logging malloc() calls to %s ***\n", destfile);
+		mtrace();
+	}
+#endif
+
 	tagsistant.progname = argv[0];
 
 	if (fuse_opt_parse(&args, &tagsistant, tagsistant_opts, tagsistant_opt_proc) == -1)
@@ -2186,6 +2198,15 @@ int main(int argc, char *argv[])
 	return res;
 }
 
+/*
+ * TODO:
+ *
+ * instead of using FUSE single thread feature, why not put a mutex
+ * around real_do_sql() to use tagsistant.dbh sequentially without
+ * preventing multithreading in other portions of the code and
+ * don't need to issue a -s on commandline???
+ */
+
 /**
  * Perform SQL queries. This function was added to avoid database opening
  * duplication and better handle SQLite interfacement. If dbh is passed
@@ -2207,7 +2228,7 @@ int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, cha
 	void *firstarg, char *file, unsigned int line)
 {
 	int result = SQLITE_OK;
-	sqlite3 **intdbh = malloc(sizeof(sqlite3 *));
+	sqlite3 *intdbh = NULL;
 
 	if (statement == NULL) {
 		dbg(LOG_ERR, "Null SQL statement");
@@ -2220,19 +2241,20 @@ int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, cha
 	 * 2. database handle location is empty (means: create new dbh and return it)
 	 */
 	if ((dbh == NULL) || (*dbh == NULL)) {
-		result = sqlite3_open(tagsistant.tags, intdbh);
+		/* intdbh = malloc(sizeof(sqlite3 *)); */
+		result = sqlite3_open(tagsistant.tags, &intdbh);
 		if (result != SQLITE_OK) {
 			dbg(LOG_ERR, "Error [%d] opening database %s", result, tagsistant.tags);
-			dbg(LOG_ERR, "%s", sqlite3_errmsg(*intdbh));
+			dbg(LOG_ERR, "%s", sqlite3_errmsg(intdbh));
 			return 0;
 		}
 	} else {
-		*intdbh = *dbh;
+		intdbh = *dbh;
 	}
 
 	char *sqlerror;
 	dbg(LOG_INFO, "SQL: \"%s\"", statement);
-	result = sqlite3_exec(tagsistant.dbh, statement, callback, firstarg, &sqlerror);
+	result = sqlite3_exec(intdbh, statement, callback, firstarg, &sqlerror);
 	if (result != SQLITE_OK) {
 		dbg(LOG_ERR, "SQL error: [%d] %s @%s:%u", result, sqlerror, file, line);
 		sqlite3_free(sqlerror);
@@ -2241,10 +2263,10 @@ int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, cha
 	free(file);
 
 	if (dbh == NULL) {
-		sqlite3_close(*intdbh);
-		free(intdbh);
+		sqlite3_close(intdbh);
+		/* free(intdbh); */
 	} else if (*dbh == NULL) {
-		*dbh = *intdbh;
+		*dbh = intdbh;
 	}
 
 	return result;
