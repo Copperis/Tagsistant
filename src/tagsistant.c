@@ -783,7 +783,7 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 	while (strstr(last_subquery, "/OR") != NULL) {
 		last_subquery = strstr(last_subquery, "/OR") + strlen("/OR");
 	}
-	char *tag_to_check = calloc(sizeof(char), strlen(argv[0]) + 2);
+	char *tag_to_check = calloc(sizeof(char), strlen(argv[0]) + 3);
 	if (tag_to_check == NULL) {
 		free(path_duplicate);
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
@@ -791,6 +791,7 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 	}
 	strcat(tag_to_check, "/");
 	strcat(tag_to_check, argv[0]);
+	strcat(tag_to_check, "/");
 	if (strstr(last_subquery, tag_to_check) != NULL) {
 		free(tag_to_check);
 		free(path_duplicate);
