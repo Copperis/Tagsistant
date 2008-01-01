@@ -2,8 +2,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([tagsistant], [0.0.20071231], [tx0@strumentiresistenti.org])
-AM_INIT_AUTOMAKE(tagsistant, 0.0.20071231)
+AC_INIT([tagsistant], [0.0.20080101], [tx0@strumentiresistenti.org])
+AM_INIT_AUTOMAKE(tagsistant, 0.0.20080101)
 AC_COPYRIGHT([tagsistant is (C) Tx0 <tx0@strumentiresistenti.org>])
 AC_CONFIG_SRCDIR([src/tagsistant.c])
 AC_CONFIG_HEADER([config.h])
