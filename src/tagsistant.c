@@ -576,7 +576,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 	if (last2 != NULL) last2++;
 
 	/* special case */
-	if ((strcasecmp(last, "AND") == 0) || (strcasecmp(last, "OR") == 0)) {
+	if ((strcmp(last, "AND") == 0) || (strcmp(last, "OR") == 0)) {
 
 #if VERBOSE_DEBUG
 	 	dbg(LOG_INFO, "GETATTR on AND/OR logical operator!");
@@ -611,7 +611,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 		stbuf->st_ino++;
 
 		/* AND and OR can't be the same inode */
-		if (strcasecmp(last, "OR") == 0) stbuf->st_ino++;
+		if (strcmp(last, "OR") == 0) stbuf->st_ino++;
 		
 		/* logical operators can't be written by anyone */
 		stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
@@ -839,8 +839,8 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 	char *tagname = get_tag_name(path);
 	if (
 		strlen(tagname) &&
-		(strcasecmp(tagname,"AND") != 0) &&
-		(strcasecmp(tagname,"OR") != 0)
+		(strcmp(tagname,"AND") != 0) &&
+		(strcmp(tagname,"OR") != 0)
 	) {
 
 		dbg(LOG_INFO, "%s is a tag(set)", path);
