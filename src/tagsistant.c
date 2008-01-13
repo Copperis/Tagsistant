@@ -1673,17 +1673,28 @@ static int tagsistant_removexattr(const char *path, const char *name)
 }
 #endif /* HAVE_SETXATTR */
 
+/**
+ * access() equivalent.
+ *
+ * \param path the path of the filename to be access()ed
+ * \int mode the mode which is F_OK|R_OK|W_OK|X_OK
+ * \return 0 on success, -errno on error
+ */
 static int tagsistant_access(const char *path, int mode)
 {
+	(void) mode;
+
+	/*
 	if (mode & X_OK) {
 		dbg(LOG_ERR, "ACCESS on %s: -1 %d: %s", path, EACCES, strerror(EACCES));
 		return -EACCES;
 	}
+	*/
 
 	struct stat st;
 	int res = tagsistant_getattr(path, &st);
 	if (res == 0) {
-		dbg(LOG_INFO, "GETATTR on %s: OK", path);
+		dbg(LOG_INFO, "ACCESS on %s: OK", path);
 		return 0;
 	}
 
@@ -1691,10 +1702,22 @@ static int tagsistant_access(const char *path, int mode)
 	return -EACCES;
 }
 
+#if FUSE_VERSION >= 26
+
+static void *tagsistant_init(struct fuse_conn_info *conn)
+{
+	(void) conn;
+	return NULL;
+}
+
+#else
+
 static void *tagsistant_init(void)
 {
-	return 0;
+	return NULL;
 }
+
+#endif
 
 static struct fuse_operations tagsistant_oper = {
     .getattr	= tagsistant_getattr,
@@ -1890,7 +1913,7 @@ int main(int argc, char *argv[])
 		free(volname);
 	}
 #else
-	fuse_opt_add_arg(&args, "-odefault_permissions");
+	/* fuse_opt_add_arg(&args, "-odefault_permissions"); */
 #endif
 
 	/***
