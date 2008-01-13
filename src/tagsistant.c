@@ -1675,13 +1675,19 @@ static int tagsistant_removexattr(const char *path, const char *name)
 
 static int tagsistant_access(const char *path, int mode)
 {
-	if (mode & X_OK)
+	if (mode & X_OK) {
+		dbg(LOG_ERR, "ACCESS on %s: -1 %d: %s", path, EACCES, strerror(EACCES));
 		return -EACCES;
+	}
 
 	struct stat st;
-	int result = tagsistant_getattr(path, &st);
-	if (result == 0)
+	int res = tagsistant_getattr(path, &st);
+	if (res == 0) {
+		dbg(LOG_INFO, "GETATTR on %s: OK", path);
 		return 0;
+	}
+
+	dbg(LOG_ERR, "ACCESS on %s: -1 %d: %s", path, EACCES, strerror(EACCES));
 	return -EACCES;
 }
 
