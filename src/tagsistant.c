@@ -997,7 +997,7 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 	dbg(LOG_INFO, "MKNOD on %s", path);
 
 	stop_labeled_time_profile("mknod");
-	dbg(LOG_INFO, "mknod(%s): %d %s", filename, res, strerror(tagsistant_errno));
+	dbg(LOG_INFO, "mknod(%s): %d %s", fullfilename, res, strerror(tagsistant_errno));
 
 	free(filename);
 	free(fullfilename);
@@ -1567,7 +1567,7 @@ static int tagsistant_write(const char *path, const char *buf, size_t size,
 	return (res == -1) ? -tagsistant_errno : res;
 }
 
-#if FUSE_USE_VERSION == 25
+#if FUSE_USE_VERSION >= 25
 
 /**
  * statvfs equivalent (used on fuse >= 25)
@@ -1696,7 +1696,7 @@ static struct fuse_operations tagsistant_oper = {
     .open		= tagsistant_open,
     .read		= tagsistant_read,
     .write		= tagsistant_write,
-#if FUSE_USE_VERSION == 25
+#if FUSE_USE_VERSION >= 25
     .statfs		= tagsistant_statvfs,
 #else
     .statfs		= tagsistant_statfs,
@@ -1801,14 +1801,22 @@ static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse
 	    case KEY_HELP:
 	        usage(outargs->argv[0]);
 	        fuse_opt_add_arg(outargs, "-ho");
+#if FUSE_VERSION <= 25
 	        fuse_main(outargs->argc, outargs->argv, &tagsistant_oper);
+#else
+	        fuse_main(outargs->argc, outargs->argv, &tagsistant_oper, NULL);
+#endif
 	        exit(1);
 	
 	    case KEY_VERSION:
 	        fprintf(stderr, "Tagsistant for Linux 0.1 (prerelease %s)\n", VERSION);
 #if FUSE_VERSION >= 25
 	        fuse_opt_add_arg(outargs, "--version");
+#endif
+#if FUSE_VERSION == 25
 	        fuse_main(outargs->argc, outargs->argv, &tagsistant_oper);
+#else
+			fuse_main(outargs->argc, outargs->argv, &tagsistant_oper, NULL);
 #endif
 	        exit(0);
 	
@@ -1850,11 +1858,21 @@ int main(int argc, char *argv[])
 	if (fuse_opt_parse(&args, &tagsistant, tagsistant_opts, tagsistant_opt_proc) == -1)
 		exit(1);
 
-	/*
-	fuse_opt_add_arg(&args, "-odefault_permissions,allow_other,fsname=tagsistant");
-	*/
-	fuse_opt_add_arg(&args, "-odefault_permissions,fsname=tagsistant");
+	fuse_opt_add_arg(&args, "-ofsname=tagsistant");
 	fuse_opt_add_arg(&args, "-ouse_ino,readdir_ino");
+
+#ifdef MACOSX
+	fuse_opt_add_arg(&args, "-odefer_permissions");
+	char *volname = calloc(sizeof(char), strlen("-ovolname=") + strlen(tagsistant.mountpoint) + 1);
+	if (volname != NULL) {
+		strcpy(volname, "-ovolname=");
+		strcat(volname, tagsistant.mountpoint);
+		fuse_opt_add_arg(&args, volname);
+		free(volname);
+	}
+#else
+	fuse_opt_add_arg(&args, "-odefault_permissions");
+#endif
 
 	/***
 	 * TODO
@@ -2192,7 +2210,11 @@ int main(int argc, char *argv[])
 		fargc--;
 	}
 
+#if FUSE_VERSION <= 25
 	res = fuse_main(args.argc, args.argv, &tagsistant_oper);
+#else
+	res = fuse_main(args.argc, args.argv, &tagsistant_oper, NULL);
+#endif
 
     fuse_opt_free_args(&args);
 

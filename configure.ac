@@ -108,8 +108,8 @@ case $host in
 		echo "Live long and prosper, GNU/Linux"
 		;;
 	*-*-darwin*)
-		AC_SUBST([CFLAGS],["${CFLAGS} -D__FreeBSD__=10 -DMACOSX -DFUSE_USE_VERSION=25"])
-		AC_SUBST([LDFLAGS],["${LDFLAGS} -flat_namespace -force_flat_namespace"])
+		AC_SUBST([CFLAGS],["${CFLAGS} -D__FreeBSD__=10 -DMACOSX -DFUSE_USE_VERSION=26"])
+		#AC_SUBST([LDFLAGS],["${LDFLAGS} -flat_namespace -force_flat_namespace"])
 		;;
 esac
 

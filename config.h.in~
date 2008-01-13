@@ -10,6 +10,9 @@
    */
 #undef HAVE_DIRENT_H
 
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#undef HAVE_DLFCN_H
+
 /* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
 
@@ -24,6 +27,9 @@
 
 /* Define to 1 if you have the `fuse' library (-lfuse). */
 #undef HAVE_LIBFUSE
+
+/* Define to 1 if you have the `sqlite3' library (-lsqlite3). */
+#undef HAVE_LIBSQLITE3
 
 /* Define to 1 if `lstat' has the bug that it succeeds when given the
    zero-length file name argument. */
