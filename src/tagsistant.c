@@ -1673,6 +1673,18 @@ static int tagsistant_removexattr(const char *path, const char *name)
 }
 #endif /* HAVE_SETXATTR */
 
+static int tagsistant_access(const char *path, int mode)
+{
+	if (mode & X_OK)
+		return -EACCES;
+
+	struct stat st;
+	int result = tagsistant_getattr(path, &st);
+	if (result == 0)
+		return 0;
+	return -EACCES;
+}
+
 static void *tagsistant_init(void)
 {
 	return 0;
@@ -1709,6 +1721,7 @@ static struct fuse_operations tagsistant_oper = {
     .listxattr	= tagsistant_listxattr,
     .removexattr= tagsistant_removexattr,
 #endif
+	.access		= tagsistant_access,
 	.init		= tagsistant_init,
 };
 
