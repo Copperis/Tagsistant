@@ -298,6 +298,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 			char *mini = calloc(sizeof(char), strlen(ALL_FILES_TAGGED) + strlen(tag->tag) + 1);
 			if (mini == NULL) {
 				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+				free(statement);
 				return NULL;
 			}
 			sprintf(mini, ALL_FILES_TAGGED, tag->tag);
@@ -379,6 +380,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	struct atft *atft = calloc(sizeof(struct atft), 1);
 	if (atft == NULL) {
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		free(view_statement);
 		return 0;
 	}
 	atft->fh = &fh;
@@ -416,6 +418,8 @@ void destroy_file_tree(file_handle_t *fh)
 	
 	if (fh->next != NULL)
 		destroy_file_tree(fh->next);
+
+	free(fh);
 }
 
 // vim:ts=4:nowrap:nocindent

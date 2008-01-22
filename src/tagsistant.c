@@ -322,6 +322,7 @@ int untag_file(char *filename, char *tagname)
 	}
 	sprintf(statement, GET_ID_OF_TAG, tagname, tagname);
 	do_sql(&(tagsistant.dbh), statement, drop_single_file, filename);
+	free(statement);
 
 	return 1;
 }
@@ -394,10 +395,15 @@ char *get_file_mimetype(const char *filename)
 	/* get file extension */
 	char *ext = rindex(filename, '.');
 	if (ext == NULL) {
-		return type;
+		return NULL;
 	}
 	ext++;
 	char *ext_space = malloc(strlen(ext)+2);
+	if (ext_space == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		return NULL;
+	}
+
 	strcpy(ext_space, ext);
 	strcat(ext_space, " "); /* trailing space is used later in matching */
 
@@ -443,6 +449,7 @@ char *get_file_mimetype(const char *filename)
 	}
 
 BREAK_MIME_SEARCH:
+	free(ext_space);
 	fclose(f);
 	return type;
 }
@@ -589,6 +596,10 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 		if (last2 != NULL) {
 			char *sql = calloc(sizeof(char), strlen(GET_EXACT_TAG_ID) + strlen(last2) + 1);
+			if (sql == NULL) {
+				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+				return -ENOMEM;
+			}
 			sprintf(sql, GET_EXACT_TAG_ID, last2);
 			/*
 			fprintf(stderr, "sql query: %s is %d char long\n", sql, strlen(sql));
@@ -651,6 +662,10 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 			/* getting directory inode from filesystem */
 			ino_t inode = 0;
 			char *sql = calloc(sizeof(char), strlen(GET_EXACT_TAG_ID) + strlen(last) + 1);
+			if (sql == NULL) {
+				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+				return -ENOMEM;
+			}
 			sprintf(sql, GET_EXACT_TAG_ID, last);
 			assert(strlen(GET_EXACT_TAG_ID) - 2 + strlen(last) == strlen(sql));
 			do_sql(&(tagsistant.dbh), sql, return_integer, &inode);
@@ -881,6 +896,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 	
 			do_sql(&(tagsistant.dbh), mini, add_entry_to_dir, ufs);
 			free(mini);
+			free(ufs); /* dangerous: do_sql do return only after having processed all the result rows? */
 			return 0;
 		}
 
