@@ -598,6 +598,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 			char *sql = calloc(sizeof(char), strlen(GET_EXACT_TAG_ID) + strlen(last2) + 1);
 			if (sql == NULL) {
 				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+				free(dup);
 				return -ENOMEM;
 			}
 			sprintf(sql, GET_EXACT_TAG_ID, last2);
@@ -903,12 +904,15 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 		char *pathcopy = strdup(path);
 	
 		ptree_or_node_t *pt = build_querytree(pathcopy);
+		free(pathcopy);
 		if (pt == NULL)
 			return -EBADF;
 	
 		file_handle_t *fh = build_filetree(pt, path);
-		if (fh == NULL)
+		if (fh == NULL) {
+			destroy_querytree(pt);
 			return -EBADF;
+		}
 
 		file_handle_t *fh_save = fh;
 	
