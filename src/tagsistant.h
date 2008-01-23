@@ -232,7 +232,7 @@ extern ptree_or_node_t *build_querytree(const char *path);
 extern file_handle_t *build_filetree(ptree_or_node_t *query, const char *path);
 
 extern void destroy_querytree(ptree_or_node_t *pt);
-extern void destroy_file_tree(file_handle_t *fh);
+extern void destroy_filetree(file_handle_t *fh);
 
 #define  do_sql(dbh, statement, callback, firstarg)\
 	real_do_sql(dbh, statement, callback, firstarg, strdup(__FILE__), (unsigned int) __LINE__)

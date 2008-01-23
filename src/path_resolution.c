@@ -388,6 +388,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 
 	/* apply view statement */
 	do_sql(&(tagsistant.dbh), view_statement, add_to_filetree, atft);
+	free(atft);
 
 	free(view_statement);
 
@@ -408,7 +409,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	return result;
 }
 
-void destroy_file_tree(file_handle_t *fh)
+void destroy_filetree(file_handle_t *fh)
 {
 	if (fh == NULL)
 		return;
@@ -417,7 +418,7 @@ void destroy_file_tree(file_handle_t *fh)
 		free(fh->name);
 	
 	if (fh->next != NULL)
-		destroy_file_tree(fh->next);
+		destroy_filetree(fh->next);
 
 	free(fh);
 }

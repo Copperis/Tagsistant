@@ -909,6 +909,8 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 		file_handle_t *fh = build_filetree(pt, path);
 		if (fh == NULL)
 			return -EBADF;
+
+		file_handle_t *fh_save = fh;
 	
 		do {
 			if ( (fh->name != NULL) && strlen(fh->name)) {
@@ -920,7 +922,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 		} while ( fh != NULL && fh->name != NULL );
 	
 		destroy_querytree(pt);
-		destroy_file_tree(fh);
+		destroy_filetree(fh_save);
 
 	} else {
 
@@ -1080,6 +1082,7 @@ static int tagsistant_unlink(const char *path)
 	char *statement1 = calloc(sizeof(char), size1);
 	if (statement1 == NULL) {
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		destroy_querytree(pt);
 		return 1;
 	}
 	unsigned int size2 = strlen(GET_ID_OF_TAG) + MAX_TAG_LENGTH * 2;
@@ -1087,6 +1090,7 @@ static int tagsistant_unlink(const char *path)
 	if (statement2 == NULL) {
 		free(statement1);
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		destroy_querytree(pt);
 		return 1;
 	}
 
@@ -1163,6 +1167,7 @@ static int tagsistant_rmdir(const char *path)
 	char *statement = calloc(sizeof(char), strlen(DELETE_TAG) + MAX_TAG_LENGTH * 4);
 	if (statement == NULL) {
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		destroy_querytree(pt);
 		return 1;
 	}
 
@@ -1491,6 +1496,7 @@ static int tagsistant_open(const char *path, struct fuse_file_info *fi)
 	free(filename);
 	free(filepath);
 	free(tagname);
+	destroy_querytree(pt);
 
 	stop_labeled_time_profile("open");
 	return (res == -1) ? -tagsistant_errno : 0;
