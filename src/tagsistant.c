@@ -2278,6 +2278,7 @@ int main(int argc, char *argv[])
 		fargc--;
 	}
 
+
 #if FUSE_VERSION <= 25
 	res = fuse_main(args.argc, args.argv, &tagsistant_oper);
 #else
@@ -2310,6 +2311,31 @@ int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, cha
 	void *firstarg, char *file, unsigned int line)
 {
 	int result = SQLITE_OK;
+	(void) dbh;
+
+	if (statement == NULL) {
+		dbg(LOG_ERR, "Null SQL statement");
+		return 0;
+	}
+
+	char *sqlerror = NULL;
+	dbg(LOG_INFO, "SQL: \"%s\"", statement);
+	result = sqlite3_exec(tagsistant.dbh, statement, callback, firstarg, &sqlerror);
+	if (result != SQLITE_OK) {
+		dbg(LOG_ERR, "SQL error: [%d] %s @%s:%u", result, sqlerror, file, line);
+		sqlite3_free(sqlerror);
+		return 0;
+	}
+	free(file);
+	sqlite3_free(sqlerror);
+
+	return result;
+}
+
+int old_real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, char **, char **),
+	void *firstarg, char *file, unsigned int line)
+{
+	int result = SQLITE_OK;
 	sqlite3 *intdbh = NULL;
 
 	if (statement == NULL) {
@@ -2323,7 +2349,6 @@ int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, cha
 	 * 2. database handle location is empty (means: create new dbh and return it)
 	 */
 	if ((dbh == NULL) || (*dbh == NULL)) {
-		/* intdbh = malloc(sizeof(sqlite3 *)); */
 		result = sqlite3_open(tagsistant.tags, &intdbh);
 		if (result != SQLITE_OK) {
 			dbg(LOG_ERR, "Error [%d] opening database %s", result, tagsistant.tags);
@@ -2334,7 +2359,7 @@ int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, cha
 		intdbh = *dbh;
 	}
 
-	char *sqlerror;
+	char *sqlerror = NULL;
 	dbg(LOG_INFO, "SQL: \"%s\"", statement);
 	result = sqlite3_exec(intdbh, statement, callback, firstarg, &sqlerror);
 	if (result != SQLITE_OK) {
@@ -2343,10 +2368,10 @@ int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, cha
 		return 0;
 	}
 	free(file);
+	sqlite3_free(sqlerror);
 
 	if (dbh == NULL) {
 		sqlite3_close(intdbh);
-		/* free(intdbh); */
 	} else if (*dbh == NULL) {
 		*dbh = intdbh;
 	}
