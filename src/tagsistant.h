@@ -239,4 +239,8 @@ extern void destroy_filetree(file_handle_t *fh);
 
 extern int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, char **, char **), void *firstarg, char *file, unsigned int line);
 
+#ifdef strdup
+#undef strdup
+#endif
+
 // vim:ts=4:nocindent:nowrap

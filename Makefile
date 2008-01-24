@@ -78,16 +78,16 @@ AR = ar
 AUTOCONF = ${SHELL} /home/tx0/MySoft/C/tagsistant/missing --run autoconf
 AUTOHEADER = ${SHELL} /home/tx0/MySoft/C/tagsistant/missing --run autoheader
 AUTOMAKE = ${SHELL} /home/tx0/MySoft/C/tagsistant/missing --run automake-1.10
-AWK = mawk
+AWK = gawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
 CFLAGS = -D_DEBUG_STDERR -g -O2 -D_FILE_OFFSET_BITS=64 -Wall -W
 CPP = gcc -E
 CPPFLAGS = 
 CXX = g++
-CXXCPP = 
-CXXDEPMODE = depmode=none
-CXXFLAGS = 
+CXXCPP = g++ -E
+CXXDEPMODE = depmode=gcc3
+CXXFLAGS = -g -O2
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
 DEPDIR = .deps
@@ -132,7 +132,7 @@ abs_srcdir = /home/tx0/MySoft/C/tagsistant
 abs_top_builddir = /home/tx0/MySoft/C/tagsistant
 abs_top_srcdir = /home/tx0/MySoft/C/tagsistant
 ac_ct_CC = gcc
-ac_ct_CXX = 
+ac_ct_CXX = g++
 ac_ct_F77 = 
 am__include = include
 am__leading_dot = .

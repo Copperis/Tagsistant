@@ -237,12 +237,13 @@ target_vendor = @target_vendor@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 tagsistant_SOURCES = tagsistant.c path_resolution.c\
-	compat/fuse_opt.c debug.h debug_free_calls.h
+	compat/fuse_opt.c debug.h debug_free_calls.h 
 
 
 #### tagsistant_CFLAGS = -D'PLUGINS_DIR="@libexecdir@/tagsistant"'
 tagsistant_CFLAGS = -D'PLUGINS_DIR="@libdir@/"' $(CFLAGS)
 tagsistant_LDFLAGS = -lfuse -lsqlite3 -ldl -rdynamic
+#tagsistant_LDFLAGS = -lfuse -ldl -rdynamic
 lib_LTLIBRARIES = libtagsistant_generic-0.1.la libtagsistant_mp3-0.1.la\
 	libtagsistant_gif-0.1.la libtagsistant_html-0.1.la libtagsistant_jpeg-0.1.la\
 	libtagsistant_ogg-0.1.la libtagsistant_xml-0.1.la libtagsistant_png-0.1.la

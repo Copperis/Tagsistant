@@ -150,7 +150,8 @@ void destroy_querytree(ptree_or_node_t *qt)
 		ptree_and_node_t *tag = qt->and_set;
 		while (tag != NULL) {
 			ptree_and_node_t *next = tag->next;
-			free(tag->tag);
+			if (tag->tag != NULL)
+				free(tag->tag);
 			free(tag);
 			tag = next;
 		}
@@ -163,6 +164,7 @@ void destroy_querytree(ptree_or_node_t *qt)
 struct atft {
 	sqlite_int64 id;
 	file_handle_t **fh;
+	sqlite3 *dbh;
 };
 
 static int add_to_filetree(void *atft_struct, int argc, char **argv, char **azColName)
@@ -197,7 +199,7 @@ static int add_to_filetree(void *atft_struct, int argc, char **argv, char **azCo
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
 	} else {
 		sprintf(sql, ADD_RESULT_ENTRY, atft->id, argv[0]);
-		do_sql(&(tagsistant.dbh), sql, NULL, NULL);
+		do_sql(&(atft->dbh), sql, NULL, NULL);
 		free(sql);
 	}
 
@@ -207,21 +209,23 @@ static int add_to_filetree(void *atft_struct, int argc, char **argv, char **azCo
 	return 0;
 }
 
-#if 0
-static int get_id(void *id_buffer, int argc, char **argv, char **azColName)
+void drop_views(ptree_or_node_t *query, sqlite3 *dbh)
 {
-	(void) argc;
-	(void) azColName;
-	int *exists = (int *) id_buffer;
-	if (argv[0] != NULL) {
-		sscanf(argv[0], "%d", exists);
-		dbg(LOG_INFO, "Last query id is %s (%d)", argv[0], *exists);
+	/* drop select views */
+	int len = strlen("drop view tv;") + 8 + 1;
+	char *mini = malloc(len);
+	if (mini == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
 	} else {
-		*exists = 0;
+		while (query != NULL) {
+			memset(mini, 0, len);
+			sprintf(mini, "drop view tv%.8X;", (unsigned int) query);
+			do_sql(&dbh, mini, NULL, NULL);
+			query = query->next;
+		}
+		free(mini);
 	}
-	return 0;
 }
-#endif
 
 /**
  * build a linked list of filenames that apply to querytree
@@ -244,8 +248,18 @@ static int get_id(void *id_buffer, int argc, char **argv, char **azColName)
  */
 file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 {
+	/* opening a persistent connection */
+	sqlite3 *dbh = NULL;
+	int res = sqlite3_open(tagsistant.tags, &dbh);
+	if (res != SQLITE_OK) {
+		dbg(LOG_ERR, "Error [%d] opening database %s", res, tagsistant.tags);
+		dbg(LOG_ERR, "%s", sqlite3_errmsg(dbh));
+		return NULL;
+	}
+
 	if (query == NULL) {
 		dbg(LOG_ERR, "NULL path_tree_t object provided to build_filetree");
+		sqlite3_close(dbh);
 		return NULL;
 	}
 
@@ -254,6 +268,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	file_handle_t *fh = calloc(sizeof(file_handle_t), 1);
 	if ( fh == NULL ) {
 		dbg(LOG_ERR, "Can't allocate memory in build_filetree");
+		sqlite3_close(dbh);
 		return NULL;
 	}
 	fh->next = NULL;
@@ -282,7 +297,9 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 		char *statement = calloc(sizeof(char), query_length);
 		if (statement == NULL) {
 			dbg(LOG_ERR, "Error mallocating statement in build_filetree");
-			return 0;
+			destroy_filetree(result);
+			sqlite3_close(dbh);
+			return NULL;
 		}
 
 		sprintf(statement, "create temp view tv%.8X as ", (unsigned int) query);
@@ -298,7 +315,9 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 			char *mini = calloc(sizeof(char), strlen(ALL_FILES_TAGGED) + strlen(tag->tag) + 1);
 			if (mini == NULL) {
 				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+				destroy_filetree(result);
 				free(statement);
+				sqlite3_close(dbh);
 				return NULL;
 			}
 			sprintf(mini, ALL_FILES_TAGGED, tag->tag);
@@ -319,7 +338,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 		dbg(LOG_INFO, "SQL: final statement is [%s]", statement);
 
 		/* create view */
-		do_sql(&(tagsistant.dbh), statement, NULL, NULL);
+		do_sql(&dbh, statement, NULL, NULL);
 		free(statement);
 		query = query->next;
 	}
@@ -327,34 +346,24 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	char *sql = calloc(sizeof(char), strlen(ADD_CACHE_ENTRY) + strlen(path) + 1);
 	if (sql == NULL) {
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		return 0;
+		destroy_filetree(result);
+		sqlite3_close(dbh);
+		return NULL;
 	}
 	sprintf(sql, ADD_CACHE_ENTRY, path);
 
 	dbg(LOG_INFO, "Adding path %s to cache", path);
-	do_sql(&(tagsistant.dbh), sql, NULL, NULL);
+	do_sql(&dbh, sql, NULL, NULL);
 	free(sql);
  
-	sqlite_int64 id = sqlite3_last_insert_rowid(tagsistant.dbh);
-
-#if 0
-	sql = calloc(sizeof(char), strlen(GET_ID_OF_CACHE) + strlen(path) + 1);
-	if (sql == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		return 0;
-	}
-
-	if (sqlite3_exec(tagsistant.dbh, sql, get_id, &id, &sqlerror) != SQLITE_OK) {
-		dbg(LOG_ERR, "SQL error: %s @%s:%d", sqlerror, __FILE__, __LINE__);
-		sqlite3_free(sqlerror);
-	}
-	free(sql);
-#endif
+	sqlite_int64 id = sqlite3_last_insert_rowid(dbh);
 
 	/* format view statement */
 	char *view_statement = calloc(sizeof(char), view_query_length);
 	if (view_statement == NULL) {
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		destroy_filetree(result);
+		sqlite3_close(dbh);
 		return NULL;
 	}
 	query = query_dup;
@@ -381,31 +390,23 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	if (atft == NULL) {
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
 		free(view_statement);
-		return 0;
+		destroy_filetree(result);
+		drop_views(query_dup, dbh);
+		sqlite3_close(dbh);
+		return NULL;
 	}
 	atft->fh = &fh;
 	atft->id = id;
+	atft->dbh = dbh;
 
 	/* apply view statement */
-	do_sql(&(tagsistant.dbh), view_statement, add_to_filetree, atft);
+	do_sql(&dbh, view_statement, add_to_filetree, atft);
 	free(atft);
 
 	free(view_statement);
 
-	/* drop select views */
-	query = query_dup;
-	while (query != NULL) {
-		char *mini = calloc(sizeof(char), strlen("drop view tv;") + 8 + 1);
-		if (mini == NULL) {
-			dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		} else {
-			sprintf(mini, "drop view tv%.8X;", (unsigned int) query);
-			do_sql(&(tagsistant.dbh), mini, NULL, NULL);
-			free(mini);
-		}
-		query = query->next;
-	}
-
+	drop_views(query_dup, dbh);
+	sqlite3_close(dbh);
 	return result;
 }
 
