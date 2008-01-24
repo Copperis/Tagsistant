@@ -36,8 +36,8 @@ subdir = .
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(srcdir)/config.h.in \
 	$(top_srcdir)/configure AUTHORS COPYING ChangeLog INSTALL NEWS \
-	compile config.guess config.sub depcomp install-sh ltmain.sh \
-	missing mkinstalldirs
+	TODO compile config.guess config.sub depcomp install-sh \
+	ltmain.sh missing mkinstalldirs
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
@@ -81,7 +81,7 @@ AUTOMAKE = ${SHELL} /home/tx0/MySoft/C/tagsistant/missing --run automake-1.10
 AWK = gawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
-CFLAGS = -D_DEBUG_STDERR -g -O2 -D_FILE_OFFSET_BITS=64 -Wall -W
+CFLAGS = -D_DEBUG_SYSLOG -g -O2 -D_FILE_OFFSET_BITS=64 -Wall -W
 CPP = gcc -E
 CPPFLAGS = 
 CXX = g++
@@ -117,16 +117,16 @@ OBJEXT = o
 PACKAGE = tagsistant
 PACKAGE_BUGREPORT = tx0@strumentiresistenti.org
 PACKAGE_NAME = tagsistant
-PACKAGE_STRING = tagsistant 0.0.20080104
+PACKAGE_STRING = tagsistant 0.0.20080124
 PACKAGE_TARNAME = tagsistant
-PACKAGE_VERSION = 0.0.20080104
+PACKAGE_VERSION = 0.0.20080124
 PATH_SEPARATOR = :
 RANLIB = ranlib
 SED = /bin/sed
 SET_MAKE = 
 SHELL = /bin/bash
 STRIP = strip
-VERSION = 0.0.20080104
+VERSION = 0.0.20080124
 abs_builddir = /home/tx0/MySoft/C/tagsistant
 abs_srcdir = /home/tx0/MySoft/C/tagsistant
 abs_top_builddir = /home/tx0/MySoft/C/tagsistant

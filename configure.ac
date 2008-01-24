@@ -2,8 +2,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([tagsistant], [0.0.20080104], [tx0@strumentiresistenti.org])
-AM_INIT_AUTOMAKE(tagsistant, 0.0.20080104)
+AC_INIT([tagsistant], [0.0.20080124], [tx0@strumentiresistenti.org])
+AM_INIT_AUTOMAKE(tagsistant, 0.0.20080124)
 AC_COPYRIGHT([tagsistant is (C) Tx0 <tx0@strumentiresistenti.org>])
 AC_CONFIG_SRCDIR([src/tagsistant.c])
 AC_CONFIG_HEADER([config.h])
@@ -108,8 +108,8 @@ case $host in
 		echo "Live long and prosper, GNU/Linux"
 		;;
 	*-*-darwin*)
-		AC_SUBST([CFLAGS],["${CFLAGS} -D__FreeBSD__=10 -DMACOSX -DFUSE_USE_VERSION=26"])
-		#AC_SUBST([LDFLAGS],["${LDFLAGS} -flat_namespace -force_flat_namespace"])
+		AC_SUBST([CFLAGS],["${CFLAGS} -D__FreeBSD__=10 -DMACOSX -DFUSE_USE_VERSION=25"])
+		AC_SUBST([LDFLAGS],["${LDFLAGS} -flat_namespace -force_flat_namespace"])
 		;;
 esac
 

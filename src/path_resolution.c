@@ -150,8 +150,7 @@ void destroy_querytree(ptree_or_node_t *qt)
 		ptree_and_node_t *tag = qt->and_set;
 		while (tag != NULL) {
 			ptree_and_node_t *next = tag->next;
-			if (tag->tag != NULL)
-				free(tag->tag);
+			freenull(tag->tag);
 			free(tag);
 			tag = next;
 		}

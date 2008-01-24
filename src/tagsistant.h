@@ -235,12 +235,16 @@ extern void destroy_querytree(ptree_or_node_t *pt);
 extern void destroy_filetree(file_handle_t *fh);
 
 #define  do_sql(dbh, statement, callback, firstarg)\
-	real_do_sql(dbh, statement, callback, firstarg, strdup(__FILE__), (unsigned int) __LINE__)
+	real_do_sql(dbh, statement, callback, firstarg, __FILE__, (unsigned int) __LINE__)
 
 extern int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, char **, char **), void *firstarg, char *file, unsigned int line);
 
 #ifdef strdup
 #undef strdup
+#define strdup(string) real_strdup(string, __FILE__, __LINE__)
 #endif
+char *real_strdup(const char *orig, char *file, int line);
+
+#define freenull(symbol) {if (symbol != NULL) { free(symbol); symbol = NULL; }}
 
 // vim:ts=4:nocindent:nowrap

@@ -26,12 +26,10 @@
 #include <mcheck.h>
 #endif
 
-#define freenull(symbol) {if (symbol != NULL) { free(symbol); symbol = NULL; }}
-
-char *strdup(const char *orig)
+char *real_strdup(const char *orig, char *file, int line)
 {
 	if (orig == NULL) return NULL;
-	dbg(LOG_INFO, "strdup(%s)", orig);
+	dbg(LOG_INFO, "strdup(%s) @%s:%d", orig, file, line);
 	char *res = calloc(sizeof(char), strlen(orig) + 1);
 	memcpy(res, orig, strlen(orig));
 	return res;
@@ -2369,7 +2367,7 @@ int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, cha
 		sqlite3_free(sqlerror);
 		return 0;
 	}
-	free(file);
+	// free(file);
 	sqlite3_free(sqlerror);
 
 	if (dbh == NULL) {
