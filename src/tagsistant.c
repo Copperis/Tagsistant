@@ -833,7 +833,7 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 		} else {
 			sprintf(mini, ADD_RESULT_ENTRY, (int64_t) ufs->path_id, argv[0]);
 			assert(strlen(ADD_RESULT_ENTRY) + strlen(argv[0]) + 14 > strlen(mini));
-			do_sql(NULL, mini, add_entry_to_dir, ufs);
+			do_sql(NULL, mini, NULL, NULL);
 			free(mini);
 		}
 	}
