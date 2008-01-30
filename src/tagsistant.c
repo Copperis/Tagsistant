@@ -607,7 +607,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 			char *sql = calloc(sizeof(char), strlen(GET_EXACT_TAG_ID) + strlen(last2) + 1);
 			if (sql == NULL) {
 				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-				free(dup);
+				freenull(dup);
 				return -ENOMEM;
 			}
 			sprintf(sql, GET_EXACT_TAG_ID, last2);
@@ -642,7 +642,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 		stbuf->st_nlink = 1;
 
-		free(dup);
+		freenull(dup);
 		return 0;
 	}
 
@@ -656,6 +656,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 		char *statement = calloc(sizeof(char), strlen(TAG_EXISTS) + strlen(last));
 		if (statement == NULL) {
 			dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+			freenull(dup);
 			return 0;
 		}
 		sprintf(statement, TAG_EXISTS, last);
@@ -674,6 +675,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 			char *sql = calloc(sizeof(char), strlen(GET_EXACT_TAG_ID) + strlen(last) + 1);
 			if (sql == NULL) {
 				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+				freenull(dup);
 				return -ENOMEM;
 			}
 			sprintf(sql, GET_EXACT_TAG_ID, last);
@@ -696,6 +698,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 		ptree_or_node_t *pt = build_querytree(path);
 		if (pt == NULL) {
 			dbg(LOG_ERR, "Error building querytree @%s:%d", __FILE__, __LINE__);
+			freenull(dup);
 			return -ENOENT;
 		}
 		ptree_or_node_t *ptx = pt;
@@ -729,7 +732,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 GETATTR_EXIT:
 
-	free(dup);
+	freenull(dup);
 	/* last and last2 are not malloc()ated! free(last) and free(last2) are errors! */
 
 	stop_labeled_time_profile("getattr");
@@ -2181,202 +2184,202 @@ int main(int argc, char *argv[])
 		if (!tagsistant.quiet)
 			fprintf(stderr, " Using user defined plugin dir: %s\n", tagsistant_plugins);
 	} else {
-		tagsistant_plugins = strdup(PLUGINS_DIR);
-		if (!tagsistant.quiet)
-			fprintf(stderr, " Using default plugin dir: %s\n", tagsistant_plugins);
-	}
+				tagsistant_plugins = strdup(PLUGINS_DIR);
+				if (!tagsistant.quiet)
+					fprintf(stderr, " Using default plugin dir: %s\n", tagsistant_plugins);
+			}
 
-	struct stat st;
-	if (lstat(tagsistant_plugins, &st) == -1) {
-		if (!tagsistant.quiet)
-			fprintf(stderr, " *** error opening directory %s: %s ***\n", tagsistant_plugins, strerror(errno));
-	} else if (!S_ISDIR(st.st_mode)) {
-		if (!tagsistant.quiet)
-			fprintf(stderr, " *** error opening directory %s: not a directory ***\n", tagsistant_plugins);
-	} else {
-#if 0
-		/* add this directory to LD_LIBRARY_PATH */
-		int ld_library_path_length = strlen(getenv("LD_LIBRARY_PATH")) + 1 + strlen(tagsistant_plugins);
-		char *NEW_LD_LIBRARY_PATH = calloc(ld_library_path_length, sizeof(char));
-		strcat(NEW_LD_LIBRARY_PATH, getenv("LD_LIBRARY_PATH"));
-		strcat(NEW_LD_LIBRARY_PATH, ":");
-		strcat(NEW_LD_LIBRARY_PATH, tagsistant_plugins);
-		setenv("LD_LIBRARY_PATH", NEW_LD_LIBRARY_PATH, 1);
-		free(NEW_LD_LIBRARY_PATH);
-		if (!tagsistant.quiet)
-			fprintf(stderr, " LD_LIBRARY_PATH = %s\n", getenv("LD_LIBRARY_PATH"));
-#endif
+			struct stat st;
+			if (lstat(tagsistant_plugins, &st) == -1) {
+				if (!tagsistant.quiet)
+					fprintf(stderr, " *** error opening directory %s: %s ***\n", tagsistant_plugins, strerror(errno));
+			} else if (!S_ISDIR(st.st_mode)) {
+				if (!tagsistant.quiet)
+					fprintf(stderr, " *** error opening directory %s: not a directory ***\n", tagsistant_plugins);
+			} else {
+		#if 0
+				/* add this directory to LD_LIBRARY_PATH */
+				int ld_library_path_length = strlen(getenv("LD_LIBRARY_PATH")) + 1 + strlen(tagsistant_plugins);
+				char *NEW_LD_LIBRARY_PATH = calloc(ld_library_path_length, sizeof(char));
+				strcat(NEW_LD_LIBRARY_PATH, getenv("LD_LIBRARY_PATH"));
+				strcat(NEW_LD_LIBRARY_PATH, ":");
+				strcat(NEW_LD_LIBRARY_PATH, tagsistant_plugins);
+				setenv("LD_LIBRARY_PATH", NEW_LD_LIBRARY_PATH, 1);
+				free(NEW_LD_LIBRARY_PATH);
+				if (!tagsistant.quiet)
+					fprintf(stderr, " LD_LIBRARY_PATH = %s\n", getenv("LD_LIBRARY_PATH"));
+		#endif
 
-		/* open directory and read contents */
-		DIR *p = opendir(tagsistant_plugins);
-		if (p == NULL) {
-			if (!tagsistant.quiet)
-				fprintf(stderr, " *** error opening plugin directory %s ***\n", tagsistant_plugins);
-		} else {
-			struct dirent *de;
-			while ((de = readdir(p)) != NULL) {
-				/* checking if file begins with tagsistant plugin prefix */
-				char *needle = strstr(de->d_name, TAGSISTANT_PLUGIN_PREFIX);
-				if ((needle == NULL) || (needle != de->d_name)) continue;
-
-#				ifdef MACOSX
-#					define PLUGIN_EXT ".dylib"
-#				else
-#					define PLUGIN_EXT ".so"
-#				endif
-
-				needle = strstr(de->d_name, PLUGIN_EXT);
-				if ((needle == NULL) || (needle != de->d_name + strlen(de->d_name) - strlen(PLUGIN_EXT)))
-					continue;
-
-				/* file is a tagsistant plugin (beginning by right prefix) and is processed */
-				/* allocate new plugin object */
-				tagsistant_plugin_t *plugin = NULL;
-				while ((plugin = calloc(1, sizeof(tagsistant_plugin_t))) == NULL);
-
-				char *pname = calloc(strlen(de->d_name) + strlen(tagsistant_plugins) + 2, sizeof(char));
-				strcat(pname, tagsistant_plugins);
-				strcat(pname, "/");
-				strcat(pname, de->d_name);
-
-				/* load the plugin */
-				plugin->handle = dlopen(pname, RTLD_NOW|RTLD_GLOBAL);
-				if (plugin->handle == NULL) {
+				/* open directory and read contents */
+				DIR *p = opendir(tagsistant_plugins);
+				if (p == NULL) {
 					if (!tagsistant.quiet)
-						fprintf(stderr, " *** error dlopen()ing plugin %s: %s ***\n", de->d_name, dlerror());
-					free(plugin);
+						fprintf(stderr, " *** error opening plugin directory %s ***\n", tagsistant_plugins);
 				} else {
-					/* search for init function and call it */
-					int (*init_function)() = NULL;
-					init_function = dlsym(plugin->handle, "plugin_init");
-					if (init_function != NULL) {
-						int init_res = init_function();
-						if (!init_res) {
-							/* if init failed, ignore this plugin */
-							dbg(LOG_ERR, " *** error calling plugin_init() on %s ***\n", de->d_name);
-							free(plugin);
-							continue;
-						}
-					}
+					struct dirent *de;
+					while ((de = readdir(p)) != NULL) {
+						/* checking if file begins with tagsistant plugin prefix */
+						char *needle = strstr(de->d_name, TAGSISTANT_PLUGIN_PREFIX);
+						if ((needle == NULL) || (needle != de->d_name)) continue;
 
-					/* search for MIME type string */
-					plugin->mime_type = dlsym(plugin->handle, "mime_type");
-					if (plugin->mime_type == NULL) {
-						if (!tagsistant.quiet)
-							fprintf(stderr, " *** error finding %s processor function: %s ***\n", de->d_name, dlerror());
-						free(plugin);
-					} else {
-						/* search for processor function */
-						plugin->processor = dlsym(plugin->handle, "processor");	
-						if (plugin->processor == NULL) {
+		#				ifdef MACOSX
+		#					define PLUGIN_EXT ".dylib"
+		#				else
+		#					define PLUGIN_EXT ".so"
+		#				endif
+
+						needle = strstr(de->d_name, PLUGIN_EXT);
+						if ((needle == NULL) || (needle != de->d_name + strlen(de->d_name) - strlen(PLUGIN_EXT)))
+							continue;
+
+						/* file is a tagsistant plugin (beginning by right prefix) and is processed */
+						/* allocate new plugin object */
+						tagsistant_plugin_t *plugin = NULL;
+						while ((plugin = calloc(1, sizeof(tagsistant_plugin_t))) == NULL);
+
+						char *pname = calloc(strlen(de->d_name) + strlen(tagsistant_plugins) + 2, sizeof(char));
+						strcat(pname, tagsistant_plugins);
+						strcat(pname, "/");
+						strcat(pname, de->d_name);
+
+						/* load the plugin */
+						plugin->handle = dlopen(pname, RTLD_NOW|RTLD_GLOBAL);
+						if (plugin->handle == NULL) {
 							if (!tagsistant.quiet)
-								fprintf(stderr, " *** error finding %s processor function: %s ***\n", de->d_name, dlerror());
+								fprintf(stderr, " *** error dlopen()ing plugin %s: %s ***\n", de->d_name, dlerror());
 							free(plugin);
 						} else {
-							/* add this plugin on queue head */
-							plugin->filename = strdup(de->d_name);
-							plugin->next = plugins;
-							plugins = plugin;
-							if (!tagsistant.quiet)
-								fprintf(stderr, " Loaded plugin %s \t-> \"%s\"\n", de->d_name, plugin->mime_type);
+							/* search for init function and call it */
+							int (*init_function)() = NULL;
+							init_function = dlsym(plugin->handle, "plugin_init");
+							if (init_function != NULL) {
+								int init_res = init_function();
+								if (!init_res) {
+									/* if init failed, ignore this plugin */
+									dbg(LOG_ERR, " *** error calling plugin_init() on %s ***\n", de->d_name);
+									free(plugin);
+									continue;
+								}
+							}
+
+							/* search for MIME type string */
+							plugin->mime_type = dlsym(plugin->handle, "mime_type");
+							if (plugin->mime_type == NULL) {
+								if (!tagsistant.quiet)
+									fprintf(stderr, " *** error finding %s processor function: %s ***\n", de->d_name, dlerror());
+								free(plugin);
+							} else {
+								/* search for processor function */
+								plugin->processor = dlsym(plugin->handle, "processor");	
+								if (plugin->processor == NULL) {
+									if (!tagsistant.quiet)
+										fprintf(stderr, " *** error finding %s processor function: %s ***\n", de->d_name, dlerror());
+									free(plugin);
+								} else {
+									/* add this plugin on queue head */
+									plugin->filename = strdup(de->d_name);
+									plugin->next = plugins;
+									plugins = plugin;
+									if (!tagsistant.quiet)
+										fprintf(stderr, " Loaded plugin %s \t-> \"%s\"\n", de->d_name, plugin->mime_type);
+								}
+							}
 						}
+						free(pname);
 					}
+					closedir(p);
 				}
-				free(pname);
 			}
-			closedir(p);
+
+			dbg(LOG_INFO, "Mounting filesystem");
+
+			dbg(LOG_INFO, "Fuse options:");
+			int fargc = args.argc;
+			while (fargc) {
+				dbg(LOG_INFO, "%.2d: %s", fargc, args.argv[fargc]);
+				fargc--;
+			}
+
+
+		#if FUSE_VERSION <= 25
+			res = fuse_main(args.argc, args.argv, &tagsistant_oper);
+		#else
+			res = fuse_main(args.argc, args.argv, &tagsistant_oper, NULL);
+		#endif
+
+			fuse_opt_free_args(&args);
+
+			return res;
 		}
-	}
 
-	dbg(LOG_INFO, "Mounting filesystem");
+		/**
+		 * Perform SQL queries. This function was added to avoid database opening
+		 * duplication and better handle SQLite interfacement. If dbh is passed
+		 * NULL, a new SQLite connection will be opened. Otherwise, existing
+		 * connection will be used.
+		 *
+		 * NEVER use real_do_sql() directly. Always use do_sql() macro which adds
+		 * __FILE__ and __LINE__ transparently for you. Code will be cleaner.
+		 *
+		 * \param dbh pointer to sqlite3 database handle
+		 * \param statement SQL query to be performed
+		 * \param callback pointer to function to be called on results of SQL query
+		 * \param firstarg pointer to buffer for callback retured data
+		 * \param file __FILE__ passed by calling function
+		 * \param line __LINE__ passed by calling function
+		 * \return 0 (always, due to SQLite policy)
+		 */
+		int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, char **, char **),
+			void *firstarg, char *file, unsigned int line)
+		{
+			int result = SQLITE_OK;
+			sqlite3 *intdbh = NULL;
 
-	dbg(LOG_INFO, "Fuse options:");
-	int fargc = args.argc;
-	while (fargc) {
-		dbg(LOG_INFO, "%.2d: %s", fargc, args.argv[fargc]);
-		fargc--;
-	}
+			if (statement == NULL) {
+				dbg(LOG_ERR, "Null SQL statement");
+				return 0;
+			}
 
+			/*
+			 * check if:
+			 * 1. no database handle location has been passed (means: use local dbh)
+			 * 2. database handle location is empty (means: create new dbh and return it)
+			 */
+			if ((dbh == NULL) || (*dbh == NULL)) {
+				result = sqlite3_open(tagsistant.tags, &intdbh);
+				if (result != SQLITE_OK) {
+					dbg(LOG_ERR, "Error [%d] opening database %s", result, tagsistant.tags);
+					dbg(LOG_ERR, "%s", sqlite3_errmsg(intdbh));
+					return 0;
+				}
+			} else {
+				intdbh = *dbh;
+			}
 
-#if FUSE_VERSION <= 25
-	res = fuse_main(args.argc, args.argv, &tagsistant_oper);
-#else
-	res = fuse_main(args.argc, args.argv, &tagsistant_oper, NULL);
-#endif
+			char *sqlerror = NULL;
+			if (dbh == NULL) {
+				dbg(LOG_INFO, "SQL [disposable]: \"%s\"", statement);
+			} else if (*dbh == NULL) {
+				dbg(LOG_INFO, "SQL [persistent]: \"%s\"", statement);
+			} else {
+				dbg(LOG_INFO, "SQL [0x%.8x]: \"%s\"", (unsigned int) *dbh, statement);
+			}
+			result = sqlite3_exec(intdbh, statement, callback, firstarg, &sqlerror);
+			if (result != SQLITE_OK) {
+				dbg(LOG_ERR, "SQL error: [%d] %s @%s:%u", result, sqlerror, file, line);
+				sqlite3_free(sqlerror);
+				return 0;
+			}
+			// free(file);
+			sqlite3_free(sqlerror);
 
-    fuse_opt_free_args(&args);
+			if (dbh == NULL) {
+				sqlite3_close(intdbh);
+			} else /* if (*dbh == NULL) */ {
+				*dbh = intdbh;
+			}
 
-	return res;
-}
-
-/**
- * Perform SQL queries. This function was added to avoid database opening
- * duplication and better handle SQLite interfacement. If dbh is passed
- * NULL, a new SQLite connection will be opened. Otherwise, existing
- * connection will be used.
- *
- * NEVER use real_do_sql() directly. Always use do_sql() macro which adds
- * __FILE__ and __LINE__ transparently for you. Code will be cleaner.
- *
- * \param dbh pointer to sqlite3 database handle
- * \param statement SQL query to be performed
- * \param callback pointer to function to be called on results of SQL query
- * \param firstarg pointer to buffer for callback retured data
- * \param file __FILE__ passed by calling function
- * \param line __LINE__ passed by calling function
- * \return 0 (always, due to SQLite policy)
- */
-int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, char **, char **),
-	void *firstarg, char *file, unsigned int line)
-{
-	int result = SQLITE_OK;
-	sqlite3 *intdbh = NULL;
-
-	if (statement == NULL) {
-		dbg(LOG_ERR, "Null SQL statement");
-		return 0;
-	}
-
-	/*
-	 * check if:
-	 * 1. no database handle location has been passed (means: use local dbh)
-	 * 2. database handle location is empty (means: create new dbh and return it)
-	 */
-	if ((dbh == NULL) || (*dbh == NULL)) {
-		result = sqlite3_open(tagsistant.tags, &intdbh);
-		if (result != SQLITE_OK) {
-			dbg(LOG_ERR, "Error [%d] opening database %s", result, tagsistant.tags);
-			dbg(LOG_ERR, "%s", sqlite3_errmsg(intdbh));
-			return 0;
+			return result;
 		}
-	} else {
-		intdbh = *dbh;
-	}
 
-	char *sqlerror = NULL;
-	if (dbh == NULL) {
-		dbg(LOG_INFO, "SQL [disposable]: \"%s\"", statement);
-	} else if (*dbh == NULL) {
-		dbg(LOG_INFO, "SQL [persistent]: \"%s\"", statement);
-	} else {
-		dbg(LOG_INFO, "SQL [0x%.8x]: \"%s\"", (unsigned int) *dbh, statement);
-	}
-	result = sqlite3_exec(intdbh, statement, callback, firstarg, &sqlerror);
-	if (result != SQLITE_OK) {
-		dbg(LOG_ERR, "SQL error: [%d] %s @%s:%u", result, sqlerror, file, line);
-		sqlite3_free(sqlerror);
-		return 0;
-	}
-	// free(file);
-	sqlite3_free(sqlerror);
-
-	if (dbh == NULL) {
-		sqlite3_close(intdbh);
-	} else /* if (*dbh == NULL) */ {
-		*dbh = intdbh;
-	}
-
-	return result;
-}
-
-// vim:ts=4:autoindent:nocindent:syntax=c
+		// vim:ts=4:autoindent:nocindent:syntax=c
