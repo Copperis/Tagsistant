@@ -189,6 +189,11 @@ typedef struct tagsistant_plugin {
 	 */
 	int (*processor)(const char *filename);
 
+	/**
+	 * hook to free allocated resources
+	 */
+	void (*free)();
+
 	/** next plugin in linked list */
 	struct tagsistant_plugin *next;
 } tagsistant_plugin_t;
