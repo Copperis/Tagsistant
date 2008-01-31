@@ -102,6 +102,7 @@ ptree_or_node_t *build_querytree(const char *path)
 				ptree_or_node_t *new_or = calloc(sizeof(ptree_or_node_t), 1);
 				if (new_or == NULL) {
 					dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+					freenull(element);
 					return NULL;
 				}
 				last_or->next = new_or;
@@ -112,7 +113,7 @@ ptree_or_node_t *build_querytree(const char *path)
 #if VERBOSE_DEBUG
 				dbg(LOG_INFO, "%s is not AND/OR operator, exiting build_querytree()", element);
 #endif
-				free(element);
+				freenull(element);
 				return result;
 			}
 			next_should_be_logical_op = 0;
@@ -121,6 +122,7 @@ ptree_or_node_t *build_querytree(const char *path)
 			ptree_and_node_t *and = calloc(sizeof(ptree_and_node_t), 1);
 			if (and == NULL) {
 				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+				freenull(element);
 				return NULL;
 			}
 			and->tag = strdup(element);
@@ -137,7 +139,7 @@ ptree_or_node_t *build_querytree(const char *path)
 			next_should_be_logical_op = 1;
 		}
 
-		free(element);
+		freenull(element);
 		pathptx = idx + 1;
 	}
 	dbg(LOG_INFO, "returning from build_querytree...");
@@ -151,11 +153,11 @@ void destroy_querytree(ptree_or_node_t *qt)
 		while (tag != NULL) {
 			ptree_and_node_t *next = tag->next;
 			freenull(tag->tag);
-			free(tag);
+			freenull(tag);
 			tag = next;
 		}
 		ptree_or_node_t *next = qt->next;
-		free(qt);
+		freenull(qt);
 		qt = next;
 	}
 }
@@ -199,7 +201,7 @@ static int add_to_filetree(void *atft_struct, int argc, char **argv, char **azCo
 	} else {
 		sprintf(sql, ADD_RESULT_ENTRY, atft->id, argv[0]);
 		do_sql(&(atft->dbh), sql, NULL, NULL);
-		free(sql);
+		freenull(sql);
 	}
 
 #if VERBOSE_DEBUG
@@ -222,7 +224,7 @@ void drop_views(ptree_or_node_t *query, sqlite3 *dbh)
 			do_sql(&dbh, mini, NULL, NULL);
 			query = query->next;
 		}
-		free(mini);
+		freenull(mini);
 	}
 }
 
@@ -315,7 +317,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 			if (mini == NULL) {
 				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
 				destroy_filetree(result);
-				free(statement);
+				freenull(statement);
 				sqlite3_close(dbh);
 				return NULL;
 			}
@@ -323,7 +325,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 
 			/* add sub-select to main statement */
 			strcat(statement, mini);
-			free(mini);
+			freenull(mini);
 
 			if (tag->next != NULL) strcat(statement, " intersect ");
 
@@ -338,7 +340,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 
 		/* create view */
 		do_sql(&dbh, statement, NULL, NULL);
-		free(statement);
+		freenull(statement);
 		query = query->next;
 	}
 
@@ -353,7 +355,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 
 	dbg(LOG_INFO, "Adding path %s to cache", path);
 	do_sql(&dbh, sql, NULL, NULL);
-	free(sql);
+	freenull(sql);
  
 	sqlite_int64 id = sqlite3_last_insert_rowid(dbh);
 
@@ -368,12 +370,12 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	query = query_dup;
 	while (query != NULL) {
 		char *mini = calloc(sizeof(char), strlen("select filename from tv") + 8 + 1);
-		if (sql == NULL) {
+		if (mini == NULL) {
 			dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
 		} else {
 			sprintf(mini, "select filename from tv%.8X", (unsigned int) query);
 			strcat(view_statement, mini);
-			free(mini);
+			freenull(mini);
 
 			if (query->next != NULL) strcat(view_statement, " union ");
 		}
@@ -388,7 +390,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	struct atft *atft = calloc(sizeof(struct atft), 1);
 	if (atft == NULL) {
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		free(view_statement);
+		freenull(view_statement);
 		destroy_filetree(result);
 		drop_views(query_dup, dbh);
 		sqlite3_close(dbh);
@@ -400,9 +402,9 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 
 	/* apply view statement */
 	do_sql(&dbh, view_statement, add_to_filetree, atft);
-	free(atft);
+	freenull(atft);
 
-	free(view_statement);
+	freenull(view_statement);
 
 	drop_views(query_dup, dbh);
 	sqlite3_close(dbh);
@@ -415,12 +417,12 @@ void destroy_filetree(file_handle_t *fh)
 		return;
 	
 	if (fh->name != NULL)
-		free(fh->name);
+		freenull(fh->name);
 	
 	if (fh->next != NULL)
 		destroy_filetree(fh->next);
 
-	free(fh);
+	freenull(fh);
 }
 
 // vim:ts=4:nowrap:nocindent

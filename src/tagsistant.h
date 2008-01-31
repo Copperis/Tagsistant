@@ -22,6 +22,7 @@
 
 /* for developing purposes only */
 #define VERBOSE_DEBUG 0
+/* #define DEBUG_STRDUP */
 
 #define TAGSISTANT_PLUGIN_PREFIX "libtagsistant_"
 
@@ -239,12 +240,28 @@ extern void destroy_filetree(file_handle_t *fh);
 
 extern int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, char **, char **), void *firstarg, char *file, unsigned int line);
 
-#ifdef strdup
-#undef strdup
-#define strdup(string) real_strdup(string, __FILE__, __LINE__)
-#endif
+extern FILE *debugfd;
+
+#ifdef DEBUG_STRDUP
+#	ifndef DEBUG_TO_LOGFILE
+#		define DEBUG_TO_LOGFILE
+#	endif
+#	ifdef strdup
+#		undef strdup
+#		define strdup(string) real_strdup(string, __FILE__, __LINE__)
+#	endif
 char *real_strdup(const char *orig, char *file, int line);
+#endif
 
-#define freenull(symbol) {if (symbol != NULL) { free(symbol); symbol = NULL; }}
-
+#define freenull(symbol) {\
+	if (symbol != NULL) {\
+		if (debugfd != NULL) {\
+			fprintf(debugfd, "0x%.8x: free()\n", (unsigned int) symbol);\
+		}\
+		free(symbol);\
+		symbol = NULL;\
+	} else {\
+		dbg(LOG_ERR, "FREE ERROR: symbol %s is NULL!", __STRING(symbol));\
+	}\
+}
 // vim:ts=4:nocindent:nowrap
