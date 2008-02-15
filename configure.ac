@@ -43,7 +43,7 @@ AC_FUNC_UTIME_NULL
 AC_CHECK_FUNCS([inet_ntoa lchown mempcpy memset mkdir rmdir setenv socket strdup strerror utime])
 
 dnl AC_SUBST([CFLAGS],["${CFLAGS} -g -O0 -D_FILE_OFFSET_BITS=64 -Wall -W"])
-AC_SUBST([CFLAGS],["${CFLAGS} -D_FILE_OFFSET_BITS=64 -Wall -W"])
+AC_SUBST([CFLAGS],["${CFLAGS} -O -D_FILE_OFFSET_BITS=64 -Wall -W"])
 
 # add option for debugging on console instead of through syslog facility
 debug_stderr=no

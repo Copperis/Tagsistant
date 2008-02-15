@@ -139,7 +139,7 @@ int is_tagged(char *filename, char *tagname)
 		return 1;
 	}
 	sprintf(statement, IS_TAGGED, filename, tagname);
-	assert(strlen(IS_TAGGED) - 4 + strlen(filename) + strlen(tagname) == strlen(statement));
+	assert(strlen(IS_TAGGED) - 4 + strlen(filename) + strlen(tagname) >= strlen(statement));
 	do_sql(NULL, statement, report_if_exists, &exists);
 	freenull(statement);
 	return exists;
@@ -173,7 +173,7 @@ static int drop_single_query(void *voidtagname, int argc, char **argv, char **az
 		return 1;
 	}
 	sprintf(sql, DROP_FILES, argv[0]);
-	assert(strlen(DROP_FILES) - 2 + strlen(argv[0]) == strlen(sql));
+	assert(strlen(DROP_FILES) - 2 + strlen(argv[0]) >= strlen(sql));
 	dbg(LOG_INFO, "SQL statement: %s", sql);
 
 	int res = do_sql(NULL, sql, NULL, NULL);
@@ -196,7 +196,7 @@ int drop_cached_queries(char *tagname)
 		return 0;
 	}
 	sprintf(sql, GET_ID_OF_TAG, tagname, tagname);
-	assert(strlen(GET_ID_OF_TAG) + strlen(tagname) * 2 - 4 - 3 == strlen(sql));
+	assert(strlen(GET_ID_OF_TAG) + strlen(tagname) * 2 - 4 - 3 >= strlen(sql));
 
 	if (do_sql(NULL, sql, drop_single_query, tagname) != SQLITE_OK) {
 		freenull(sql);
@@ -211,7 +211,7 @@ int drop_cached_queries(char *tagname)
 		return 0;
 	}
 	sprintf(sql, DROP_QUERY, tagname, tagname);
-	assert(strlen(DROP_QUERY) + strlen(tagname) * 2 - 4 - 3 == strlen(sql));
+	assert(strlen(DROP_QUERY) + strlen(tagname) * 2 - 4 - 3 >= strlen(sql));
 
 	if (do_sql(NULL, sql, NULL, NULL) != SQLITE_OK) {
 		freenull(sql);
@@ -254,7 +254,7 @@ int tag_file(const char *filename, char *tagname)
 		return 1;
 	}
 	sprintf(statement, TAG_FILE, tagname, purefile);
-	assert(strlen(TAG_FILE) + strlen(tagname) + strlen(purefile) - 4 == strlen(statement));
+	assert(strlen(TAG_FILE) + strlen(tagname) + strlen(purefile) - 4 >= strlen(statement));
 	do_sql(NULL, statement, NULL, NULL);
 	freenull(statement);
 	dbg(LOG_INFO, "File %s tagged as %s", purefile, tagname);
@@ -267,7 +267,7 @@ int tag_file(const char *filename, char *tagname)
 		return 0;
 	}
 	sprintf(statement, TAG_EXISTS, tagname);
-	assert(strlen(TAG_EXISTS) + strlen(tagname) - 2 == strlen(statement));
+	assert(strlen(TAG_EXISTS) + strlen(tagname) - 2 >= strlen(statement));
 	char exists = 0;
 
 	do_sql(NULL, statement, report_if_exists, &exists);
@@ -287,7 +287,7 @@ int tag_file(const char *filename, char *tagname)
 		return 1;
 	}
 	sprintf(statement, CREATE_TAG, tagname);
-	assert(strlen(CREATE_TAG) + strlen(tagname) - 2 == strlen(statement));
+	assert(strlen(CREATE_TAG) + strlen(tagname) - 2 >= strlen(statement));
 	do_sql(NULL, statement, NULL, NULL);
 	freenull(statement);
 	dbg(LOG_INFO, "Tag %s created", tagname);
@@ -322,7 +322,7 @@ static int drop_single_file(void *filenamevoid, int argc, char **argv, char **az
 	}
 
 	sprintf(sql, DROP_FILE, filename, argv[0]);
-	assert(strlen(DROP_FILE) + strlen(filename) + strlen(argv[0]) - 4 == strlen(sql));
+	assert(strlen(DROP_FILE) + strlen(filename) + strlen(argv[0]) - 4 >= strlen(sql));
 	do_sql(NULL, sql, NULL, NULL);
 	freenull(sql);
 	
@@ -363,6 +363,10 @@ int untag_file(char *filename, char *tagname)
  */
 int is_cached(const char *path)
 {
+	if (!tagsistant.use_cache) {
+		return 0;
+	}
+
 	char *mini = NULL;
 
 	/* first clean cache table from old data */
@@ -374,7 +378,7 @@ int is_cached(const char *path)
 		return 0;
 	}
 	sprintf(mini, IS_CACHED, path);
-	assert(strlen(IS_CACHED) + strlen(path) - 2 == strlen(mini));
+	assert(strlen(IS_CACHED) + strlen(path) - 2 >= strlen(mini));
 
 	int exists = 0;
 	do_sql(NULL, mini, report_if_exists, &exists);
@@ -634,7 +638,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 			fprintf(stderr, "sql query: %s is %d char long\n", sql, strlen(sql));
 			fprintf(stderr, "sql proto: %s is %d char long\n", GET_EXACT_TAG_ID, strlen(GET_EXACT_TAG_ID));
 			*/
-			assert(strlen(GET_EXACT_TAG_ID) - 2 + strlen(last2) == strlen(sql)); /* if dir is OR is long exactly as %s in format! */
+			assert(strlen(GET_EXACT_TAG_ID) - 2 + strlen(last2) >= strlen(sql)); /* if dir is OR is long exactly as %s in format! */
 			do_sql(NULL, sql, return_integer, &inode);
 			freenull(sql);
 		}
@@ -679,7 +683,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 			return 0;
 		}
 		sprintf(statement, TAG_EXISTS, last);
-		assert(strlen(TAG_EXISTS) + strlen(last) - 2 == strlen(statement));
+		assert(strlen(TAG_EXISTS) + strlen(last) - 2 >= strlen(statement));
 
 		int exists = 0;
 		do_sql(NULL, statement, report_if_exists, &exists);
@@ -698,7 +702,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 				return -ENOMEM;
 			}
 			sprintf(sql, GET_EXACT_TAG_ID, last);
-			assert(strlen(GET_EXACT_TAG_ID) - 2 + strlen(last) == strlen(sql));
+			assert(strlen(GET_EXACT_TAG_ID) - 2 + strlen(last) >= strlen(sql));
 			do_sql(NULL, sql, return_integer, &inode);
 			stbuf->st_ino = inode * 3; /* each directory holds 3 inodes: itself/, itself/AND/, itself/OR/ */
 			freenull(sql);
@@ -726,16 +730,20 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 		while (ptx != NULL) {
 			ptree_and_node_t *andpt = ptx->and_set;
 			while (andpt != NULL) {
-				if (is_tagged(last, andpt->tag)) {
-					char *filepath = get_file_path(last);
-					res = lstat(filepath, stbuf);
-					tagsistant_errno = (res == -1) ? errno : 0;
+				ptree_and_node_t *related = andpt;
+				while (related != NULL) {
+					if (is_tagged(last, related->tag)) {
+						char *filepath = get_file_path(last);
+						res = lstat(filepath, stbuf);
+						tagsistant_errno = (res == -1) ? errno : 0;
 #if VERBOSE_DEBUG
-					dbg(LOG_INFO, "lstat('%s/%s'): %d (%s)", andpt->tag, last, res, strerror(tagsistant_errno));
+						dbg(LOG_INFO, "lstat('%s/%s'): %d (%s)", related->tag, last, res, strerror(tagsistant_errno));
 #endif
-					freenull(filepath);
-					destroy_querytree(pt);
-					goto GETATTR_EXIT;
+						freenull(filepath);
+						destroy_querytree(pt);
+						goto GETATTR_EXIT;
+					}
+					related = related->related;
 				}
 #if VERBOSE_DEBUG
 				dbg(LOG_INFO, "%s is not tagged %s", last, andpt->tag);
@@ -926,7 +934,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 				return 1;
 			}
 			sprintf(mini, ALL_FILES_IN_CACHE, path);
-			assert(strlen(ALL_FILES_IN_CACHE) + strlen(path) - 2 == strlen(mini));
+			assert(strlen(ALL_FILES_IN_CACHE) + strlen(path) - 2 >= strlen(mini));
 	
 			do_sql(NULL, mini, add_entry_to_dir, ufs);
 			freenull(mini);
@@ -1088,7 +1096,7 @@ static int tagsistant_mkdir(const char *path, mode_t mode)
 		return 1;
 	}
 	sprintf(statement, CREATE_TAG, tagname);
-	assert(strlen(CREATE_TAG) + strlen(tagname) - 2 == strlen(statement));
+	assert(strlen(CREATE_TAG) + strlen(tagname) - 2 >= strlen(statement));
 	do_sql(NULL, statement, NULL, NULL);
 
 	freenull(statement);
@@ -1167,7 +1175,7 @@ static int tagsistant_unlink(const char *path)
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
 	} else {
 		sprintf(statement1, HAS_TAGS, filename);
-		assert(strlen(HAS_TAGS) + strlen(filename) - 2 == strlen(statement1));
+		assert(strlen(HAS_TAGS) + strlen(filename) - 2 >= strlen(statement1));
 		dbg(LOG_INFO, "SQL statement: %s", statement1);
 
 		int exists = 0;
@@ -1270,7 +1278,7 @@ static int tagsistant_rename(const char *from, const char *to)
 			return 1;
 		}
 		sprintf(statement, RENAME_TAG, newtagname, tagname, newtagname, tagname);
-		assert(strlen(RENAME_TAG) + strlen(tagname) * 2 + strlen(newtagname) * 2 - 4 == strlen(statement));
+		assert(strlen(RENAME_TAG) + strlen(tagname) * 2 + strlen(newtagname) * 2 - 4 >= strlen(statement));
 		do_sql(NULL, statement, NULL, NULL);
 		freenull(statement);
 	} else {
@@ -1288,7 +1296,7 @@ static int tagsistant_rename(const char *from, const char *to)
 			return 1;
 		}
 		sprintf(statement, RENAME_FILE, newfilename, tagname, newfilename, tagname);
-		assert(strlen(RENAME_FILE) + strlen(tagname) * 2 + strlen(newfilename) * 2 - 4 == strlen(statement));
+		assert(strlen(RENAME_FILE) + strlen(tagname) * 2 + strlen(newfilename) * 2 - 4 >= strlen(statement));
 		do_sql(NULL, statement, NULL, NULL);
 		freenull(statement);
 
@@ -1834,6 +1842,7 @@ static struct fuse_opt tagsistant_opts[] = {
 	TAGSISTANT_OPT("-r",					readonly,		1),
 	TAGSISTANT_OPT("-v",					verbose,		1),
 	TAGSISTANT_OPT("-q",					quiet,			1),
+	TAGSISTANT_OPT("-c",					use_cache,		0),
 	
 	FUSE_OPT_KEY("-V",          	KEY_VERSION),
 	FUSE_OPT_KEY("--version",   	KEY_VERSION),
@@ -1878,6 +1887,7 @@ void usage(char *progname)
 		"    -q  be quiet\n"
 		"    -r  mount readonly\n"
 		"    -v  verbose syslogging\n"
+		"    -c  don't use cache\n"
 		"\n" /*fuse options will follow... */
 		, PACKAGE_VERSION, FUSE_USE_VERSION, progname
 	);
@@ -1964,6 +1974,7 @@ int main(int argc, char *argv[])
 #endif
 
 	tagsistant.progname = argv[0];
+	tagsistant.use_cache = 1;
 
 	if (fuse_opt_parse(&args, &tagsistant, tagsistant_opts, tagsistant_opt_proc) == -1)
 		exit(1);
@@ -2017,6 +2028,10 @@ int main(int argc, char *argv[])
 		if (!tagsistant.quiet)
 			fprintf(stderr, " *** will log verbosely ***\n");
 		fuse_opt_add_arg(&args, "-d");
+	}
+	if (!tagsistant.use_cache) {
+		if (!tagsistant.quiet)
+			fprintf(stderr, " *** internal cache disabled with -c on command line ***\n");
 	}
 
 	/* checking mountpoint */
@@ -2161,6 +2176,11 @@ int main(int argc, char *argv[])
 		sqlcode = sqlite3_exec(tagsistant.dbh, CREATE_RESULT_TABLE, NULL, NULL, &sqlerror);
 		if (sqlcode != SQLITE_OK) {
 			dbg(LOG_ERR, "SQL error [%d] while creating cache results table: %s", sqlcode, sqlerror);
+			exit(1);
+		}
+		sqlcode = sqlite3_exec(tagsistant.dbh, CREATE_RELATIONS_TABLE, NULL, NULL, &sqlerror);
+		if (sqlcode != SQLITE_OK) {
+			dbg(LOG_ERR, "SQL error [%d] while creating relations table: %s", sqlcode, sqlerror);
 			exit(1);
 		}
 	}

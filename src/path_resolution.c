@@ -58,6 +58,47 @@ char *strndup(const char *s, size_t n)
 }
 #endif
 
+
+static int add_alias_tag(void *void_and_node, int argc, char **argv, char **azColName)
+{
+	(void) argc;
+	(void) azColName;
+
+	/* point to and node the tag should be added to */
+	ptree_and_node_t *and = (ptree_and_node_t *) void_and_node;
+	assert(and != NULL);
+	assert(argv[0]);
+	assert(argv[1]);
+	assert(argv[2]);
+
+	while (and->related != NULL) {
+		assert(and->tag != NULL);
+		if (strcmp(and->tag, argv[0]) == 0) {
+			/* tag is already present, avoid looping */
+			return 0;
+		}
+		and = and->related;
+	}
+
+	/* adding tag */
+	and->related = malloc(sizeof(ptree_and_node_t));
+	if (and->related == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		return 1;
+	}
+
+	and->related->next = NULL;
+	and->related->related = NULL;
+	and->related->tag = strdup(argv[0]);
+
+	assert(and != NULL);
+	assert(and->related != NULL);
+	assert(and->related->tag != NULL);
+
+	dbg(LOG_INFO, "Adding related tag %s (because %s %s)", and->related->tag, argv[1], argv[2]);
+	return 0;
+}
+
 /**
  * Build query tree from path. A querytree is composed of a linked
  * list of ptree_or_node_t objects. Each or object has a descending
@@ -126,17 +167,54 @@ ptree_or_node_t *build_querytree(const char *path)
 				return NULL;
 			}
 			and->tag = strdup(element);
+			and->next = NULL;
+			and->related = NULL;
 			if (last_and == NULL) {
 				last_or->and_set = and;
 			} else {
 				last_and->next = and;
 			}
 			last_and = and;
+
 #if VERBOSE_DEBUG
 			dbg(LOG_INFO, "Query tree: %.2d.%.2d %s", orcount, andcount, element);
 #endif
 			andcount++;
 			next_should_be_logical_op = 1;
+
+			/* search related tags */
+#if VERBOSE_DEBUG
+			dbg(LOG_INFO, "Searching for other tags related to %s", and->tag);
+#endif
+			char *related_tags = calloc(sizeof(char), strlen(SEARCH_EQUIVALENT_TAG1) + strlen(and->tag) + 100);
+			if (related_tags == NULL) {
+				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+				free(element);
+				return NULL;
+			}
+			sprintf(related_tags, SEARCH_EQUIVALENT_TAG1, and->tag);
+			do_sql(NULL, related_tags, add_alias_tag, and);
+			free(related_tags);
+
+			related_tags = calloc(sizeof(char), strlen(SEARCH_EQUIVALENT_TAG2) + strlen(and->tag) + 100);
+			if (related_tags == NULL) {
+				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+				free(element);
+				return NULL;
+			}
+			sprintf(related_tags, SEARCH_EQUIVALENT_TAG2, and->tag);
+			do_sql(NULL, related_tags, add_alias_tag, and);
+			free(related_tags);
+
+			related_tags = calloc(sizeof(char), strlen(SEARCH_INCLUDED_TAG) + strlen(and->tag) + 100);
+			if (related_tags == NULL) {
+				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+				free(element);
+				return NULL;
+			}
+			sprintf(related_tags, SEARCH_INCLUDED_TAG, and->tag);
+			do_sql(NULL, related_tags, add_alias_tag, and);
+			free(related_tags);
 		}
 
 		freenull(element);
@@ -151,6 +229,13 @@ void destroy_querytree(ptree_or_node_t *qt)
 	while (qt != NULL) {
 		ptree_and_node_t *tag = qt->and_set;
 		while (tag != NULL) {
+			while (tag->related != NULL) {
+				ptree_and_node_t *related = tag->related;
+				tag->related = related->related;
+				freenull(related->tag);
+				freenull(related);
+			}
+
 			ptree_and_node_t *next = tag->next;
 			freenull(tag->tag);
 			freenull(tag);
@@ -290,6 +375,13 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 
 		while (tag != NULL) {
 			query_length += strlen(ALL_FILES_TAGGED) + strlen(tag->tag);
+			if (tag->related != NULL) {
+				ptree_and_node_t *related = tag->related;
+				while (related != NULL) {
+					query_length += strlen(" or tagname = \"%s\"") + strlen(related->tag);	
+					related = related->related;
+				}
+			}
 			if (tag->next != NULL) query_length += strlen(" intersect ");
 			tag = tag->next;
 		}
@@ -326,6 +418,17 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 			/* add sub-select to main statement */
 			strcat(statement, mini);
 			freenull(mini);
+
+			/* add related tags */
+			if (tag->related != NULL) {
+				ptree_and_node_t *related = tag->related;
+				while (related != NULL) {
+					strcat(statement, " or tagname = \"");
+					strcat(statement, related->tag);
+					strcat(statement, "\"");
+					related = related->related;
+				}
+			}
 
 			if (tag->next != NULL) strcat(statement, " intersect ");
 

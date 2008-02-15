@@ -1,5 +1,5 @@
 /*
-   Tagsistant (tagfs) -- mount.tagsistant.h
+   Tagsistant (tagfs) -- tagsistant.h
    Copyright (C) 2006-2007 Tx0 <tx0@strumentiresistenti.org>
 
    Tagsistant (tagfs) mount binary written using FUSE userspace library.
@@ -94,10 +94,11 @@
 /***************\
  * SQL QUERIES *
 \***************/
-#define CREATE_TAGS_TABLE	"create table tags(id integer primary key autoincrement not null, tagname varchar unique not null);"
-#define CREATE_TAGGED_TABLE	"create table tagged(id integer primary key autoincrement not null, tagname varchar not null, filename varchar not null);"
-#define CREATE_CACHE_TABLE	"create table cache_queries(id integer primary key autoincrement not null, path text not null, age datetime not null);"
-#define CREATE_RESULT_TABLE	"create table cache_results(id integer not null, age datetime not null, filename varchar not null);"
+#define CREATE_TAGS_TABLE		"create table tags(id integer primary key autoincrement not null, tagname varchar unique not null);"
+#define CREATE_TAGGED_TABLE		"create table tagged(id integer primary key autoincrement not null, tagname varchar not null, filename varchar not null);"
+#define CREATE_CACHE_TABLE		"create table cache_queries(id integer primary key autoincrement not null, path text not null, age datetime not null);"
+#define CREATE_RESULT_TABLE		"create table cache_results(id integer not null, age datetime not null, filename varchar not null);"
+#define CREATE_RELATIONS_TABLE	"create table relations(id integer primary key autoincrement not null, tag1 varchar not null, relation varchar not null, tag2 varchar not null);"
 
 #define CREATE_TAG			"insert into tags(tagname) values(\"%s\");"
 #define DELETE_TAG			"delete from tags where tagname = \"%s\"; delete from tagged where tagname = \"%s\"; delete from cache_queries where path like \"%%/%s/%%\" or path like \"%%/%s\";"
@@ -124,12 +125,19 @@
 
 #define GET_EXACT_TAG_ID	"select id from tags where tagname = \"%s\";"
 
+#define SEARCH_EQUIVALENT_TAG1	"select tag1, tag2, relation from relations where tag2 = \"%s\" and relation = \"is equivalent\";"
+#define SEARCH_EQUIVALENT_TAG2	"select tag2, tag1, relation from relations where tag1 = \"%s\" and relation = \"is equivalent\";"
+#define SEARCH_INCLUDED_TAG		"select tag2, tag1, relation from relations where tag1 = \"%s\" and relation = \"includes\";"
+
 /**
  * defines an AND token in a query path
  */
 typedef struct ptree_and_node {
 	/** the name of this token */
 	char *tag;
+
+	/** list of all related tags **/
+	struct ptree_and_node *related;
 
 	/** next AND token */
 	struct ptree_and_node *next;
@@ -208,14 +216,15 @@ struct tagsistant {
 	int		 readonly;		/**< mount filesystem readonly */
 	int		 verbose;		/**< do verbose logging on syslog (stderr is always verbose) */
 	int		 quiet;			/**< don't log anything */
+	int		 use_cache;		/**< enable or disable result caching */
 
-	char    *progname;		/**< mount.tagsistant */
+	char    *progname;		/**< tagsistant */
 	char    *mountpoint;	/**< no clue? */
-	char    *repository;	/**< where's archived files and tags no? */
+	char    *repository;	/**< it's where files and tags are archived, no? */
 	char    *archive;		/**< a directory holding all the files */
 	char    *tags;			/**< a SQLite database on file */
 
-	sqlite3 *dbh;			/**< database handle to operate on SQLite thingy */
+	sqlite3 *dbh;			/**< database handle to operate on SQLite thingy, but no longer used? */
 };
 
 extern struct tagsistant tagsistant;
