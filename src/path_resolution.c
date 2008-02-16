@@ -58,19 +58,38 @@ char *strndup(const char *s, size_t n)
 }
 #endif
 
+typedef struct reasoning {
+	ptree_and_node_t *start_node;
+	ptree_and_node_t *actual_node;
+	int added_tags;
+} reasoning_t;
 
-static int add_alias_tag(void *void_and_node, int argc, char **argv, char **azColName)
+/**
+ * SQL callback. Add new tag derived from reasoning to a ptree_and_node_t structure.
+ *
+ * \param vreasoning pointer to be casted to reasoning_t* structure
+ * \param argc counter of argv arguments
+ * \param argv array of SQL given results
+ * \param azColName array of SQL column names
+ * \return 0 (always, due to SQLite policy)
+ */
+static int add_alias_tag(void *vreasoning, int argc, char **argv, char **azColName)
 {
 	(void) argc;
 	(void) azColName;
 
-	/* point to and node the tag should be added to */
-	ptree_and_node_t *and = (ptree_and_node_t *) void_and_node;
-	assert(and != NULL);
+	/* point to a reasoning_t structure */
+	reasoning_t *reasoning = (reasoning_t *) vreasoning;
+	assert(reasoning != NULL);
+	assert(reasoning->start_node != NULL);
+	assert(reasoning->actual_node != NULL);
+	assert(reasoning->added_tags >= 0);
+
 	assert(argv[0]);
 	assert(argv[1]);
 	assert(argv[2]);
 
+	ptree_and_node_t *and = reasoning->start_node;
 	while (and->related != NULL) {
 		assert(and->tag != NULL);
 		if (strcmp(and->tag, argv[0]) == 0) {
@@ -95,8 +114,60 @@ static int add_alias_tag(void *void_and_node, int argc, char **argv, char **azCo
 	assert(and->related != NULL);
 	assert(and->related->tag != NULL);
 
+	reasoning->added_tags += 1;
+
 	dbg(LOG_INFO, "Adding related tag %s (because %s %s)", and->related->tag, argv[1], argv[2]);
 	return 0;
+}
+
+/**
+ * Search and add related tags to a ptree_and_node_t,
+ * enabling build_filetree to later add more criteria to SQL
+ * statements to retrieve files
+ *
+ * \param reasoning the reasoning structure the reasoner should work on
+ * \return number of tags added
+ */
+int reasoner(reasoning_t *reasoning)
+{
+	assert(reasoning != NULL);
+	assert(reasoning->start_node != NULL);
+	assert(reasoning->actual_node != NULL);
+	assert(reasoning->actual_node->tag != NULL);
+
+	char *related_tags = calloc(sizeof(char), strlen(SEARCH_EQUIVALENT_TAG1) + strlen(reasoning->actual_node->tag) + 100);
+	if (related_tags == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		return reasoning->added_tags;
+	}
+	sprintf(related_tags, SEARCH_EQUIVALENT_TAG1, reasoning->actual_node->tag);
+	do_sql(NULL, related_tags, add_alias_tag, reasoning);
+	free(related_tags);
+
+	related_tags = calloc(sizeof(char), strlen(SEARCH_EQUIVALENT_TAG2) + strlen(reasoning->actual_node->tag) + 100);
+	if (related_tags == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		return reasoning->added_tags;
+	}
+	sprintf(related_tags, SEARCH_EQUIVALENT_TAG2, reasoning->actual_node->tag);
+	do_sql(NULL, related_tags, add_alias_tag, reasoning);
+	free(related_tags);
+
+	related_tags = calloc(sizeof(char), strlen(SEARCH_INCLUDED_TAG) + strlen(reasoning->actual_node->tag) + 100);
+	if (related_tags == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		return reasoning->added_tags;
+	}
+	sprintf(related_tags, SEARCH_INCLUDED_TAG, reasoning->actual_node->tag);
+	do_sql(NULL, related_tags, add_alias_tag, reasoning);
+	free(related_tags);
+
+	if (reasoning->actual_node->related != NULL) {
+		reasoning->actual_node = reasoning->actual_node->related;
+		reasoner(reasoning);
+	}
+
+	return reasoning->added_tags;
 }
 
 /**
@@ -186,35 +257,13 @@ ptree_or_node_t *build_querytree(const char *path)
 #if VERBOSE_DEBUG
 			dbg(LOG_INFO, "Searching for other tags related to %s", and->tag);
 #endif
-			char *related_tags = calloc(sizeof(char), strlen(SEARCH_EQUIVALENT_TAG1) + strlen(and->tag) + 100);
-			if (related_tags == NULL) {
-				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-				free(element);
-				return NULL;
+			reasoning_t *reasoning = malloc(sizeof(reasoning_t));
+			if (reasoning != NULL) {
+				reasoning->start_node = and;
+				reasoning->actual_node = and;
+				reasoning->added_tags = 0;
+				int newtags = reasoner(reasoning);
 			}
-			sprintf(related_tags, SEARCH_EQUIVALENT_TAG1, and->tag);
-			do_sql(NULL, related_tags, add_alias_tag, and);
-			free(related_tags);
-
-			related_tags = calloc(sizeof(char), strlen(SEARCH_EQUIVALENT_TAG2) + strlen(and->tag) + 100);
-			if (related_tags == NULL) {
-				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-				free(element);
-				return NULL;
-			}
-			sprintf(related_tags, SEARCH_EQUIVALENT_TAG2, and->tag);
-			do_sql(NULL, related_tags, add_alias_tag, and);
-			free(related_tags);
-
-			related_tags = calloc(sizeof(char), strlen(SEARCH_INCLUDED_TAG) + strlen(and->tag) + 100);
-			if (related_tags == NULL) {
-				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-				free(element);
-				return NULL;
-			}
-			sprintf(related_tags, SEARCH_INCLUDED_TAG, and->tag);
-			do_sql(NULL, related_tags, add_alias_tag, and);
-			free(related_tags);
 		}
 
 		freenull(element);
