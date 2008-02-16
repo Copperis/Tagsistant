@@ -1,7 +1,9 @@
+SUBDIRS = tagman
+
 bin_PROGRAMS = tagsistant
 
 tagsistant_SOURCES = tagsistant.c path_resolution.c\
-	compat/fuse_opt.c debug.h debug_free_calls.h 
+	compat/fuse_opt.c debug.h debug_free_calls.h sql.c
 
 #### tagsistant_CFLAGS = -D'PLUGINS_DIR="@libexecdir@/tagsistant"'
 tagsistant_CFLAGS = -D'PLUGINS_DIR="@libdir@/"' $(CFLAGS)

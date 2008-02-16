@@ -114,5 +114,7 @@ case $host in
 esac
 
 AC_CONFIG_FILES([Makefile
-                 src/Makefile])
+                 src/Makefile
+				 src/tagman/Makefile
+				 src/tagman/src/Makefile])
 AC_OUTPUT

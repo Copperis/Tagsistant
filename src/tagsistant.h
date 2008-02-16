@@ -51,7 +51,11 @@
 #define _POSIX_PTHREAD_SEMANTICS
 
 #include <pthread.h>
+#ifndef TAGMAN
 #include <debug.h>
+#else
+#include "../../debug.h"
+#endif
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -86,8 +90,10 @@
 #endif
 
 #include <sqlite3.h>
+#ifndef TAGMAN
 #include <fuse.h>
 #include <compat/fuse_opt.h>
+#endif
 
 #define MAX_TAG_LENGTH 255
 
@@ -101,7 +107,7 @@
 #define CREATE_RELATIONS_TABLE	"create table relations(id integer primary key autoincrement not null, tag1 varchar not null, relation varchar not null, tag2 varchar not null);"
 
 #define CREATE_TAG			"insert into tags(tagname) values(\"%s\");"
-#define DELETE_TAG			"delete from tags where tagname = \"%s\"; delete from tagged where tagname = \"%s\"; delete from cache_queries where path like \"%%/%s/%%\" or path like \"%%/%s\";"
+#define DELETE_TAG			"delete from tags where tagname = \"%s\"; delete from tagged where tagname = \"%s\"; delete from cache_queries where path like \"%%/%s/%%\" or path like \"%%/%s\"; delete from relations where tag1 = \"%s\" or tag2 = \"%s\";"
 #define TAG_FILE 			"insert into tagged(tagname, filename) values(\"%s\", \"%s\");"
 #define UNTAG_FILE			"delete from tagged where tagname = \"%s\" and filename = \"%s\";"
 #define RENAME_TAG			"update tags set tagname = \"%s\" where tagname = \"%s\"; update tagged set tagname = \"%s\" where tagname = \"%s\";"

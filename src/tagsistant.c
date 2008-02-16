@@ -1214,7 +1214,7 @@ static int tagsistant_rmdir(const char *path)
 	ptree_or_node_t *ptx = pt;
 
 	/* tag name is inserted 2 times in query, that's why '* 2' */
-	char *statement = calloc(sizeof(char), strlen(DELETE_TAG) + MAX_TAG_LENGTH * 4);
+	char *statement = calloc(sizeof(char), strlen(DELETE_TAG) + MAX_TAG_LENGTH * 6);
 	if (statement == NULL) {
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
 		destroy_querytree(pt);
@@ -1224,8 +1224,8 @@ static int tagsistant_rmdir(const char *path)
 	while (ptx != NULL) {
 		ptree_and_node_t *element = ptx->and_set;
 		while (element != NULL) {
-			sprintf(statement, DELETE_TAG, element->tag, element->tag, element->tag, element->tag);
-			assert(strlen(DELETE_TAG) + MAX_TAG_LENGTH * 4 > strlen(statement));
+			sprintf(statement, DELETE_TAG, element->tag, element->tag, element->tag, element->tag, element->tag, element->tag);
+			assert(strlen(DELETE_TAG) + MAX_TAG_LENGTH * 6 > strlen(statement));
 			dbg(LOG_INFO, "RMDIR on %s", element->tag);
 			do_sql(NULL, statement, NULL, NULL);
 			element = element->next;
@@ -2380,76 +2380,6 @@ int main(int argc, char *argv[])
 	free(tagsistant.tags);
 
 	return res;
-}
-
-/**
- * Perform SQL queries. This function was added to avoid database opening
- * duplication and better handle SQLite interfacement. If dbh is passed
- * NULL, a new SQLite connection will be opened. Otherwise, existing
- * connection will be used.
- *
- * NEVER use real_do_sql() directly. Always use do_sql() macro which adds
- * __FILE__ and __LINE__ transparently for you. Code will be cleaner.
- *
- * \param dbh pointer to sqlite3 database handle
- * \param statement SQL query to be performed
- * \param callback pointer to function to be called on results of SQL query
- * \param firstarg pointer to buffer for callback retured data
- * \param file __FILE__ passed by calling function
- * \param line __LINE__ passed by calling function
- * \return 0 (always, due to SQLite policy)
- */
-int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, char **, char **),
-	void *firstarg, char *file, unsigned int line)
-{
-	int result = SQLITE_OK;
-	sqlite3 *intdbh = NULL;
-
-	if (statement == NULL) {
-		dbg(LOG_ERR, "Null SQL statement");
-		return 0;
-	}
-
-	/*
-	 * check if:
-	 * 1. no database handle location has been passed (means: use local dbh)
-	 * 2. database handle location is empty (means: create new dbh and return it)
-	 */
-	if ((dbh == NULL) || (*dbh == NULL)) {
-		result = sqlite3_open(tagsistant.tags, &intdbh);
-		if (result != SQLITE_OK) {
-			dbg(LOG_ERR, "Error [%d] opening database %s", result, tagsistant.tags);
-			dbg(LOG_ERR, "%s", sqlite3_errmsg(intdbh));
-			return 0;
-		}
-	} else {
-		intdbh = *dbh;
-	}
-
-	char *sqlerror = NULL;
-	if (dbh == NULL) {
-		dbg(LOG_INFO, "SQL [disposable]: \"%s\"", statement);
-	} else if (*dbh == NULL) {
-		dbg(LOG_INFO, "SQL [persistent]: \"%s\"", statement);
-	} else {
-		dbg(LOG_INFO, "SQL [0x%.8x]: \"%s\"", (unsigned int) *dbh, statement);
-	}
-	result = sqlite3_exec(intdbh, statement, callback, firstarg, &sqlerror);
-	if (result != SQLITE_OK) {
-		dbg(LOG_ERR, "SQL error: [%d] %s @%s:%u", result, sqlerror, file, line);
-		sqlite3_free(sqlerror);
-		return 0;
-	}
-	// freenull(file);
-	sqlite3_free(sqlerror);
-
-	if (dbh == NULL) {
-		sqlite3_close(intdbh);
-	} else /* if (*dbh == NULL) */ {
-		*dbh = intdbh;
-	}
-
-	return result;
 }
 
 // vim:ts=4:autoindent:nocindent:syntax=c
