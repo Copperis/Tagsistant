@@ -1253,6 +1253,7 @@ is the same of</property>
   <signal name="close" handler="on_chooserepository_close" last_modification_time="Sat, 16 Feb 2008 17:25:11 GMT"/>
   <signal name="destroy" handler="on_chooserepository_destroy" last_modification_time="Sat, 16 Feb 2008 17:25:17 GMT"/>
   <signal name="unmap" handler="on_chooserepository_unmap" last_modification_time="Sat, 16 Feb 2008 17:27:27 GMT"/>
+  <signal name="file_activated" handler="on_chooserepository_file_activated" last_modification_time="Sat, 16 Feb 2008 17:44:08 GMT"/>
 
   <child internal-child="vbox">
     <widget class="GtkVBox" id="dialog-vbox1">
