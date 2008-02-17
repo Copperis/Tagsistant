@@ -202,7 +202,7 @@
       </child>
 
       <child>
-	<widget class="GtkNotebook" id="notebook1">
+	<widget class="GtkNotebook" id="notebook">
 	  <property name="visible">True</property>
 	  <property name="can_focus">True</property>
 	  <property name="show_tabs">True</property>
@@ -264,8 +264,8 @@
 			  <child>
 			    <widget class="GtkComboBox" id="relationstype">
 			      <property name="visible">True</property>
-			      <property name="items" translatable="yes">is subtag of
-is the same of</property>
+			      <property name="items" translatable="yes">includes
+is equivalent</property>
 			      <property name="add_tearoffs">False</property>
 			      <property name="focus_on_click">True</property>
 			    </widget>
@@ -350,6 +350,10 @@ is the same of</property>
 		      <property name="fixed_height_mode">False</property>
 		      <property name="hover_selection">False</property>
 		      <property name="hover_expand">False</property>
+		      <signal name="row_activated" handler="on_relationsview_row_activated" last_modification_time="Sun, 17 Feb 2008 16:39:40 GMT"/>
+		      <signal name="select_cursor_row" handler="on_relationsview_select_cursor_row" last_modification_time="Sun, 17 Feb 2008 17:00:03 GMT"/>
+		      <signal name="cursor_changed" handler="on_relationsview_cursor_changed" last_modification_time="Sun, 17 Feb 2008 17:01:57 GMT"/>
+		      <signal name="button_press_event" handler="on_relationsview_button_press_event" last_modification_time="Sun, 17 Feb 2008 21:52:41 GMT"/>
 		    </widget>
 		  </child>
 		</widget>
@@ -376,6 +380,7 @@ is the same of</property>
 		      <property name="use_stock">True</property>
 		      <property name="relief">GTK_RELIEF_NORMAL</property>
 		      <property name="focus_on_click">True</property>
+		      <signal name="clicked" handler="on_add_relation_button_clicked" last_modification_time="Sun, 17 Feb 2008 17:12:11 GMT"/>
 		    </widget>
 		  </child>
 
@@ -386,6 +391,7 @@ is the same of</property>
 		      <property name="can_focus">True</property>
 		      <property name="relief">GTK_RELIEF_NORMAL</property>
 		      <property name="focus_on_click">True</property>
+		      <signal name="clicked" handler="on_update_relation_button_clicked" last_modification_time="Sun, 17 Feb 2008 17:12:16 GMT"/>
 
 		      <child>
 			<widget class="GtkAlignment" id="alignment2">
@@ -462,6 +468,7 @@ is the same of</property>
 		      <property name="use_stock">True</property>
 		      <property name="relief">GTK_RELIEF_NORMAL</property>
 		      <property name="focus_on_click">True</property>
+		      <signal name="clicked" handler="on_delete_relation_button_clicked" last_modification_time="Sun, 17 Feb 2008 17:12:23 GMT"/>
 		    </widget>
 		  </child>
 		</widget>
@@ -551,6 +558,7 @@ is the same of</property>
 		      <property name="can_focus">True</property>
 		      <property name="relief">GTK_RELIEF_NORMAL</property>
 		      <property name="focus_on_click">True</property>
+		      <signal name="clicked" handler="on_tag_file_button_clicked" last_modification_time="Sun, 17 Feb 2008 22:21:53 GMT"/>
 
 		      <child>
 			<widget class="GtkAlignment" id="alignment3">
@@ -625,6 +633,7 @@ is the same of</property>
 		      <property name="can_focus">True</property>
 		      <property name="relief">GTK_RELIEF_NORMAL</property>
 		      <property name="focus_on_click">True</property>
+		      <signal name="clicked" handler="on_untag_file_button_clicked" last_modification_time="Sun, 17 Feb 2008 22:21:58 GMT"/>
 
 		      <child>
 			<widget class="GtkAlignment" id="alignment4">
@@ -699,6 +708,7 @@ is the same of</property>
 		      <property name="can_focus">True</property>
 		      <property name="relief">GTK_RELIEF_NORMAL</property>
 		      <property name="focus_on_click">True</property>
+		      <signal name="clicked" handler="on_new_tag_button_clicked" last_modification_time="Sun, 17 Feb 2008 22:22:02 GMT"/>
 
 		      <child>
 			<widget class="GtkAlignment" id="alignment5">
@@ -773,6 +783,7 @@ is the same of</property>
 		      <property name="can_focus">True</property>
 		      <property name="relief">GTK_RELIEF_NORMAL</property>
 		      <property name="focus_on_click">True</property>
+		      <signal name="clicked" handler="on_drop_tag_button_clicked" last_modification_time="Sun, 17 Feb 2008 22:22:07 GMT"/>
 
 		      <child>
 			<widget class="GtkAlignment" id="alignment6">
@@ -926,6 +937,7 @@ is the same of</property>
 		      <property name="can_focus">True</property>
 		      <property name="relief">GTK_RELIEF_NORMAL</property>
 		      <property name="focus_on_click">True</property>
+		      <signal name="clicked" handler="on_add_tag_button_clicked" last_modification_time="Sun, 17 Feb 2008 22:22:13 GMT"/>
 
 		      <child>
 			<widget class="GtkAlignment" id="alignment7">
@@ -1000,6 +1012,7 @@ is the same of</property>
 		      <property name="can_focus">True</property>
 		      <property name="relief">GTK_RELIEF_NORMAL</property>
 		      <property name="focus_on_click">True</property>
+		      <signal name="clicked" handler="on_remove_tag_button_clicked" last_modification_time="Sun, 17 Feb 2008 22:22:18 GMT"/>
 
 		      <child>
 			<widget class="GtkAlignment" id="alignment8">
@@ -1074,6 +1087,7 @@ is the same of</property>
 		      <property name="can_focus">True</property>
 		      <property name="relief">GTK_RELIEF_NORMAL</property>
 		      <property name="focus_on_click">True</property>
+		      <signal name="clicked" handler="on_drop_file_button_clicked" last_modification_time="Sun, 17 Feb 2008 22:22:22 GMT"/>
 
 		      <child>
 			<widget class="GtkAlignment" id="alignment9">

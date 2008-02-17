@@ -53,7 +53,7 @@ create_tagman (void)
   GtkWidget *menuitem4_menu;
   GtkWidget *about1;
   GtkWidget *image9;
-  GtkWidget *notebook1;
+  GtkWidget *notebook;
   GtkWidget *vbox2;
   GtkWidget *frame1;
   GtkWidget *alignment1;
@@ -220,13 +220,13 @@ create_tagman (void)
   gtk_widget_show (image9);
   gtk_image_menu_item_set_image (GTK_IMAGE_MENU_ITEM (about1), image9);
 
-  notebook1 = gtk_notebook_new ();
-  gtk_widget_show (notebook1);
-  gtk_box_pack_start (GTK_BOX (vbox1), notebook1, TRUE, TRUE, 3);
+  notebook = gtk_notebook_new ();
+  gtk_widget_show (notebook);
+  gtk_box_pack_start (GTK_BOX (vbox1), notebook, TRUE, TRUE, 3);
 
   vbox2 = gtk_vbox_new (FALSE, 0);
   gtk_widget_show (vbox2);
-  gtk_container_add (GTK_CONTAINER (notebook1), vbox2);
+  gtk_container_add (GTK_CONTAINER (notebook), vbox2);
 
   frame1 = gtk_frame_new (NULL);
   gtk_widget_show (frame1);
@@ -250,8 +250,8 @@ create_tagman (void)
   relationstype = gtk_combo_box_new_text ();
   gtk_widget_show (relationstype);
   gtk_box_pack_start (GTK_BOX (hbox2), relationstype, TRUE, TRUE, 0);
-  gtk_combo_box_append_text (GTK_COMBO_BOX (relationstype), _("is subtag of"));
-  gtk_combo_box_append_text (GTK_COMBO_BOX (relationstype), _("is the same of"));
+  gtk_combo_box_append_text (GTK_COMBO_BOX (relationstype), _("includes"));
+  gtk_combo_box_append_text (GTK_COMBO_BOX (relationstype), _("is equivalent"));
 
   tag2 = gtk_entry_new ();
   gtk_widget_show (tag2);
@@ -314,11 +314,11 @@ create_tagman (void)
 
   label1 = gtk_label_new (_("Relations"));
   gtk_widget_show (label1);
-  gtk_notebook_set_tab_label (GTK_NOTEBOOK (notebook1), gtk_notebook_get_nth_page (GTK_NOTEBOOK (notebook1), 0), label1);
+  gtk_notebook_set_tab_label (GTK_NOTEBOOK (notebook), gtk_notebook_get_nth_page (GTK_NOTEBOOK (notebook), 0), label1);
 
   vbox3 = gtk_vbox_new (FALSE, 0);
   gtk_widget_show (vbox3);
-  gtk_container_add (GTK_CONTAINER (notebook1), vbox3);
+  gtk_container_add (GTK_CONTAINER (notebook), vbox3);
 
   scrolledwindow2 = gtk_scrolled_window_new (NULL, NULL);
   gtk_widget_show (scrolledwindow2);
@@ -422,11 +422,11 @@ create_tagman (void)
 
   label2 = gtk_label_new (_("View by tag"));
   gtk_widget_show (label2);
-  gtk_notebook_set_tab_label (GTK_NOTEBOOK (notebook1), gtk_notebook_get_nth_page (GTK_NOTEBOOK (notebook1), 1), label2);
+  gtk_notebook_set_tab_label (GTK_NOTEBOOK (notebook), gtk_notebook_get_nth_page (GTK_NOTEBOOK (notebook), 1), label2);
 
   vbox4 = gtk_vbox_new (FALSE, 0);
   gtk_widget_show (vbox4);
-  gtk_container_add (GTK_CONTAINER (notebook1), vbox4);
+  gtk_container_add (GTK_CONTAINER (notebook), vbox4);
 
   scrolledwindow3 = gtk_scrolled_window_new (NULL, NULL);
   gtk_widget_show (scrolledwindow3);
@@ -509,7 +509,7 @@ create_tagman (void)
 
   label3 = gtk_label_new (_("View by file"));
   gtk_widget_show (label3);
-  gtk_notebook_set_tab_label (GTK_NOTEBOOK (notebook1), gtk_notebook_get_nth_page (GTK_NOTEBOOK (notebook1), 2), label3);
+  gtk_notebook_set_tab_label (GTK_NOTEBOOK (notebook), gtk_notebook_get_nth_page (GTK_NOTEBOOK (notebook), 2), label3);
 
   hbox1 = gtk_hbox_new (FALSE, 0);
   gtk_widget_show (hbox1);
@@ -556,6 +556,48 @@ create_tagman (void)
   g_signal_connect ((gpointer) about1, "activate",
                     G_CALLBACK (on_about1_activate),
                     NULL);
+  g_signal_connect ((gpointer) relationsview, "row_activated",
+                    G_CALLBACK (on_relationsview_row_activated),
+                    NULL);
+  g_signal_connect ((gpointer) relationsview, "select_cursor_row",
+                    G_CALLBACK (on_relationsview_select_cursor_row),
+                    NULL);
+  g_signal_connect ((gpointer) relationsview, "cursor_changed",
+                    G_CALLBACK (on_relationsview_cursor_changed),
+                    NULL);
+  g_signal_connect ((gpointer) relationsview, "button_press_event",
+                    G_CALLBACK (on_relationsview_button_press_event),
+                    NULL);
+  g_signal_connect ((gpointer) add_relation_button, "clicked",
+                    G_CALLBACK (on_add_relation_button_clicked),
+                    NULL);
+  g_signal_connect ((gpointer) update_relation_button, "clicked",
+                    G_CALLBACK (on_update_relation_button_clicked),
+                    NULL);
+  g_signal_connect ((gpointer) delete_relation_button, "clicked",
+                    G_CALLBACK (on_delete_relation_button_clicked),
+                    NULL);
+  g_signal_connect ((gpointer) tag_file_button, "clicked",
+                    G_CALLBACK (on_tag_file_button_clicked),
+                    NULL);
+  g_signal_connect ((gpointer) untag_file_button, "clicked",
+                    G_CALLBACK (on_untag_file_button_clicked),
+                    NULL);
+  g_signal_connect ((gpointer) new_tag_button, "clicked",
+                    G_CALLBACK (on_new_tag_button_clicked),
+                    NULL);
+  g_signal_connect ((gpointer) drop_tag_button, "clicked",
+                    G_CALLBACK (on_drop_tag_button_clicked),
+                    NULL);
+  g_signal_connect ((gpointer) add_tag_button, "clicked",
+                    G_CALLBACK (on_add_tag_button_clicked),
+                    NULL);
+  g_signal_connect ((gpointer) remove_tag_button, "clicked",
+                    G_CALLBACK (on_remove_tag_button_clicked),
+                    NULL);
+  g_signal_connect ((gpointer) drop_file_button, "clicked",
+                    G_CALLBACK (on_drop_file_button_clicked),
+                    NULL);
 
   /* Store pointers to all widgets, for use by lookup_widget(). */
   GLADE_HOOKUP_OBJECT_NO_REF (tagman, tagman, "tagman");
@@ -581,7 +623,7 @@ create_tagman (void)
   GLADE_HOOKUP_OBJECT (tagman, menuitem4_menu, "menuitem4_menu");
   GLADE_HOOKUP_OBJECT (tagman, about1, "about1");
   GLADE_HOOKUP_OBJECT (tagman, image9, "image9");
-  GLADE_HOOKUP_OBJECT (tagman, notebook1, "notebook1");
+  GLADE_HOOKUP_OBJECT (tagman, notebook, "notebook");
   GLADE_HOOKUP_OBJECT (tagman, vbox2, "vbox2");
   GLADE_HOOKUP_OBJECT (tagman, frame1, "frame1");
   GLADE_HOOKUP_OBJECT (tagman, alignment1, "alignment1");
@@ -702,6 +744,9 @@ create_chooserepository (void)
                     NULL);
   g_signal_connect ((gpointer) chooserepository, "unmap",
                     G_CALLBACK (on_chooserepository_unmap),
+                    NULL);
+  g_signal_connect ((gpointer) chooserepository, "file_activated",
+                    G_CALLBACK (on_chooserepository_file_activated),
                     NULL);
   g_signal_connect ((gpointer) repositorychooser_cancel, "clicked",
                     G_CALLBACK (on_repositorychooser_cancel_clicked),

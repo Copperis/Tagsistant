@@ -24,3 +24,5 @@ extern GtkWidget *chooserepository;
 extern GtkWidget *aboutdialog;
 
 extern struct tagsistant tagsistant;
+
+extern void init_interface();

@@ -43,6 +43,8 @@ main (int argc, char *argv[])
   aboutdialog = create_aboutdialog ();
   /* gtk_widget_show (aboutdialog); */
 
+  init_interface();
+
   gtk_main ();
   return 0;
 }

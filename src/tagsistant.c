@@ -1842,7 +1842,7 @@ static struct fuse_opt tagsistant_opts[] = {
 	TAGSISTANT_OPT("-r",					readonly,		1),
 	TAGSISTANT_OPT("-v",					verbose,		1),
 	TAGSISTANT_OPT("-q",					quiet,			1),
-	TAGSISTANT_OPT("-c",					use_cache,		0),
+	TAGSISTANT_OPT("-c",					use_cache,		1),
 	
 	FUSE_OPT_KEY("-V",          	KEY_VERSION),
 	FUSE_OPT_KEY("--version",   	KEY_VERSION),
@@ -1887,7 +1887,7 @@ void usage(char *progname)
 		"    -q  be quiet\n"
 		"    -r  mount readonly\n"
 		"    -v  verbose syslogging\n"
-		"    -c  don't use cache\n"
+		"    -c  use internal cache\n"
 		"\n" /*fuse options will follow... */
 		, PACKAGE_VERSION, FUSE_USE_VERSION, progname
 	);
@@ -1974,7 +1974,7 @@ int main(int argc, char *argv[])
 #endif
 
 	tagsistant.progname = argv[0];
-	tagsistant.use_cache = 1;
+	tagsistant.use_cache = 0;
 
 	if (fuse_opt_parse(&args, &tagsistant, tagsistant_opts, tagsistant_opt_proc) == -1)
 		exit(1);
@@ -2029,9 +2029,9 @@ int main(int argc, char *argv[])
 			fprintf(stderr, " *** will log verbosely ***\n");
 		fuse_opt_add_arg(&args, "-d");
 	}
-	if (!tagsistant.use_cache) {
+	if (tagsistant.use_cache) {
 		if (!tagsistant.quiet)
-			fprintf(stderr, " *** internal cache disabled with -c on command line ***\n");
+			fprintf(stderr, " *** internal cache enabled with -c on command line ***\n");
 	}
 
 	/* checking mountpoint */
