@@ -9,6 +9,8 @@
 #include "support.h"
 #include "tagman.h"
 
+#define USE_COMBO_RENDERER 0
+
 struct tagsistant tagsistant;
 
 /* selected relation view index */
@@ -215,6 +217,35 @@ on_repositoryopen_open_clicked         (GtkButton       *button,
 	return TRUE;
 }
 
+void
+update_renderer(GtkCellRendererText *renderer, gchar *path, gchar *new_text, gpointer user_data)
+{
+	(void) renderer;
+
+	GtkTreeView *tv = GTK_TREE_VIEW(lookup_widget(tagman, "relationsview"));
+	gtk_tree_model_get_iter_from_string(gtk_tree_view_get_model(tv), &selected_relation_iter, path);
+	char *column_name = NULL;
+	if (user_data == (gpointer) 0) {
+		column_name = strdup("tag1");
+	} else if (user_data == (gpointer) 1) {
+		column_name = strdup("relation");
+		if ( strcmp(new_text, "includes") != 0 && strcmp(new_text, "is equivalent") != 0 ) {
+			sb("%s is not an allowed relation type", new_text);
+			return;
+		}
+	} else if (user_data == (gpointer) 2) {
+		column_name = strdup("tag2");
+	}
+	sb("%s = \"%s\"", column_name, new_text);
+	gtk_tree_store_set(GTK_TREE_STORE(gtk_tree_view_get_model(tv)), &selected_relation_iter, (int) user_data, new_text, -1);
+#	define UPDATE_RELATION_FIELD "update relations set %s = \"%s\" where id = %u;"
+	char *sql = calloc(sizeof(char), strlen(UPDATE_RELATION_FIELD) + strlen(column_name) + strlen(new_text) + 16);
+	sprintf(sql, UPDATE_RELATION_FIELD, column_name, new_text, selected_relation_id);
+	sb(sql);
+	do_sql(NULL, sql, NULL, NULL);
+	free(sql);
+	free(column_name);
+}
 
 void
 init_interface()
@@ -227,16 +258,28 @@ init_interface()
 	/* adding columns to relationsview widget */
 	GtkTreeViewColumn *col = NULL;
 	GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
+	g_object_set(renderer, "editable", TRUE, NULL);
 	col = gtk_tree_view_column_new_with_attributes("Tag1", renderer, "text", 0, NULL);
 	gtk_tree_view_append_column(tv, col);
+	g_signal_connect(renderer, "edited", G_CALLBACK(update_renderer), (gpointer) 0);
 
+#if USE_COMBO_RENDERER
+	renderer = gtk_cell_renderer_combo_new();
+	g_object_set(renderer, "has-entry", FALSE, NULL);
+	g_object_set(renderer, "model", gtk_combo_box_get_model(GTK_COMBO_BOX(lookup_widget(tagman, "relationstype"))), NULL);
+#else
 	renderer = gtk_cell_renderer_text_new();
+#endif
+	g_object_set(renderer, "editable", TRUE, NULL);
 	col = gtk_tree_view_column_new_with_attributes("Relation", renderer, "text", 1, NULL);
 	gtk_tree_view_append_column(tv, col);
+	g_signal_connect(renderer, "edited", G_CALLBACK(update_renderer), (gpointer) 1);
 
 	renderer = gtk_cell_renderer_text_new();
+	g_object_set(renderer, "editable", TRUE, NULL);
 	col = gtk_tree_view_column_new_with_attributes("Tag2", renderer, "text", 2, NULL);
 	gtk_tree_view_append_column(tv, col);
+	g_signal_connect(renderer, "edited", G_CALLBACK(update_renderer), (gpointer) 2);
 
 	gtk_file_chooser_set_show_hidden(GTK_FILE_CHOOSER(chooserepository), TRUE);
 }
@@ -254,7 +297,7 @@ on_relationsview_row_activated         (GtkTreeView     *treeview,
 	gtk_tree_model_get_iter(gtk_tree_view_get_model(treeview), &selected_relation_iter, path);
 	gtk_tree_model_get(gtk_tree_view_get_model(treeview), &selected_relation_iter, 0, &tag1, 1, &relation, 2, &tag2, 3, &selected_relation_id, -1);
 
-	sb("%u: %s %s %s", selected_relation_id, tag1, relation, tag2);
+	sb("Selected %u: %s %s %s", selected_relation_id, tag1, relation, tag2);
 
 	gtk_entry_set_text(GTK_ENTRY(lookup_widget(tagman, "tag1")), tag1);
 	gtk_entry_set_text(GTK_ENTRY(lookup_widget(tagman, "tag2")), tag2);
