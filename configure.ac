@@ -2,8 +2,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([tagsistant], [0.0.20080124], [tx0@strumentiresistenti.org])
-AM_INIT_AUTOMAKE(tagsistant, 0.0.20080124)
+AC_INIT([tagsistant], [0.0.20080218], [tx0@strumentiresistenti.org])
+AM_INIT_AUTOMAKE(tagsistant, 0.0.20080218)
 AC_COPYRIGHT([tagsistant is (C) Tx0 <tx0@strumentiresistenti.org>])
 AC_CONFIG_SRCDIR([src/tagsistant.c])
 AC_CONFIG_HEADER([config.h])
@@ -43,7 +43,7 @@ AC_FUNC_UTIME_NULL
 AC_CHECK_FUNCS([inet_ntoa lchown mempcpy memset mkdir rmdir setenv socket strdup strerror utime])
 
 dnl AC_SUBST([CFLAGS],["${CFLAGS} -g -O0 -D_FILE_OFFSET_BITS=64 -Wall -W"])
-AC_SUBST([CFLAGS],["${CFLAGS} -O -D_FILE_OFFSET_BITS=64 -Wall -W"])
+AC_SUBST([CFLAGS],["${CFLAGS} -D_FILE_OFFSET_BITS=64 -Wall -W"])
 
 # add option for debugging on console instead of through syslog facility
 debug_stderr=no
@@ -114,7 +114,5 @@ case $host in
 esac
 
 AC_CONFIG_FILES([Makefile
-                 src/Makefile
-				 src/tagman/Makefile
-				 src/tagman/src/Makefile])
+                 src/Makefile])
 AC_OUTPUT
