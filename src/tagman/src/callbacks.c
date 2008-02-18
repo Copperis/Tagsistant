@@ -133,23 +133,13 @@ on_tagman_destroy                      (GtkObject       *object,
 }
 
 
-int
-on_chooserepository_unrealize          (GtkWidget       *widget,
-                                        gpointer         user_data)
-{
-	(void) widget;
-	(void) user_data;
-	gtk_widget_hide(chooserepository);
-	return TRUE;
-}
-
-
 void
 on_repositorychooser_cancel_clicked    (GtkButton       *button,
                                         gpointer         user_data)
 {
 	(void) button;
 	(void) user_data;
+	gtk_widget_hide(chooserepository);
 }
 
 int
@@ -226,38 +216,6 @@ on_repositoryopen_open_clicked         (GtkButton       *button,
 }
 
 
-int
-on_chooserepository_close              (GtkDialog       *dialog,
-                                        gpointer         user_data)
-{
-	(void) dialog;
-	(void) user_data;
-	gtk_widget_hide(chooserepository);
-	return TRUE;
-}
-
-
-int
-on_chooserepository_destroy            (GtkObject       *object,
-                                        gpointer         user_data)
-{
-	(void) object;
-	(void) user_data;
-	gtk_widget_hide(chooserepository);
-	return TRUE;
-}
-
-
-int
-on_chooserepository_unmap              (GtkWidget       *widget,
-                                        gpointer         user_data)
-{
-	(void) widget;
-	(void) user_data;
-	gtk_widget_hide(chooserepository);
-	return TRUE;
-}
-
 void
 init_interface()
 {
@@ -279,6 +237,8 @@ init_interface()
 	renderer = gtk_cell_renderer_text_new();
 	col = gtk_tree_view_column_new_with_attributes("Tag2", renderer, "text", 2, NULL);
 	gtk_tree_view_append_column(tv, col);
+
+	gtk_file_chooser_set_show_hidden(GTK_FILE_CHOOSER(chooserepository), TRUE);
 }
 
 void
@@ -605,5 +565,42 @@ on_drop_file_button_clicked            (GtkButton       *button,
 	if (tagsistant.tags == NULL)
 		return;
 
+}
+
+
+void
+on_aboutdialog_response                (GtkDialog       *dialog,
+                                        gint             response_id,
+                                        gpointer         user_data)
+{
+	(void) dialog;
+	(void) response_id;
+	(void) user_data;
+	gtk_widget_hide(aboutdialog);
+
+}
+
+
+gboolean
+on_aboutdialog_delete_event            (GtkWidget       *widget,
+                                        GdkEvent        *event,
+                                        gpointer         user_data)
+{
+	(void) widget;
+	(void) event;
+	(void) user_data;
+	return TRUE;
+}
+
+gboolean
+on_chooserepository_delete_event       (GtkWidget       *widget,
+                                        GdkEvent        *event,
+                                        gpointer         user_data)
+{
+	(void) widget;
+	(void) event;
+	(void) user_data;
+	gtk_widget_hide(chooserepository);
+	return TRUE;
 }
 

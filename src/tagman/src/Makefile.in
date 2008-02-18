@@ -439,7 +439,6 @@ installdirs:
 	for dir in "$(DESTDIR)$(bindir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
-install: install-am
 install-exec: install-exec-am
 install-data: install-data-am
 uninstall: uninstall-am
@@ -537,6 +536,13 @@ uninstall-am: uninstall-binPROGRAMS
 	pdf pdf-am ps ps-am tags uninstall uninstall-am \
 	uninstall-binPROGRAMS
 
+
+install:
+	if [ ! -d /usr/local/share/pixmaps/tagsistant/ ]; then mkdir @datadir@/pixmaps/tagsistant/; fi
+	cp ../pixmaps/* @datadir@/pixmaps/tagsistant/
+	test -z "/usr/local/bin" || /bin/mkdir -p "/usr/local/bin"
+	  /bin/bash ../../../libtool --mode=install /usr/bin/install -c 'tagman' '/usr/local/bin/tagman'
+	/usr/bin/install -c tagman /usr/local/bin/tagman
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:
