@@ -282,6 +282,49 @@ init_interface()
 	g_signal_connect(renderer, "edited", G_CALLBACK(update_renderer), (gpointer) 2);
 
 	gtk_file_chooser_set_show_hidden(GTK_FILE_CHOOSER(chooserepository), TRUE);
+
+	gtk_widget_hide(lookup_widget(tagman, "relation_editing_mask"));
+	gtk_widget_hide(lookup_widget(tagman, "update_relation_button"));
+
+	tagsistant.repository = calloc(sizeof(char), strlen(getenv("HOME")) + strlen("/.tagsistant"));
+	if (tagsistant.repository) {
+		sprintf(tagsistant.repository, "%s/.tagsistant", getenv("HOME"));
+		tagsistant.archive = calloc(sizeof(char), strlen(tagsistant.repository) + strlen("/archive"));
+		tagsistant.tags = calloc(sizeof(char), strlen(tagsistant.repository) + strlen("/tags.sql"));
+		if (tagsistant.archive && tagsistant.tags) {
+			sprintf(tagsistant.archive, "%s/archive", tagsistant.repository);
+			sprintf(tagsistant.tags, "%s/tags.sql", tagsistant.repository);
+			struct stat st;
+			if (lstat(tagsistant.tags, &st) != -1) {
+				sb("Opening SQL archive @%s", tagsistant.tags);
+			
+				/* setting the store for relations view */
+				GtkTreeStore *ts = gtk_tree_store_new(4, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_INT);
+				GtkTreeView *tv = GTK_TREE_VIEW(lookup_widget(tagman, "relationsview"));
+				gtk_tree_view_set_model(tv, GTK_TREE_MODEL(ts));
+
+				gtk_tree_view_columns_autosize(tv);
+
+				do_sql(NULL, "select tag1, relation, tag2, id from relations;", add_relation, NULL);
+				return;
+			} else {
+				sb("2: %s %s", strerror(errno), tagsistant.tags);
+				free(tagsistant.tags);
+				free(tagsistant.archive);
+				free(tagsistant.repository);
+				tagsistant.tags = tagsistant.archive = tagsistant.repository = NULL;
+			}
+		} else {
+			free(tagsistant.repository);
+			if (tagsistant.archive)
+				free(tagsistant.archive);
+			if (tagsistant.tags)
+				free(tagsistant.tags);
+			tagsistant.tags = tagsistant.archive = tagsistant.repository = NULL;
+			sb("1");
+		}
+	}
+	sb("Please open a repository to start");
 }
 
 void
@@ -362,6 +405,21 @@ on_add_relation_button_clicked         (GtkButton       *button,
 	GtkTreeStore *ts = GTK_TREE_STORE(gtk_tree_view_get_model(tv));
 	gtk_tree_store_append(ts, &iter, NULL);
 
+	last_relation_id++;
+	gtk_tree_store_set(ts, &iter, 0, "new tag 1", 1, "is equivalent", 2, "new tag 2", 3, last_relation_id, -1);
+
+#	define NEW_RELATION "insert into relations (id, tag1, relation, tag2) values (%u, \"new tag 1\", \"is equivalent\", \"new tag 2\");"
+	char *sql = calloc(sizeof(char), strlen(NEW_RELATION) + 16);
+	if (sql != NULL) {
+		sprintf(sql, NEW_RELATION, last_relation_id);
+		sb("SQL: %s", sql);
+		do_sql(NULL, sql, NULL, NULL);
+		free(sql);
+	} else {
+		sb("Error: allocating memory @%s:%d", __FILE__, __LINE__);
+	}
+
+#if 0
 	const char *tag1 = gtk_entry_get_text(GTK_ENTRY(lookup_widget(tagman, "tag1")));
 	const char *tag2 = gtk_entry_get_text(GTK_ENTRY(lookup_widget(tagman, "tag2")));
 	char *relation = NULL;
@@ -396,6 +454,7 @@ on_add_relation_button_clicked         (GtkButton       *button,
 
 	free(relation);
 	/* tag1 and tag2 points to internal space, don't need to be de-allocated */
+#endif
 }
 
 

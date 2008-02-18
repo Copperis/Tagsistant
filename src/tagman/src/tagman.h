@@ -4,7 +4,7 @@
 
 #define sb(msg, ...) {\
 	if (DUPLICATE_DEBUG) {\
-		fprintf(stderr, "  [");\
+		fprintf(stderr, "::> [");\
 		fprintf(stderr, msg, ## __VA_ARGS__);\
 		fprintf(stderr, "]\n");\
 	}\

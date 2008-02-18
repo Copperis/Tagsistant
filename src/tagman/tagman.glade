@@ -240,7 +240,7 @@
 	      <property name="spacing">0</property>
 
 	      <child>
-		<widget class="GtkFrame" id="frame1">
+		<widget class="GtkFrame" id="relation_editing_mask">
 		  <property name="visible">True</property>
 		  <property name="label_xalign">0</property>
 		  <property name="label_yalign">0.5</property>
@@ -398,7 +398,7 @@ is equivalent</property>
 		      <property name="visible">True</property>
 		      <property name="can_default">True</property>
 		      <property name="can_focus">True</property>
-		      <property name="label">gtk-add</property>
+		      <property name="label">gtk-new</property>
 		      <property name="use_stock">True</property>
 		      <property name="relief">GTK_RELIEF_NORMAL</property>
 		      <property name="focus_on_click">True</property>
@@ -1755,7 +1755,7 @@ Public License instead of this License.
 	  <property name="right_margin">10</property>
 	  <property name="indent">0</property>
 	  <property name="text" translatable="yes">Welcome to Tagsistant manager.
-With tagman you can tell Tagsistant how tags relates each other. If two tags are the same for you, tell Tagsistant that one &quot;is equivalent&quot; to the other. You will later find all the contents tagged by one also inside the other without having to tag all the files with both tags. If another tag is a subset of a more generic or comprehensive one, like music is for jazz and rock and much more, just tell Tagsistant about that. Later you'll find all your Jazz and Rock music by simply searching inside Music directory.</property>
+With tagman you can tell Tagsistant how tags relate each other. If two tags are the same for you, tell Tagsistant that one &quot;is equivalent&quot; to the other. You will later find all the contents tagged by one also inside the other without having to tag all the files with both tags. If another tag is a subset of a more generic or comprehensive one, like music is for jazz and rock and much more, just tell Tagsistant about that. Later you'll find all your Jazz and Rock music by simply searching inside Music directory.</property>
 	</widget>
 	<packing>
 	  <property name="padding">0</property>

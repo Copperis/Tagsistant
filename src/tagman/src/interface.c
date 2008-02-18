@@ -57,7 +57,7 @@ create_tagman (void)
   GtkWidget *image15;
   GtkWidget *notebook;
   GtkWidget *vbox2;
-  GtkWidget *frame1;
+  GtkWidget *relation_editing_mask;
   GtkWidget *alignment1;
   GtkWidget *hbox2;
   GtkWidget *tag1;
@@ -239,14 +239,14 @@ create_tagman (void)
   gtk_widget_show (vbox2);
   gtk_container_add (GTK_CONTAINER (notebook), vbox2);
 
-  frame1 = gtk_frame_new (NULL);
-  gtk_widget_show (frame1);
-  gtk_box_pack_start (GTK_BOX (vbox2), frame1, FALSE, TRUE, 3);
-  gtk_frame_set_shadow_type (GTK_FRAME (frame1), GTK_SHADOW_NONE);
+  relation_editing_mask = gtk_frame_new (NULL);
+  gtk_widget_show (relation_editing_mask);
+  gtk_box_pack_start (GTK_BOX (vbox2), relation_editing_mask, FALSE, TRUE, 3);
+  gtk_frame_set_shadow_type (GTK_FRAME (relation_editing_mask), GTK_SHADOW_NONE);
 
   alignment1 = gtk_alignment_new (0.5, 0.5, 1, 1);
   gtk_widget_show (alignment1);
-  gtk_container_add (GTK_CONTAINER (frame1), alignment1);
+  gtk_container_add (GTK_CONTAINER (relation_editing_mask), alignment1);
   gtk_alignment_set_padding (GTK_ALIGNMENT (alignment1), 0, 0, 12, 0);
 
   hbox2 = gtk_hbox_new (FALSE, 3);
@@ -271,7 +271,7 @@ create_tagman (void)
 
   label4 = gtk_label_new (_("<b>Edit relation</b>"));
   gtk_widget_show (label4);
-  gtk_frame_set_label_widget (GTK_FRAME (frame1), label4);
+  gtk_frame_set_label_widget (GTK_FRAME (relation_editing_mask), label4);
   gtk_label_set_use_markup (GTK_LABEL (label4), TRUE);
 
   scrolledwindow1 = gtk_scrolled_window_new (NULL, NULL);
@@ -292,7 +292,7 @@ create_tagman (void)
   gtk_button_box_set_layout (GTK_BUTTON_BOX (hbuttonbox1), GTK_BUTTONBOX_END);
   gtk_box_set_spacing (GTK_BOX (hbuttonbox1), 3);
 
-  add_relation_button = gtk_button_new_from_stock ("gtk-add");
+  add_relation_button = gtk_button_new_from_stock ("gtk-new");
   gtk_widget_show (add_relation_button);
   gtk_container_add (GTK_CONTAINER (hbuttonbox1), add_relation_button);
   GTK_WIDGET_SET_FLAGS (add_relation_button, GTK_CAN_DEFAULT);
@@ -637,7 +637,7 @@ create_tagman (void)
   GLADE_HOOKUP_OBJECT (tagman, image15, "image15");
   GLADE_HOOKUP_OBJECT (tagman, notebook, "notebook");
   GLADE_HOOKUP_OBJECT (tagman, vbox2, "vbox2");
-  GLADE_HOOKUP_OBJECT (tagman, frame1, "frame1");
+  GLADE_HOOKUP_OBJECT (tagman, relation_editing_mask, "relation_editing_mask");
   GLADE_HOOKUP_OBJECT (tagman, alignment1, "alignment1");
   GLADE_HOOKUP_OBJECT (tagman, hbox2, "hbox2");
   GLADE_HOOKUP_OBJECT (tagman, tag1, "tag1");
@@ -839,7 +839,7 @@ create_helpdialog (void)
   gtk_text_view_set_pixels_above_lines (GTK_TEXT_VIEW (textview1), 10);
   gtk_text_view_set_left_margin (GTK_TEXT_VIEW (textview1), 10);
   gtk_text_view_set_right_margin (GTK_TEXT_VIEW (textview1), 10);
-  gtk_text_buffer_set_text (gtk_text_view_get_buffer (GTK_TEXT_VIEW (textview1)), _("Welcome to Tagsistant manager.\nWith tagman you can tell Tagsistant how tags relates each other. If two tags are the same for you, tell Tagsistant that one \"is equivalent\" to the other. You will later find all the contents tagged by one also inside the other without having to tag all the files with both tags. If another tag is a subset of a more generic or comprehensive one, like music is for jazz and rock and much more, just tell Tagsistant about that. Later you'll find all your Jazz and Rock music by simply searching inside Music directory."), -1);
+  gtk_text_buffer_set_text (gtk_text_view_get_buffer (GTK_TEXT_VIEW (textview1)), _("Welcome to Tagsistant manager.\nWith tagman you can tell Tagsistant how tags relate each other. If two tags are the same for you, tell Tagsistant that one \"is equivalent\" to the other. You will later find all the contents tagged by one also inside the other without having to tag all the files with both tags. If another tag is a subset of a more generic or comprehensive one, like music is for jazz and rock and much more, just tell Tagsistant about that. Later you'll find all your Jazz and Rock music by simply searching inside Music directory."), -1);
 
   dialog_action_area2 = GTK_DIALOG (helpdialog)->action_area;
   gtk_widget_show (dialog_action_area2);
