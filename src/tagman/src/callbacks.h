@@ -134,3 +134,20 @@ gboolean
 on_chooserepository_delete_event       (GtkWidget       *widget,
                                         GdkEvent        *event,
                                         gpointer         user_data);
+
+void
+on_information1_activate               (GtkMenuItem     *menuitem,
+                                        gpointer         user_data);
+
+gboolean
+on_helpdialog_delete_event             (GtkWidget       *widget,
+                                        GdkEvent        *event,
+                                        gpointer         user_data);
+
+void
+on_closebutton1_clicked                (GtkButton       *button,
+                                        gpointer         user_data);
+
+void
+on_how_to2_activate                    (GtkMenuItem     *menuitem,
+                                        gpointer         user_data);

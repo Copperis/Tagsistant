@@ -16,6 +16,7 @@
 GtkWidget *tagman;
 GtkWidget *chooserepository;
 GtkWidget *aboutdialog;
+GtkWidget *helpdialog;
 
 int
 main (int argc, char *argv[])
@@ -42,6 +43,7 @@ main (int argc, char *argv[])
   /* gtk_widget_show (chooserepository); */
   aboutdialog = create_aboutdialog ();
   /* gtk_widget_show (aboutdialog); */
+  helpdialog = create_helpdialog();
 
   init_interface();
 

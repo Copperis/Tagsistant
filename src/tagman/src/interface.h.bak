@@ -5,3 +5,4 @@
 GtkWidget* create_tagman (void);
 GtkWidget* create_chooserepository (void);
 GtkWidget* create_aboutdialog (void);
+GtkWidget* create_helpdialog (void);

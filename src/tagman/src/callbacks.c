@@ -604,3 +604,46 @@ on_chooserepository_delete_event       (GtkWidget       *widget,
 	return TRUE;
 }
 
+
+void
+on_information1_activate               (GtkMenuItem     *menuitem,
+                                        gpointer         user_data)
+{
+	(void) menuitem;
+	(void) user_data;
+	gtk_widget_show(helpdialog);
+}
+
+
+gboolean
+on_helpdialog_delete_event             (GtkWidget       *widget,
+                                        GdkEvent        *event,
+                                        gpointer         user_data)
+{
+	(void) widget;
+	(void) event;
+	(void) user_data;
+	gtk_widget_hide(helpdialog);
+	return TRUE;
+}
+
+
+void
+on_closebutton1_clicked                (GtkButton       *button,
+                                        gpointer         user_data)
+{
+	(void) button;
+	(void) user_data;
+	gtk_widget_hide(helpdialog);
+}
+
+
+void
+on_how_to2_activate                    (GtkMenuItem     *menuitem,
+                                        gpointer         user_data)
+{
+	(void) menuitem;
+	(void) user_data;
+	gtk_widget_show(helpdialog);
+}
+

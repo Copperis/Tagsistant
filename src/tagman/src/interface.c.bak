@@ -51,8 +51,10 @@ create_tagman (void)
   GtkWidget *by_file1;
   GtkWidget *menuitem4;
   GtkWidget *menuitem4_menu;
+  GtkWidget *how_to2;
+  GtkWidget *image14;
   GtkWidget *about1;
-  GtkWidget *image9;
+  GtkWidget *image15;
   GtkWidget *notebook;
   GtkWidget *vbox2;
   GtkWidget *frame1;
@@ -211,17 +213,26 @@ create_tagman (void)
   menuitem4_menu = gtk_menu_new ();
   gtk_menu_item_set_submenu (GTK_MENU_ITEM (menuitem4), menuitem4_menu);
 
+  how_to2 = gtk_image_menu_item_new_with_mnemonic (_("How to"));
+  gtk_widget_show (how_to2);
+  gtk_container_add (GTK_CONTAINER (menuitem4_menu), how_to2);
+
+  image14 = gtk_image_new_from_stock ("gtk-info", GTK_ICON_SIZE_MENU);
+  gtk_widget_show (image14);
+  gtk_image_menu_item_set_image (GTK_IMAGE_MENU_ITEM (how_to2), image14);
+
   about1 = gtk_image_menu_item_new_with_mnemonic (_("_About"));
   gtk_widget_show (about1);
   gtk_container_add (GTK_CONTAINER (menuitem4_menu), about1);
 
-  image9 = gtk_image_new_from_stock ("gtk-about", GTK_ICON_SIZE_MENU);
-  gtk_widget_show (image9);
-  gtk_image_menu_item_set_image (GTK_IMAGE_MENU_ITEM (about1), image9);
+  image15 = gtk_image_new_from_stock ("gtk-about", GTK_ICON_SIZE_MENU);
+  gtk_widget_show (image15);
+  gtk_image_menu_item_set_image (GTK_IMAGE_MENU_ITEM (about1), image15);
 
   notebook = gtk_notebook_new ();
   gtk_widget_show (notebook);
   gtk_box_pack_start (GTK_BOX (vbox1), notebook, TRUE, TRUE, 3);
+  gtk_container_set_border_width (GTK_CONTAINER (notebook), 3);
   gtk_notebook_set_show_border (GTK_NOTEBOOK (notebook), FALSE);
 
   vbox2 = gtk_vbox_new (FALSE, 0);
@@ -549,6 +560,9 @@ create_tagman (void)
   g_signal_connect ((gpointer) by_file1, "activate",
                     G_CALLBACK (on_by_file1_activate),
                     NULL);
+  g_signal_connect ((gpointer) how_to2, "activate",
+                    G_CALLBACK (on_how_to2_activate),
+                    NULL);
   g_signal_connect ((gpointer) about1, "activate",
                     G_CALLBACK (on_about1_activate),
                     NULL);
@@ -617,8 +631,10 @@ create_tagman (void)
   GLADE_HOOKUP_OBJECT (tagman, by_file1, "by_file1");
   GLADE_HOOKUP_OBJECT (tagman, menuitem4, "menuitem4");
   GLADE_HOOKUP_OBJECT (tagman, menuitem4_menu, "menuitem4_menu");
+  GLADE_HOOKUP_OBJECT (tagman, how_to2, "how_to2");
+  GLADE_HOOKUP_OBJECT (tagman, image14, "image14");
   GLADE_HOOKUP_OBJECT (tagman, about1, "about1");
-  GLADE_HOOKUP_OBJECT (tagman, image9, "image9");
+  GLADE_HOOKUP_OBJECT (tagman, image15, "image15");
   GLADE_HOOKUP_OBJECT (tagman, notebook, "notebook");
   GLADE_HOOKUP_OBJECT (tagman, vbox2, "vbox2");
   GLADE_HOOKUP_OBJECT (tagman, frame1, "frame1");
@@ -792,5 +808,62 @@ create_aboutdialog (void)
   GLADE_HOOKUP_OBJECT_NO_REF (aboutdialog, aboutdialog, "aboutdialog");
 
   return aboutdialog;
+}
+
+GtkWidget*
+create_helpdialog (void)
+{
+  GtkWidget *helpdialog;
+  GtkWidget *dialog_vbox2;
+  GtkWidget *textview1;
+  GtkWidget *dialog_action_area2;
+  GtkWidget *closebutton1;
+
+  helpdialog = gtk_dialog_new ();
+  gtk_widget_set_size_request (helpdialog, 500, -1);
+  gtk_window_set_title (GTK_WINDOW (helpdialog), _("Information"));
+  gtk_window_set_icon_name (GTK_WINDOW (helpdialog), "gtk-info");
+  gtk_window_set_type_hint (GTK_WINDOW (helpdialog), GDK_WINDOW_TYPE_HINT_DIALOG);
+
+  dialog_vbox2 = GTK_DIALOG (helpdialog)->vbox;
+  gtk_widget_show (dialog_vbox2);
+
+  textview1 = gtk_text_view_new ();
+  gtk_widget_show (textview1);
+  gtk_box_pack_start (GTK_BOX (dialog_vbox2), textview1, TRUE, TRUE, 0);
+  gtk_container_set_border_width (GTK_CONTAINER (textview1), 10);
+  gtk_text_view_set_editable (GTK_TEXT_VIEW (textview1), FALSE);
+  gtk_text_view_set_justification (GTK_TEXT_VIEW (textview1), GTK_JUSTIFY_FILL);
+  gtk_text_view_set_wrap_mode (GTK_TEXT_VIEW (textview1), GTK_WRAP_WORD);
+  gtk_text_view_set_cursor_visible (GTK_TEXT_VIEW (textview1), FALSE);
+  gtk_text_view_set_pixels_above_lines (GTK_TEXT_VIEW (textview1), 10);
+  gtk_text_view_set_left_margin (GTK_TEXT_VIEW (textview1), 10);
+  gtk_text_view_set_right_margin (GTK_TEXT_VIEW (textview1), 10);
+  gtk_text_buffer_set_text (gtk_text_view_get_buffer (GTK_TEXT_VIEW (textview1)), _("Welcome to Tagsistant manager.\nWith tagman you can tell Tagsistant how tags relates each other. If two tags are the same for you, tell Tagsistant that one \"is equivalent\" to the other. You will later find all the contents tagged by one also inside the other without having to tag all the files with both tags. If another tag is a subset of a more generic or comprehensive one, like music is for jazz and rock and much more, just tell Tagsistant about that. Later you'll find all your Jazz and Rock music by simply searching inside Music directory."), -1);
+
+  dialog_action_area2 = GTK_DIALOG (helpdialog)->action_area;
+  gtk_widget_show (dialog_action_area2);
+  gtk_button_box_set_layout (GTK_BUTTON_BOX (dialog_action_area2), GTK_BUTTONBOX_END);
+
+  closebutton1 = gtk_button_new_from_stock ("gtk-close");
+  gtk_widget_show (closebutton1);
+  gtk_dialog_add_action_widget (GTK_DIALOG (helpdialog), closebutton1, GTK_RESPONSE_CLOSE);
+  GTK_WIDGET_SET_FLAGS (closebutton1, GTK_CAN_DEFAULT);
+
+  g_signal_connect ((gpointer) helpdialog, "delete_event",
+                    G_CALLBACK (on_helpdialog_delete_event),
+                    NULL);
+  g_signal_connect ((gpointer) closebutton1, "clicked",
+                    G_CALLBACK (on_closebutton1_clicked),
+                    NULL);
+
+  /* Store pointers to all widgets, for use by lookup_widget(). */
+  GLADE_HOOKUP_OBJECT_NO_REF (helpdialog, helpdialog, "helpdialog");
+  GLADE_HOOKUP_OBJECT_NO_REF (helpdialog, dialog_vbox2, "dialog_vbox2");
+  GLADE_HOOKUP_OBJECT (helpdialog, textview1, "textview1");
+  GLADE_HOOKUP_OBJECT_NO_REF (helpdialog, dialog_action_area2, "dialog_action_area2");
+  GLADE_HOOKUP_OBJECT (helpdialog, closebutton1, "closebutton1");
+
+  return helpdialog;
 }
 

@@ -22,6 +22,7 @@
 extern GtkWidget *tagman;
 extern GtkWidget *chooserepository;
 extern GtkWidget *aboutdialog;
+extern GtkWidget *helpdialog;
 
 extern struct tagsistant tagsistant;
 
