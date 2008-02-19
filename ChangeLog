@@ -1,3 +1,8 @@
+0.0.20080219
+  - added reasoning to query management
+  - created tagsistant manager, a Gtk+ interface to tagsistant SQL db to
+    add or remove relations
+  - solved some bugs
 0.0.20071009
   - bug in tagsistant_rename fixed; both directory and file can now be
   renamed properly
