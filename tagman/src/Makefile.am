@@ -9,6 +9,6 @@ install:
 	if [ ! -d /usr/local/share/pixmaps/tagsistant/ ]; then mkdir @datadir@/pixmaps/tagsistant/; fi
 	cp ../pixmaps/* @datadir@/pixmaps/tagsistant/
 	test -z "/usr/local/bin" || /bin/mkdir -p "/usr/local/bin"
-	  /bin/bash ../../../libtool --mode=install /usr/bin/install -c 'tagman' '/usr/local/bin/tagman'
+	/bin/bash ../../../libtool --mode=install /usr/bin/install -c 'tagman' '/usr/local/bin/tagman'
 	/usr/bin/install -c tagman /usr/local/bin/tagman
 

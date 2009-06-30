@@ -1,4 +1,4 @@
-SUBDIRS = tagman
+#### SUBDIRS = tagman
 
 bin_PROGRAMS = tagsistant
 
@@ -8,11 +8,11 @@ tagsistant_SOURCES = tagsistant.c path_resolution.c\
 #### tagsistant_CFLAGS = -D'PLUGINS_DIR="@libexecdir@/tagsistant"'
 tagsistant_CFLAGS = -D'PLUGINS_DIR="@libdir@/"' $(CFLAGS)
 tagsistant_LDFLAGS = -lfuse -lsqlite3 -ldl -rdynamic
-#tagsistant_LDFLAGS = -lfuse -ldl -rdynamic
 
 lib_LTLIBRARIES = libtagsistant_generic-0.1.la libtagsistant_mp3-0.1.la\
-	libtagsistant_gif-0.1.la libtagsistant_html-0.1.la libtagsistant_jpeg-0.1.la\
-	libtagsistant_ogg-0.1.la libtagsistant_xml-0.1.la libtagsistant_png-0.1.la
+libtagsistant_gif-0.1.la libtagsistant_html-0.1.la libtagsistant_jpeg-0.1.la\
+libtagsistant_ogg-0.1.la libtagsistant_xml-0.1.la libtagsistant_png-0.1.la
+
 libtagsistant_generic_0_1_la_SOURCES = tagsistant.h tp_generic.c
 libtagsistant_mp3_0_1_la_SOURCES = tagsistant.h tp_mp3.c
 libtagsistant_gif_0_1_la_SOURCES = tagsistant.h tp_gif.c
