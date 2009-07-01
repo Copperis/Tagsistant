@@ -91,3 +91,23 @@ int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, cha
 
 	return result;
 }
+
+/**
+ * Prepare SQL queries and perform them.
+ *
+ * \param format printf-like string of SQL query
+ * \param callback pointer to function to be called on results of SQL query
+ * \param firstarg pointer to buffer for callback retured data
+ * \return 0 (always, due to SQLite policy)
+ */
+int tagsistant_query(const char *format, int (*callback)(void *, int, char **, char **), void *firstarg, ...)
+{
+	va_list ap;
+	va_start(ap, firstarg);
+
+	gchar *statement = g_strdup_vprintf(format, ap);
+	int res = do_sql(NULL, statement, callback, firstarg);
+	g_free(statement);
+
+	return res;
+}

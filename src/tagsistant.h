@@ -83,6 +83,7 @@
 #include <utime.h>
 #include <signal.h>
 #include <dlfcn.h> /* for dlopen() and friends */
+#include <glib/gstrfuncs.h>
 
 #ifdef HAVE_SETXATTR
 #include <sys/xattr.h>
@@ -254,6 +255,8 @@ extern struct tagsistant tagsistant;
 
 extern int debug;
 extern int log_enabled;
+
+extern int tagsistant_query(const char *format, int (*callback)(void *, int, char **, char **), void *firstarg, ...);
 
 extern char *get_tag_name(const char *path);
 extern char *get_tag_path(const char *tag);

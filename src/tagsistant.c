@@ -133,15 +133,7 @@ static int report_if_exists(void *exists_buffer, int argc, char **argv, char **a
 int is_tagged(char *filename, char *tagname)
 {
 	int exists = 0;
-	char *statement = calloc(sizeof(char), strlen(IS_TAGGED) + strlen(filename) + strlen(tagname));
-	if (statement == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		return 1;
-	}
-	sprintf(statement, IS_TAGGED, filename, tagname);
-	assert(strlen(IS_TAGGED) - 4 + strlen(filename) + strlen(tagname) >= strlen(statement));
-	do_sql(NULL, statement, report_if_exists, &exists);
-	freenull(statement);
+	tagsistant_query(IS_TAGGED, report_if_exists, &exists, filename, tagname);
 	return exists;
 }
 
@@ -162,25 +154,14 @@ static int drop_single_query(void *voidtagname, int argc, char **argv, char **az
 	char *tagname = voidtagname;
 
 	if (argv[0] == NULL) {
-		return 1;
+		return true;
 	}
-
-	dbg(LOG_INFO, "Dropping tag %s.%s", argv[0], tagname);
 
 	/* drop all files in cache_results with id == argv[0] */
-	char *sql = calloc(sizeof(char), strlen(DROP_FILES) + strlen(argv[0]) + 1);
-	if (sql == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		return 1;
-	}
-	sprintf(sql, DROP_FILES, argv[0]);
-	assert(strlen(DROP_FILES) - 2 + strlen(argv[0]) >= strlen(sql));
-	dbg(LOG_INFO, "SQL statement: %s", sql);
+	dbg(LOG_INFO, "Dropping tag %s.%s", argv[0], tagname);
+	tagsistant_query(DROP_FILES, NULL, NULL, argv[0]);
 
-	int res = do_sql(NULL, sql, NULL, NULL);
-	freenull(sql);
-
-	return res;
+	return true;
 }
 
 /**
@@ -191,34 +172,14 @@ static int drop_single_query(void *voidtagname, int argc, char **argv, char **az
  */
 int drop_cached_queries(char *tagname)
 {
-	char *sql = calloc(sizeof(char), strlen(GET_ID_OF_TAG) + strlen(tagname) * 2 + 1);
-	if (sql == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+	if (tagsistant_query(GET_ID_OF_TAG, drop_single_query, tagname, tagname, tagname)) {
 		return 0;
 	}
-	sprintf(sql, GET_ID_OF_TAG, tagname, tagname);
-	assert(strlen(GET_ID_OF_TAG) + strlen(tagname) * 2 - 4 - 3 >= strlen(sql));
-
-	if (do_sql(NULL, sql, drop_single_query, tagname) != SQLITE_OK) {
-		freenull(sql);
-		return 0;
-	}
-	freenull(sql);
 
 	/* then drop the query in the cache_queries table */
-	sql = calloc(sizeof(char), strlen(DROP_QUERY) + strlen(tagname) * 2 + 1);
-	if (sql == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+	if (tagsistant_query(DROP_QUERY, NULL, NULL, tagname, tagname) != SQLITE_OK) {
 		return 0;
 	}
-	sprintf(sql, DROP_QUERY, tagname, tagname);
-	assert(strlen(DROP_QUERY) + strlen(tagname) * 2 - 4 - 3 >= strlen(sql));
-
-	if (do_sql(NULL, sql, NULL, NULL) != SQLITE_OK) {
-		freenull(sql);
-		return 0;
-	}
-	freenull(sql);
 
 	return 1;
 }
@@ -234,8 +195,6 @@ int drop_cached_queries(char *tagname)
  */
 int tag_file(const char *filename, char *tagname)
 {
-	char *statement = NULL;
-
 	/* get pure filename */
 	char *purefile = get_tag_name(filename);
 
@@ -251,31 +210,12 @@ int tag_file(const char *filename, char *tagname)
 	}
 
 	/* add tag to file */
-	statement = calloc(sizeof(char), strlen(TAG_FILE) + strlen(tagname) + strlen(purefile));
-	if (statement == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		freenull(purefile);
-		return 1;
-	}
-	sprintf(statement, TAG_FILE, tagname, purefile);
-	assert(strlen(TAG_FILE) + strlen(tagname) + strlen(purefile) - 4 >= strlen(statement));
-	do_sql(NULL, statement, NULL, NULL);
-	freenull(statement);
-	dbg(LOG_INFO, "File %s tagged as %s", purefile, tagname);
+	tagsistant_query(TAG_FILE, NULL, NULL, tagname, purefile);
 
 	/* check if tag is already in db */
-	statement = calloc(sizeof(char), strlen(TAG_EXISTS) + strlen(tagname));
-	if (statement == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		freenull(purefile);
-		return 0;
-	}
-	sprintf(statement, TAG_EXISTS, tagname);
-	assert(strlen(TAG_EXISTS) + strlen(tagname) - 2 >= strlen(statement));
 	char exists = 0;
+	tagsistant_query(TAG_EXISTS, report_if_exists, &exists, tagname);
 
-	do_sql(NULL, statement, report_if_exists, &exists);
-	freenull(statement);
 	if (exists) {
 		dbg(LOG_INFO, "Tag %s already exists", tagname);
 		freenull(purefile);
@@ -283,17 +223,7 @@ int tag_file(const char *filename, char *tagname)
 	}
 
 	/* add tag to taglist */
-	dbg(LOG_INFO, "Tag %s don't exists, creating it...", tagname);
-	statement = calloc(sizeof(char), strlen(CREATE_TAG) + strlen(tagname));
-	if (statement == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		freenull(purefile);
-		return 1;
-	}
-	sprintf(statement, CREATE_TAG, tagname);
-	assert(strlen(CREATE_TAG) + strlen(tagname) - 2 >= strlen(statement));
-	do_sql(NULL, statement, NULL, NULL);
-	freenull(statement);
+	tagsistant_query(CREATE_TAG, NULL, NULL, tagname);
 	dbg(LOG_INFO, "Tag %s created", tagname);
 
 	freenull(purefile);
@@ -320,17 +250,7 @@ static int drop_single_file(void *filenamevoid, int argc, char **argv, char **az
 		return 0;
 	}
 
-	char *sql = calloc(sizeof(char), strlen(DROP_FILE) + strlen(filename) + strlen(argv[0]) + 1);
-	if (sql == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		return 0;
-	}
-
-	sprintf(sql, DROP_FILE, filename, argv[0]);
-	assert(strlen(DROP_FILE) + strlen(filename) + strlen(argv[0]) - 4 >= strlen(sql));
-	do_sql(NULL, sql, NULL, NULL);
-	freenull(sql);
-	
+	tagsistant_query(DROP_FILE, NULL, NULL, filename, argv[0]);
 	return 0;
 }
 #endif
@@ -340,24 +260,10 @@ static int drop_single_file(void *filenamevoid, int argc, char **argv, char **az
  */
 int untag_file(char *filename, char *tagname)
 {
-	char *statement = calloc(sizeof(char), strlen(UNTAG_FILE) + strlen(filename) + strlen(tagname));
-	if (statement == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		return 0;
-	}
-	sprintf(statement, UNTAG_FILE, tagname, filename);
-	do_sql(NULL, statement, NULL, NULL);
-	freenull(statement);
+	tagsistant_query(UNTAG_FILE, NULL, NULL, tagname, filename);
 
 #if TAGSISTANT_USE_CACHE_LAYER
-	statement = calloc(sizeof(char), strlen(GET_ID_OF_TAG) + strlen(tagname) * 2);
-	if (statement == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		return 0;
-	}
-	sprintf(statement, GET_ID_OF_TAG, tagname, tagname);
-	do_sql(NULL, statement, drop_single_file, filename);
-	freenull(statement);
+	tagsistant_query(GET_ID_OF_TAG, drop_single_file, filename, tagname, tagname);
 #endif
 	
 	return 1;
@@ -376,22 +282,11 @@ int is_cached(const char *path)
 		return 0;
 	}
 
-	char *mini = NULL;
-
 	/* first clean cache table from old data */
-	if (do_sql(NULL, CLEAN_CACHE, NULL, NULL) != SQLITE_OK) return 0;
-
-	mini = calloc(sizeof(char), strlen(IS_CACHED) + strlen(path) + 1);
-	if (mini == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		return 0;
-	}
-	sprintf(mini, IS_CACHED, path);
-	assert(strlen(IS_CACHED) + strlen(path) - 2 >= strlen(mini));
+	if (tagsistant_query(CLEAN_CACHE, NULL, NULL) != SQLITE_OK) return 0;
 
 	int exists = 0;
-	do_sql(NULL, mini, report_if_exists, &exists);
-	freenull(mini);
+	tagsistant_query(IS_CACHED, report_if_exists, &exists, path);
 	return exists;
 }
 #endif
@@ -637,20 +532,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 		ino_t inode = 0;
 
 		if (last2 != NULL) {
-			char *sql = calloc(sizeof(char), strlen(GET_EXACT_TAG_ID) + strlen(last2) + 1);
-			if (sql == NULL) {
-				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-				freenull(dup);
-				return -ENOMEM;
-			}
-			sprintf(sql, GET_EXACT_TAG_ID, last2);
-			/*
-			fprintf(stderr, "sql query: %s is %d char long\n", sql, strlen(sql));
-			fprintf(stderr, "sql proto: %s is %d char long\n", GET_EXACT_TAG_ID, strlen(GET_EXACT_TAG_ID));
-			*/
-			assert(strlen(GET_EXACT_TAG_ID) - 2 + strlen(last2) >= strlen(sql)); /* if dir is OR is long exactly as %s in format! */
-			do_sql(NULL, sql, return_integer, &inode);
-			freenull(sql);
+			tagsistant_query(GET_EXACT_TAG_ID, return_integer, &inode, last2);
 		}
 
 		stbuf->st_ino = inode * 3; /* each directory holds 3 inodes: itself/, itself/AND/, itself/OR/ */
@@ -686,18 +568,9 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 #if VERBOSE_DEBUG
 		dbg(LOG_INFO, "GETATTR on tag: '%s'", last);
 #endif
-		char *statement = calloc(sizeof(char), strlen(TAG_EXISTS) + strlen(last));
-		if (statement == NULL) {
-			dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-			freenull(dup);
-			return 0;
-		}
-		sprintf(statement, TAG_EXISTS, last);
-		assert(strlen(TAG_EXISTS) + strlen(last) - 2 >= strlen(statement));
 
 		int exists = 0;
-		do_sql(NULL, statement, report_if_exists, &exists);
-		freenull(statement);
+		tagsistant_query(TAG_EXISTS, report_if_exists, &exists, last);
 
 		if (exists) {
 			res = lstat(tagsistant.archive, stbuf);
@@ -705,17 +578,8 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 			/* getting directory inode from filesystem */
 			ino_t inode = 0;
-			char *sql = calloc(sizeof(char), strlen(GET_EXACT_TAG_ID) + strlen(last) + 1);
-			if (sql == NULL) {
-				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-				freenull(dup);
-				return -ENOMEM;
-			}
-			sprintf(sql, GET_EXACT_TAG_ID, last);
-			assert(strlen(GET_EXACT_TAG_ID) - 2 + strlen(last) >= strlen(sql));
-			do_sql(NULL, sql, return_integer, &inode);
+			tagsistant_query(GET_EXACT_TAG_ID, return_integer, &inode, last);
 			stbuf->st_ino = inode * 3; /* each directory holds 3 inodes: itself/, itself/AND/, itself/OR/ */
-			freenull(sql);
 		} else {
 			res = -1;
 			tagsistant_errno = ENOENT;
@@ -870,15 +734,7 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 #if TAGSISTANT_USE_CACHE_LAYER
 	/* add also to cache */
 	if (ufs->add_to_cache) {
-		char *mini = calloc(sizeof(char), strlen(ADD_RESULT_ENTRY) + strlen(argv[0]) + 14);
-		if (mini == NULL) {
-			dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		} else {
-			sprintf(mini, ADD_RESULT_ENTRY, (int64_t) ufs->path_id, argv[0]);
-			assert(strlen(ADD_RESULT_ENTRY) + strlen(argv[0]) + 14 > strlen(mini));
-			do_sql(NULL, mini, NULL, NULL);
-			freenull(mini);
-		}
+		tagsistant_query(ADD_RESULT_ENTRY, NULL, NULL, (int64_t) ufs->path_id, argv[0]);
 	}
 #endif
 
@@ -942,17 +798,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 			ufs->path = path;
 	
 			/* parse tagsdir list */
-			char *mini = calloc(sizeof(char), strlen(ALL_FILES_IN_CACHE) + strlen(path) + 1);
-			if (mini == NULL) {
-				freenull(tagname);
-				dbg(LOG_ERR, "Error allocating SQL statement @%s:%d", __FILE__, __LINE__);
-				return 1;
-			}
-			sprintf(mini, ALL_FILES_IN_CACHE, path);
-			assert(strlen(ALL_FILES_IN_CACHE) + strlen(path) - 2 >= strlen(mini));
-	
-			do_sql(NULL, mini, add_entry_to_dir, ufs);
-			freenull(mini);
+			tagsistant_query(ALL_FILES_IN_CACHE, add_entry_to_dir,ufs, path);
 			freenull(ufs); /* dangerous: do_sql do return only after having processed all the result rows? */
 			freenull(tagname);
 			return 0;
@@ -1010,7 +856,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 		ufs->path = path;
 
 		/* parse tagsdir list */
-		do_sql(NULL, GET_ALL_TAGS, add_entry_to_dir, ufs);
+		tagsistant_query(GET_ALL_TAGS, add_entry_to_dir, ufs);
 		freenull(ufs);
 	}
 	freenull(tagname);
@@ -1107,17 +953,8 @@ static int tagsistant_mkdir(const char *path, mode_t mode)
 
 	dbg(LOG_INFO, "MKDIR on %s", tagname);
 
-	char *statement = calloc(sizeof(char), strlen(CREATE_TAG) + strlen(tagname));
-	if (statement == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		freenull(tagname);
-		return 1;
-	}
-	sprintf(statement, CREATE_TAG, tagname);
-	assert(strlen(CREATE_TAG) + strlen(tagname) - 2 >= strlen(statement));
-	do_sql(NULL, statement, NULL, NULL);
+	tagsistant_query(CREATE_TAG, NULL, NULL, tagname);
 
-	freenull(statement);
 	freenull(tagname);
 
 	stop_labeled_time_profile("mkdir");
@@ -1144,43 +981,16 @@ static int tagsistant_unlink(const char *path)
 	ptree_or_node_t *pt = build_querytree(path);
 	ptree_or_node_t *ptx = pt;
 
-	unsigned int size1 = strlen(UNTAG_FILE) + strlen(filename) + MAX_TAG_LENGTH;
-	char *statement1 = calloc(sizeof(char), size1);
-	if (statement1 == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		destroy_querytree(pt);
-		freenull(filename);
-		return 1;
-	}
-
-#if TAGSISTANT_USE_CACHE_LAYER
-	unsigned int size2 = strlen(GET_ID_OF_TAG) + MAX_TAG_LENGTH * 2;
-	char *statement2 = calloc(sizeof(char), size2);
-	if (statement2 == NULL) {
-		freenull(statement1);
-		freenull(filename);
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		destroy_querytree(pt);
-		return 1;
-	}
-#endif
-
 	while (ptx != NULL) {
 		ptree_and_node_t *element = ptx->and_set;
 		while (element != NULL) {
 			dbg(LOG_INFO, "removing tag %s from %s", element->tag, filename);
 
 			/* should check here if strlen(element->tag) > MAX_TAG_LENGTH */
-			memset(statement1, '\0', size1);
-			sprintf(statement1, UNTAG_FILE, element->tag, filename);
-			assert(size1 > strlen(statement1));
-			do_sql(NULL, statement1, NULL, NULL);
+			tagsistant_query(UNTAG_FILE, NULL, NULL, element->tag, filename);
 
 #if TAGSISTANT_USE_CACHE_LAYER
-			memset(statement2, '\0', size2);
-			sprintf(statement2, GET_ID_OF_TAG, element->tag, element->tag);
-			assert(size2 > strlen(statement2));
-			do_sql(NULL, statement2, drop_single_file, filename);
+			tagsistant_query(GET_ID_OF_TAG, drop_single_file, filename, element->tag, element->tag);
 #endif
 
 			element = element->next;
@@ -1188,33 +998,18 @@ static int tagsistant_unlink(const char *path)
 		ptx = ptx->next;
 	}
 
-	freenull(statement1);
-#if TAGSISTANT_USE_CACHE_LAYER
-	freenull(statement2);
-#endif
 	destroy_querytree(pt);
 
 	/* checking if file has more tags or is untagged */
-	statement1 = calloc(sizeof(char), strlen(HAS_TAGS) + strlen(filename) + 1);
-	if (statement1 == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-	} else {
-		sprintf(statement1, HAS_TAGS, filename);
-		assert(strlen(HAS_TAGS) + strlen(filename) - 2 >= strlen(statement1));
-		dbg(LOG_INFO, "SQL statement: %s", statement1);
-
-		int exists = 0;
-		do_sql(NULL, statement1, report_if_exists, &exists);
-		freenull(statement1);
-
-		if (!exists) {
-			/* file is no longer tagged, so can be deleted from archive */
-			char *filepath = get_file_path(filename);
-			dbg(LOG_INFO, "Unlinking file %s: it's no longer tagged!", filepath);
-			res = unlink(filepath);
-			tagsistant_errno = errno;
-			freenull(filepath);
-		}
+	int exists = 0;
+	tagsistant_query(HAS_TAGS, report_if_exists, &exists, filename);
+	if (!exists) {
+		/* file is no longer tagged, so can be deleted from archive */
+		char *filepath = get_file_path(filename);
+		dbg(LOG_INFO, "Unlinking file %s: it's no longer tagged!", filepath);
+		res = unlink(filepath);
+		tagsistant_errno = errno;
+		freenull(filepath);
 	}
 
 	freenull(filename);
@@ -1239,31 +1034,22 @@ static int tagsistant_rmdir(const char *path)
 	ptree_or_node_t *ptx = pt;
 
 	/* tag name is inserted 2 times in query, that's why '* 2' */
-	char *statement = calloc(sizeof(char), strlen(DELETE_TAG) + MAX_TAG_LENGTH * 6);
-	if (statement == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		destroy_querytree(pt);
-		return 1;
-	}
-
 	while (ptx != NULL) {
 		ptree_and_node_t *element = ptx->and_set;
 		while (element != NULL) {
-#if TAGSISTANT_USE_CACHE_LAYER
-			sprintf(statement, DELETE_TAG, element->tag, element->tag, element->tag, element->tag, element->tag, element->tag);
-#else
-			sprintf(statement, DELETE_TAG, element->tag, element->tag, element->tag, element->tag);
-#endif
-			assert(strlen(DELETE_TAG) + MAX_TAG_LENGTH * 6 > strlen(statement));
 			dbg(LOG_INFO, "RMDIR on %s", element->tag);
-			do_sql(NULL, statement, NULL, NULL);
+
+#if TAGSISTANT_USE_CACHE_LAYER
+			tagsistant_query(DELETE_TAG, NULL, NULL, element->tag, element->tag, element->tag, element->tag, element->tag, element->tag);
+#else
+			tagsistant_query(DELETE_TAG, NULL, NULL, element->tag, element->tag, element->tag, element->tag);
+#endif
+
 			element = element->next;
-			memset(statement, '\0', strlen(statement));
 		}
 		ptx = ptx->next;
 	}
 
-	freenull(statement);
 	destroy_querytree(pt);
 
 	stop_labeled_time_profile("rmdir");
@@ -1300,16 +1086,7 @@ static int tagsistant_rename(const char *from, const char *to)
 		} else {
 			newtagname++; /* skip the slash */
 		}
-		char *statement = calloc(sizeof(char), strlen(RENAME_TAG) + strlen(tagname) * 2 + strlen(newtagname) * 2 + 2);
-		if (statement == NULL) {
-			dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-			freenull(tagname);
-			return 1;
-		}
-		sprintf(statement, RENAME_TAG, newtagname, tagname, newtagname, tagname);
-		assert(strlen(RENAME_TAG) + strlen(tagname) * 2 + strlen(newtagname) * 2 - 4 >= strlen(statement));
-		do_sql(NULL, statement, NULL, NULL);
-		freenull(statement);
+		tagsistant_query(RENAME_TAG, NULL, NULL, newtagname, tagname, newtagname, tagname);
 	} else {
 		/* is a file */
 		const char *newfilename = rindex(to, '/');
@@ -1318,20 +1095,12 @@ static int tagsistant_rename(const char *from, const char *to)
 		} else {
 			newfilename++; /* skip the slash */
 		}
-		char *statement = calloc(sizeof(char), strlen(RENAME_FILE) + strlen(tagname) * 2 + strlen(newfilename) * 2 + 2);
-		if (statement == NULL) {
-			dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-			freenull(tagname);
-			return 1;
-		}
+
 #if TAGSISTANT_USE_CACHE_LAYER
-		sprintf(statement, RENAME_FILE, newfilename, tagname, newfilename, tagname);
+		tagsistant_query(RENAME_FILE, NULL, NULL, newfilename, tagname, newfilename, tagname);
 #else
-		sprintf(statement, RENAME_FILE, newfilename, tagname);
+		tagsistant_query(RENAME_FILE, NULL, NULL, newfilename, tagname);
 #endif
-		assert(strlen(RENAME_FILE) + strlen(tagname) * 2 + strlen(newfilename) * 2 - 4 >= strlen(statement));
-		do_sql(NULL, statement, NULL, NULL);
-		freenull(statement);
 
 		char *filepath = get_file_path(tagname);
 		char *newfilepath = get_file_path(newfilename);
