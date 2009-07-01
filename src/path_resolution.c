@@ -328,6 +328,7 @@ static int add_to_filetree(void *atft_struct, int argc, char **argv, char **azCo
 	(*fh)->next = NULL;
 	(*fh)->name = NULL;
 
+#if TAGSISTANT_USE_CACHE_LAYER
 	/* add this entry to cache */
 	char *sql = calloc(sizeof(char), strlen(ADD_RESULT_ENTRY) + strlen(argv[0]) + 14);
 	if (sql == NULL) {
@@ -337,6 +338,7 @@ static int add_to_filetree(void *atft_struct, int argc, char **argv, char **azCo
 		do_sql(&(atft->dbh), sql, NULL, NULL);
 		freenull(sql);
 	}
+#endif
 
 #if VERBOSE_DEBUG
 	dbg(LOG_INFO, "add_to_file_tree %s done!", argv[0]);
@@ -496,6 +498,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 		query = query->next;
 	}
 
+#if TAGSISTANT_USE_CACHE_LAYER
 	char *sql = calloc(sizeof(char), strlen(ADD_CACHE_ENTRY) + strlen(path) + 1);
 	if (sql == NULL) {
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
@@ -510,6 +513,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	freenull(sql);
  
 	sqlite_int64 id = sqlite3_last_insert_rowid(dbh);
+#endif
 
 	/* format view statement */
 	char *view_statement = calloc(sizeof(char), view_query_length);
@@ -549,7 +553,9 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 		return NULL;
 	}
 	atft->fh = &fh;
+#if TAGSISTANT_USE_CACHE_LAYER
 	atft->id = id;
+#endif
 	atft->dbh = dbh;
 
 	/* apply view statement */
