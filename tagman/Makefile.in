@@ -32,7 +32,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
-subdir = src/tagman
+subdir = tagman
 DIST_COMMON = README $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	AUTHORS ChangeLog NEWS mkinstalldirs
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -184,9 +184,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign  src/tagman/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign  tagman/Makefile'; \
 	cd $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign  src/tagman/Makefile
+	  $(AUTOMAKE) --foreign  tagman/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \

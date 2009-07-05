@@ -1,15 +1,15 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.59)
-AC_INIT([tagsistant], [0.2.20080218], [tx0@strumentiresistenti.org])
+AC_PREREQ(2.63)
+AC_INIT([tagsistant],[0.2.20080218],[tx0@strumentiresistenti.org])
 AM_INIT_AUTOMAKE(tagsistant, 0.2.20080218)
 AC_COPYRIGHT([tagsistant is (C) Tx0 <tx0@strumentiresistenti.org>])
 AC_CONFIG_SRCDIR([src/tagsistant.c])
 AC_CONFIG_HEADER([config.h])
 AC_CANONICAL_TARGET
 
-AC_PROG_LIBTOOL
+LT_INIT
 # AC_PROG_RANLIB
 
 # Checks for programs.
@@ -37,7 +37,18 @@ AC_FUNC_CLOSEDIR_VOID
 AC_FUNC_LSTAT
 AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK
 AC_FUNC_MALLOC
-AC_TYPE_SIGNAL
+AC_DIAGNOSE([obsolete],[your code may safely assume C89 semantics that RETSIGTYPE is void.
+Remove this warning and the `AC_CACHE_CHECK' when you adjust the code.])dnl
+AC_CACHE_CHECK([return type of signal handlers],[ac_cv_type_signal],[AC_COMPILE_IFELSE(
+[AC_LANG_PROGRAM([#include <sys/types.h>
+#include <signal.h>
+],
+		 [return *(signal (0, 0)) (0) == 1;])],
+		   [ac_cv_type_signal=int],
+		   [ac_cv_type_signal=void])])
+AC_DEFINE_UNQUOTED([RETSIGTYPE],[$ac_cv_type_signal],[Define as the return type of signal handlers
+		    (`int' or `void').])
+
 AC_FUNC_STAT
 AC_FUNC_UTIME_NULL
 AC_CHECK_FUNCS([inet_ntoa lchown mempcpy memset mkdir rmdir setenv socket strdup strerror utime])
@@ -115,6 +126,6 @@ esac
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile
-				 src/tagman/Makefile
-				 src/tagman/src/Makefile])
+				 tagman/Makefile
+				 tagman/src/Makefile])
 AC_OUTPUT
