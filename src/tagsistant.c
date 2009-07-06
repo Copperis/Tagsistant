@@ -133,7 +133,9 @@ static int report_if_exists(void *exists_buffer, int argc, char **argv, char **a
 int is_tagged(char *filename, char *tagname)
 {
 	int exists = 0;
-	tagsistant_query(IS_TAGGED, report_if_exists, &exists, filename, tagname);
+	tagsistant_query(
+		"select filename from tagged where filename = \"%s\" and tagname = \"%s\";",
+		report_if_exists, &exists, filename, tagname);
 	return exists;
 }
 
@@ -532,7 +534,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 		ino_t inode = 0;
 
 		if (last2 != NULL) {
-			tagsistant_query(GET_EXACT_TAG_ID, return_integer, &inode, last2);
+			tagsistant_query("select id from tags where tagname = \"%s\";", return_integer, &inode, last2);
 		}
 
 		stbuf->st_ino = inode * 3; /* each directory holds 3 inodes: itself/, itself/AND/, itself/OR/ */
@@ -578,7 +580,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 			/* getting directory inode from filesystem */
 			ino_t inode = 0;
-			tagsistant_query(GET_EXACT_TAG_ID, return_integer, &inode, last);
+			tagsistant_query("select id from tags where tagname = \"%s\";", return_integer, &inode, last);
 			stbuf->st_ino = inode * 3; /* each directory holds 3 inodes: itself/, itself/AND/, itself/OR/ */
 		} else {
 			res = -1;
@@ -1002,7 +1004,7 @@ static int tagsistant_unlink(const char *path)
 
 	/* checking if file has more tags or is untagged */
 	int exists = 0;
-	tagsistant_query(HAS_TAGS, report_if_exists, &exists, filename);
+	tagsistant_query("select tagname from tagged where filename = \"%s\";", report_if_exists, &exists, filename);
 	if (!exists) {
 		/* file is no longer tagged, so can be deleted from archive */
 		char *filepath = get_file_path(filename);

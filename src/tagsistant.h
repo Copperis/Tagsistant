@@ -29,6 +29,10 @@
 /* set to TRUE, enables the caching layer */
 #define TAGSISTANT_USE_CACHE_LAYER FALSE
 
+#ifndef SQLITE_MAX_SQL_LENGTH
+#define SQLITE_MAX_SQL_LENGTH 1000000
+#endif
+
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -83,6 +87,7 @@
 #include <utime.h>
 #include <signal.h>
 #include <dlfcn.h> /* for dlopen() and friends */
+#include <glib.h>
 #include <glib/gstrfuncs.h>
 
 #ifdef HAVE_SETXATTR
@@ -308,4 +313,5 @@ char *real_strdup(const char *orig, char *file, int line);
 		dbg(LOG_ERR, "FREE ERROR: symbol %s is NULL!", __STRING(symbol));\
 	}\
 }
+
 // vim:ts=4:nocindent:nowrap
