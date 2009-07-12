@@ -284,7 +284,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 tagsistant_SOURCES = tagsistant.c path_resolution.c\
 	compat/fuse_opt.c debug.h debug_free_calls.h sql.c\
-	tagsistant.h
+	tagsistant.h sql.h
 
 
 #### tagsistant_CFLAGS = -D'PLUGINS_DIR="@libexecdir@/tagsistant"'

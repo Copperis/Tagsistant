@@ -100,76 +100,71 @@ int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, cha
  * \param firstarg pointer to buffer for callback retured data
  * \return 0 (always, due to SQLite policy)
  */
-int tagsistant_query(const char *format, int (*callback)(void *, int, char **, char **), void *firstarg, ...)
+int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)(void *, int, char **, char **), void *firstarg, ...)
 {
 	va_list ap;
 	va_start(ap, firstarg);
 
 	gchar *statement = g_strdup_vprintf(format, ap);
-	int res = do_sql(NULL, statement, callback, firstarg);
+	int res = real_do_sql(NULL, statement, callback, firstarg, file, line);
 	g_free(statement);
 
 	return res;
 }
 
-/***************\
- * SQL QUERIES *
-\***************/
-#define CREATE_TAGS_TABLE		"create table tags(id integer primary key autoincrement not null, tagname varchar unique not null);"
-#define CREATE_TAGGED_TABLE		"create table tagged(id integer primary key autoincrement not null, tagname varchar not null, filename varchar not null);"
-#if TAGSISTANT_USE_CACHE_LAYER
-#	define CREATE_CACHE_TABLE	"create table cache_queries(id integer primary key autoincrement not null, path text not null, age datetime not null);"
-#	define CREATE_RESULT_TABLE	"create table cache_results(id integer not null, age datetime not null, filename varchar not null);"
-#endif
-#define CREATE_RELATIONS_TABLE	"create table relations(id integer primary key autoincrement not null, tag1 varchar not null, relation varchar not null, tag2 varchar not null);"
+/**
+ * SQL callback. Return an integer from a query
+ *
+ * \param return_integer integer pointer cast to void* which holds the integer to be returned
+ * \param argc counter of argv arguments
+ * \param argv array of SQL given results
+ * \param azColName array of SQL column names
+ * \return 0 (always, due to SQLite policy)
+ */
+int return_integer(void *return_integer, int argc, char **argv, char **azColName)
+{
+	(void) argc;
+	(void) azColName;
+	uint32_t *buffer = (uint32_t *) return_integer;
 
-void sql_create_tag(const char* tagname) {
-	tagsistant_query("insert into tags(tagname) values(\"%s\");", NULL, NULL, tagname);
+	if (argv[0] != NULL) {
+		sscanf(argv[0], "%u", buffer);
+	}
+	return 0;
 }
 
-void sql_delete_tag(const char *tagname) {
-	tagsistant_query("delete from tags where tagname = \"%s\"", NULL, NULL, tagname);
-	tagsistant_query("delete from tagged where tagname = \"%s\";", NULL, NULL, tagname);
-	tagsistant_query("delete from relations where tag1 = \"%s\" or tag2 = \"%s\";", NULL, NULL, tagname, tagname);
-#if TAGSISTANT_USE_CACHE_LAYER
-	tagsistant_query("delete from cache_queries where path like \"%%/%s/%%\" or path like \"%%/%s\";", NULL, NULL, tagname, tagname);
-#endif
+int get_exact_tag_id(const gchar *tagname)
+{
+	int id;
+	tagsistant_query("select id from tags where tagname = \"%s\";", return_integer, &id, tagname);
+	return id;
 }
 
-void sql_tag_file(const char *tagname, const char *filename) {
-	tagsistant_query("insert into tagged(tagname, filename) values(\"%s\", \"%s\");", NULL, NULL, tagname, filename);
+/**
+ * SQL callback. Report if an entity exists in database.
+ *
+ * \param exist_buffer integer pointer cast to void* which holds 1 if entity exists, 0 otherwise
+ * \param argc counter of argv arguments
+ * \param argv array of SQL given results
+ * \param azColName array of SQL column names
+ * \return 0 (always, due to SQLite policy)
+ */
+int report_if_exists(void *exists_buffer, int argc, char **argv, char **azColName)
+{
+	(void) argc;
+	(void) azColName;
+	int *exists = (int *) exists_buffer;
+	if (argv[0] != NULL) {
+		*exists = 1;
+	} else {
+		*exists = 0;
+	}
+	return 0;
 }
 
-void sql_untag_file(const char *tagname, const char *filename) {
-	tagsistant_query("delete from tagged where tagname = \"%s\" and filename = \"%s\";", NULL, NULL, tagname, filename);
+gboolean sql_tag_exists(const gchar* tagname)
+{
+	gboolean exists;
+	tagsistant_query("select tagname from tags where tagname = \"%s\";", report_if_exists, &exists, tagname);
+	return exists;
 }
-
-void sql_rename_tag(const char *tagname) {
-	tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\";", NULL, NULL, tagname, tagname);
-	tagsistant_query("update tagged set tagname = \"%s\" where tagname = \"%s\";", NULL, NULL, tagname, tagname);
-}
-
-void sql_rename_file(const char *oldname, const char *newname) {
-	tagsistant_query("update tagged set filename = \"%s\" where filename = \"%s\";", NULL, NULL, newname, oldname);
-#if TAGSISTANT_USE_CACHE_LAYER
-	tagsistant_query("update cache_results set filename = \"%s\" where filename = \"%s\"", NULL, NULL, newname, oldname);
-#endif
-}
-
-#define ALL_FILES_TAGGED		"select filename from tagged where tagname = \"%s\""
-#define TAG_EXISTS				"select tagname from tags where tagname = \"%s\";"
-#define GET_ALL_TAGS			"select tagname from tags;"
-	
-#if TAGSISTANT_USE_CACHE_LAYER
-#	define IS_CACHED			"select id from cache_queries where path = \"%s\";"
-#	define ALL_FILES_IN_CACHE	"select filename from cache_results join cache_queries on cache_queries.id = cache_results.id where path = \"%s\";"
-#	define CLEAN_CACHE			"delete from cache_queries where age < datetime(\"now\"); delete from cache_results where age < datetime(\"now\");"
-#	define ADD_CACHE_ENTRY		"insert into cache_queries(path, age) values(\"%s\", datetime(\"now\", \"+15 minutes\"));"
-#	define ADD_RESULT_ENTRY		"insert into cache_results(id, filename, age) values(\"%lld\",\"%s\",datetime(\"now\", \"+15 minutes\"));"
-#	define GET_ID_OF_QUERY		"select id from cache_queries where path = \"%s\";"
-#	define GET_ID_OF_TAG		"select id from cache_queries where path like \"%%/%s/%%\" or path like \"%%/%s\";"
-#	define DROP_FILES			"delete from cache_results where id = %s;"
-#	define DROP_FILE			"delete from cache_results where filename = \"%s\" and id = %s;"
-#	define DROP_QUERY_BY_ID		"delete from cache_queries where id = %s;"
-#	define DROP_QUERY			"delete from cache_queries where path like \"%%/%s/%%\" or path like \"%%/%s\";"
-#endif

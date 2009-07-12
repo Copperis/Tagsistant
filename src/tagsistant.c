@@ -101,27 +101,6 @@ void init_syslog()
 }
 #endif
 
-/**
- * SQL callback. Report if an entity exists in database.
- *
- * \param exist_buffer integer pointer cast to void* which holds 1 if entity exists, 0 otherwise
- * \param argc counter of argv arguments
- * \param argv array of SQL given results
- * \param azColName array of SQL column names
- * \return 0 (always, due to SQLite policy)
- */
-static int report_if_exists(void *exists_buffer, int argc, char **argv, char **azColName)
-{
-	(void) argc;
-	(void) azColName;
-	int *exists = (int *) exists_buffer;
-	if (argv[0] != NULL) {
-		*exists = 1;
-	} else {
-		*exists = 0;
-	}
-	return 0;
-}
 
 /**
  * Check if a file is associated with a given tag.
@@ -139,54 +118,6 @@ int is_tagged(char *filename, char *tagname)
 	return exists;
 }
 
-#if TAGSISTANT_USE_CACHE_LAYER
-/**
- * SQL callback. Delete a cached query from database.
- *
- * \param voidtagname char pointer cast to void* which holds the name of the tag to be removed
- * \param argc counter of argv arguments
- * \param argv array of SQL given results
- * \param azColName array of SQL column names
- * \return 0 (always, due to SQLite policy)
- */
-static int drop_single_query(void *voidtagname, int argc, char **argv, char **azColName)
-{
-	(void) argc;
-	(void) azColName;
-	char *tagname = voidtagname;
-
-	if (argv[0] == NULL) {
-		return true;
-	}
-
-	/* drop all files in cache_results with id == argv[0] */
-	dbg(LOG_INFO, "Dropping tag %s.%s", argv[0], tagname);
-	tagsistant_query(DROP_FILES, NULL, NULL, argv[0]);
-
-	return true;
-}
-
-/**
- * Deletes all cached queries related to given tag
- *
- * \param tagname the name of the tag which results should be cleared from database
- * \return 1 on success, 0 otherwise
- */
-int drop_cached_queries(char *tagname)
-{
-	if (tagsistant_query(GET_ID_OF_TAG, drop_single_query, tagname, tagname, tagname)) {
-		return 0;
-	}
-
-	/* then drop the query in the cache_queries table */
-	if (tagsistant_query(DROP_QUERY, NULL, NULL, tagname, tagname) != SQLITE_OK) {
-		return 0;
-	}
-
-	return 1;
-}
-#endif
-
 /**
  * Add tag tagname to file.
  *
@@ -200,11 +131,6 @@ int tag_file(const char *filename, char *tagname)
 	/* get pure filename */
 	char *purefile = get_tag_name(filename);
 
-#if TAGSISTANT_USE_CACHE_LAYER
-	/* drop cached queries containing tagname */
-	drop_cached_queries(tagname);
-#endif
-
 	/* check if file is already tagged */
 	if (is_tagged(purefile, tagname)) {
 		freenull(purefile);
@@ -212,12 +138,11 @@ int tag_file(const char *filename, char *tagname)
 	}
 
 	/* add tag to file */
-	tagsistant_query(TAG_FILE, NULL, NULL, tagname, purefile);
+	sql_tag_file(tagname, purefile);
 
 	/* check if tag is already in db */
-	char exists = 0;
-	tagsistant_query(TAG_EXISTS, report_if_exists, &exists, tagname);
-
+	char exists = sql_tag_exists(tagname);
+	
 	if (exists) {
 		dbg(LOG_INFO, "Tag %s already exists", tagname);
 		freenull(purefile);
@@ -225,73 +150,22 @@ int tag_file(const char *filename, char *tagname)
 	}
 
 	/* add tag to taglist */
-	tagsistant_query(CREATE_TAG, NULL, NULL, tagname);
+	sql_create_tag(tagname);
 	dbg(LOG_INFO, "Tag %s created", tagname);
 
 	freenull(purefile);
 	return 1;
 }
 
-#if TAGSISTANT_USE_CACHE_LAYER
-/**
- * SQL callback. Delete a file from cache results.
- *
- * \param filenamevoid char pointer cast to void* which holds the name of the file to be removed
- * \param argc counter of argv arguments
- * \param argv array of SQL given results
- * \param azColName array of SQL column names
- * \return 0 (always, due to SQLite policy)
- */
-static int drop_single_file(void *filenamevoid, int argc, char **argv, char **azColName)
-{
-	(void) argc;
-	(void) azColName;
-	char *filename = (char *) filenamevoid;
-
-	if (argv[0] == NULL) {
-		return 0;
-	}
-
-	tagsistant_query(DROP_FILE, NULL, NULL, filename, argv[0]);
-	return 0;
-}
-#endif
-
 /**
  * remove tag tagname from file filename
  */
 int untag_file(char *filename, char *tagname)
 {
-	tagsistant_query(UNTAG_FILE, NULL, NULL, tagname, filename);
-
-#if TAGSISTANT_USE_CACHE_LAYER
-	tagsistant_query(GET_ID_OF_TAG, drop_single_file, filename, tagname, tagname);
-#endif
+	sql_untag_file(tagname, filename);
 	
 	return 1;
 }
-
-#if TAGSISTANT_USE_CACHE_LAYER
-/**
- * Check if file is cached
- *
- * \param path the path of the file to be checked
- * \return 1 if file exists, 0 otherwise (or if an error occurred)
- */
-int is_cached(const char *path)
-{
-	if (!tagsistant.use_cache) {
-		return 0;
-	}
-
-	/* first clean cache table from old data */
-	if (tagsistant_query(CLEAN_CACHE, NULL, NULL) != SQLITE_OK) return 0;
-
-	int exists = 0;
-	tagsistant_query(IS_CACHED, report_if_exists, &exists, path);
-	return exists;
-}
-#endif
 
 #ifdef MACOSX
 ssize_t getline(char **lineptr, size_t *n, FILE *stream)
@@ -462,26 +336,6 @@ STOP_CHAIN_TAGGING:
 	return res;
 }
 
-/**
- * SQL callback. Return an integer from a query
- *
- * \param return_integer integer pointer cast to void* which holds the integer to be returned
- * \param argc counter of argv arguments
- * \param argv array of SQL given results
- * \param azColName array of SQL column names
- * \return 0 (always, due to SQLite policy)
- */
-static int return_integer(void *return_integer, int argc, char **argv, char **azColName)
-{
-	(void) argc;
-	(void) azColName;
-	uint32_t *buffer = (uint32_t *) return_integer;
-
-	if (argv[0] != NULL) {
-		sscanf(argv[0], "%u", buffer);
-	}
-	return 0;
-}
 
 /**
  * lstat equivalent
@@ -533,9 +387,8 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 		/* getting directory inode from filesystem */
 		ino_t inode = 0;
 
-		if (last2 != NULL) {
-			tagsistant_query("select id from tags where tagname = \"%s\";", return_integer, &inode, last2);
-		}
+		if (last2 != NULL)
+			inode = get_exact_tag_id(last2);
 
 		stbuf->st_ino = inode * 3; /* each directory holds 3 inodes: itself/, itself/AND/, itself/OR/ */
 
@@ -571,8 +424,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 		dbg(LOG_INFO, "GETATTR on tag: '%s'", last);
 #endif
 
-		int exists = 0;
-		tagsistant_query(TAG_EXISTS, report_if_exists, &exists, last);
+		int exists = sql_tag_exists(last);
 
 		if (exists) {
 			res = lstat(tagsistant.archive, stbuf);
@@ -677,10 +529,6 @@ static int tagsistant_readlink(const char *path, char *buf, size_t size)
 struct use_filler_struct {
 	fuse_fill_dir_t filler;	/**< libfuse filler hook to return dir entries */
 	void *buf;				/**< libfuse buffer to hold readdir results */
-#if TAGSISTANT_USE_CACHE_LAYER
-	long int path_id;		/**< numeric id used to cache results */
-	int add_to_cache;		/**< boolean trigger: if true, result will get cached */
-#endif
 	const char *path;		/**< the path that generates the query */
 };
 
@@ -733,13 +581,6 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 	freenull(tag_to_check);
 	freenull(path_duplicate);
 
-#if TAGSISTANT_USE_CACHE_LAYER
-	/* add also to cache */
-	if (ufs->add_to_cache) {
-		tagsistant_query(ADD_RESULT_ENTRY, NULL, NULL, (int64_t) ufs->path_id, argv[0]);
-	}
-#endif
-
 	return ufs->filler(ufs->buf, argv[0], NULL, 0);
 }
 
@@ -781,31 +622,6 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 		/* add logical operators */
 		filler(buf, "AND", NULL, 0);
 		filler(buf, "OR", NULL, 0);
-
-#if TAGSISTANT_USE_CACHE_LAYER
-		if (is_cached(path)) {
-			/* query result exists in cache */
-			dbg(LOG_INFO, "Getting %s from cache", path);
-
-			struct use_filler_struct *ufs = calloc(sizeof(struct use_filler_struct), 1);
-			if (ufs == NULL) {
-				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-				freenull(tagname);
-				return 1;
-			}
-	
-			ufs->filler = filler;
-			ufs->buf = buf;
-			ufs->add_to_cache = 0;
-			ufs->path = path;
-	
-			/* parse tagsdir list */
-			tagsistant_query(ALL_FILES_IN_CACHE, add_entry_to_dir,ufs, path);
-			freenull(ufs); /* dangerous: do_sql do return only after having processed all the result rows? */
-			freenull(tagname);
-			return 0;
-		}
-#endif
 		
 		char *pathcopy = strdup(path);
 	
@@ -852,13 +668,10 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 
 		ufs->filler = filler;
 		ufs->buf = buf;
-#if TAGSISTANT_USE_CACHE_LAYER
-		ufs->add_to_cache = 0;
-#endif
 		ufs->path = path;
 
 		/* parse tagsdir list */
-		tagsistant_query(GET_ALL_TAGS, add_entry_to_dir, ufs);
+		tagsistant_query("select tagname from tags;", add_entry_to_dir, ufs);
 		freenull(ufs);
 	}
 	freenull(tagname);
@@ -955,7 +768,7 @@ static int tagsistant_mkdir(const char *path, mode_t mode)
 
 	dbg(LOG_INFO, "MKDIR on %s", tagname);
 
-	tagsistant_query(CREATE_TAG, NULL, NULL, tagname);
+	sql_create_tag(tagname);
 
 	freenull(tagname);
 
@@ -988,12 +801,7 @@ static int tagsistant_unlink(const char *path)
 		while (element != NULL) {
 			dbg(LOG_INFO, "removing tag %s from %s", element->tag, filename);
 
-			/* should check here if strlen(element->tag) > MAX_TAG_LENGTH */
-			tagsistant_query(UNTAG_FILE, NULL, NULL, element->tag, filename);
-
-#if TAGSISTANT_USE_CACHE_LAYER
-			tagsistant_query(GET_ID_OF_TAG, drop_single_file, filename, element->tag, element->tag);
-#endif
+			sql_untag_file(element->tag, filename);
 
 			element = element->next;
 		}
@@ -1040,13 +848,7 @@ static int tagsistant_rmdir(const char *path)
 		ptree_and_node_t *element = ptx->and_set;
 		while (element != NULL) {
 			dbg(LOG_INFO, "RMDIR on %s", element->tag);
-
-#if TAGSISTANT_USE_CACHE_LAYER
-			tagsistant_query(DELETE_TAG, NULL, NULL, element->tag, element->tag, element->tag, element->tag, element->tag, element->tag);
-#else
-			tagsistant_query(DELETE_TAG, NULL, NULL, element->tag, element->tag, element->tag, element->tag);
-#endif
-
+			sql_delete_tag(element->tag);
 			element = element->next;
 		}
 		ptx = ptx->next;
@@ -1088,7 +890,8 @@ static int tagsistant_rename(const char *from, const char *to)
 		} else {
 			newtagname++; /* skip the slash */
 		}
-		tagsistant_query(RENAME_TAG, NULL, NULL, newtagname, tagname, newtagname, tagname);
+		
+		sql_rename_tag(newtagname, tagname);
 	} else {
 		/* is a file */
 		const char *newfilename = rindex(to, '/');
@@ -1098,11 +901,7 @@ static int tagsistant_rename(const char *from, const char *to)
 			newfilename++; /* skip the slash */
 		}
 
-#if TAGSISTANT_USE_CACHE_LAYER
-		tagsistant_query(RENAME_FILE, NULL, NULL, newfilename, tagname, newfilename, tagname);
-#else
-		tagsistant_query(RENAME_FILE, NULL, NULL, newfilename, tagname);
-#endif
+		sql_rename_file(newfilename, tagname);
 
 		char *filepath = get_file_path(tagname);
 		char *newfilepath = get_file_path(newfilename);
@@ -1646,9 +1445,6 @@ static struct fuse_opt tagsistant_opts[] = {
 	TAGSISTANT_OPT("-r",					readonly,		1),
 	TAGSISTANT_OPT("-v",					verbose,		1),
 	TAGSISTANT_OPT("-q",					quiet,			1),
-#if TAGSISTANT_USE_CACHE_LAYER
-	TAGSISTANT_OPT("-c",					use_cache,		1),
-#endif
 	
 	FUSE_OPT_KEY("-V",          	KEY_VERSION),
 	FUSE_OPT_KEY("--version",   	KEY_VERSION),
@@ -1693,9 +1489,6 @@ void usage(char *progname)
 		"    -q  be quiet\n"
 		"    -r  mount readonly\n"
 		"    -v  verbose syslogging\n"
-#if TAGSISTANT_USE_CACHE_LAYER
-		"    -c  use internal cache\n"
-#endif
 		"\n" /*fuse options will follow... */
 		, PACKAGE_VERSION, FUSE_USE_VERSION, progname
 	);
@@ -1782,9 +1575,6 @@ int main(int argc, char *argv[])
 #endif
 
 	tagsistant.progname = argv[0];
-#if TAGSISTANT_USE_CACHE_LAYER
-	tagsistant.use_cache = 0;
-#endif
 
 	if (fuse_opt_parse(&args, &tagsistant, tagsistant_opts, tagsistant_opt_proc) == -1)
 		exit(1);
@@ -1839,12 +1629,6 @@ int main(int argc, char *argv[])
 			fprintf(stderr, " *** will log verbosely ***\n");
 		fuse_opt_add_arg(&args, "-d");
 	}
-#if TAGSISTANT_USE_CACHE_LAYER
-	if (tagsistant.use_cache) {
-		if (!tagsistant.quiet)
-			fprintf(stderr, " *** internal cache enabled with -c on command line ***\n");
-	}
-#endif
 
 	/* checking mountpoint */
 	if (!tagsistant.mountpoint) {
@@ -1967,36 +1751,7 @@ int main(int argc, char *argv[])
 
 	/* if db does not existed, some SQL init is needed */
 	if (db_exists != 0) {
-		char *sqlerror = NULL;
-		int sqlcode;
-		
-		sqlcode = sqlite3_exec(tagsistant.dbh, CREATE_TAGS_TABLE, NULL, NULL, &sqlerror);
-		if (sqlcode != SQLITE_OK) {
-			dbg(LOG_ERR, "SQL error [%d] while creating tags table: %s", sqlcode, sqlerror);
-			exit(1);
-		}
-		sqlcode = sqlite3_exec(tagsistant.dbh, CREATE_TAGGED_TABLE, NULL, NULL, &sqlerror);
-		if (sqlcode != SQLITE_OK) {
-			dbg(LOG_ERR, "SQL error [%d] while creating tagged table: %s", sqlcode, sqlerror);
-			exit(1);
-		}
-#if TAGSISTANT_USE_CACHE_LAYER
-		sqlcode = sqlite3_exec(tagsistant.dbh, CREATE_CACHE_TABLE, NULL, NULL, &sqlerror);
-		if (sqlcode != SQLITE_OK) {
-			dbg(LOG_ERR, "SQL error [%d] while creating cache main table: %s", sqlcode, sqlerror);
-			exit(1);
-		}
-		sqlcode = sqlite3_exec(tagsistant.dbh, CREATE_RESULT_TABLE, NULL, NULL, &sqlerror);
-		if (sqlcode != SQLITE_OK) {
-			dbg(LOG_ERR, "SQL error [%d] while creating cache results table: %s", sqlcode, sqlerror);
-			exit(1);
-		}
-#endif
-		sqlcode = sqlite3_exec(tagsistant.dbh, CREATE_RELATIONS_TABLE, NULL, NULL, &sqlerror);
-		if (sqlcode != SQLITE_OK) {
-			dbg(LOG_ERR, "SQL error [%d] while creating relations table: %s", sqlcode, sqlerror);
-			exit(1);
-		}
+		tagsistant_init_database();
 	}
 
 	/* tagsistant.dbh is no longer used as a permanent connection */
