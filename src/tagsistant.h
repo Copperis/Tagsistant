@@ -27,7 +27,7 @@
 #define TAGSISTANT_PLUGIN_PREFIX "libtagsistant_"
 
 #ifndef SQLITE_MAX_SQL_LENGTH
-#define SQLITE_MAX_SQL_LENGTH 1000000
+#define SQLITE_MAX_SQL_LENGTH 10000
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -105,6 +105,9 @@
 
 #define MAX_TAG_LENGTH 255
 
+#define dyn_strcat(original, newstring) original = _dyn_strcat(original, newstring)
+extern gchar *_dyn_strcat(gchar *original, const gchar *newstring);
+
 /**
  * defines an AND token in a query path
  */
@@ -174,7 +177,7 @@ typedef struct tagsistant_plugin {
 	int (*processor)(const char *filename);
 
 	/**
-	 * hook to free allocated resources
+	 * hook to g_free allocated resources
 	 */
 	void (*free)();
 
@@ -238,9 +241,9 @@ char *real_strdup(const char *orig, char *file, int line);
 #define freenull(symbol) {\
 	if (symbol != NULL) {\
 		if (debugfd != NULL) {\
-			fprintf(debugfd, "0x%.8x: free()\n", (unsigned int) symbol);\
+			fprintf(debugfd, "0x%.8x: g_free()\n", (unsigned int) symbol);\
 		}\
-		free(symbol);\
+		g_free(symbol);\
 		symbol = NULL;\
 	} else {\
 		dbg(LOG_ERR, "FREE ERROR: symbol %s is NULL!", __STRING(symbol));\

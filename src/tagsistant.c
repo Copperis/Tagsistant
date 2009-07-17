@@ -75,13 +75,13 @@ int get_filename_and_tagname(const char *path, char **filename, char **filepath,
 {
 	*filename = get_tag_name(path);
 	*filepath = get_file_path(*filename);
-	char *path_dup = strdup(path);
+	char *path_dup = g_strdup(path);
 	char *ri = rindex(path_dup, '/');
 	*ri = '\0';
 	ri = rindex(path_dup, '/');
 	if (ri) {
 		ri++;
-		*tagname = strdup(ri);
+		*tagname = g_strdup(ri);
 	}
 	freenull(path_dup);
 	return 1;
@@ -211,14 +211,8 @@ char *get_file_mimetype(const char *filename)
 		return NULL;
 	}
 	ext++;
-	char *ext_space = malloc(strlen(ext)+2);
-	if (ext_space == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		return NULL;
-	}
 
-	strcpy(ext_space, ext);
-	strcat(ext_space, " "); /* trailing space is used later in matching */
+	char *ext_space = g_strdup_printf("%s ", ext); /* trailing space is used later in matching */
 
 	/* open /etc/mime.types */
 	FILE *f = fopen("/etc/mime.types", "r");
@@ -245,7 +239,7 @@ char *get_file_mimetype(const char *filename)
 
 			while (*ext_list != '\0') {
 				if ((strstr(ext_list, ext) == ext_list) || (strstr(ext_list, ext_space) == ext_list)) {
-					type = strdup(line);
+					type = g_strdup(line);
 					dbg(LOG_INFO, "File %s is %s", filename, type);
 					freenull(line);
 					goto BREAK_MIME_SEARCH;
@@ -286,7 +280,7 @@ int process(const char *filename)
 		return 0;
 	}
 
-	char *mime_generic = strdup(mime_type);
+	char *mime_generic = g_strdup(mime_type);
 	char *slash = index(mime_generic, '/');
 	slash++;
 	*slash = '*';
@@ -363,7 +357,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 	start_time_profile();
 
 	/* last is the last token in path */
-	char *dup = strdup(path);
+	char *dup = g_strdup(path);
 	char *last  = rindex(dup, '/');
 	*last = '\0';
 	last++;
@@ -488,7 +482,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 GETATTR_EXIT:
 
 	freenull(dup);
-	/* last and last2 are not malloc()ated! freenull(last) and freenull(last2) are errors! */
+	/* last and last2 are not g_malloc()ated! freenull(last) and freenull(last2) are errors! */
 
 	stop_labeled_time_profile("getattr");
 	if ( res == -1 ) {
@@ -517,6 +511,7 @@ static int tagsistant_readlink(const char *path, char *buf, size_t size)
 	dbg(LOG_INFO, "READLINK on %s", filepath);
 
 	int res = readlink(filepath, buf, size);
+	if (res > 0) buf[res] = '\0';
 	int tagsistant_errno = errno;
 
 	freenull(filepath);
@@ -555,7 +550,7 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 #endif
 
 	/* check if this tag has been already listed inside the path */
-	char *path_duplicate = strdup(ufs->path);
+	char *path_duplicate = g_strdup(ufs->path);
 	if (path_duplicate == NULL) {
 		dbg(LOG_ERR, "Error duplicating path @%s:%d", __FILE__, __LINE__);
 		return 0;
@@ -564,20 +559,15 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 	while (strstr(last_subquery, "/OR") != NULL) {
 		last_subquery = strstr(last_subquery, "/OR") + strlen("/OR");
 	}
-	char *tag_to_check = calloc(sizeof(char), strlen(argv[0]) + 3);
-	if (tag_to_check == NULL) {
-		freenull(path_duplicate);
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		return 0;
-	}
-	strcat(tag_to_check, "/");
-	strcat(tag_to_check, argv[0]);
-	strcat(tag_to_check, "/");
+
+	gchar *tag_to_check = g_strdup_printf("/%s/", argv[0]);
+
 	if (strstr(last_subquery, tag_to_check) != NULL) {
 		freenull(tag_to_check);
 		freenull(path_duplicate);
 		return 0;
 	}
+
 	freenull(tag_to_check);
 	freenull(path_duplicate);
 
@@ -623,7 +613,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 		filler(buf, "AND", NULL, 0);
 		filler(buf, "OR", NULL, 0);
 		
-		char *pathcopy = strdup(path);
+		char *pathcopy = g_strdup(path);
 	
 		ptree_or_node_t *pt = build_querytree(pathcopy);
 		freenull(pathcopy);
@@ -933,12 +923,12 @@ static int tagsistant_symlink(const char *from, const char *to)
 	char *filename = get_tag_name(to);
 	char *topath = get_file_path(filename);
 
-	char *path_dup = strdup(to);
+	char *path_dup = g_strdup(to);
 	char *ri = rindex(path_dup, '/');
 	*ri = '\0';
 	ri = rindex(path_dup, '/');
 	ri++;
-	char *tagname = strdup(ri);
+	char *tagname = g_strdup(ri);
 	freenull(path_dup);
 
 	/* tag the link */
@@ -1510,7 +1500,7 @@ static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse
     switch (key) {
 		case FUSE_OPT_KEY_NONOPT:
 			if (!tagsistant.mountpoint) {
-				tagsistant.mountpoint = strdup(arg);
+				tagsistant.mountpoint = g_strdup(arg);
 				return 1;
 			}
 			return 0;
@@ -1565,7 +1555,7 @@ int main(int argc, char *argv[])
 #ifndef MACOSX
 	char *destfile = getenv("MALLOC_TRACE");
 	if (destfile != NULL && strlen(destfile)) {
-		fprintf(stderr, " *** logging malloc() calls to %s ***\n", destfile);
+		fprintf(stderr, " *** logging g_malloc() calls to %s ***\n", destfile);
 		mtrace();
 	}
 #endif
@@ -1585,13 +1575,9 @@ int main(int argc, char *argv[])
 
 #ifdef MACOSX
 	fuse_opt_add_arg(&args, "-odefer_permissions");
-	char *volname = calloc(sizeof(char), strlen("-ovolname=") + strlen(tagsistant.mountpoint) + 1);
-	if (volname != NULL) {
-		strcpy(volname, "-ovolname=");
-		strcat(volname, tagsistant.mountpoint);
-		fuse_opt_add_arg(&args, volname);
-		freenull(volname);
-	}
+	gchar *volname = g_strdup_printf("-ovolname=%s", tagsistant.mountpoint);
+	fuse_opt_add_arg(&args, volname);
+	freenull(volname);
 #else
 	/* fuse_opt_add_arg(&args, "-odefault_permissions"); */
 #endif
@@ -1661,11 +1647,8 @@ int main(int argc, char *argv[])
 	/* checking repository */
 	if (!tagsistant.repository || (strcmp(tagsistant.repository, "") == 0)) {
 		if (strlen(getenv("HOME"))) {
-			int replength = strlen(getenv("HOME")) + strlen("/.tagsistant") + 1;
 			freenull(tagsistant.repository);
-			tagsistant.repository = calloc(replength, sizeof(char));
-			strcat(tagsistant.repository, getenv("HOME"));
-			strcat(tagsistant.repository, "/.tagsistant");
+			tagsistant.repository = g_strdup_printf("%s/.tagsistant", getenv("HOME"));
 			if (!tagsistant.quiet)
 				fprintf(stderr, " Using default repository %s\n", tagsistant.repository);
 		} else {
@@ -1686,11 +1669,9 @@ int main(int argc, char *argv[])
 	if (tagsistant.repository[0] == '~') {
 		char *home_path = getenv("HOME");
 		if (home_path != NULL) {
-			char *relative_path = strdup(tagsistant.repository + 1);
+			char *relative_path = g_strdup(tagsistant.repository + 1);
 			freenull(tagsistant.repository);
-			tagsistant.repository = calloc(sizeof(char), strlen(relative_path) + strlen(home_path) + 1);
-			strcpy(tagsistant.repository, home_path);
-			strcat(tagsistant.repository, relative_path);
+			tagsistant.repository = g_strdup_printf("%s%s", home_path, relative_path);
 			freenull(relative_path);
 			dbg(LOG_INFO, "Repository path is %s", tagsistant.repository);
 		} else {
@@ -1705,18 +1686,10 @@ int main(int argc, char *argv[])
 		if (cwd == NULL) {
 			dbg(LOG_ERR, "Error getting working directory, will leave repository path as is");
 		} else {
-			char *absolute_repository = calloc(sizeof(char), strlen(tagsistant.repository) + strlen(cwd) + 2);
-			if (absolute_repository == NULL) {
-				dbg(LOG_ERR, "Error allocaing memory @%s:%d", __FILE__, __LINE__);
-				dbg(LOG_ERR, "Repository path will be left as is");
-			} else {
-				strcpy(absolute_repository, cwd);
-				strcat(absolute_repository, "/");
-				strcat(absolute_repository, tagsistant.repository);
-				freenull(tagsistant.repository);
-				tagsistant.repository = absolute_repository;
-				dbg(LOG_ERR, "Repository path is %s", tagsistant.repository);
-			}
+			gchar *absolute_repository = g_strdup_printf("%s/%s", cwd, tagsistant.repository);
+			freenull(tagsistant.repository);
+			tagsistant.repository = absolute_repository;
+			dbg(LOG_ERR, "Repository path is %s", tagsistant.repository);
 		}
 	}
 
@@ -1731,9 +1704,7 @@ int main(int argc, char *argv[])
 	chmod(tagsistant.repository, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
 
 	/* opening (or creating) SQL tags database */
-	tagsistant.tags = malloc(strlen(tagsistant.repository) + strlen("/tags.sql") + 1);
-	strcpy(tagsistant.tags,tagsistant.repository);
-	strcat(tagsistant.tags,"/tags.sql");
+	tagsistant.tags = g_strdup_printf("%s/tags.sql", tagsistant.repository);
 
 	/* check if db exists or has to be created */
 	struct stat dbstat;
@@ -1758,9 +1729,7 @@ int main(int argc, char *argv[])
 	sqlite3_close(tagsistant.dbh);
 
 	/* checking file archive directory */
-	tagsistant.archive = malloc(strlen(tagsistant.repository) + strlen("/archive/") + 1);
-	strcpy(tagsistant.archive,tagsistant.repository);
-	strcat(tagsistant.archive,"/archive/");
+	tagsistant.archive = g_strdup_printf("%s/archive/", tagsistant.repository);
 
 	if (lstat(tagsistant.archive, &repstat) == -1) {
 		if(mkdir(tagsistant.archive, 755) == -1) {
@@ -1793,11 +1762,11 @@ int main(int argc, char *argv[])
 	 */
 	char *tagsistant_plugins = NULL;
 	if (getenv("TAGSISTANT_PLUGINS") != NULL) {
-		tagsistant_plugins = strdup(getenv("TAGSISTANT_PLUGINS"));
+		tagsistant_plugins = g_strdup(getenv("TAGSISTANT_PLUGINS"));
 		if (!tagsistant.quiet)
 			fprintf(stderr, " Using user defined plugin dir: %s\n", tagsistant_plugins);
 	} else {
-		tagsistant_plugins = strdup(PLUGINS_DIR);
+		tagsistant_plugins = g_strdup(PLUGINS_DIR);
 		if (!tagsistant.quiet)
 			fprintf(stderr, " Using default plugin dir: %s\n", tagsistant_plugins);
 	}
@@ -1810,19 +1779,6 @@ int main(int argc, char *argv[])
 		if (!tagsistant.quiet)
 			fprintf(stderr, " *** error opening directory %s: not a directory ***\n", tagsistant_plugins);
 	} else {
-#if 0
-		/* add this directory to LD_LIBRARY_PATH */
-		int ld_library_path_length = strlen(getenv("LD_LIBRARY_PATH")) + 1 + strlen(tagsistant_plugins);
-		char *NEW_LD_LIBRARY_PATH = calloc(ld_library_path_length, sizeof(char));
-		strcat(NEW_LD_LIBRARY_PATH, getenv("LD_LIBRARY_PATH"));
-		strcat(NEW_LD_LIBRARY_PATH, ":");
-		strcat(NEW_LD_LIBRARY_PATH, tagsistant_plugins);
-		setenv("LD_LIBRARY_PATH", NEW_LD_LIBRARY_PATH, 1);
-		freenull(NEW_LD_LIBRARY_PATH);
-		if (!tagsistant.quiet)
-			fprintf(stderr, " LD_LIBRARY_PATH = %s\n", getenv("LD_LIBRARY_PATH"));
-#endif
-
 		/* open directory and read contents */
 		DIR *p = opendir(tagsistant_plugins);
 		if (p == NULL) {
@@ -1850,10 +1806,7 @@ int main(int argc, char *argv[])
 				tagsistant_plugin_t *plugin = NULL;
 				while ((plugin = calloc(1, sizeof(tagsistant_plugin_t))) == NULL);
 
-				char *pname = calloc(strlen(de->d_name) + strlen(tagsistant_plugins) + 2, sizeof(char));
-				strcat(pname, tagsistant_plugins);
-				strcat(pname, "/");
-				strcat(pname, de->d_name);
+				char *pname = g_strdup_printf("%s/%s", tagsistant_plugins, de->d_name);
 
 				/* load the plugin */
 				plugin->handle = dlopen(pname, RTLD_NOW|RTLD_GLOBAL);
@@ -1896,7 +1849,7 @@ int main(int argc, char *argv[])
 							}
 
 							/* add this plugin on queue head */
-							plugin->filename = strdup(de->d_name);
+							plugin->filename = g_strdup(de->d_name);
 							plugin->next = plugins;
 							plugins = plugin;
 							if (!tagsistant.quiet)
@@ -1943,10 +1896,10 @@ int main(int argc, char *argv[])
 	}
 
 	/* free memory to better perfom memory leak profiling */
-	free(tagsistant_plugins);
-	free(tagsistant.repository);
-	free(tagsistant.archive);
-	free(tagsistant.tags);
+	g_free(tagsistant_plugins);
+	g_free(tagsistant.repository);
+	g_free(tagsistant.archive);
+	g_free(tagsistant.tags);
 
 	return res;
 }

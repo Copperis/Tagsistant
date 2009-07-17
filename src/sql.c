@@ -165,6 +165,6 @@ int report_if_exists(void *exists_buffer, int argc, char **argv, char **azColNam
 gboolean sql_tag_exists(const gchar* tagname)
 {
 	gboolean exists;
-	tagsistant_query("select tagname from tags where tagname = \"%s\";", report_if_exists, &exists, tagname);
+	tagsistant_query("select count(tagname) from tags where tagname = \"%s\";", return_integer, &exists, tagname);
 	return exists;
 }

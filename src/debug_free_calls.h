@@ -35,7 +35,7 @@ unfreeable_t *freeblock;
 	if (uf != NULL)\
 		while (uf->next != NULL)\
 			uf = uf->next;\
-	uf = malloc(sizeof(struct unfreeable));\
+	uf = g_malloc(sizeof(struct unfreeable));\
 	if (uf != NULL) {\
 		uf->next = NULL;\
 		uf->address = (void *) symbol;\

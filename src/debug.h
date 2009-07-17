@@ -69,7 +69,7 @@
 
 extern int debug;
 
-#define oldfree(symbol) assert(symbol != NULL); dbg(LOG_INFO, "free(%s) at %s:%d", __STRING(symbol), __FILE__, __LINE__); free(symbol);
+#define oldfree(symbol) assert(symbol != NULL); dbg(LOG_INFO, "g_free(%s) at %s:%d", __STRING(symbol), __FILE__, __LINE__); g_free(symbol);
 #define befree(symbol) {\
 	if (\
 		(strcmp(__STRING(symbol),"myself") == 0) ||\
@@ -77,11 +77,11 @@ extern int debug;
 		(strcmp(__STRING(symbol),"owner") == 0) ||\
 		(strcmp(__STRING(symbol),"node") == 0) \
 	) {\
-		dbg(LOG_INFO, "Trying to free(%s) at %s:%d, which is probably wrong!", __STRING(symbol), __FILE__, __LINE__);\
+		dbg(LOG_INFO, "Trying to g_free(%s) at %s:%d, which is probably wrong!", __STRING(symbol), __FILE__, __LINE__);\
 	} else {\
-		dbg(LOG_INFO, "free(%s) at %s:%d", __STRING(symbol), __FILE__, __LINE__);\
+		dbg(LOG_INFO, "g_free(%s) at %s:%d", __STRING(symbol), __FILE__, __LINE__);\
 		assert(symbol != NULL);\
-		free(symbol);\
+		g_free(symbol);\
 	}\
 }
 
