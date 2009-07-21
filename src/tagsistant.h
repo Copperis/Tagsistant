@@ -26,10 +26,6 @@
 
 #define TAGSISTANT_PLUGIN_PREFIX "libtagsistant_"
 
-#ifndef SQLITE_MAX_SQL_LENGTH
-#define SQLITE_MAX_SQL_LENGTH 10000
-#endif
-
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif

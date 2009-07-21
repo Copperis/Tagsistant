@@ -338,17 +338,6 @@ void drop_views(ptree_or_node_t *query, sqlite3 *dbh)
 	}
 }
 
-gchar *_dyn_strcat(gchar *original, const gchar *newstring)
-{
-	int length = strlen(original) + strlen(newstring) + 1;
-	gchar *resized = g_try_realloc(original, length);
-	if (resized) {
-		g_strlcat(resized, newstring, length);
-		return resized;
-	}
-	return original;
-}
-
 /**
  * build a linked list of filenames that apply to querytree
  * query expressed in query. querytree is used as follows:
@@ -404,53 +393,52 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 
 	while (query != NULL) {
 		ptree_and_node_t *tag = query->and_set;
-		gchar *statement = g_strdup_printf("create view tv%.8x as ", (unsigned int) query);
+		GString *statement = g_string_new("");
+		g_string_printf(statement, "create view tv%.8x as ", (unsigned int) query);
 		
 		while (tag != NULL) {
-			dyn_strcat(statement, "select filename from tagged where tagname = \"");
-			dyn_strcat(statement, tag->tag);
-			dyn_strcat(statement, "\"");
+			g_string_append(statement, "select filename from tagged where tagname = \"");
+			g_string_append(statement, tag->tag);
+			g_string_append(statement, "\"");
 			
 			/* add related tags */
 			if (tag->related != NULL) {
 				ptree_and_node_t *related = tag->related;
 				while (related != NULL) {
-					dyn_strcat(statement, " or tagname = \"");
-					dyn_strcat(statement, related->tag);
-					dyn_strcat(statement, "\"");
+					g_string_append(statement, " or tagname = \"");
+					g_string_append(statement, related->tag);
+					g_string_append(statement, "\"");
 					related = related->related;
 				}
 			}
 
-			if (tag->next != NULL) dyn_strcat(statement, " intersect ");
+			if (tag->next != NULL) g_string_append(statement, " intersect ");
 
 			tag = tag->next;
 		}
 
-		dyn_strcat(statement, ";");
-		dbg(LOG_INFO, "SQL: final statement is [%s]", statement);
+		g_string_append(statement, ";");
+		dbg(LOG_INFO, "SQL: final statement is [%s]", statement->str);
 
 		/* create view */
-		tagsistant_query(statement, NULL, NULL);
-		g_free(statement);
+		tagsistant_query(statement->str, NULL, NULL);
+		g_string_free(statement,TRUE);
 		query = query->next;
 	}
 
 	/* format view statement */
-	gchar *view_statement = NULL;
+	GString *view_statement = g_string_new("");
 	query = query_dup;
 	while (query != NULL) {
-		gchar *mini = g_strdup_printf("select filename from tv%.8X", (unsigned int) query);
-		dyn_strcat(view_statement, mini);
-		g_free(mini);
+		g_string_append_printf(view_statement, "select filename from tv%.8X", (unsigned int) query);
 		
-		if (query->next != NULL) g_strlcat(view_statement, " union ", SQLITE_MAX_SQL_LENGTH);
+		if (query->next != NULL) g_string_append(view_statement, " union ");
 		
 		query = query->next;
 	}
 
-	dyn_strcat(view_statement, ";");
-	dbg(LOG_INFO, "SQL view statement: %s", view_statement);
+	g_string_append(view_statement, ";");
+	dbg(LOG_INFO, "SQL view statement: %s", view_statement->str);
 
 	struct atft *atft = calloc(sizeof(struct atft), 1);
 	if (atft == NULL) {
@@ -465,10 +453,10 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	atft->dbh = dbh;
 
 	/* apply view statement */
-	do_sql(&dbh, view_statement, add_to_filetree, atft);
+	do_sql(&dbh, view_statement->str, add_to_filetree, atft);
 	freenull(atft);
 
-	freenull(view_statement);
+	g_string_free(view_statement, TRUE);
 
 	drop_views(query_dup, dbh);
 	sqlite3_close(dbh);
