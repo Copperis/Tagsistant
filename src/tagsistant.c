@@ -126,7 +126,7 @@ int is_tagged(char *filename, char *tagname)
  * \return 1 if successful, 0 otherwise
  * \todo check return values of this function
  */
-int tag_file(const char *filename, char *tagname)
+int tag_file(int file_id, char *tagname)
 {
 	/* get pure filename */
 	char *purefile = get_tag_name(filename);
@@ -138,7 +138,7 @@ int tag_file(const char *filename, char *tagname)
 	}
 
 	/* add tag to file */
-	sql_tag_file(tagname, purefile);
+	sql_tag_file(tag_id, purefile);
 
 	/* check if tag is already in db */
 	char exists = sql_tag_exists(tagname);
@@ -160,7 +160,7 @@ int tag_file(const char *filename, char *tagname)
 /**
  * remove tag tagname from file filename
  */
-int untag_file(char *filename, char *tagname)
+int untag_file(int file_id, const char *tagname)
 {
 	sql_untag_file(tagname, filename);
 	
@@ -267,9 +267,13 @@ BREAK_MIME_SEARCH:
  * \param filename file to be processed (just the name, will be looked up in /archive)
  * \return zero on fault, one on success
  */
-int process(const char *filename)
+int process(int file_id)
 {
 	int res = 0, process_res = 0;
+
+	// load the filename from the database
+	char *filename = NULL;
+	tagsistant_query("select filename from file where file_id = %d", return_string, &filename, file_id);
 
 	dbg(LOG_INFO, "Processing file %s", filename);
 
@@ -686,6 +690,7 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 
 	char *filename = NULL, *fullfilename = NULL, *tagname = NULL;
 	get_filename_and_tagname(path, &filename, &fullfilename, &tagname);
+	free(fullfilename);
 
 	if (tagname == NULL) {
 		/* can't create files outside tag/directories */
@@ -697,44 +702,57 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 		res = -1;
 		tagsistant_errno = EEXIST;
 	} else {
-		/* file is not already tagged, doing it */
-		if (tag_file(filename, tagname)) {
-			dbg(LOG_INFO, "Tagging file %s as %s inside tagsistant_mknod()", filename, tagname);
+		dbg(LOG_INFO, "Tagging file %s as %s inside tagsistant_mknod()", filename, tagname);
 
-			res = mknod(fullfilename, mode, rdev);
-			tagsistant_errno = errno;
+		// 1. inserting file into "files" table with a temporary path
+		tagsistant_query("insert into files(filename, path) values(\"%s\")", NULL, NULL, filename, "-to-be-changed-");
 
-			/* do stacked plugin operations */
-			process(filename);
+		// 2. fetching the index of the last insert query
+		int file_id;
+		tagsistant_query("select last_insert_rowid()", return_integer, &file_id);
 
-			if (res == -1) {
-				/*
-				 * if real mknod() return -1 could be because file already exists
-				 * in /archive/ directory. if that's the case, just fake correct
-				 * operations.
-				 */
-				if (tagsistant_errno == EEXIST) {
-					res = 0;
-					tagsistant_errno = 0;
-				} else {
-					dbg(LOG_ERR, "mknod(%s, %u, %u) failed: %s", fullfilename, mode, (unsigned int) rdev, strerror(tagsistant_errno));
-					untag_file(filename, tagname);
-				}
+		// 3. creating the full file path as "<tagsistant.archive>/<id>.<filename>"
+		fullfilename = g_strdup_printf("%s%d.%s", tagsistant.archive, file_id, filename);
+
+		// 4. executing real mknod (and simulating a rollback in case of error)
+		res = mknod(fullfilename, mode, rdev);
+		tagsistant_errno = errno;
+
+		if (res == -1) {
+			/*
+			 * if real mknod() return -1 could be because file already exists
+			 * in /archive/ directory. if that's the case, just fake correct
+			 * operations.
+			 */
+			if (tagsistant_errno == EEXIST) {
+				res = 0;
+				tagsistant_errno = 0;
+			} else {
+				dbg(LOG_ERR, "mknod(%s, %u, %u) failed: %s", fullfilename, mode, (unsigned int) rdev, strerror(tagsistant_errno));
+				untag_file(filename, tagname);
 			}
-		} else {
-			/* tagging failed, we should fake a mknod() error */
-			res = -1;
-			tagsistant_errno = ENOSPC;
+
+			// elimino la entry nella tabella file
+			tagsistant_query("delete from files where id = %d", NULL, NULL, file_id);
 		}
+
+		// 5. completo la entry dentro "files" con il path completo
+		tagsistant_query("update files set path = \"%s\" where id = %d", NULL, NULL, fullfilename, file_id);
+
+		// 6. taggo il file
+		tagsistant_query("insert into tagging (file_id, tagname) values (%d, \"%s\")", NULL, NULL, file_id, tagname);
+
+		dbg(LOG_INFO, "mknod(%s): %d %s", path, res, strerror(tagsistant_errno));
+
+		// 7. dealloco la memoria
+		g_free(fullfilename);
+
+		process(file_id);
 	}
 
-	dbg(LOG_INFO, "MKNOD on %s", path);
-
 	stop_labeled_time_profile("mknod");
-	dbg(LOG_INFO, "mknod(%s): %d %s", fullfilename, res, strerror(tagsistant_errno));
 
 	freenull(filename);
-	freenull(fullfilename);
 	freenull(tagname);
 
 	return (res == -1) ? -tagsistant_errno: 0;

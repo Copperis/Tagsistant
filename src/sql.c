@@ -133,6 +133,28 @@ int return_integer(void *return_integer, int argc, char **argv, char **azColName
 	return 0;
 }
 
+/**
+ * SQL callback. Return a string from a query
+ * Should be called as in:
+ *
+ *   gchar *string;
+ *   tagsistant_query("SQL statement;", return_string, &string); // note the &
+ * 
+ * \param return_integer string pointer cast to void* which holds the string to be returned
+ * \param argc counter of argv arguments
+ * \param argv array of SQL given results
+ * \param azColName array of SQL column names
+ * \return 0 (always, due to SQLite policy)
+ */
+int return_string(void *return_string, int argc, char **argv, char **azColName)
+{
+	(void) argc;
+	(void) azColName;
+
+	return_string = argv[0] ? (void *) g_strdup(argv[0]) : NULL;
+	return 0;
+}
+
 int get_exact_tag_id(const gchar *tagname)
 {
 	int id;
