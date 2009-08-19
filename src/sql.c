@@ -106,6 +106,7 @@ int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)
 	va_start(ap, firstarg);
 
 	gchar *statement = g_strdup_vprintf(format, ap);
+	dbg(LOG_INFO, "%s", statement);
 	int res = real_do_sql(NULL, statement, callback, firstarg, file, line);
 	g_free(statement);
 
@@ -151,7 +152,8 @@ int return_string(void *return_string, int argc, char **argv, char **azColName)
 	(void) argc;
 	(void) azColName;
 
-	return_string = argv[0] ? (void *) g_strdup(argv[0]) : NULL;
+	gchar **result = (gchar **) return_string;
+	*result = (argv[0] != NULL) ? g_strdup(argv[0]) : NULL;
 	return 0;
 }
 

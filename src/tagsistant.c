@@ -47,7 +47,7 @@ char *real_strdup(const char *orig, char *file, int line)
 {
 	if (orig == NULL) return NULL;
 	/* dbg(LOG_INFO, "strdup(%s) @%s:%d", orig, file, line); */
-	char *res = calloc(sizeof(char), strlen(orig) + 1);
+	char *res = g_malloc0(sizeof(char) * (strlen(orig) + 1));
 	memcpy(res, orig, strlen(orig));
 	if (debugfd != NULL) fprintf(debugfd, "0x%.8x: strdup(%s) @%s:%d\n", (unsigned int) res, orig, file, line);
 	return res;
@@ -56,6 +56,52 @@ char *real_strdup(const char *orig, char *file, int line)
 
 int debug = 0;
 int log_enabled = 0;
+
+/**
+ * Return the real path on the underlying filesystem to access a file.
+ * The file can be provided as its basename with the "filename" parameter,
+ * or through its unique ID using the "file_id" parameter. If the file is
+ * not located inside the DB, and a "filename" has been provided, a path
+ * inside the archive/ directory is returned. The "filename" and "file_id"
+ * parameters can be specified exclusively.
+ *
+ * EXAMPLE 1: get_file_path(NULL, 12) will return the path of file with
+ * ID 12, if existing, NULL otherwise.
+ *
+ * EXAMPLE 2: get_file_path("passwd", 0) will return the path of the only
+ * "passwd" file in the files table. If more than one file exist, NULL
+ * is returned. If no file is found, the path "<repository>/archive/passwd"
+ * is returned, where <repository> is the path of Tagsistant repository.
+ *
+ * \param @filename a string with the basename of the file
+ * \param @file_id an ID referring to a file
+ * \returns a string, if appropriate, NULL otherwise. Must be freed!
+ */
+gchar *get_file_path(const gchar *filename, int file_id)
+{
+	gchar *path = NULL;
+
+	if (file_id) {
+		tagsistant_query("select path from files where id = %u", return_string, &path, file_id);
+		if ((path == NULL) && (filename != NULL)) {
+			path = g_strdup_printf("%s%s", tagsistant.archive, filename);
+		}
+	} else if (filename != NULL) {
+		int count = 0;
+		tagsistant_query("select count(filename) from files where filename = \"%s\"", return_integer, &count, filename);
+
+		if (count == 0) {
+			path = g_strdup_printf("%s%s", tagsistant.archive, filename);
+		} else if (count == 1) {
+			tagsistant_query("select path from files where filename = \"%s\"", return_string, &path, filename);
+		} else {
+			// if more than 1 entry match the file name, the corresponding path can't be guessed
+		}
+	}
+
+	dbg(LOG_INFO, "get_file_path(\"%s\", %u) == \"%s\"", filename, file_id, path);
+	return path;
+}
 
 /* defines command line options for tagsistant mount tool */
 /* static */ struct tagsistant tagsistant;
@@ -73,8 +119,8 @@ int log_enabled = 0;
  */
 int get_filename_and_tagname(const char *path, char **filename, char **filepath, char **tagname)
 {
-	*filename = get_tag_name(path);
-	*filepath = get_file_path(*filename);
+	*filename = g_path_get_basename(path);
+	*filepath = get_file_path(*filename, 0);
 	char *path_dup = g_strdup(path);
 	char *ri = rindex(path_dup, '/');
 	*ri = '\0';
@@ -101,77 +147,43 @@ void init_syslog()
 }
 #endif
 
+/**
+ * Check if a file with id "file_id" is associated with a given tag.
+ *
+ * \param file_id the file_id to be checked
+ * \param tagname the name of the tag to be searched on filename
+ * \return 1 if file filename is tagged with tag tagname, 0 otherwise.
+ */
+gboolean is_tagged(int file_id, char *tagname)
+{
+	int exists = 0;
+	tagsistant_query(
+		"select count(filename) from tagging where file_id = \"%d\" and tagname = \"%s\";",
+		return_integer, &exists, file_id, tagname);
+	return exists ? TRUE : FALSE;
+}
 
 /**
- * Check if a file is associated with a given tag.
+ * Check if a file named "filename" is associated with a given tag.
  *
  * \param filename the filename to be checked (no path)
  * \param tagname the name of the tag to be searched on filename
  * \return 1 if file filename is tagged with tag tagname, 0 otherwise.
  */
-int is_tagged(char *filename, char *tagname)
+gboolean filename_is_tagged(const char *filename, const char *tagname)
 {
-	int exists = 0;
+	int is_tagged = 0;
 	tagsistant_query(
-		"select filename from tagged where filename = \"%s\" and tagname = \"%s\";",
-		report_if_exists, &exists, filename, tagname);
-	return exists;
-}
-
-/**
- * Add tag tagname to file.
- *
- * \param filename the file to be tagged (no path)
- * \param tagname the tag to be added.
- * \return 1 if successful, 0 otherwise
- * \todo check return values of this function
- */
-int tag_file(int file_id, char *tagname)
-{
-	/* get pure filename */
-	char *purefile = get_tag_name(filename);
-
-	/* check if file is already tagged */
-	if (is_tagged(purefile, tagname)) {
-		freenull(purefile);
-		return 1;
-	}
-
-	/* add tag to file */
-	sql_tag_file(tag_id, purefile);
-
-	/* check if tag is already in db */
-	char exists = sql_tag_exists(tagname);
-	
-	if (exists) {
-		dbg(LOG_INFO, "Tag %s already exists", tagname);
-		freenull(purefile);
-		return 1;
-	}
-
-	/* add tag to taglist */
-	sql_create_tag(tagname);
-	dbg(LOG_INFO, "Tag %s created", tagname);
-
-	freenull(purefile);
-	return 1;
-}
-
-/**
- * remove tag tagname from file filename
- */
-int untag_file(int file_id, const char *tagname)
-{
-	sql_untag_file(tagname, filename);
-	
-	return 1;
+		"select count(tagname) from tagging join files on files.id = tagging.file_id where files.filename = \"%s\" and tagging.tagname = \"%s\";",
+		return_integer, &is_tagged, filename, tagname);
+	return is_tagged ? TRUE : FALSE;
 }
 
 #ifdef MACOSX
 ssize_t getline(char **lineptr, size_t *n, FILE *stream)
 {
 	if (*lineptr == NULL)
-		*lineptr = calloc(sizeof(char), *n + 1);
+		*lineptr = g_malloc0(sizeof(char) * (*n + 1));
 
 	if (*lineptr == NULL)
 		return 0;
@@ -346,7 +358,8 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 {
     int res = 0, tagsistant_errno = 0;
 
-	if (strcmp(path, "/") == 0) {
+	/* special cases: "/" and "" */
+	if ((g_strcmp0(path, "/") == 0) || (g_strcmp0(path, "") == 0)) {
 		res = lstat(tagsistant.archive, stbuf);
 		if ( res == -1 ) {
 			tagsistant_errno = errno;
@@ -360,20 +373,31 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 	init_time_profile();
 	start_time_profile();
 
-	/* last is the last token in path */
-	char *dup = g_strdup(path);
-	char *last  = rindex(dup, '/');
-	*last = '\0';
-	last++;
+	/* split the path into its components */
+	gchar **tokens = g_strsplit(path, "/", 512);
+	gchar **token_ptr = tokens;
+	gchar *last = NULL;
+	gchar *last2 = NULL;
 
-	/*
-	 * last2 is the token before last (can be null for 1 token paths, like "/photos",
-	 * where last == "photos" and last2 == NULL)
-	 */
-	char *last2 = rindex(dup, '/');
-	if (last2 != NULL) last2++;
+	// dbg(LOG_INFO, "last = [%s], last2 = [%s]", last, last2);
 
-	/* special case */
+	/* locate last and last2 (penultimate) elements */
+	int token_counter = 0;
+	while (*token_ptr != NULL) {
+		last2 = last;
+		last = *token_ptr;
+		token_ptr++;
+		token_counter++;
+		// dbg(LOG_INFO, "last = [%s], last2 = [%s], token_counter = %u", last, last2, token_counter);
+	}
+
+	if (token_counter < 1) {
+		dbg(LOG_INFO, "GETATTR on %s: not enough tokens in path @%s:%d", path, __FILE__, __LINE__);
+		g_strfreev(tokens);
+		return -ENOENT;
+	}
+
+	/* special case: last element is an operator (AND or OR) */
 	if ((strcmp(last, "AND") == 0) || (strcmp(last, "OR") == 0)) {
 
 #if VERBOSE_DEBUG
@@ -400,7 +424,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 		stbuf->st_ino++;
 
 		/* AND and OR can't be the same inode */
-		if (strcmp(last, "OR") == 0) stbuf->st_ino++;
+		if (g_strcmp0(last, "OR") == 0) stbuf->st_ino++;
 		
 		/* logical operators can't be written by anyone */
 		stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
@@ -410,13 +434,15 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 		stbuf->st_nlink = 1;
 
-		freenull(dup);
+		g_strfreev(tokens);
 		return 0;
 	}
 
+	dbg(LOG_INFO, "last = [%s], last2 = [%s], token_counter = %u", last, last2, token_counter);
+
 	/* last token in path is a file or a tag? */
-	if ((last2 == NULL) || (strcmp(last2, "AND") == 0) || (strcmp(last2, "OR") == 0)) {
-		/* is a dir-tag */
+	if ((last2 == NULL) || (strlen(last2) == 0) || (strcmp(last2, "AND") == 0) || (strcmp(last2, "OR") == 0)) {
+		/* last is a dir-tag */
 		/* last is the name of the tag */
 #if VERBOSE_DEBUG
 		dbg(LOG_INFO, "GETATTR on tag: '%s'", last);
@@ -425,6 +451,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 		int exists = sql_tag_exists(last);
 
 		if (exists) {
+			dbg(LOG_INFO, "Tag %s already exists",last);
 			res = lstat(tagsistant.archive, stbuf);
 			tagsistant_errno = errno;
 
@@ -433,62 +460,48 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 			tagsistant_query("select id from tags where tagname = \"%s\";", return_integer, &inode, last);
 			stbuf->st_ino = inode * 3; /* each directory holds 3 inodes: itself/, itself/AND/, itself/OR/ */
 		} else {
+			dbg(LOG_INFO, "Tag %s does not exist", last);
 			res = -1;
 			tagsistant_errno = ENOENT;
 		}
 	} else {
-		/* is a file */
+		/* last is a file */
 		/* last is the filename */
 		/* last2 is the last tag in path */
 
+		/* split filename into id and proper filename */
+		int file_id = 0;
+		char purefilename[255];
+		if (sscanf(last, "%u.%s", &file_id, purefilename) != 2) {
+			sprintf(purefilename, "%s", last);
+			dbg(LOG_WARNING, "GETATTR Warning: file %s don't apply to <id>.<filename> convention @%s:%d", last, __FILE__, __LINE__);
+		}
+
 		/* check if file is tagged */
-
-		/* build querytree */
-		ptree_or_node_t *pt = build_querytree(path);
-		if (pt == NULL) {
-			dbg(LOG_ERR, "Error building querytree @%s:%d", __FILE__, __LINE__);
-			freenull(dup);
-			return -ENOENT;
-		}
-		ptree_or_node_t *ptx = pt;
-
-		/* check in all tags */
-		while (ptx != NULL) {
-			ptree_and_node_t *andpt = ptx->and_set;
-			while (andpt != NULL) {
-				ptree_and_node_t *related = andpt;
-				while (related != NULL) {
-					if (is_tagged(last, related->tag)) {
-						char *filepath = get_file_path(last);
-						res = lstat(filepath, stbuf);
-						tagsistant_errno = (res == -1) ? errno : 0;
-#if VERBOSE_DEBUG
-						dbg(LOG_INFO, "lstat('%s/%s'): %d (%s)", related->tag, last, res, strerror(tagsistant_errno));
-#endif
-						freenull(filepath);
-						destroy_querytree(pt);
-						goto GETATTR_EXIT;
-					}
-					related = related->related;
+		token_ptr = tokens;
+		while (*token_ptr && (g_strcmp0(*token_ptr, purefilename) != 0)) {
+			gchar *token = *token_ptr;
+			if (strlen(token) && (g_strcmp0(token, "AND") != 0) && (g_strcmp0(token, "OR") != 0)) {
+				if ((file_id && is_tagged(file_id, token)) || filename_is_tagged(purefilename, token)) {
+					gchar *filepath = get_file_path(purefilename, file_id);
+					res = lstat(filepath, stbuf);
+					tagsistant_errno = (res == -1) ? errno : 0;
+					freenull(filepath);
+					goto GETATTR_EXIT;
 				}
-#if VERBOSE_DEBUG
-				dbg(LOG_INFO, "%s is not tagged %s", last, andpt->tag);
-#endif
-				andpt = andpt->next;
 			}
-			ptx = ptx->next;
+			token_ptr++;
 		}
-		destroy_querytree(pt);
+
 		res = -1;
 		tagsistant_errno = ENOENT;
 	}
 
 GETATTR_EXIT:
 
-	freenull(dup);
-	/* last and last2 are not g_malloc()ated! freenull(last) and freenull(last2) are errors! */
-
+	g_strfreev(tokens);
 	stop_labeled_time_profile("getattr");
+
 	if ( res == -1 ) {
 		dbg(LOG_ERR, "GETATTR on %s: %d %d: %s", path, res, tagsistant_errno, strerror(tagsistant_errno));
 		return -tagsistant_errno;
@@ -509,8 +522,15 @@ GETATTR_EXIT:
 static int tagsistant_readlink(const char *path, char *buf, size_t size)
 {
 	char *filename = get_tag_name(path);
-	char *filepath = get_file_path(filename);
+
+	int file_id = 0;
+	char *purefilename = NULL;
+	get_file_id_and_name(filename, &file_id, &purefilename);
+
+	char *filepath = get_file_path(purefilename, file_id);
+
 	freenull(filename);
+	freenull(purefilename);
 
 	dbg(LOG_INFO, "READLINK on %s", filepath);
 
@@ -600,7 +620,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 
 	char *tagname = get_tag_name(path);
 	if (
-		strlen(tagname) &&
+		strlen(tagname) > 1 &&
 		(strcmp(tagname,"AND") != 0) &&
 		(strcmp(tagname,"OR") != 0)
 	) {
@@ -617,15 +637,16 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 		filler(buf, "AND", NULL, 0);
 		filler(buf, "OR", NULL, 0);
 		
-		char *pathcopy = g_strdup(path);
-	
-		ptree_or_node_t *pt = build_querytree(pathcopy);
-		freenull(pathcopy);
-		if (pt == NULL)
+		ptree_or_node_t *pt = build_querytree(path, TRUE);
+
+		if (pt == NULL) {
+			freenull(tagname);
 			return -EBADF;
+		}
 	
 		file_handle_t *fh = build_filetree(pt, path);
 		if (fh == NULL) {
+			freenull(tagname);
 			destroy_querytree(pt);
 			return -EBADF;
 		}
@@ -653,7 +674,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 		 * if path does terminate with a logical operator
 		 * directory should be filled with tagsdir registered tags
 		 */
-		struct use_filler_struct *ufs = calloc(sizeof(struct use_filler_struct), 1);
+		struct use_filler_struct *ufs = g_new0(struct use_filler_struct, 1);
 		if (ufs == NULL) {
 			dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
 			freenull(tagname);
@@ -668,6 +689,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 		tagsistant_query("select tagname from tags;", add_entry_to_dir, ufs);
 		freenull(ufs);
 	}
+
 	freenull(tagname);
 
 	return 0;
@@ -696,9 +718,9 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 		/* can't create files outside tag/directories */
 		res = -1;
 		tagsistant_errno = ENOTDIR;
-	} else if (is_tagged(filename, tagname)) {
+	} else if (filename_is_tagged(filename, tagname)) {
 		/* is already tagged so no mknod() is required */
-		dbg(LOG_INFO, "%s is already tagged as %s", filename, tagname);
+		dbg(LOG_INFO, "A file named %s is already tagged as %s", filename, tagname);
 		res = -1;
 		tagsistant_errno = EEXIST;
 	} else {
@@ -729,7 +751,6 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 				tagsistant_errno = 0;
 			} else {
 				dbg(LOG_ERR, "mknod(%s, %u, %u) failed: %s", fullfilename, mode, (unsigned int) rdev, strerror(tagsistant_errno));
-				untag_file(filename, tagname);
 			}
 
 			// elimino la entry nella tabella file
@@ -745,7 +766,7 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 		dbg(LOG_INFO, "mknod(%s): %d %s", path, res, strerror(tagsistant_errno));
 
 		// 7. dealloco la memoria
-		g_free(fullfilename);
+		freenull(fullfilename);
 
 		process(file_id);
 	}
@@ -801,7 +822,7 @@ static int tagsistant_unlink(const char *path)
 
 	dbg(LOG_INFO, "UNLINK on %s", filename);
 
-	ptree_or_node_t *pt = build_querytree(path);
+	ptree_or_node_t *pt = build_querytree(path, FALSE);
 	ptree_or_node_t *ptx = pt;
 
 	while (ptx != NULL) {
@@ -820,10 +841,10 @@ static int tagsistant_unlink(const char *path)
 
 	/* checking if file has more tags or is untagged */
 	int exists = 0;
-	tagsistant_query("select tagname from tagged where filename = \"%s\";", report_if_exists, &exists, filename);
+	tagsistant_query("select count(tagname) from tagged where filename = \"%s\";", return_integer, &exists, filename);
 	if (!exists) {
 		/* file is no longer tagged, so can be deleted from archive */
-		char *filepath = get_file_path(filename);
+		char *filepath = get_file_path(filename, 0);
 		dbg(LOG_INFO, "Unlinking file %s: it's no longer tagged!", filepath);
 		res = unlink(filepath);
 		tagsistant_errno = errno;
@@ -848,7 +869,7 @@ static int tagsistant_rmdir(const char *path)
 	init_time_profile();
 	start_time_profile();
 
-	ptree_or_node_t *pt = build_querytree(path);
+	ptree_or_node_t *pt = build_querytree(path, FALSE);
 	ptree_or_node_t *ptx = pt;
 
 	/* tag name is inserted 2 times in query, that's why '* 2' */
@@ -911,8 +932,8 @@ static int tagsistant_rename(const char *from, const char *to)
 
 		sql_rename_file(newfilename, tagname);
 
-		char *filepath = get_file_path(tagname);
-		char *newfilepath = get_file_path(newfilename);
+		char *filepath = get_file_path(tagname, 0);
+		char *newfilepath = get_file_path(newfilename, 0);
 		res = rename(filepath, newfilepath);
 		tagsistant_errno = errno;
 		freenull(filepath);
@@ -933,43 +954,48 @@ static int tagsistant_rename(const char *from, const char *to)
  */
 static int tagsistant_symlink(const char *from, const char *to)
 {
-    int res = 0, tagsistant_errno = 0;
+    int tagsistant_errno = 0, file_id = 0;
+
+	dbg(LOG_INFO, "Entering symlink...");
 
 	init_time_profile();
 	start_time_profile();
 
 	char *filename = get_tag_name(to);
-	char *topath = get_file_path(filename);
+	char *topath = get_file_path(filename, 0); /* ask for a new filename */
 
-	char *path_dup = g_strdup(to);
-	char *ri = rindex(path_dup, '/');
-	*ri = '\0';
-	ri = rindex(path_dup, '/');
-	ri++;
-	char *tagname = g_strdup(ri);
-	freenull(path_dup);
+	/* check if file is already linked */
+	tagsistant_query("select id from files where path = \"%s\"", return_integer, &file_id, from);
 
-	/* tag the link */
-	dbg(LOG_INFO, "Tagging file inside tagsistant_symlink() or tagsistant_link()");
-	tag_file(filename, tagname);
-
-	struct stat stbuf;
-	if ((lstat(topath, &stbuf) == -1) && (errno == ENOENT)) {
-		dbg(LOG_INFO, "Linking %s as %s", from, topath);
-		res = symlink(from, topath);
-		tagsistant_errno = errno;
-	} else {
-		dbg(LOG_INFO, "A file named %s is already in archive.", filename);
-		res = -1;
-		tagsistant_errno = EEXIST;
+	/* create the file, if does not exists */
+	if (!file_id) {
+		tagsistant_query("insert into files (filename, path) values (\"%s\", \"%s\")", NULL, NULL, filename, from);
+		tagsistant_query("select last_insert_rowid()", return_integer, &file_id);
 	}
 
-	freenull(tagname);
+	/* split the path and do the tagging */
+	if (file_id) {
+		gchar **tokens = g_strsplit(to, "/", 512);
+		gchar **tokens_ptr = tokens;
+
+		while ((*tokens_ptr != NULL) && (g_strcmp0(*tokens_ptr, filename) != 0)) {
+			if (strlen(*tokens_ptr)) {
+				dbg(LOG_INFO, "Tagging file %s as %s inside tagsistant_symlink() or tagsistant_link()", filename, *tokens_ptr);
+				tag_file(file_id, *tokens_ptr);
+			}
+			tokens_ptr++;
+		}
+
+		g_strfreev(tokens);
+	} else {
+		tagsistant_errno = EIO;
+	}
+
 	freenull(filename);
 	freenull(topath);
 
 	stop_labeled_time_profile("symlink");
-	return (res == -1) ? -tagsistant_errno : 0;
+	return (file_id != 0) ? -tagsistant_errno : 0;
 }
 
 /**
@@ -1000,7 +1026,7 @@ static int tagsistant_chmod(const char *path, mode_t mode)
 	start_time_profile();
 
 	char *tagname = get_tag_name(path);
-	char *filepath = get_file_path(tagname);
+	char *filepath = get_file_path(tagname, 0);
 
 	res = chmod(filepath, mode);
 	tagsistant_errno = errno;
@@ -1028,7 +1054,7 @@ static int tagsistant_chown(const char *path, uid_t uid, gid_t gid)
 	start_time_profile();
 
 	char *tagname = get_tag_name(path);
-	char *filepath = get_file_path(tagname);
+	char *filepath = get_file_path(tagname, 0);
 
 	res = chown(filepath, uid, gid);
 	tagsistant_errno = errno;
@@ -1055,7 +1081,7 @@ static int tagsistant_truncate(const char *path, off_t size)
 	start_time_profile();
 
 	char *tagname = get_tag_name(path);
-	char *filepath = get_file_path(tagname);
+	char *filepath = get_file_path(tagname, 0);
 
 	res = truncate(filepath, size);
 	tagsistant_errno = errno;
@@ -1083,7 +1109,7 @@ static int tagsistant_utime(const char *path, struct utimbuf *buf)
 	start_time_profile();
 
 	char *tagname = get_tag_name(path);
-	char *filepath = get_file_path(tagname);
+	char *filepath = get_file_path(tagname, 0);
 
 	res = utime(filepath, buf);
 	tagsistant_errno = errno;
@@ -1140,12 +1166,12 @@ static int tagsistant_open(const char *path, struct fuse_file_info *fi)
 
 	dbg(LOG_INFO, "OPEN: %s", path);
 
-	ptree_or_node_t *pt = build_querytree(path);
+	ptree_or_node_t *pt = build_querytree(path, FALSE);
 	ptree_or_node_t *ptx = pt;
 	while (ptx != NULL && res == -1) {
 		ptree_and_node_t *and = ptx->and_set;
 		while (and != NULL && res == -1) {
-			if (is_tagged(filename, and->tag)) {
+			if (filename_is_tagged(filename, and->tag)) {
 				res = internal_open(filepath, fi->flags|O_RDONLY, &tagsistant_errno);
 				if (res != -1) close(res);
 			}
@@ -1177,8 +1203,12 @@ static int tagsistant_read(const char *path, char *buf, size_t size, off_t offse
                     struct fuse_file_info *fi)
 {
     int res = 0, tagsistant_errno = 0;
-	char *filename = NULL, *filepath = NULL, *tagname = NULL;
-	get_filename_and_tagname(path, &filename, &filepath, &tagname);
+
+	char *filename = get_tag_name(path);
+	int file_id = 0;
+	char *purename = NULL;
+	get_file_id_and_name(filename, &file_id, &purename);
+	char *filepath = get_file_path(purename, file_id);
 
 	init_time_profile();
 	start_time_profile();
@@ -1191,8 +1221,8 @@ static int tagsistant_read(const char *path, char *buf, size_t size, off_t offse
 	}
 
 	freenull(filename);
+	freenull(purename);
 	freenull(filepath);
-	freenull(tagname);
 
 	stop_labeled_time_profile("read");
 	return (res == -1) ? -tagsistant_errno : res;
@@ -1821,8 +1851,7 @@ int main(int argc, char *argv[])
 
 				/* file is a tagsistant plugin (beginning by right prefix) and is processed */
 				/* allocate new plugin object */
-				tagsistant_plugin_t *plugin = NULL;
-				while ((plugin = calloc(1, sizeof(tagsistant_plugin_t))) == NULL);
+				tagsistant_plugin_t *plugin = g_new0(tagsistant_plugin_t, 1);
 
 				char *pname = g_strdup_printf("%s/%s", tagsistant_plugins, de->d_name);
 
@@ -1914,12 +1943,28 @@ int main(int argc, char *argv[])
 	}
 
 	/* free memory to better perfom memory leak profiling */
-	g_free(tagsistant_plugins);
-	g_free(tagsistant.repository);
-	g_free(tagsistant.archive);
-	g_free(tagsistant.tags);
+	freenull(tagsistant_plugins);
+	freenull(tagsistant.repository);
+	freenull(tagsistant.archive);
+	freenull(tagsistant.tags);
 
 	return res;
+}
+
+/**
+ * Return the file id and pure name, if the filename apply to <id>.<purename>
+ * convetion. Otherwise id will be 0, and purename will be a copy of original.
+ */
+void get_file_id_and_name(const gchar *original, int *id, char **purename)
+{
+	char _purename[1024];
+	memset(_purename, 0, 1024);
+	if (sscanf(original, "%u.%s", id, _purename) != 2) {
+		id = 0;
+		*purename = g_strdup(original);
+	} else {
+		*purename = g_strdup(_purename);	
+	}
 }
 
 // vim:ts=4:autoindent:nocindent:syntax=c

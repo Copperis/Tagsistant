@@ -42,8 +42,8 @@ extern gboolean sql_tag_exists(const gchar* tagname);
  * SQL QUERIES *
 \***************/
 #define tagsistant_init_database() {\
-	tagsistant_query("create table tags (id integer primary key autoincrement not null, tagname varchar(64) not null);", NULL, NULL);\
-	tagsistant_query("create table files (id integer not null primary key autoincrement, filename text(255) not null, path text(1024) not null);", NULL, NULL);\
+	tagsistant_query("create table tags (id integer primary key autoincrement not null, tagname varchar(64) unique not null);", NULL, NULL);\
+	tagsistant_query("create table files (id integer not null primary key autoincrement, filename text(255) not null, path text(1024) unique not null);", NULL, NULL);\
 	tagsistant_query("create table tagging (file_id integer not null primary key autoincrement, tagname text(64) not null, constraint Tagging_key unique (file_id, tagname));", NULL, NULL);\
 	tagsistant_query("create table relations(id integer primary key autoincrement not null, tag1 varchar(64) not null, relation varchar not null, tag2 varchar(64) not null);", NULL, NULL);\
 	tagsistant_query("create index tags_index on tagging (tagname);", NULL, NULL);\
@@ -76,3 +76,6 @@ extern gboolean sql_tag_exists(const gchar* tagname);
 #define sql_rename_file(oldname, newname) tagsistant_query("update files set filename = \"%s\" where filename = \"%s\";", NULL, NULL, newname, oldname);
 
 #define ALL_FILES_TAGGED		"select filename from files join tagging on tagging.file_id = files.id where tagging.tagname = \"%s\""
+
+#define tag_file(file_id, tagname) sql_tag_file(tagname, file_id)
+#define untag_file(file_id, tagname) sql_untag_file(tagname, file_id)

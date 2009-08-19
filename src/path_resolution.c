@@ -22,42 +22,6 @@
 
 #include "tagsistant.h"
 
-char *get_tag_name(const char *path)
-{
-	char *idx = rindex(path, '/');
-	if (idx != NULL) {
-		idx++;
-		return strdup(idx);
-	} else {
-		return strdup(path);
-	}
-}
-
-char *get_file_path(const char *tag)
-{
-	char *filepath = g_malloc(strlen(tagsistant.archive) + strlen(tag) + 1);
-	if (filepath == NULL) {
-		dbg(LOG_ERR, "error allocating memory in get_file_path");
-		return NULL;
-	}
-	strcpy(filepath,tagsistant.archive);
-	strcat(filepath,tag);
-	return filepath;
-}
-
-#ifdef MACOSX
-char *strndup(const char *s, size_t n)
-{
-	char *result = calloc(sizeof(char), n+1);
-	if (result == NULL)
-		return NULL;
-
-	memcpy(result, s, n);
-	result[n] = '\0';
-	return result;
-}
-#endif
-
 typedef struct reasoning {
 	ptree_and_node_t *start_node;
 	ptree_and_node_t *actual_node;
@@ -166,11 +130,12 @@ int reasoner(reasoning_t *reasoning)
  *
  * \param @path the path to be converted in a logical query
  */
-ptree_or_node_t *build_querytree(const char *path)
+ptree_or_node_t *build_querytree(const char *path, int do_reasoning)
 {
-	const char *pathptx = path + 1; /* skip first slash */
+	unsigned int orcount = 0, andcount = 0;
+	int next_should_be_logical_op = FALSE;
 
-	ptree_or_node_t *result = calloc(sizeof(ptree_or_node_t), 1);
+	ptree_or_node_t *result = g_new0(ptree_or_node_t, 1);
 	if (result == NULL) {
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
 		return NULL;
@@ -178,51 +143,52 @@ ptree_or_node_t *build_querytree(const char *path)
 	ptree_or_node_t *last_or = result;;
 	ptree_and_node_t *last_and = NULL;
 
-	unsigned int orcount = 0, andcount = 0;
-	const char *idx = pathptx;
-	int next_should_be_logical_op = 0;
-	while (*idx != '\0') {
-		/* get next slash. if there are no more slashes, reach end of string */
-		idx = index(pathptx, '/');
-		if (idx == NULL) idx = index(pathptx, '\0');
+	gchar **splitted = g_strsplit(path, "/", 512); /* split up to 512 tokens */
+	gchar **token_ptr = splitted;
 
-		/* duplicate next element */
-		char *element = strndup(pathptx, idx - pathptx);
+	while (*token_ptr != NULL) {
+		char *token = *token_ptr;
 
-		if (next_should_be_logical_op) {
-			if (strcmp(element, "AND") == 0) {
-				/* skip it? nothing should be done with AND elements */
-			} else if (strcmp(element, "OR") == 0) {
+		if (strlen(token) == 0) {
+			/* ignore zero length tokens */
+		} else if (next_should_be_logical_op) {
+			if (strcmp(token, "AND") == 0) {
+				dbg(LOG_INFO, "Skipping AND...");
+				/* skip it? nothing should be done with AND tokens */
+			} else if (strcmp(token, "OR") == 0) {
 				/* open new entry in OR level */
 				orcount++;
 				andcount = 0;
-				ptree_or_node_t *new_or = calloc(sizeof(ptree_or_node_t), 1);
+				ptree_or_node_t *new_or = g_new0(ptree_or_node_t, 1);
 				if (new_or == NULL) {
 					dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-					freenull(element);
+					g_strfreev(splitted);
 					return NULL;
 				}
 				last_or->next = new_or;
 				last_or = new_or;
 				last_and = NULL;
+				dbg(LOG_INFO, "Allocated new OR node...");
 			} else {
 				/* filename or error in path */
 #if VERBOSE_DEBUG
-				dbg(LOG_INFO, "%s is not AND/OR operator, exiting build_querytree()", element);
+				dbg(LOG_INFO, "%s is not AND/OR operator, exiting build_querytree()", token);
 #endif
-				freenull(element);
+				dbg(LOG_INFO, "%s is not AND/OR operator, exiting build_querytree()", token);
+				g_strfreev(splitted);
 				return result;
 			}
-			next_should_be_logical_op = 0;
+			next_should_be_logical_op = FALSE;
 		} else {
-			/* save next element in new ptree_and_node_t slot */
-			ptree_and_node_t *and = calloc(sizeof(ptree_and_node_t), 1);
+			/* save next token in new ptree_and_node_t slot */
+			ptree_and_node_t *and = g_new0(ptree_and_node_t, 1);
 			if (and == NULL) {
 				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-				freenull(element);
+				g_strfreev(splitted);
 				return NULL;
 			}
-			and->tag = strdup(element);
+			and->tag = strdup(token);
+			dbg(LOG_INFO, "New AND node allocated on tag %s...", and->tag);
 			and->next = NULL;
 			and->related = NULL;
 			if (last_and == NULL) {
@@ -232,29 +198,31 @@ ptree_or_node_t *build_querytree(const char *path)
 			}
 			last_and = and;
 
-#if VERBOSE_DEBUG
-			dbg(LOG_INFO, "Query tree: %.2d.%.2d %s", orcount, andcount, element);
-#endif
+			dbg(LOG_INFO, "Query tree: %.2d.%.2d %s", orcount, andcount, token);
 			andcount++;
-			next_should_be_logical_op = 1;
+			next_should_be_logical_op = TRUE;
 
 			/* search related tags */
 #if VERBOSE_DEBUG
 			dbg(LOG_INFO, "Searching for other tags related to %s", and->tag);
 #endif
-			reasoning_t *reasoning = g_malloc(sizeof(reasoning_t));
-			if (reasoning != NULL) {
-				reasoning->start_node = and;
-				reasoning->actual_node = and;
-				reasoning->added_tags = 0;
-				int newtags = reasoner(reasoning);
-				dbg(LOG_INFO, "Reasoning added %d tags", newtags);
+
+			if (do_reasoning) {
+				reasoning_t *reasoning = g_malloc(sizeof(reasoning_t));
+				if (reasoning != NULL) {
+					reasoning->start_node = and;
+					reasoning->actual_node = and;
+					reasoning->added_tags = 0;
+					int newtags = reasoner(reasoning);
+					dbg(LOG_INFO, "Reasoning added %d tags", newtags);
+				}
 			}
 		}
-
-		freenull(element);
-		pathptx = idx + 1;
+		
+		token_ptr++;
 	}
+
+	g_strfreev(splitted);
 	dbg(LOG_INFO, "returning from build_querytree...");
 	return result;
 }
@@ -303,9 +271,9 @@ static int add_to_filetree(void *atft_struct, int argc, char **argv, char **azCo
 	if (argv[0] == NULL || strlen(argv[0]) == 0)
 		return 0;
 
-	(*fh)->name = strdup(argv[0]);
+	(*fh)->name = g_strdup_printf("%s.%s", argv[1], argv[0]); // strdup(argv[0]);
 	dbg(LOG_INFO, "adding %s to filetree", (*fh)->name);
-	(*fh)->next = calloc(sizeof(file_handle_t), 1);
+	(*fh)->next = g_new0(file_handle_t, 1);
 	if ((*fh)->next == NULL) {
 		dbg(LOG_ERR, "Can't allocate memory in build_filetree");
 		return 1;
@@ -322,19 +290,11 @@ static int add_to_filetree(void *atft_struct, int argc, char **argv, char **azCo
 
 void drop_views(ptree_or_node_t *query, sqlite3 *dbh)
 {
-	/* drop select views */
-	int len = strlen("drop view tv;") + 8 + 1;
-	char *mini = g_malloc(len);
-	if (mini == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-	} else {
-		while (query != NULL) {
-			memset(mini, 0, len);
-			sprintf(mini, "drop view tv%.8X;", (unsigned int) query);
-			do_sql(&dbh, mini, NULL, NULL);
-			query = query->next;
-		}
+	while (query != NULL) {
+		char *mini = g_strdup_printf("drop view tv%.8X;", (unsigned int) query);
+		do_sql(&dbh, mini, NULL, NULL);
 		freenull(mini);
+		query = query->next;
 	}
 }
 
@@ -378,7 +338,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 
 	ptree_or_node_t *query_dup = query;
 
-	file_handle_t *fh = calloc(sizeof(file_handle_t), 1);
+	file_handle_t *fh = g_new0(file_handle_t, 1);
 	if ( fh == NULL ) {
 		dbg(LOG_ERR, "Can't allocate memory in build_filetree");
 		sqlite3_close(dbh);
@@ -397,7 +357,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 		g_string_printf(statement, "create view tv%.8x as ", (unsigned int) query);
 		
 		while (tag != NULL) {
-			g_string_append(statement, "select filename from tagged where tagname = \"");
+			g_string_append(statement, "select filename, id from files join tagging on tagging.file_id = files.id where tagname = \"");
 			g_string_append(statement, tag->tag);
 			g_string_append(statement, "\"");
 			
@@ -430,7 +390,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	GString *view_statement = g_string_new("");
 	query = query_dup;
 	while (query != NULL) {
-		g_string_append_printf(view_statement, "select filename from tv%.8X", (unsigned int) query);
+		g_string_append_printf(view_statement, "select filename, id from tv%.8X", (unsigned int) query);
 		
 		if (query->next != NULL) g_string_append(view_statement, " union ");
 		
@@ -440,10 +400,10 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	g_string_append(view_statement, ";");
 	dbg(LOG_INFO, "SQL view statement: %s", view_statement->str);
 
-	struct atft *atft = calloc(sizeof(struct atft), 1);
+	struct atft *atft = g_new0(struct atft, 1);
 	if (atft == NULL) {
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		freenull(view_statement);
+		g_string_free(view_statement, TRUE);
 		destroy_filetree(result);
 		drop_views(query_dup, dbh);
 		sqlite3_close(dbh);

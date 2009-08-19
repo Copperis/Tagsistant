@@ -206,16 +206,16 @@ extern struct tagsistant tagsistant;
 extern int debug;
 extern int log_enabled;
 
-extern char *get_tag_name(const char *path);
-extern char *get_tag_path(const char *tag);
-extern char *get_file_path(const char *tag);
-extern char *get_tmp_file_path(const char *tag);
+#define get_tag_name(path) g_path_get_basename(path)
 
-extern int is_tagged(char *filename, char *tagname);
-extern int tag_file(const char *filename, char *tagname);
-extern int untag_file(char *filename, char *tagname);
+extern gchar *get_file_path(const gchar *filename, int file_id);
 
-extern ptree_or_node_t *build_querytree(const char *path);
+extern void get_file_id_and_name(const gchar *original, int *id, char **name);
+
+extern gboolean is_tagged(int file_id, char *tagname);
+extern gboolean filename_is_tagged(const char *filename, const char *tagname);
+
+extern ptree_or_node_t *build_querytree(const char *path, int do_reasoning);
 extern file_handle_t *build_filetree(ptree_or_node_t *query, const char *path);
 
 extern void destroy_querytree(ptree_or_node_t *pt);
@@ -242,7 +242,7 @@ char *real_strdup(const char *orig, char *file, int line);
 		g_free(symbol);\
 		symbol = NULL;\
 	} else {\
-		dbg(LOG_ERR, "FREE ERROR: symbol %s is NULL!", __STRING(symbol));\
+		dbg(LOG_ERR, "FREE ERROR: symbol %s is NULL @%s:%u!", __STRING(symbol), __FILE__, __LINE__);\
 	}\
 }
 
