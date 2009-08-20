@@ -65,19 +65,21 @@ int log_enabled = 0;
  * inside the archive/ directory is returned. The "filename" and "file_id"
  * parameters can be specified exclusively.
  *
- * EXAMPLE 1: get_file_path(NULL, 12) will return the path of file with
+ * EXAMPLE 1: _get_file_path(NULL, 12) will return the path of file with
  * ID 12, if existing, NULL otherwise.
  *
- * EXAMPLE 2: get_file_path("passwd", 0) will return the path of the only
+ * EXAMPLE 2: _get_file_path("passwd", 0) will return the path of the only
  * "passwd" file in the files table. If more than one file exist, NULL
  * is returned. If no file is found, the path "<repository>/archive/passwd"
  * is returned, where <repository> is the path of Tagsistant repository.
  *
  * \param @filename a string with the basename of the file
  * \param @file_id an ID referring to a file
+ * \param @use_first_match if no file_id is provided and more than one filename
+ *   matches "filename", use the first instead of returning NULL
  * \returns a string, if appropriate, NULL otherwise. Must be freed!
  */
-gchar *get_file_path(const gchar *filename, int file_id)
+gchar *_get_file_path(const gchar *filename, int file_id, int use_first_match)
 {
 	gchar *path = NULL;
 
@@ -92,7 +94,7 @@ gchar *get_file_path(const gchar *filename, int file_id)
 
 		if (count == 0) {
 			path = g_strdup_printf("%s%s", tagsistant.archive, filename);
-		} else if (count == 1) {
+		} else if ((count == 1) || use_first_match) {
 			tagsistant_query("select path from files where filename = \"%s\"", return_string, &path, filename);
 		} else {
 			// if more than 1 entry match the file name, the corresponding path can't be guessed
@@ -286,6 +288,10 @@ int process(int file_id)
 	// load the filename from the database
 	char *filename = NULL;
 	tagsistant_query("select filename from file where file_id = %d", return_string, &filename, file_id);
+	if (filename == NULL) {
+		dbg(LOG_INFO, "process() unable to locate filename with id %u", file_id);
+		return 0;
+	}
 
 	dbg(LOG_INFO, "Processing file %s", filename);
 
@@ -483,7 +489,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 			gchar *token = *token_ptr;
 			if (strlen(token) && (g_strcmp0(token, "AND") != 0) && (g_strcmp0(token, "OR") != 0)) {
 				if ((file_id && is_tagged(file_id, token)) || filename_is_tagged(purefilename, token)) {
-					gchar *filepath = get_file_path(purefilename, file_id);
+					gchar *filepath = get_first_file_path(purefilename, file_id);
 					res = lstat(filepath, stbuf);
 					tagsistant_errno = (res == -1) ? errno : 0;
 					freenull(filepath);
@@ -1242,8 +1248,12 @@ static int tagsistant_write(const char *path, const char *buf, size_t size,
 	off_t offset, struct fuse_file_info *fi)
 {
     int res = 0, tagsistant_errno = 0;
-	char *filename = NULL, *filepath = NULL, *tagname = NULL;
-	get_filename_and_tagname(path, &filename, &filepath, &tagname);
+
+	char *filename = get_tag_name(path);
+	int file_id = 0;
+	char *purename = NULL;
+	get_file_id_and_name(filename, &file_id, &purename);
+	char *filepath = get_file_path(purename, file_id);
 
 	init_time_profile();
 	start_time_profile();
@@ -1274,7 +1284,6 @@ static int tagsistant_write(const char *path, const char *buf, size_t size,
 
 	freenull(filename);
 	freenull(filepath);
-	freenull(tagname);
 
 	stop_labeled_time_profile("write");
 	return (res == -1) ? -tagsistant_errno : res;
@@ -1963,7 +1972,7 @@ void get_file_id_and_name(const gchar *original, int *id, char **purename)
 		id = 0;
 		*purename = g_strdup(original);
 	} else {
-		*purename = g_strdup(_purename);	
+		*purename = g_strdup(_purename);
 	}
 }
 

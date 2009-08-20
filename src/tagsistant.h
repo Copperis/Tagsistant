@@ -208,7 +208,9 @@ extern int log_enabled;
 
 #define get_tag_name(path) g_path_get_basename(path)
 
-extern gchar *get_file_path(const gchar *filename, int file_id);
+extern gchar *_get_file_path(const gchar *filename, int file_id, int use_first_match);
+#define get_file_path(filename, file_id) _get_file_path(filename, file_id, FALSE)
+#define get_first_file_path(filename, file_id) _get_file_path(filename, file_id, TRUE)
 
 extern void get_file_id_and_name(const gchar *original, int *id, char **name);
 
