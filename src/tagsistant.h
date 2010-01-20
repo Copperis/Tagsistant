@@ -97,6 +97,8 @@
 #include <compat/fuse_opt.h>
 #endif
 
+typedef uint32_t tagsistant_id;
+
 #include "sql.h"
 
 #define MAX_TAG_LENGTH 255
@@ -180,6 +182,23 @@ typedef struct tagsistant_plugin {
 	/** next plugin in linked list */
 	struct tagsistant_plugin *next;
 } tagsistant_plugin_t;
+
+/**
+ * A structure to manage object inside the database
+ */
+typedef struct tagsistant_object {
+	/** the objet ID from the database */
+	tagsistant_id ID;
+
+	/** the basename from the database */
+	gchar *basename;
+
+	/** the full path on disk from the database */
+	gchar *path;
+
+	/** linked list of tags applied to this object */
+	GList *tags;
+} tagsistant_object_t;
 
 /**
  * defines command line options for tagsistant mount tool

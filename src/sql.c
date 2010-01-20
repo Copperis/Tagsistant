@@ -192,3 +192,33 @@ gboolean sql_tag_exists(const gchar* tagname)
 	tagsistant_query("select count(tagname) from tags where tagname = \"%s\";", return_integer, &exists, tagname);
 	return exists;
 }
+
+/** add an object to the database
+ * \param @path the full path; if it's NULL, the object is relative and path has to be computed using the object id
+ * basename can't be null
+ */
+tagsistant_id sql_create_file(const gchar *path, const gchar *basename)
+{
+	tagsistant_id ID = 0;
+
+	/* check if file is already stored */
+	if (path != NULL) {
+		tagsistant_query("select id from objects where path = \"%s\"", return_integer, &ID, path);
+	}
+
+	/* create the file, if does not exists */
+	if (!ID) {
+		tagsistant_query("insert into objects (basename, path) values (\"%s\", \"%s\")", NULL, NULL, basename, path);
+		tagsistant_query("select last_insert_rowid()", return_integer, &ID);
+	}
+
+	/* build the right path */
+	if (path == NULL) {
+		gchar *guessed_path = g_strdup_printf("%s%s%lu", tagsistant.archive, G_DIR_SEPARATOR_S, ID);
+		tagsistant_query("update objects set path = \"%s\" where id = %u", NULL, NULL, guessed_path, ID);
+		g_free(guessed_path);
+	}
+
+	return ID;
+
+}

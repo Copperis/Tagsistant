@@ -84,18 +84,18 @@ gchar *_get_file_path(const gchar *filename, int file_id, int use_first_match)
 	gchar *path = NULL;
 
 	if (file_id) {
-		tagsistant_query("select path from files where id = %u", return_string, &path, file_id);
+		tagsistant_query("select path from objects where id = %u", return_string, &path, file_id);
 		if ((path == NULL) && (filename != NULL)) {
 			path = g_strdup_printf("%s%s", tagsistant.archive, filename);
 		}
 	} else if (filename != NULL) {
 		int count = 0;
-		tagsistant_query("select count(filename) from files where filename = \"%s\"", return_integer, &count, filename);
+		tagsistant_query("select count(filename) from objects where basename = \"%s\"", return_integer, &count, filename);
 
 		if (count == 0) {
 			path = g_strdup_printf("%s%s", tagsistant.archive, filename);
 		} else if ((count == 1) || use_first_match) {
-			tagsistant_query("select path from files where filename = \"%s\"", return_string, &path, filename);
+			tagsistant_query("select path from objects where basename = \"%s\"", return_string, &path, filename);
 		} else {
 			// if more than 1 entry match the file name, the corresponding path can't be guessed
 		}
@@ -176,7 +176,7 @@ gboolean filename_is_tagged(const char *filename, const char *tagname)
 {
 	int is_tagged = 0;
 	tagsistant_query(
-		"select count(tagname) from tagging join files on files.id = tagging.file_id where files.filename = \"%s\" and tagging.tagname = \"%s\";",
+		"select count(tagname) from tagging join objects on objects.id = tagging.file_id where objects.filename = \"%s\" and tagging.tagname = \"%s\";",
 		return_integer, &is_tagged, filename, tagname);
 	return is_tagged ? TRUE : FALSE;
 }
@@ -733,7 +733,7 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 		dbg(LOG_INFO, "Tagging file %s as %s inside tagsistant_mknod()", filename, tagname);
 
 		// 1. inserting file into "files" table with a temporary path
-		tagsistant_query("insert into files(filename, path) values(\"%s\")", NULL, NULL, filename, "-to-be-changed-");
+		tagsistant_query("insert into objects(basename, path) values(\"%s\")", NULL, NULL, filename, "-to-be-changed-");
 
 		// 2. fetching the index of the last insert query
 		int file_id;
@@ -760,11 +760,11 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 			}
 
 			// elimino la entry nella tabella file
-			tagsistant_query("delete from files where id = %d", NULL, NULL, file_id);
+			tagsistant_query("delete from objects where id = %d", NULL, NULL, file_id);
 		}
 
 		// 5. completo la entry dentro "files" con il path completo
-		tagsistant_query("update files set path = \"%s\" where id = %d", NULL, NULL, fullfilename, file_id);
+		tagsistant_query("update objects set path = \"%s\" where id = %d", NULL, NULL, fullfilename, file_id);
 
 		// 6. taggo il file
 		tagsistant_query("insert into tagging (file_id, tagname) values (%d, \"%s\")", NULL, NULL, file_id, tagname);
@@ -847,7 +847,7 @@ static int tagsistant_unlink(const char *path)
 
 	/* checking if file has more tags or is untagged */
 	int exists = 0;
-	tagsistant_query("select count(tagname) from tagged where filename = \"%s\";", return_integer, &exists, filename);
+	tagsistant_query("select count(tagname) from tagged where basename = \"%s\";", return_integer, &exists, filename);
 	if (!exists) {
 		/* file is no longer tagged, so can be deleted from archive */
 		char *filepath = get_file_path(filename, 0);
@@ -971,11 +971,11 @@ static int tagsistant_symlink(const char *from, const char *to)
 	char *topath = get_file_path(filename, 0); /* ask for a new filename */
 
 	/* check if file is already linked */
-	tagsistant_query("select id from files where path = \"%s\"", return_integer, &file_id, from);
+	tagsistant_query("select id from objects where path = \"%s\"", return_integer, &file_id, from);
 
 	/* create the file, if does not exists */
 	if (!file_id) {
-		tagsistant_query("insert into files (filename, path) values (\"%s\", \"%s\")", NULL, NULL, filename, from);
+		tagsistant_query("insert into objects (basename, path) values (\"%s\", \"%s\")", NULL, NULL, filename, from);
 		tagsistant_query("select last_insert_rowid()", return_integer, &file_id);
 	}
 
