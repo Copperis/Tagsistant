@@ -27,18 +27,45 @@
 #endif
 
 /**
+ * Append a tag in the object's tags GList
+ *
+ * \param @list is a GList** pointer masked as a void* pointer (the GList may change during append operations)
+ */
+int tagsistant_object_append_tag(void *list, int argc, char **argv, char **azColName)
+{
+	(void) argc;
+	(void) azColName;
+
+	if (argv[0]) {
+		GList **store = (GList **) list;
+		*store = g_list_append(*store, g_strdup(argv[0]));
+	}
+
+	return 0;
+}
+
+/**
  * Load an object from the database
  */
 tagsistant_object_t *tagsistant_object_load(tagsistant_id ID) {
 	tagsistant_object_t *obj = g_new0(tagsistant_object_t, 1);
 
+	// save object ID
 	obj->ID = ID;
+
+	// load object basename and path
+	// TODO do it in ONE single query (write a generic return_strings() function that stops on NULL arg)
 	tagsistant_query("select basename from objects where id = %d", return_string, &(obj->basename), ID);
 	tagsistant_query("select path from objects where id = %d", return_string, &(obj->path), ID);
 
-	// TODO add linked list of tags
+	// add linked list of tags
+	tagsistant_query("select tagname from tagging where object_id = %lu", tagsistant_object_append_tag, &(obj->tags), ID);
 
 	return obj;
+}
+
+int tagsistant_object_create_on_disk(const gchar *path, mode_t mode) {
+	// write a switch statement to create each kind of object	
 }
 
 /**
@@ -49,8 +76,19 @@ tagsistant_object_t *tagsistant_object_load(tagsistant_id ID) {
  */
 tagsistant_object_t *tagsistant_object_create(const gchar *path, const gchar *basename, mode_t mode) {
 	/* Figure out if file is local or remote */
-	/* If local, put path to NULL */
-	/* may be using a regular expression??? */
+	int file_is_local = 0;
+	static gchar *pattern = NULL;
+
+	if (path == NULL) {
+		file_is_local = 1;
+
+	} else {
+		if (!pattern)
+			pattern = g_strdup_printf("^%s", tagsistant.repository);
+
+		if (g_regex_match_simple(pattern, path, 0, 0))
+			file_is_local = 1;
+	}
 
 	/* Create the path in the database */
 	tagsistant_id ID = sql_create_file(path, basename);
@@ -61,6 +99,11 @@ tagsistant_object_t *tagsistant_object_create(const gchar *path, const gchar *ba
 	if (!obj) {
 		// log something!
 		return NULL;
+	}
+
+	/* file is local, should be created */
+	if (file_is_local) {
+		tagsistant_object_create_on_disk(obj->path, mode);
 	}
 
 	/* check if file is available into local archive */
@@ -74,11 +117,15 @@ tagsistant_object_t *tagsistant_object_create(const gchar *path, const gchar *ba
 }
 
 void tagsistant_object_free(tagsistant_object_t *obj) {
+	// free object data
 	g_free(obj->basename);
 	g_free(obj->path);
 	
-	// TODO add linked list of tags
+	// free the linked list of tags
+	g_list_foreach(obj->tags, (GFunc) g_free, NULL);
+	g_list_free(obj->tags);
 	
+	// free the object structure
 	g_free(obj);
 }
 

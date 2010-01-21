@@ -208,17 +208,15 @@ tagsistant_id sql_create_file(const gchar *path, const gchar *basename)
 
 	/* create the file, if does not exists */
 	if (!ID) {
-		tagsistant_query("insert into objects (basename, path) values (\"%s\", \"%s\")", NULL, NULL, basename, path);
+		if (path) {
+			tagsistant_query("insert into objects (basename, path) values (\"%s\", \"%s\")", NULL, NULL, basename, path);
+		} else {
+			gchar *guessed_path = g_strdup_printf("%s%s%lu", tagsistant.archive, G_DIR_SEPARATOR_S, ID);
+			tagsistant_query("insert into objects (basename, path) values (\"%s\", \"%s\")", NULL, NULL, basename, guessed_path);
+			g_free(guessed_path);
+		}
 		tagsistant_query("select last_insert_rowid()", return_integer, &ID);
 	}
 
-	/* build the right path */
-	if (path == NULL) {
-		gchar *guessed_path = g_strdup_printf("%s%s%lu", tagsistant.archive, G_DIR_SEPARATOR_S, ID);
-		tagsistant_query("update objects set path = \"%s\" where id = %u", NULL, NULL, guessed_path, ID);
-		g_free(guessed_path);
-	}
-
 	return ID;
-
 }

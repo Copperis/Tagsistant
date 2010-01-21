@@ -82,6 +82,7 @@
 #include <dlfcn.h> /* for dlopen() and friends */
 #include <glib.h>
 #include <glib/gstrfuncs.h>
+#include <glib/gstdio.h>
 
 #ifdef HAVE_SETXATTR
 #include <sys/xattr.h>
