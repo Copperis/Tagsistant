@@ -43,6 +43,7 @@ extern tagsistant_id sql_create_file(const gchar *path, const gchar *basename);
 /***************\
  * SQL QUERIES *
 \***************/
+
 #define tagsistant_init_database() {\
 	tagsistant_query("create table tags (id integer primary key autoincrement not null, tagname varchar(64) unique not null);", NULL, NULL);\
 	tagsistant_query("create table objects (id integer not null primary key autoincrement, filename text(255) not null, path text(1024) unique not null);", NULL, NULL);\

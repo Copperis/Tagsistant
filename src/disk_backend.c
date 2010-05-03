@@ -51,7 +51,16 @@ uint64_t create_file(const char *filename, mode_t mode) {
 	gchar *basename = g_path_get_basename(filename);
 	gchar *filename = g_strdup_printf("%s/%s", tagsistant.archive, basename);
 
+	int fd = creat(filename, 0660);
+	if (fd == -1) {
+		sql_delete_file(file_id);
+		file_id = 0;
+	} else {
+		close(fd);
+	}
+
 	g_free(basename);
+	g_free(filename);
 	return file_id;
 }
 
@@ -64,8 +73,9 @@ uint64_t create_dir(const char *dirname)
 	}
 
 	gchar *localpath = tagsistant_localpath(filename);
+	mkdir(localpath, 0750); 
 
-	g_free(basename);
+	g_free(localpath);
 	return file_id;
 }
 

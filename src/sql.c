@@ -220,3 +220,9 @@ tagsistant_id sql_create_file(const gchar *path, const gchar *basename)
 
 	return ID;
 }
+
+tagsistant_delete_file(uint64_t file_id)
+{
+	tagsistant_query("delete from objects where object_id = %d", NULL, NULL, file_id);
+	// ... to be completed!
+}
