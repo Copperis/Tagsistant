@@ -143,6 +143,16 @@ typedef struct file_handle {
 	struct file_handle *next;
 } file_handle_t;
 
+/**
+ * reasoning structure to trace reasoning process
+ */
+typedef struct reasoning {
+	ptree_and_node_t *start_node;
+	ptree_and_node_t *actual_node;
+	int added_tags;
+} reasoning_t;
+
+
 /* codes used in plugin chain processing */
 
 #define TP_ERROR	0	/**< an error occurred while processing with this plugin */

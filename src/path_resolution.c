@@ -22,12 +22,6 @@
 
 #include "tagsistant.h"
 
-typedef struct reasoning {
-	ptree_and_node_t *start_node;
-	ptree_and_node_t *actual_node;
-	int added_tags;
-} reasoning_t;
-
 /**
  * SQL callback. Add new tag derived from reasoning to a ptree_and_node_t structure.
  *

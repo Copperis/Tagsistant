@@ -38,7 +38,7 @@ AC_FUNC_LSTAT
 AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK
 AC_FUNC_MALLOC
 AC_DIAGNOSE([obsolete],[your code may safely assume C89 semantics that RETSIGTYPE is void.
-Remove this warning and the `AC_CACHE_CHECK' when you adjust the code.])dnl
+Remove this warning and the `AC_CACHE_CHECK` when you adjust the code.])dnl
 AC_CACHE_CHECK([return type of signal handlers],[ac_cv_type_signal],[AC_COMPILE_IFELSE(
 [AC_LANG_PROGRAM([#include <sys/types.h>
 #include <signal.h>

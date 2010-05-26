@@ -28,6 +28,12 @@
 #include <mcheck.h>
 #endif
 
+/**
+ * Return the path of a file inside Tagsistant repository
+ *
+ * @param path the file pathname
+ * @return char * the file path name inside Tagsistant repository
+ */
 gchar *tagsistant_localpath(const gchar *path)
 {
 	gchar *basename = g_path_get_basename(path);

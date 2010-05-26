@@ -45,13 +45,12 @@ extern tagsistant_id sql_create_file(const gchar *path, const gchar *basename);
 \***************/
 
 #define tagsistant_init_database() {\
-	tagsistant_query("create table tags (id integer primary key autoincrement not null, tagname varchar(64) unique not null);", NULL, NULL);\
-	tagsistant_query("create table objects (id integer not null primary key autoincrement, filename text(255) not null, path text(1024) unique not null);", NULL, NULL);\
-	tagsistant_query("create table tagging (object_id integer not null primary key autoincrement, tagname text(64) not null, constraint Tagging_key unique (object_id, tagname));", NULL, NULL);\
-	tagsistant_query("create table relations(id integer primary key autoincrement not null, tag1 varchar(64) not null, relation varchar not null, tag2 varchar(64) not null);", NULL, NULL);\
-	tagsistant_query("create index tags_index on tagging (tagname);", NULL, NULL);\
-	tagsistant_query("create index tagging_index on tagging (tagname, object_id);", NULL, NULL);\
-	tagsistant_query("create index relations_index on relations (tag1, tag2);", NULL, NULL);\
+	tagsistant_query("create table tags (tag_id integer primary key autoincrement not null, tagname varchar(65) unique not null);", NULL, NULL);\
+	tagsistant_query("create table objects (object_id integer not null primary key autoincrement, filename text(255) not null, path text(1024) unique not null);", NULL, NULL);\
+	tagsistant_query("create table tagging (object_id integer not null primary key autoincrement, tag_id not null, constraint Tagging_key unique (object_id, tag_id));", NULL, NULL);\
+	tagsistant_query("create table relations(relation_id integer primary key autoincrement not null, tag1_id varchar(64) not null, relation varchar not null, tag2_id varchar(64) not null);", NULL, NULL);\
+	tagsistant_query("create index tags_index on tagging (object_id, tag_id);", NULL, NULL);\
+	tagsistant_query("create index relations_index on relations (tag1_id, tag2_id);", NULL, NULL);\
 	tagsistant_query("create index relations_type_index on relations (relation);", NULL, NULL);\
 }
 
