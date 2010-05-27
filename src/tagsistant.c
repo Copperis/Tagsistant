@@ -643,17 +643,16 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 		filler(buf, "AND", NULL, 0);
 		filler(buf, "OR", NULL, 0);
 		
-		ptree_or_node_t *pt = build_querytree(path, TRUE);
-
-		if (pt == NULL) {
+		querytree_t *qtree = build_querytree(path, TRUE);
+		if (qtree == NULL) {
 			freenull(tagname);
 			return -EBADF;
 		}
 	
-		file_handle_t *fh = build_filetree(pt, path);
+		file_handle_t *fh = build_filetree(qtree->tree, path);
 		if (fh == NULL) {
 			freenull(tagname);
-			destroy_querytree(pt);
+			destroy_querytree(qtree);
 			return -EBADF;
 		}
 
@@ -668,7 +667,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 			fh = fh->next;
 		} while ( fh != NULL && fh->name != NULL );
 	
-		destroy_querytree(pt);
+		destroy_querytree(qtree);
 		destroy_filetree(fh_save);
 		freenull(tagname);
 
@@ -828,8 +827,8 @@ static int tagsistant_unlink(const char *path)
 
 	dbg(LOG_INFO, "UNLINK on %s", filename);
 
-	ptree_or_node_t *pt = build_querytree(path, FALSE);
-	ptree_or_node_t *ptx = pt;
+	querytree_t *qtree = build_querytree(path, FALSE);
+	ptree_or_node_t *ptx = qtree->tree;
 
 	while (ptx != NULL) {
 		ptree_and_node_t *element = ptx->and_set;
@@ -843,7 +842,7 @@ static int tagsistant_unlink(const char *path)
 		ptx = ptx->next;
 	}
 
-	destroy_querytree(pt);
+	destroy_querytree(qtree);
 
 	/* checking if file has more tags or is untagged */
 	int exists = 0;
@@ -875,8 +874,8 @@ static int tagsistant_rmdir(const char *path)
 	init_time_profile();
 	start_time_profile();
 
-	ptree_or_node_t *pt = build_querytree(path, FALSE);
-	ptree_or_node_t *ptx = pt;
+	querytree_t *qtree = build_querytree(path, FALSE);
+	ptree_or_node_t *ptx = qtree->tree;
 
 	/* tag name is inserted 2 times in query, that's why '* 2' */
 	while (ptx != NULL) {
@@ -889,7 +888,7 @@ static int tagsistant_rmdir(const char *path)
 		ptx = ptx->next;
 	}
 
-	destroy_querytree(pt);
+	destroy_querytree(qtree);
 
 	stop_labeled_time_profile("rmdir");
 	return (res == -1) ? -tagsistant_errno : 0;
@@ -1172,8 +1171,8 @@ static int tagsistant_open(const char *path, struct fuse_file_info *fi)
 
 	dbg(LOG_INFO, "OPEN: %s", path);
 
-	ptree_or_node_t *pt = build_querytree(path, FALSE);
-	ptree_or_node_t *ptx = pt;
+	querytree_t *qtree = build_querytree(path, FALSE);
+	ptree_or_node_t *ptx = qtree->tree;
 	while (ptx != NULL && res == -1) {
 		ptree_and_node_t *and = ptx->and_set;
 		while (and != NULL && res == -1) {
@@ -1189,7 +1188,7 @@ static int tagsistant_open(const char *path, struct fuse_file_info *fi)
 	freenull(filename);
 	freenull(filepath);
 	freenull(tagname);
-	destroy_querytree(pt);
+	destroy_querytree(qtree);
 
 	stop_labeled_time_profile("open");
 	return (res == -1) ? -tagsistant_errno : 0;

@@ -114,6 +114,65 @@ int reasoner(reasoning_t *reasoning)
 }
 
 /**
+ * allocate a new querytree_t structure
+ */
+querytree_t *new_querytree()
+{
+	querytree_t *qtree = g_new0(querytree_t, 1);
+	if (qtree == NULL) {
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		return NULL;
+	}
+
+	qtree->tree = g_new0(ptree_or_node_t, 1);
+	if (qtree->tree == NULL) {
+		freenull(qtree);
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		return NULL;
+	}
+
+	return qtree;
+}
+
+/**
+ * destroy a querytree_t structure
+ */
+void destroy_querytree(querytree_t *qtree)
+{
+	// destroy the tree
+	ptree_or_node_t *node = qtree->tree;
+	while (node != NULL) {
+		ptree_and_node_t *tag = node->and_set;
+		while (tag != NULL) {
+			// walk related tags
+			while (tag->related != NULL) {
+				ptree_and_node_t *related = tag->related;
+				tag->related = related->related;
+				freenull(related->tag);
+				freenull(related);
+			}
+
+			// free the ptree_and_node_t node
+			ptree_and_node_t *next = tag->next;
+			freenull(tag->tag);
+			freenull(tag);
+			tag = next;
+		}
+		// free the ptree_or_node_t node
+		ptree_or_node_t *next = node->next;
+		freenull(node);
+		node = next;
+	}
+
+	// free the file path
+	if (qtree->object_path != NULL) freenull(qtree->object_path);
+
+	// free the structure
+	freenull(qtree);
+}
+
+
+/**
  * Build query tree from path. A querytree is composed of a linked
  * list of ptree_or_node_t objects. Each or object has a descending
  * linked list of ptree_and_node_t objects. This kind of structure
@@ -124,17 +183,17 @@ int reasoner(reasoning_t *reasoning)
  *
  * \param @path the path to be converted in a logical query
  */
-ptree_or_node_t *build_querytree(const char *path, int do_reasoning)
+querytree_t *build_querytree(const char *path, int do_reasoning)
 {
 	unsigned int orcount = 0, andcount = 0;
 	int next_should_be_logical_op = FALSE;
 
-	ptree_or_node_t *result = g_new0(ptree_or_node_t, 1);
-	if (result == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		return NULL;
-	}
-	ptree_or_node_t *last_or = result;;
+	// allocate the querytree structure
+	querytree_t *qtree = new_querytree();
+	if (qtree == NULL) return NULL;
+
+	// initialize iterator variables on query tree nodes
+	ptree_or_node_t *last_or = qtree->tree;
 	ptree_and_node_t *last_and = NULL;
 
 	gchar **splitted = g_strsplit(path, "/", 512); /* split up to 512 tokens */
@@ -156,21 +215,16 @@ ptree_or_node_t *build_querytree(const char *path, int do_reasoning)
 				ptree_or_node_t *new_or = g_new0(ptree_or_node_t, 1);
 				if (new_or == NULL) {
 					dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-					g_strfreev(splitted);
-					return NULL;
+					goto RETURN;
 				}
 				last_or->next = new_or;
 				last_or = new_or;
 				last_and = NULL;
 				dbg(LOG_INFO, "Allocated new OR node...");
 			} else {
-				/* filename or error in path */
-#if VERBOSE_DEBUG
-				dbg(LOG_INFO, "%s is not AND/OR operator, exiting build_querytree()", token);
-#endif
-				dbg(LOG_INFO, "%s is not AND/OR operator, exiting build_querytree()", token);
-				g_strfreev(splitted);
-				return result;
+				/* remaining part is the object pathname */
+				qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
+				goto RETURN;
 			}
 			next_should_be_logical_op = FALSE;
 		} else {
@@ -178,8 +232,7 @@ ptree_or_node_t *build_querytree(const char *path, int do_reasoning)
 			ptree_and_node_t *and = g_new0(ptree_and_node_t, 1);
 			if (and == NULL) {
 				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-				g_strfreev(splitted);
-				return NULL;
+				goto RETURN;
 			}
 			and->tag = strdup(token);
 			dbg(LOG_INFO, "New AND node allocated on tag %s...", and->tag);
@@ -216,32 +269,10 @@ ptree_or_node_t *build_querytree(const char *path, int do_reasoning)
 		token_ptr++;
 	}
 
+RETURN:
 	g_strfreev(splitted);
 	dbg(LOG_INFO, "returning from build_querytree...");
-	return result;
-}
-
-void destroy_querytree(ptree_or_node_t *qt)
-{
-	while (qt != NULL) {
-		ptree_and_node_t *tag = qt->and_set;
-		while (tag != NULL) {
-			while (tag->related != NULL) {
-				ptree_and_node_t *related = tag->related;
-				tag->related = related->related;
-				freenull(related->tag);
-				freenull(related);
-			}
-
-			ptree_and_node_t *next = tag->next;
-			freenull(tag->tag);
-			freenull(tag);
-			tag = next;
-		}
-		ptree_or_node_t *next = qt->next;
-		freenull(qt);
-		qt = next;
-	}
+	return qtree;
 }
 
 struct atft {

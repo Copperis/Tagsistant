@@ -133,6 +133,20 @@ typedef struct ptree_or_node {
 } ptree_or_node_t;
 
 /**
+ * define the querytree structure
+ * that holds a tree of ptree_or_node_t
+ * and ptree_and_node_t and a string
+ * containing the file part of the path.
+ */
+typedef struct querytree {
+	/** the query tree */
+	ptree_or_node_t *tree;
+
+	/** the path of the object */
+	gchar *object_path;
+} querytree_t;
+
+/**
  * used in linked list of returned results
  */
 typedef struct file_handle {
@@ -151,7 +165,6 @@ typedef struct reasoning {
 	ptree_and_node_t *actual_node;
 	int added_tags;
 } reasoning_t;
-
 
 /* codes used in plugin chain processing */
 
@@ -247,10 +260,10 @@ extern void get_file_id_and_name(const gchar *original, int *id, char **name);
 extern gboolean is_tagged(int file_id, char *tagname);
 extern gboolean filename_is_tagged(const char *filename, const char *tagname);
 
-extern ptree_or_node_t *build_querytree(const char *path, int do_reasoning);
+extern querytree_t *build_querytree(const char *path, int do_reasoning);
 extern file_handle_t *build_filetree(ptree_or_node_t *query, const char *path);
 
-extern void destroy_querytree(ptree_or_node_t *pt);
+extern void destroy_querytree(querytree_t *qtree);
 extern void destroy_filetree(file_handle_t *fh);
 
 extern FILE *debugfd;
