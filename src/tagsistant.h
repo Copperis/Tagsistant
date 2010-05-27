@@ -25,6 +25,7 @@
 /* #define DEBUG_STRDUP */
 
 #define TAGSISTANT_PLUGIN_PREFIX "libtagsistant_"
+#define TAGSISTANT_ARCHIVE_PLACEHOLDER "<<<tagsistant>>>"
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>

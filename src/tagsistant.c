@@ -835,7 +835,7 @@ static int tagsistant_unlink(const char *path)
 		while (element != NULL) {
 			dbg(LOG_INFO, "removing tag %s from %s", element->tag, filename);
 
-			sql_untag_file(element->tag, filename);
+			sql_untag_object(element->tag, filename);
 
 			element = element->next;
 		}
@@ -908,45 +908,42 @@ static int tagsistant_rename(const char *from, const char *to)
 	init_time_profile();
 	start_time_profile();
 
-	/* return if "to" path is complex, i.e. including logical operators */
-	if ((strstr(to, "/AND") != NULL) || (strstr(to, "/OR") != NULL)) {
-		dbg(LOG_ERR, "Logical operators not allowed in destination path");
-		return -ENOTDIR;
+	querytree_t *from_tree = build_querytree(from, FALSE);
+	if (from_tree == NULL) {
+		tagsistant_errno = ENOMEM;
+		goto RETURN;
 	}
 
-	char *tagname = get_tag_name(from);
-
-	if (rindex(from, '/') == from) {
-		/* is a tag */
-		const char *newtagname = rindex(to, '/');
-		if (newtagname == NULL) {
-			newtagname = to;
-		} else {
-			newtagname++; /* skip the slash */
-		}
-		
-		sql_rename_tag(newtagname, tagname);
-	} else {
-		/* is a file */
-		const char *newfilename = rindex(to, '/');
-		if (newfilename == NULL) {
-			newfilename = to;
-		} else {
-			newfilename++; /* skip the slash */
-		}
-
-		sql_rename_file(newfilename, tagname);
-
-		char *filepath = get_file_path(tagname, 0);
-		char *newfilepath = get_file_path(newfilename, 0);
-		res = rename(filepath, newfilepath);
-		tagsistant_errno = errno;
-		freenull(filepath);
-		freenull(newfilepath);
+	querytree_t *to_tree = build_querytree(to, FALSE);
+	if (to_tree == NULL) {
+		tagsistant_errno = ENOMEM;
+		goto RETURN;
 	}
 
+	// 1. rename "from" file into "to" file, if the case
+	if (g_strcmp0(from_tree->object_path, to_tree->object_path)) {
+		res = rename(from_tree->object_path, to_tree->object_path);
+		if (res == -1) {
+			tagsistant_errno = errno;
+			dbg(LOG_ERR, "Error renaming %s to %s", from_tree->object_path, to_tree->object_path);
+			goto RETURN;
+		}
+	}
+
+	if (g_strstr(from_tree->object_path, "/") == NULL) {
+		// get the object id
+		/* ..... */
+
+		// 2. deletes all the tagging between "from" file and all AND nodes in "from" path
+		traverse_querytree(qtree, sql_untag_object, from_tree->object_path);
+
+		// 3. adds all the tags from "to" path
+	}
+
+RETURN:
+	destry_querytree(from_tree);
+	destry_querytree(to_tree);
 	stop_labeled_time_profile("rename");
-	freenull(tagname);
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 

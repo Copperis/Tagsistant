@@ -38,7 +38,10 @@ extern int get_exact_tag_id(const gchar *tagname);
 extern int report_if_exists(void *exists_buffer, int argc, char **argv, char **azColName);
 extern gboolean sql_tag_exists(const gchar* tagname);
 
-extern tagsistant_id sql_create_file(const gchar *path, const gchar *basename);
+extern tagsistant_id sql_create_object(const gchar *basename, const gchar *path);
+
+extern gchar *sql_objectpath(tagsistant_id object_id);
+extern void sql_delete_object(tagsistant_id object_id);
 
 /***************\
  * SQL QUERIES *
@@ -46,7 +49,7 @@ extern tagsistant_id sql_create_file(const gchar *path, const gchar *basename);
 
 #define tagsistant_init_database() {\
 	tagsistant_query("create table tags (tag_id integer primary key autoincrement not null, tagname varchar(65) unique not null);", NULL, NULL);\
-	tagsistant_query("create table objects (object_id integer not null primary key autoincrement, filename text(255) not null, path text(1024) unique not null);", NULL, NULL);\
+	tagsistant_query("create table objects (object_id integer not null primary key autoincrement, objectname text(255) not null, path text(1024) unique not null);", NULL, NULL);\
 	tagsistant_query("create table tagging (object_id integer not null primary key autoincrement, tag_id not null, constraint Tagging_key unique (object_id, tag_id));", NULL, NULL);\
 	tagsistant_query("create table relations(relation_id integer primary key autoincrement not null, tag1_id varchar(64) not null, relation varchar not null, tag2_id varchar(64) not null);", NULL, NULL);\
 	tagsistant_query("create index tags_index on tagging (object_id, tag_id);", NULL, NULL);\
@@ -62,12 +65,12 @@ extern tagsistant_id sql_create_file(const gchar *path, const gchar *basename);
 	tagsistant_query("delete from relations where tag1 = \"%s\" or tag2 = \"%s\";", NULL, NULL, tagname, tagname);\
 }
 
-#define sql_tag_file(tagname, object_id) {\
+#define sql_tag_object(tagname, object_id) {\
 	tagsistant_query("insert into tagging(tagname, object_id) values(\"%s\", \"%d\");", NULL, NULL, tagname, object_id);\
 	tagsistant_query("insert into tags(tagname) values(\"%s\");", NULL, NULL, tagname);\
 }
 
-#define sql_untag_file(tagname, object_id)\
+#define sql_untag_object(tagname, object_id)\
 	tagsistant_query("delete from tagging where tagname = \"%s\" and object_id = \"%d\";", NULL, NULL, tagname, object_id)
 
 #define sql_rename_tag(tagname, oldtagname) {\
@@ -75,9 +78,10 @@ extern tagsistant_id sql_create_file(const gchar *path, const gchar *basename);
 	tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\";", NULL, NULL, tagname, oldtagname);\
 }
 
-#define sql_rename_file(oldname, newname) tagsistant_query("update objects set filename = \"%s\" where filename = \"%s\";", NULL, NULL, newname, oldname);
+#define sql_rename_object(object_id, newname)\
+	tagsistant_query("update objects set objectname = \"%s\" where object_id = %d", NULL, NULL, newname, object_id);
 
-#define ALL_FILES_TAGGED		"select filename from objects join tagging on tagging.object_id = objects.id where tagging.tagname = \"%s\""
+#define ALL_FILES_TAGGED		"select objectname from objects join tagging on tagging.object_id = objects.id where tagging.tagname = \"%s\""
 
-#define tag_file(object_id, tagname) sql_tag_file(tagname, object_id)
-#define untag_file(object_id, tagname) sql_untag_file(tagname, object_id)
+#define tag_object(object_id, tagname) sql_tag_object(tagname, object_id)
+#define untag_object(object_id, tagname) sql_untag_object(tagname, object_id)

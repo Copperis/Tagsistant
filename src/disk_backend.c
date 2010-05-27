@@ -47,42 +47,45 @@ gchar *tagsistant_localpath(const gchar *path)
  * Create a new file in the local storage, add it inside
  * database table, recover the ID and return it.
  */
-uint64_t create_file(const char *filename, mode_t mode) {
-	uint64_t file_id = sql_create_file(filename);
+tagsistant_id create_file(const char *filename, mode_t mode) {
+	tagsistant_id object_id = sql_create_object(filename, NULL);
 
-	if (!file_id) {
+	if (!object_id) {
 		return 0;
 	}
 
-	gchar *basename = g_path_get_basename(filename);
-	gchar *filename = g_strdup_printf("%s/%s", tagsistant.archive, basename);
+	gchar *filepath = sql_objectpath(object_id);
 
-	int fd = creat(filename, 0660);
+	int fd = creat(filepath, mode);
 	if (fd == -1) {
-		sql_delete_file(file_id);
-		file_id = 0;
+		sql_delete_object(object_id);
+		object_id = 0;
 	} else {
 		close(fd);
 	}
 
-	g_free(basename);
-	g_free(filename);
-	return file_id;
+	g_free(filepath);
+	return object_id;
 }
 
-uint64_t create_dir(const char *dirname)
+tagsistant_id create_dir(const char *dirname, mode_t mode)
 {
-	uint64_t file_id = sql_create_dir(filename);
+	tagsistant_id object_id = sql_create_object(dirname, NULL);
 
-	if (!file_id) {
+	if (!object_id) {
 		return 0;
 	}
 
-	gchar *localpath = tagsistant_localpath(filename);
-	mkdir(localpath, 0750); 
+	gchar *dirpath = sql_objectpath(object_id);
 
-	g_free(localpath);
-	return file_id;
+	int result = mkdir(dirpath, mode);
+	if (result == -1) {
+		sql_delete_object(object_id);
+		object_id = 0;
+	}
+
+	g_free(dirpath);
+	return object_id;
 }
 
 // vim:ts=4:autoindent:nocindent:syntax=c

@@ -193,25 +193,32 @@ gboolean sql_tag_exists(const gchar* tagname)
 	return exists;
 }
 
-/** add an object to the database
- * \param @path the full path; if it's NULL, the object is relative and path has to be computed using the object id
- * basename can't be null
+/**
+ * add an object to the database.
+ *
+ * @param basename is the object basename; can't be null
+ * @param @path the full path; if it's NULL, the object is relative and path
+ * has to be computed using the object id
+ *
+ * @return the ID of the object
  */
-tagsistant_id sql_create_file(const gchar *path, const gchar *basename)
+tagsistant_id sql_create_object(const gchar *basename, const gchar *path)
 {
 	tagsistant_id ID = 0;
 
-	/* check if file is already stored */
+	/* check if object is already stored */
 	if (path != NULL) {
-		tagsistant_query("select id from objects where path = \"%s\"", return_integer, &ID, path);
+		tagsistant_query(
+			"select id from objects where path = \"%s\" and basename = \"%s\"",
+			return_integer, &ID, path, basename);
 	}
 
-	/* create the file, if does not exists */
+	/* create the object, if does not exists */
 	if (!ID) {
 		if (path) {
 			tagsistant_query("insert into objects (basename, path) values (\"%s\", \"%s\")", NULL, NULL, basename, path);
 		} else {
-			gchar *guessed_path = g_strdup_printf("%s%s%lu", tagsistant.archive, G_DIR_SEPARATOR_S, ID);
+			gchar *guessed_path = g_strdup_printf("%s%s%lu", TAGSISTANT_ARCHIVE_PLACEHOLDER, G_DIR_SEPARATOR_S, ID);
 			tagsistant_query("insert into objects (basename, path) values (\"%s\", \"%s\")", NULL, NULL, basename, guessed_path);
 			g_free(guessed_path);
 		}
@@ -221,8 +228,28 @@ tagsistant_id sql_create_file(const gchar *path, const gchar *basename)
 	return ID;
 }
 
-tagsistant_delete_file(uint64_t file_id)
+void sql_delete_object(tagsistant_id object_id)
 {
-	tagsistant_query("delete from objects where object_id = %d", NULL, NULL, file_id);
-	// ... to be completed!
+	tagsistant_query("delete from objects where object_id = %d", NULL, NULL, object_id);
+	// ... to be completed???
+}
+
+/**
+ * Return the full objectpath of a object_id
+ *
+ * @param object_id the ID of the object inside tagsistant sql database
+ *
+ * @return the path of the object, directly useable, no matter if internal
+ * or external to tagsistant backend
+ */
+gchar *sql_objectpath(tagsistant_id object_id)
+{
+	gchar *objectpath = NULL;
+
+	tagsistant_query(
+		"select replace(path,\"%s\",\"%s\") || \"%s\" || objectname from objects where id = %d",
+		return_string, &objectpath,
+		TAGSISTANT_ARCHIVE_PLACEHOLDER, tagsistant.archive, G_DIR_SEPARATOR_S, object_id);
+	
+	return objectpath;
 }
