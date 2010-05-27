@@ -143,8 +143,11 @@ typedef struct querytree {
 	/** the query tree */
 	ptree_or_node_t *tree;
 
-	/** the path of the object */
+	/** the path of the object, if provided */
 	gchar *object_path;
+
+	/** the ID of the object, if directly managed by tagsistant */
+	tagsistant_id object_id;
 } querytree_t;
 
 /**
@@ -218,8 +221,11 @@ typedef struct tagsistant_object {
 	/** the basename from the database */
 	gchar *basename;
 
-	/** the full path on disk from the database */
+	/** the path on disk, without the basename */
 	gchar *path;
+
+	/** the full path on disk */
+	gchar *fullpath;
 
 	/** linked list of tags applied to this object */
 	GList *tags;
@@ -263,9 +269,33 @@ extern gboolean filename_is_tagged(const char *filename, const char *tagname);
 
 extern querytree_t *build_querytree(const char *path, int do_reasoning);
 extern file_handle_t *build_filetree(ptree_or_node_t *query, const char *path);
+extern void traverse_querytree(querytree_t *qtree, void (*funcpointer)(ptree_and_node_t *, ...), ...);
 
 extern void destroy_querytree(querytree_t *qtree);
 extern void destroy_filetree(file_handle_t *fh);
+
+/**
+ * allows for applying a function to all the ptree_and_node_t nodes of
+ * a querytree_t structure. the function applied must be declared as:
+ *   void function(ptree_and_node_t *node, ...)
+ * while can be of course provided with fixed length argument list
+ *
+ * @param qtree the querytree_t structure to traverse
+ * @param funcpointer the pointer to the function (barely the function name)
+ */
+#define traverse_querytree(qtree, funcpointer, ...) {\
+	if (NULL != qtree) {\
+		ptree_or_node_t *ptx = qtree->tree;\
+		while (NULL != ptx) {\
+			ptree_and_node_t *andptx = ptx->and_set;\
+			while (NULL != andptx) {\
+				funcpointer(andptx, __VA_ARGS__);\
+				andptx = andptx->next;\
+			}\
+			ptx = ptx->next;\
+		}\
+	}\
+}
 
 extern FILE *debugfd;
 

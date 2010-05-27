@@ -228,7 +228,12 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 				qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
 
 				/* get the id of the object referred by first element */
-				/* .... */
+				gchar *dot = g_strstr_len(*token_ptr, -1, ".");
+				if (NULL != dot) {
+					qtree->object_id = strtol(*token_ptr, NULL, 10);
+					dot++;
+				}
+
 				goto RETURN;
 			}
 			next_should_be_logical_op = FALSE;
@@ -278,27 +283,6 @@ RETURN:
 	g_strfreev(splitted);
 	dbg(LOG_INFO, "returning from build_querytree...");
 	return qtree;
-}
-
-/**
- * Apply a function to all AND nodes of a querytree_t structure
- *
- * @param qtree the query tree
- * @param funcpointer a pointer to a function accepting a ptree_and_node_t as argument
- */
-void traverse_querytree(querytree_t *qtree, void (*funcpointer)(ptree_and_node_t *))
-{
-	if (NULL == qtree) return;
-
-	pnode_or_t *ptx = qtree->tree;
-	while (NULL != ptx) {
-		ptree_and_node_t *andptx = ptx->and_set;
-		while (NULL != andptx) {
-			funcpointer(andptx);
-			andptx = andptx->next;
-		}
-		ptx = ptx->next;
-	}
 }
 
 struct atft {

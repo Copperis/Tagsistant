@@ -930,19 +930,20 @@ static int tagsistant_rename(const char *from, const char *to)
 		}
 	}
 
-	if (g_strstr(from_tree->object_path, "/") == NULL) {
+	if (g_strstr_len(from_tree->object_path, -1, "/") == NULL) {
 		// get the object id
 		/* ..... */
 
 		// 2. deletes all the tagging between "from" file and all AND nodes in "from" path
-		traverse_querytree(qtree, sql_untag_object, from_tree->object_path);
+		traverse_querytree(from_tree, sql_untag_object, from_tree->object_path);
 
 		// 3. adds all the tags from "to" path
+		traverse_querytree(to_tree, sql_tag_object, from_tree->object_path);
 	}
 
 RETURN:
-	destry_querytree(from_tree);
-	destry_querytree(to_tree);
+	destroy_querytree(from_tree);
+	destroy_querytree(to_tree);
 	stop_labeled_time_profile("rename");
 	return (res == -1) ? -tagsistant_errno : 0;
 }

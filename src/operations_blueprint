@@ -1,0 +1,86 @@
+1. l'utente fa una chiamata passando una query
+2. la query viene trasformata in un querytree
+3. se necessario il querytree genera una objectlist
+
+vediamo caso per caso gli schemi di funzionamento
+
+1. tagsistant_getattr
+	build_querytree
+	if object_path
+		return stat object_path
+	else
+		return stat tagsistant.archive
+
+2. tagsistant_readlink
+	build_querytree
+	if object_path
+		return readlink object_path
+	else
+		return error
+
+3. tagsistant_readdir
+	build_querytree
+	if object_path
+		return readdir object_path
+	else if valid query
+		return readdir querytree
+	else
+		return error
+
+4. tagsistant_mknod
+	build_querytree
+	if object_path
+		return mknod object_path
+	else
+		return error
+
+5.  tagsistant_mkdir
+	build_querytree
+	if directory is first level
+		return make tag
+	else if directory is second level
+		mkdir
+		tag new dir for all querytree tags
+		return
+	else
+		return mkdir
+
+6. tagsistant_symlink
+	build_querytree
+	if not object_path
+		tag file
+	else if object_path is first level
+		tag file as first level name
+	else
+		symlink file in directory
+
+7. tagsistant_unlink
+	build_querytree
+	if object_path
+		return unlink object_path
+	else
+		return error
+	
+8. tagsistant_rmdir
+	build_querytree
+	if ! object_path 
+		delete all tags
+	else if object_path is first level
+		untag object_path
+	else
+		rmdir object_path
+
+9. tagsistant_rename
+	build_querytree
+	if ! object_path
+
+tagsistant_link,
+tagsistant_chmod,
+tagsistant_chown,
+tagsistant_truncate,
+tagsistant_utime,
+tagsistant_open,
+tagsistant_read,
+tagsistant_write,
+tagsistant_statvfs,
+tagsistant_statfs,

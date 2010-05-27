@@ -91,7 +91,7 @@ tagsistant_object_t *tagsistant_object_create(const gchar *path, const gchar *ba
 	}
 
 	/* Create the path in the database */
-	tagsistant_id ID = sql_create_file(path, basename);
+	tagsistant_id ID = sql_create_object(basename, path);
 
 	/* Load the object */
 	tagsistant_object_t *obj = tagsistant_object_load(ID);
