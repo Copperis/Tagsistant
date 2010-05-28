@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- tp_mp3.c
-   Copyright (C) 2006-2007 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2009 Tx0 <tx0@strumentiresistenti.org>
 
    Tagsistant mp3 plugin which makes decisions on file MIME types.
 

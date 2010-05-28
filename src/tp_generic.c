@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- tp_generic.c
-   Copyright (C) 2006-2007 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2009 Tx0 <tx0@strumentiresistenti.org>
 
    Tagsistant generic plugin which makes decisions on file MIME types.
 

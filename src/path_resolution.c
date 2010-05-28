@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- path_resolution.h
-   Copyright (C) 2006-2007 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2009 Tx0 <tx0@strumentiresistenti.org>
 
    Transform paths into queries and apply queries to file sets to
    grep files matching with queries.

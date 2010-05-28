@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- tp_ogg.c
-   Copyright (C) 2006-2007 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2009 Tx0 <tx0@strumentiresistenti.org>
 
    Tagsistant ogg plugin which makes decisions on file MIME types.
 

@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- tagsistant.h
-   Copyright (C) 2006-2007 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2009 Tx0 <tx0@strumentiresistenti.org>
 
    Tagsistant (tagfs) mount binary written using FUSE userspace library.
    Header file
@@ -103,7 +103,8 @@ typedef uint32_t tagsistant_id;
 
 #include "sql.h"
 
-#define MAX_TAG_LENGTH 255
+#define TAGSISTANT_MAX_TAG_LENGTH 255
+#define TAGSISTANT_MAX_PATH_TOKENS 128
 
 #define dyn_strcat(original, newstring) original = _dyn_strcat(original, newstring)
 extern gchar *_dyn_strcat(gchar *original, const gchar *newstring);

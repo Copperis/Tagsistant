@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- tagsistant.c
-   Copyright (C) 2006-2007 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2009 Tx0 <tx0@strumentiresistenti.org>
 
    Tagsistant (tagfs) mount binary written using FUSE userspace library.
 
@@ -1512,7 +1512,7 @@ void usage(char *progname)
 	fprintf(stderr, "\n"
 		" Tagsistant (tagfs) v.%s FUSE_USE_VERSION: %d\n"
 		" Semantic File System for Linux kernels\n"
-		" (c) 2006-2007 Tx0 <tx0@strumentiresistenti.org>\n"
+		" (c) 2006-2009 Tx0 <tx0@strumentiresistenti.org>\n"
 		" \n"
 		" This program is free software; you can redistribute it and/or modify\n"
 		" it under the terms of the GNU General Public License as published by\n"
@@ -1693,7 +1693,7 @@ int main(int argc, char *argv[])
 	if (!tagsistant.quiet)
 		fprintf(stderr,
 		" Tagsistant (tagfs) v.%s FUSE_USE_VERSION: %d\n"
-		" (c) 2006-2007 Tx0 <tx0@strumentiresistenti.org>\n"
+		" (c) 2006-2009 Tx0 <tx0@strumentiresistenti.org>\n"
 		" For license informations, see %s -h\n\n"
 		, PACKAGE_VERSION, FUSE_USE_VERSION, tagsistant.progname
 	);
