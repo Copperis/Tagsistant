@@ -1,24 +1,29 @@
+il filesystem presenta alcune directory particolari
+
+a) /stats: fornisce informazioni relative al funzionamento interno e allo stato
+b) /files: contiene tutti i file - è necessaria per taggare file contenuti in tagsistant
+
 1. l'utente fa una chiamata passando una query
 2. la query viene trasformata in un querytree
 3. se necessario il querytree genera una objectlist
 
 vediamo caso per caso gli schemi di funzionamento
 
-1. tagsistant_getattr
+1. tagsistant_getattr path
 	build_querytree
 	if object_path
 		return stat object_path
 	else
 		return stat tagsistant.archive
 
-2. tagsistant_readlink
+2. tagsistant_readlink path
 	build_querytree
 	if object_path
 		return readlink object_path
 	else
 		return error
 
-3. tagsistant_readdir
+3. tagsistant_readdir path
 	build_querytree
 	if object_path
 		return readdir object_path
@@ -27,14 +32,14 @@ vediamo caso per caso gli schemi di funzionamento
 	else
 		return error
 
-4. tagsistant_mknod
+4. tagsistant_mknod path mode
 	build_querytree
 	if object_path
-		return mknod object_path
+		return mknod object_path mode
 	else
 		return error
 
-5.  tagsistant_mkdir
+5.  tagsistant_mkdir path mode
 	build_querytree
 	if directory is first level
 		return make tag
@@ -45,12 +50,24 @@ vediamo caso per caso gli schemi di funzionamento
 	else
 		return mkdir
 
-6. tagsistant_symlink
-	build_querytree
-	if not object_path
-		tag file
-	else if object_path is first level
+6. tagsistant_symlink old new
+	build_querytree old # always absolute path
+	build_querytree new # always relative path
+
+	if not qtree_old.object_path
+		return
+	
+	if not qtree_new.object_path
+		destination_filename = qtree_old.object_path
+	else
+		destination_filename = qtree_new.object_path
+
+	qtree_iterate qtree_old 	
+	if qtree_new.object_path depth == 1
 		tag file as first level name
+	if object_path
+		insert object_path into database
+		tag object_path with all tags of "old" path
 	else
 		symlink file in directory
 
@@ -70,7 +87,7 @@ vediamo caso per caso gli schemi di funzionamento
 	else
 		rmdir object_path
 
-9. tagsistant_rename
+9. tagsistant_rename old new
 	build_querytree
 	if ! object_path
 
