@@ -13,7 +13,7 @@ La sintassi di una query è:
 composta dai seguenti elementi:
 
 1) /tags - prefisso di ogni query
-2) /tag_set - un set consecutivo di tag che può essere sommato ad un secondo set di tag mediante l'opeatore +
+2) /tag_set - un set consecutivo di tag che può essere sommato ad un secondo set di tag mediante l'operatore +
 3) /= - delimita la fine di una query
 4) /object_path - il path puntato dall'oggetto
 
@@ -22,7 +22,6 @@ Un accesso diretto ad un file invece segue la seguente query:
 /archive/object_path
 1        2
 
-
 Da questo consegue che:
 
 *) /file.txt è un path invalido!!!
@@ -30,7 +29,28 @@ Da questo consegue che:
 *) /archive/... identifica per forza un oggetto su disco, anche se remoto
 *) /tags/t1/... deve proseguire con un operatore
 *) /tags/t1/t2/... è una query invalida
-*) 
+
+TRATTAMENTO DI UN PATH:
+1) scomposizione in token
+2) recupero del primo token: modalità di interpretazione del path
+
+	TRATTAMENTO DI UN PATH /archive:
+	1) se il path è nullo, elenca tutti gli oggetti presenti in archivio
+	2) se il path non è nullo, punta ad un singolo oggetto
+
+	TRATTAMENTO DI UN PATH /tags:
+	1) se il path contiene '=' allora è una query compiuta. si divide in query e object_path
+	2) se object_path non è nullo, allora è inutile analizzare la query
+	3) se object_path è nullo allora lista i risultati della query
+	4) se il path non contiene '=' allora la query è in elaborazione. lista le tag
+	   disponibili, escluse quelle già presenti nel tag_set corrente
+	
+	TRATTAMENTO DI UN PATH /relations:
+	1) se il path è nullo, elenca tutte le tag
+	2) se il path ha un livello, è una tag. elenca tutte le relazioni disponibili
+	3) se il path ha due livelli, è una relazione di cui è specificata una tag.
+	   elenca le tag a cui si applica la relazione. esempio:
+	   /relations/music/includes/ [rock, pop, jazz, ...]
 
 1. l'utente fa una chiamata passando una query
 2. la query viene trasformata in un querytree
