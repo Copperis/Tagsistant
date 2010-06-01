@@ -134,6 +134,13 @@ typedef struct ptree_or_node {
 	struct ptree_and_node *and_set;
 } ptree_or_node_t;
 
+typedef enum {
+	QTYPE_ARCHIVE,
+	QTYPE_TAGS,
+	QTYPE_RELATIONS,
+	QTYPE_STATS
+} query_type_t;
+
 /**
  * define the querytree structure
  * that holds a tree of ptree_or_node_t
@@ -149,6 +156,13 @@ typedef struct querytree {
 
 	/** the ID of the object, if directly managed by tagsistant */
 	tagsistant_id object_id;
+
+	/** the query is complete and valid */
+	int valid;
+
+	/** which kind of path is this? */
+	/** can be QTYPE_TAGS, QTYPE_ARCHIVE, QTYPE_RELATIONS, QTYPE_STATS */
+	int type;
 } querytree_t;
 
 /**

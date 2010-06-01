@@ -188,7 +188,6 @@ void destroy_querytree(querytree_t *qtree)
 querytree_t *build_querytree(const char *path, int do_reasoning)
 {
 	unsigned int orcount = 0, andcount = 0;
-	int next_should_be_logical_op = FALSE;
 
 	// allocate the querytree structure
 	querytree_t *qtree = new_querytree();
@@ -201,16 +200,35 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 	gchar **splitted = g_strsplit(path, "/", 512); /* split up to 512 tokens */
 	gchar **token_ptr = splitted;
 
-	while (*token_ptr != NULL) {
-		char *token = *token_ptr;
+	if (g_strcmp0(*token_ptr, "tags")) {
+		qtree->type = QTYPE_TAGS;
+	} else if (g_strcmp0(*token_ptr, "archive")) {
+ 		qtree->type = QTYPE_ARCHIVE;
+	} else if (g_strcmp0(*token_ptr, "relations")) {
+ 		qtree->type = QTYPE_RELATIONS;
+	} else if (g_strcmp0(*token_ptr, "stats")) {
+ 		qtree->type = QTYPE_STATS;
+	} else {
+		dbg(LOG_ERR, "Invalid path: %s", path);
+		goto RETURN;
+	}
 
-		if (strlen(token) == 0) {
-			/* ignore zero length tokens */
-		} else if (next_should_be_logical_op) {
-			if (strcmp(token, "AND") == 0) {
-				dbg(LOG_INFO, "Skipping AND...");
-				/* skip it? nothing should be done with AND tokens */
-			} else if (strcmp(token, "OR") == 0) {
+	// skip first token
+	token_ptr++;
+
+	// if the query is a QTYPE_TAGS query, parse it
+	if (QTYPE_TAGS == qtree->type) {
+		// check if the query is complete or not
+		qtree->valid = (NULL == g_strstr_len(path, strlen(path), "=")) ? 0 : 1;
+
+		// begin parsing
+		while ((*token_ptr != NULL) && (**token_ptr != '=')) {
+			if (strlen(*token_ptr) == 0) {
+				/* ignore zero length tokens */
+			} else if (strcmp(*token_ptr, "=") == 0) {
+				/* query end reached, jump out */
+				goto RETURN;
+			} else if (strcmp(*token_ptr, "+") == 0) {
 				/* open new entry in OR level */
 				orcount++;
 				andcount = 0;
@@ -224,59 +242,59 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 				last_and = NULL;
 				dbg(LOG_INFO, "Allocated new OR node...");
 			} else {
-				/* remaining part is the object pathname */
-				qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
-
-				/* get the id of the object referred by first element */
-				gchar *dot = g_strstr_len(*token_ptr, -1, ".");
-				if (NULL != dot) {
-					qtree->object_id = strtol(*token_ptr, NULL, 10);
-					dot++;
+				/* save next token in new ptree_and_node_t slot */
+				ptree_and_node_t *and = g_new0(ptree_and_node_t, 1);
+				if (and == NULL) {
+					dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+					goto RETURN;
 				}
-
-				goto RETURN;
-			}
-			next_should_be_logical_op = FALSE;
-		} else {
-			/* save next token in new ptree_and_node_t slot */
-			ptree_and_node_t *and = g_new0(ptree_and_node_t, 1);
-			if (and == NULL) {
-				dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-				goto RETURN;
-			}
-			and->tag = strdup(token);
-			dbg(LOG_INFO, "New AND node allocated on tag %s...", and->tag);
-			and->next = NULL;
-			and->related = NULL;
-			if (last_and == NULL) {
-				last_or->and_set = and;
-			} else {
-				last_and->next = and;
-			}
-			last_and = and;
-
-			dbg(LOG_INFO, "Query tree: %.2d.%.2d %s", orcount, andcount, token);
-			andcount++;
-			next_should_be_logical_op = TRUE;
-
-			/* search related tags */
+				and->tag = g_strdup(*token_ptr);
+				dbg(LOG_INFO, "New AND node allocated on tag %s...", and->tag);
+				and->next = NULL;
+				and->related = NULL;
+				if (last_and == NULL) {
+					last_or->and_set = and;
+				} else {
+					last_and->next = and;
+				}
+				last_and = and;
+	
+				dbg(LOG_INFO, "Query tree: %.2d.%.2d %s", orcount, andcount, *token_ptr);
+				andcount++;
+	
+				/* search related tags */
+				if (do_reasoning) {
 #if VERBOSE_DEBUG
-			dbg(LOG_INFO, "Searching for other tags related to %s", and->tag);
+					dbg(LOG_INFO, "Searching for other tags related to %s", and->tag);
 #endif
-
-			if (do_reasoning) {
-				reasoning_t *reasoning = g_malloc(sizeof(reasoning_t));
-				if (reasoning != NULL) {
-					reasoning->start_node = and;
-					reasoning->actual_node = and;
-					reasoning->added_tags = 0;
-					int newtags = reasoner(reasoning);
-					dbg(LOG_INFO, "Reasoning added %d tags", newtags);
+					reasoning_t *reasoning = g_malloc(sizeof(reasoning_t));
+					if (reasoning != NULL) {
+						reasoning->start_node = and;
+						reasoning->actual_node = and;
+						reasoning->added_tags = 0;
+						int newtags = reasoner(reasoning);
+						dbg(LOG_INFO, "Reasoning added %d tags", newtags);
+					}
 				}
 			}
+			token_ptr++;
 		}
-		
-		token_ptr++;
+	} else if (QTYPE_RELATIONS) {
+		/* parse a relations query */
+		/* 
+	} else if (QTYPE_STATS) {
+		/* parse a stats query */
+		/* probably does nothing */
+	}
+
+	/* remaining part is the object pathname */
+	qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
+	
+	/* get the id of the object referred by first element */
+	gchar *dot = g_strstr_len(*token_ptr, -1, ".");
+	if (NULL != dot) {
+		qtree->object_id = strtol(*token_ptr, NULL, 10);
+		dot++;
 	}
 
 RETURN:
