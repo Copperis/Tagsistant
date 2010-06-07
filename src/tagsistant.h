@@ -148,10 +148,13 @@ typedef enum {
  * containing the file part of the path.
  */
 typedef struct querytree {
+	/** the complete path that generated the tree */
+	gchar *full_path;
+
 	/** the query tree */
 	ptree_or_node_t *tree;
 
-	/** the path of the object, if provided */
+	/** the path of the object, if provided, linked over full_path (not needing to be freed */
 	gchar *object_path;
 
 	/** the ID of the object, if directly managed by tagsistant */

@@ -116,14 +116,19 @@ int reasoner(reasoning_t *reasoning)
 /**
  * allocate a new querytree_t structure
  */
-querytree_t *new_querytree()
+querytree_t *new_querytree(static gchar *path)
 {
+	// allocate the struct
 	querytree_t *qtree = g_new0(querytree_t, 1);
 	if (qtree == NULL) {
 		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
 		return NULL;
 	}
 
+	// duplicate the path inside the struct
+	qtree->full_path = g_strdup(path);
+
+	// allocate the first OR node
 	qtree->tree = g_new0(ptree_or_node_t, 1);
 	if (qtree->tree == NULL) {
 		freenull(qtree);
@@ -167,7 +172,7 @@ void destroy_querytree(querytree_t *qtree)
 	}
 
 	// free the file path
-	if (qtree->object_path != NULL) freenull(qtree->object_path);
+	if (qtree->full_path != NULL) freenull(qtree->full_path);
 
 	// free the structure
 	freenull(qtree);
@@ -281,7 +286,7 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 		}
 	} else if (QTYPE_RELATIONS) {
 		/* parse a relations query */
-		/* 
+		/* to be thought */
 	} else if (QTYPE_STATS) {
 		/* parse a stats query */
 		/* probably does nothing */
@@ -303,12 +308,16 @@ RETURN:
 	return qtree;
 }
 
+/* a struct used by add_to_filetree function */
 struct atft {
 	sqlite_int64 id;
 	file_handle_t **fh;
 	sqlite3 *dbh;
 };
 
+/**
+ * add a file to the file tree (callback function)
+ */
 static int add_to_filetree(void *atft_struct, int argc, char **argv, char **azColName)
 {
 	(void) argc;
