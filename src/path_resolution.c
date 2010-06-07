@@ -128,14 +128,6 @@ querytree_t *new_querytree(static gchar *path)
 	// duplicate the path inside the struct
 	qtree->full_path = g_strdup(path);
 
-	// allocate the first OR node
-	qtree->tree = g_new0(ptree_or_node_t, 1);
-	if (qtree->tree == NULL) {
-		freenull(qtree);
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
-		return NULL;
-	}
-
 	return qtree;
 }
 
@@ -171,8 +163,9 @@ void destroy_querytree(querytree_t *qtree)
 		node = next;
 	}
 
-	// free the file path
-	if (qtree->full_path != NULL) freenull(qtree->full_path);
+	// free paths
+	freenull(qtree->object_path);
+	freenull(qtree->full_path);
 
 	// free the structure
 	freenull(qtree);
@@ -195,13 +188,19 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 	unsigned int orcount = 0, andcount = 0;
 
 	// allocate the querytree structure
-	querytree_t *qtree = new_querytree();
+	querytree_t *qtree = new_querytree(path);
 	if (qtree == NULL) return NULL;
 
 	// initialize iterator variables on query tree nodes
-	ptree_or_node_t *last_or = qtree->tree;
+	ptree_or_node_t *last_or = qtree->tree = g_new0(ptree_or_node_t, 1);
+	if (qtree->tree == NULL) {
+		freenull(qtree);
+		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		return NULL;
+	}
 	ptree_and_node_t *last_and = NULL;
 
+	// split the path
 	gchar **splitted = g_strsplit(path, "/", 512); /* split up to 512 tokens */
 	gchar **token_ptr = splitted;
 
@@ -216,6 +215,12 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 	} else {
 		dbg(LOG_ERR, "Invalid path: %s", path);
 		goto RETURN;
+	}
+
+	if (qtree->type == QTYPE_TAGS) {
+		// ...
+	} else {
+		// ...
 	}
 
 	// skip first token
