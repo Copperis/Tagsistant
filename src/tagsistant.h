@@ -135,11 +135,20 @@ typedef struct ptree_or_node {
 } ptree_or_node_t;
 
 typedef enum {
-	QTYPE_ARCHIVE,
-	QTYPE_TAGS,
-	QTYPE_RELATIONS,
-	QTYPE_STATS
+	QTYPE_MALFORMED,	// wrong path (not starting by /tags, /archive, /stats or /relations)
+	QTYPE_ROOT,			// no path, that's a special case for root directory
+	QTYPE_ARCHIVE,		// path pointing to objects on disk, begins with /archive/
+	QTYPE_TAGS,			// path that's a query, begins with /tags/
+	QTYPE_RELATIONS,	// path that's a relation between two or more tags, begins with /relations/
+	QTYPE_STATS			// path that's a special query for internal status, begins with /stats/
 } query_type_t;
+
+#define QTREE_IS_MALFORMED(qtree) (QTYPE_MALFORMED == qtree->type)
+#define QTREE_IS_ROOT(qtree) (QTYPE_ROOT == qtree->type)
+#define QTREE_IS_TAGS(qtree) (QTYPE_TAGS == qtree->type)
+#define QTREE_IS_ARCHIVE(qtree) (QTYPE_ARCHIVE == qtree->type)
+#define QTREE_IS_RELATIONS(qtree) (QTYPE_RELATIONS == qtree->type)
+#define QTREE_IS_STATS(qtree) (QTYPE_STATS == qtree->type)
 
 /**
  * define the querytree structure
@@ -160,12 +169,27 @@ typedef struct querytree {
 	/** the ID of the object, if directly managed by tagsistant */
 	tagsistant_id object_id;
 
-	/** the query is complete and valid */
+	/** the query is valid */
 	int valid;
 
+	/** the query is complete */
+	int complete;
+
 	/** which kind of path is this? */
-	/** can be QTYPE_TAGS, QTYPE_ARCHIVE, QTYPE_RELATIONS, QTYPE_STATS */
+	/** can be QTYPE_ROOT, QTYPE_TAGS, QTYPE_ARCHIVE, QTYPE_RELATIONS, QTYPE_STATS */
 	int type;
+
+	/** the first tag in a relation */
+	gchar *first_tag;
+
+	/** the second tag in a relation */
+	gchar *second_tag;
+
+	/** the relation */
+	gchar *relation;
+
+	/** the stats path (used for status query in /stat/ paths */
+	gchar *stat_path;
 } querytree_t;
 
 /**

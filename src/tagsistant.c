@@ -364,29 +364,63 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 {
     int res = 0, tagsistant_errno = 0;
 
-	/* special cases: "/" and "" */
-	if ((g_strcmp0(path, "/") == 0) || (g_strcmp0(path, "") == 0)) {
-		res = lstat(tagsistant.archive, stbuf);
-		if ( res == -1 ) {
-			tagsistant_errno = errno;
-			dbg(LOG_INFO, "GETATTR on / using %s: %d %s", tagsistant.archive, errno, strerror(tagsistant_errno));
-			return -errno;
-		}
-		dbg(LOG_INFO, "GETATTR on / OK!");
-		return 0;
-	}
-
 	init_time_profile();
 	start_time_profile();
 
-	/* split the path into its components */
-	gchar **tokens = g_strsplit(path, "/", 512);
-	gchar **token_ptr = tokens;
-	gchar *last = NULL;
-	gchar *last2 = NULL;
+	// build querytree
+	querytree_t *qtree = build_querytree(path, 0);
 
-	// dbg(LOG_INFO, "last = [%s], last2 = [%s]", last, last2);
+	if (QTREE_IS_MALFORMED(qtree)) {
+		tagsistant_errno = ENOENT;
+		goto GETTATTR_EXIT;
+	}
+	
+	if (QTREE_IS_ROOT(qtree)) {
+		res = lstat(tagsistant.archive, stbuf);
+		if ( res == -1 ) {
+			tagsistant_errno = errno;
+			dbg(LOG_INFO, "GETATTR on / (mapped on %s): %d %s", tagsistant.archive, errno, strerror(tagsistant_errno));
+			goto GETATTR_EXIT;
+		}
+		dbg(LOG_INFO, "GETATTR on / OK!");
+		tagsistant_errno = 0;
+		goto GETATTR_EXIT;
+	}
 
+	if (QTREE_IS_TAGS(qtree)) {
+		if (qtree->complete) {
+			// do lstat on qtree->object_path
+		} else {
+			// do lstat on tagsistant.archive and mangle inode with SQL ID
+		}
+		goto GETATTR_EXIT;
+	}
+
+	if (QTREE_IS_ARCHIVE(qtree)) {
+		res = lstat(qtree->object_path, stbuf);
+		if (-1 == res) {
+			tagsistant_errno = errno;
+			dbg(LOG_INFO, "GETATTR on / (mapped on %s): %d %s", tagsistant.archive, errno, strerror(tagsistant_errno));
+			goto GETATTR_EXIT;
+		}
+		dbg(LOG_INFO, "GETATTR on %s OK!", qtree->object_path);
+		tagsistant_errno = 0;
+		goto GETATTR_EXIT;
+	}
+
+	if (QTREE_IS_STAT(qtree)) {
+		dbg(LOG_INFO, "GETATTR on %s OK!", path);
+		tagsistant_errno = 0;
+		goto GETATTR_EXIT;
+	}
+
+	if (QTREE_IS_RELATIONS(qtree)) {
+		dbg(LOG_INFO, "GETATTR on %s OK!", path);
+		tagsistant_errno = 0;
+		goto GETATTR_EXIT;
+	}
+
+#if 0
 	/* locate last and last2 (penultimate) elements */
 	int token_counter = 0;
 	while (*token_ptr != NULL) {
@@ -502,9 +536,11 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 		res = -1;
 		tagsistant_errno = ENOENT;
 	}
+#endif
 
 GETATTR_EXIT:
 
+	destroy_querytree(qtree);
 	g_strfreev(tokens);
 	stop_labeled_time_profile("getattr");
 
@@ -984,7 +1020,7 @@ static int tagsistant_symlink(const char *from, const char *to)
 		while ((*tokens_ptr != NULL) && (g_strcmp0(*tokens_ptr, filename) != 0)) {
 			if (strlen(*tokens_ptr)) {
 				dbg(LOG_INFO, "Tagging file %s as %s inside tagsistant_symlink() or tagsistant_link()", filename, *tokens_ptr);
-				tag_file(file_id, *tokens_ptr);
+				// tag_file(file_id, *tokens_ptr);
 			}
 			tokens_ptr++;
 		}

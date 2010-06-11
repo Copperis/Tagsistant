@@ -116,7 +116,7 @@ int reasoner(reasoning_t *reasoning)
 /**
  * allocate a new querytree_t structure
  */
-querytree_t *new_querytree(static gchar *path)
+querytree_t *new_querytree(const gchar *path)
 {
 	// allocate the struct
 	querytree_t *qtree = g_new0(querytree_t, 1);
@@ -163,9 +163,13 @@ void destroy_querytree(querytree_t *qtree)
 		node = next;
 	}
 
-	// free paths
+	// free paths and other strings
 	freenull(qtree->object_path);
 	freenull(qtree->full_path);
+	freenull(qtree->first_tag);
+	freenull(qtree->second_tag);
+	freenull(qtree->relation);
+	freenull(qtree->stat_path);
 
 	// free the structure
 	freenull(qtree);
@@ -204,6 +208,7 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 	gchar **splitted = g_strsplit(path, "/", 512); /* split up to 512 tokens */
 	gchar **token_ptr = splitted;
 
+	// guess the type of the query by first token
 	if (g_strcmp0(*token_ptr, "tags")) {
 		qtree->type = QTYPE_TAGS;
 	} else if (g_strcmp0(*token_ptr, "archive")) {
@@ -212,24 +217,32 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
  		qtree->type = QTYPE_RELATIONS;
 	} else if (g_strcmp0(*token_ptr, "stats")) {
  		qtree->type = QTYPE_STATS;
+	} else if ((NULL == *token_ptr) || (g_strcmp0(*token_ptr, "") == 0)) {
+		qtree->type = QTYPE_ROOT;
 	} else {
-		dbg(LOG_ERR, "Invalid path: %s", path);
+		qtree->type = QTYPE_MALFORMED;
+		dbg(LOG_ERR, "Non existant path (%s) @%s:%d", path, __FILE__, __LINE__);
 		goto RETURN;
-	}
-
-	if (qtree->type == QTYPE_TAGS) {
-		// ...
-	} else {
-		// ...
 	}
 
 	// skip first token
 	token_ptr++;
 
 	// if the query is a QTYPE_TAGS query, parse it
-	if (QTYPE_TAGS == qtree->type) {
-		// check if the query is complete or not
-		qtree->valid = (NULL == g_strstr_len(path, strlen(path), "=")) ? 0 : 1;
+	if (QTREE_IS_TAGS(qtree)) {
+		// guess where the object path starts
+		qtree->object_path = g_strstr_len(path, strlen(path), "=");
+
+		// state if the query is complete or not
+		if (qtree->object_path != NULL) {
+			qtree->complete = 1;
+			qtree->object_path++;
+		} else {
+			qtree->complete = 0;
+		}
+
+		// by default a query is valid until somethig wrong happens while parsing it
+		qtree->valid = 1;
 
 		// begin parsing
 		while ((*token_ptr != NULL) && (**token_ptr != '=')) {
@@ -289,16 +302,32 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 			}
 			token_ptr++;
 		}
-	} else if (QTYPE_RELATIONS) {
+	} else if (QTREE_IS_RELATIONS(qtree)) {
 		/* parse a relations query */
-		/* to be thought */
-	} else if (QTYPE_STATS) {
+		if (NULL != *token_ptr) {
+			qtree->first_tag = g_strdup(*token_ptr);
+			token_ptr++;
+			if (NULL != *token_ptr) {	
+				qtree->relation = g_strdup(*token_ptr);
+				token_ptr++;
+				if (NULL != *token_ptr) {
+					qtree->second_tag = g_strdup(*token_ptr);
+					qtree->complete = 1;
+				}
+			}
+		}
+	} else if (QTREE_IS_STATS(qtree)) {
 		/* parse a stats query */
-		/* probably does nothing */
+		if (NULL != *token_ptr) {
+			qtree->stat_path = g_strdup(*token_ptr);
+			qtree->complete = 1;
+		}
 	}
 
 	/* remaining part is the object pathname */
-	qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
+	if (QTREE_IS_ARCHIVE(qtree) || (QTREE_IS_TAGS(qtree) && qtree->complete)) {
+		qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
+	}
 	
 	/* get the id of the object referred by first element */
 	gchar *dot = g_strstr_len(*token_ptr, -1, ".");
