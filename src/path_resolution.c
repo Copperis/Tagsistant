@@ -169,7 +169,8 @@ void destroy_querytree(querytree_t *qtree)
 	freenull(qtree->first_tag);
 	freenull(qtree->second_tag);
 	freenull(qtree->relation);
-	freenull(qtree->stat_path);
+	freenull(qtree->stats_path);
+	freenull(qtree->last_tag);
 
 	// free the structure
 	freenull(qtree);
@@ -300,6 +301,11 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 					}
 				}
 			}
+
+			// save last tag found
+			freenull(qtree->last_tag);
+			qtree->last_tag = g_strdup(*token_ptr);
+
 			token_ptr++;
 		}
 	} else if (QTREE_IS_RELATIONS(qtree)) {
@@ -319,7 +325,7 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 	} else if (QTREE_IS_STATS(qtree)) {
 		/* parse a stats query */
 		if (NULL != *token_ptr) {
-			qtree->stat_path = g_strdup(*token_ptr);
+			qtree->stats_path = g_strdup(*token_ptr);
 			qtree->complete = 1;
 		}
 	}

@@ -169,6 +169,9 @@ typedef struct querytree {
 	/** the ID of the object, if directly managed by tagsistant */
 	tagsistant_id object_id;
 
+	/** last tag found while parsing a /tags query */
+	gchar *last_tag;
+
 	/** the query is valid */
 	int valid;
 
@@ -189,7 +192,7 @@ typedef struct querytree {
 	gchar *relation;
 
 	/** the stats path (used for status query in /stat/ paths */
-	gchar *stat_path;
+	gchar *stats_path;
 } querytree_t;
 
 /**
