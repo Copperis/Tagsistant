@@ -362,6 +362,7 @@ STOP_CHAIN_TAGGING:
 static int tagsistant_getattr(const char *path, struct stat *stbuf)
 {
     int res = 0, tagsistant_errno = 0;
+	gchar *lstat_path = NULL;
 
 	init_time_profile();
 	start_time_profile();
@@ -371,181 +372,57 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
+		res = -1;
 		tagsistant_errno = ENOENT;
 		goto GETATTR_EXIT;
 	}
 	
 	// -- tags --
 	if (QTREE_IS_TAGS(qtree)) {
-		if (qtree->complete) {
-			// do lstat on qtree->object_path
-			res = lstat(qtree->object_path, stbuf);
-			if (-1 == res) {
-				tagsistant_errno = errno;
-				dbg(LOG_INFO, "GETATTR on / (mapped on %s): %d %s", tagsistant.archive, errno, strerror(tagsistant_errno));
-				goto GETATTR_EXIT;
-			}   
-			tagsistant_errno = 0;
-			dbg(LOG_INFO, "GETATTR on %s OK!", qtree->object_path);
-			goto GETATTR_EXIT;
-		} else if (g_strcmp0(qtree->last_tag, "+")) {
-			// do lstat on tagsistant.archive and mangle inode with SQL ID + 3 (for "." and "..")
-		} else {
-			// do lstat on tagsistant.archive and mangle inode with SQL ID
-		}
-		goto GETATTR_EXIT;
-	}
+		lstat_path = qtree->complete ?  qtree->object_path : tagsistant.archive;
+	} else
 
 	// -- archive --
 	if (QTREE_IS_ARCHIVE(qtree)) {
-		if (strlen(qtree->object_path)) {
-			res = lstat(qtree->object_path, stbuf);
-		} else {
-			res = lstat(tagsistant.archive, stbuf);
-		}
-
-		if (-1 == res) {
-			tagsistant_errno = errno;
-			dbg(LOG_INFO, "GETATTR on / (mapped on %s): %d %s", tagsistant.archive, errno, strerror(tagsistant_errno));
-			goto GETATTR_EXIT;
-		}
-		tagsistant_errno = 0;
-		dbg(LOG_INFO, "GETATTR on %s OK!", qtree->object_path);
-		goto GETATTR_EXIT;
-	}
+		lstat_path = strlen(qtree->object_path) ? qtree->object_path : tagsistant.archive;
+	} else
 
 	// -- root --
 	// -- stats --
 	// -- relations --
 	if (QTREE_IS_ROOT(qtree) || QTREE_IS_STATS(qtree) || QTREE_IS_RELATIONS(qtree)) {
-		res = lstat(tagsistant.archive, stbuf);
-		if (-1 == res) {
-			tagsistant_errno = errno;
-			dbg(LOG_INFO, "GETATTR on %s (mapped on %s): %d %s", path, tagsistant.archive, errno, strerror(tagsistant_errno));
-			goto GETATTR_EXIT;
-		}
-		tagsistant_errno = 0;
-		dbg(LOG_INFO, "GETATTR on %s OK!", path);
-		goto GETATTR_EXIT;
+		lstat_path = tagsistant.archive;
 	}
 
-#if 0
-	/* locate last and last2 (penultimate) elements */
-	int token_counter = 0;
-	while (*token_ptr != NULL) {
-		last2 = last;
-		last = *token_ptr;
-		token_ptr++;
-		token_counter++;
-		// dbg(LOG_INFO, "last = [%s], last2 = [%s], token_counter = %u", last, last2, token_counter);
+	// do the real lstat()
+	res = lstat(lstat_path, stbuf);
+	if (-1 == res) {
+		tagsistant_errno = errno;
 	}
 
-	if (token_counter < 1) {
-		dbg(LOG_INFO, "GETATTR on %s: not enough tokens in path @%s:%d", path, __FILE__, __LINE__);
-		g_strfreev(tokens);
-		return -ENOENT;
-	}
-
-	/* special case: last element is an operator (AND or OR) */
-	if ((strcmp(last, "AND") == 0) || (strcmp(last, "OR") == 0)) {
-
-#if VERBOSE_DEBUG
-	 	dbg(LOG_INFO, "GETATTR on AND/OR logical operator!");
-#endif
-
-	 	lstat(tagsistant.archive, stbuf);	
-
-		/* getting directory inode from filesystem */
-		ino_t inode = 0;
-
-		if (last2 != NULL)
-			inode = get_exact_tag_id(last2);
-
-		stbuf->st_ino = inode * 3; /* each directory holds 3 inodes: itself/, itself/AND/, itself/OR/ */
-
-		/* 
-		 * using tagsistant.archive in lstat() returns its inode number
-		 * for all AND/OR ops. that is a problem while traversing
-		 * a dir tree with write approach, like in a rm -rf <dir>.
-		 * to avoid such a problem we add 1 to inode number to
-		 * differentiate it
-		 */
-		stbuf->st_ino++;
-
-		/* AND and OR can't be the same inode */
-		if (g_strcmp0(last, "OR") == 0) stbuf->st_ino++;
-		
-		/* logical operators can't be written by anyone */
-		stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
-
-		/* not sure of that! */
-		/* stbuf->st_size = 0; */
-
-		stbuf->st_nlink = 1;
-
-		g_strfreev(tokens);
-		return 0;
-	}
-
-	dbg(LOG_INFO, "last = [%s], last2 = [%s], token_counter = %u", last, last2, token_counter);
-
-	/* last token in path is a file or a tag? */
-	if ((last2 == NULL) || (strlen(last2) == 0) || (strcmp(last2, "AND") == 0) || (strcmp(last2, "OR") == 0)) {
-		/* last is a dir-tag */
-		/* last is the name of the tag */
-#if VERBOSE_DEBUG
-		dbg(LOG_INFO, "GETATTR on tag: '%s'", last);
-#endif
-
-		int exists = sql_tag_exists(last);
-
-		if (exists) {
-			dbg(LOG_INFO, "Tag %s already exists",last);
-			res = lstat(tagsistant.archive, stbuf);
-			tagsistant_errno = errno;
-
-			/* getting directory inode from filesystem */
-			ino_t inode = 0;
-			tagsistant_query("select id from tags where tagname = \"%s\";", return_integer, &inode, last);
-			stbuf->st_ino = inode * 3; /* each directory holds 3 inodes: itself/, itself/AND/, itself/OR/ */
+	// postprocess output
+	if (QTREE_IS_TAGS(qtree)) {
+		if (qtree->complete) {
+		} else if (g_strcmp0(qtree->last_tag, "+") == 0) {
+			stbuf->st_ino += 1;
+			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
+			stbuf->st_nlink = 1;
+		} else if (g_strcmp0(qtree->last_tag, "=") == 0) {
+			stbuf->st_ino += 2;
+			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
+			stbuf->st_nlink = 1;
 		} else {
-			dbg(LOG_INFO, "Tag %s does not exist", last);
-			res = -1;
-			tagsistant_errno = ENOENT;
-		}
-	} else {
-		/* last is a file */
-		/* last is the filename */
-		/* last2 is the last tag in path */
-
-		/* split filename into id and proper filename */
-		int file_id = 0;
-		char purefilename[255];
-		if (sscanf(last, "%u.%s", &file_id, purefilename) != 2) {
-			sprintf(purefilename, "%s", last);
-			dbg(LOG_WARNING, "GETATTR Warning: file %s don't apply to <id>.<filename> convention @%s:%d", last, __FILE__, __LINE__);
-		}
-
-		/* check if file is tagged */
-		token_ptr = tokens;
-		while (*token_ptr && (g_strcmp0(*token_ptr, purefilename) != 0)) {
-			gchar *token = *token_ptr;
-			if (strlen(token) && (g_strcmp0(token, "AND") != 0) && (g_strcmp0(token, "OR") != 0)) {
-				if ((file_id && is_tagged(file_id, token)) || filename_is_tagged(purefilename, token)) {
-					gchar *filepath = get_first_file_path(purefilename, file_id);
-					res = lstat(filepath, stbuf);
-					tagsistant_errno = (res == -1) ? errno : 0;
-					freenull(filepath);
-					goto GETATTR_EXIT;
-				}
+			if (sql_tag_exists(qtree->last_tag)) {
+				// each directory holds 3 inodes: itself/, itself/+, itself/=
+				stbuf->st_ino = get_exact_tag_id(qtree->last_tag) * 3;
+			} else {
+				tagsistant_errno = ENOENT;
+				res = -1;
 			}
-			token_ptr++;
 		}
-
-		res = -1;
-		tagsistant_errno = ENOENT;
+	} else if (QTREE_IS_STATS(qtree) || QTREE_IS_RELATIONS(qtree)) {
+		// mangle inode for relations and stats
 	}
-#endif
 
 GETATTR_EXIT:
 
@@ -553,7 +430,7 @@ GETATTR_EXIT:
 	stop_labeled_time_profile("getattr");
 
 	if ( res == -1 ) {
-		dbg(LOG_ERR, "GETATTR on %s: %d %d: %s", path, res, tagsistant_errno, strerror(tagsistant_errno));
+		dbg(LOG_ERR, "GETATTR on %s (%s): %d %d: %s", path, lstat_path, res, tagsistant_errno, strerror(tagsistant_errno));
 		return -tagsistant_errno;
 	} else {
 		dbg(LOG_INFO, "GETATTR on %s: OK", path);
@@ -571,25 +448,43 @@ GETATTR_EXIT:
  */
 static int tagsistant_readlink(const char *path, char *buf, size_t size)
 {
-	char *filename = get_tag_name(path);
+    int res = 0, tagsistant_errno = 0;
+	gchar *readlink_path = NULL;
 
-	int file_id = 0;
-	char *purefilename = NULL;
-	get_file_id_and_name(filename, &file_id, &purefilename);
+	init_time_profile();
+	start_time_profile();
 
-	char *filepath = get_file_path(purefilename, file_id);
+	// build querytree
+	querytree_t *qtree = build_querytree(path, 0);
 
-	freenull(filename);
-	freenull(purefilename);
+	// -- malformed --
+	if (QTREE_IS_MALFORMED(qtree)) {
+		res = -1;
+		tagsistant_errno = ENOENT;
+		goto READLINK_EXIT;
+	}
 
-	dbg(LOG_INFO, "READLINK on %s", filepath);
+	if ((QTREE_IS_TAGS(qtree) && qtree->complete) || QTREE_IS_ARCHIVE(qtree)) {
+		readlink_path = qtree->object_path; // that's not correct - get file from SQL and than figure out the real path!!!!
+	} else if (QTREE_IS_STATS(qtree) || QTREE_IS_RELATIONS(qtree)) {
+		res = -1;
+		tagsistant_errno = EINVAL;
+		goto READLINK_EXIT;
+	}
 
-	int res = readlink(filepath, buf, size);
+	res = readlink(readlink_path, buf, size);
 	if (res > 0) buf[res] = '\0';
-	int tagsistant_errno = errno;
+	tagsistant_errno = errno;
 
-	freenull(filepath);
-	return (res == -1) ? -tagsistant_errno : 0;
+READLINK_EXIT:
+	destroy_querytree(qtree);
+	if ( res == -1 ) {
+		dbg(LOG_ERR, "READLINK on %s (%s): %d %d: %s", path, readlink_path, res, tagsistant_errno, strerror(tagsistant_errno));
+		return -tagsistant_errno;
+	} else {
+		dbg(LOG_INFO, "REALINK on %s: OK", path);
+		return 0;
+	}
 }
 
 /**
