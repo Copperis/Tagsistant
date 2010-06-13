@@ -149,6 +149,7 @@ typedef enum {
 #define QTREE_IS_ARCHIVE(qtree) (QTYPE_ARCHIVE == qtree->type)
 #define QTREE_IS_RELATIONS(qtree) (QTYPE_RELATIONS == qtree->type)
 #define QTREE_IS_STATS(qtree) (QTYPE_STATS == qtree->type)
+#define QTREE_POINTS_TO_OBJECT(qtree) (qtree->points_to_object == 1)
 
 /**
  * define the querytree structure
@@ -165,6 +166,9 @@ typedef struct querytree {
 
 	/** the path of the object, if provided */
 	gchar *object_path;
+
+	/** the query points to an object on disk? */
+	int points_to_object;
 
 	/** the ID of the object, if directly managed by tagsistant */
 	tagsistant_id object_id;
@@ -318,6 +322,13 @@ extern void traverse_querytree(querytree_t *qtree, void (*funcpointer)(ptree_and
 
 extern void destroy_querytree(querytree_t *qtree);
 extern void destroy_filetree(file_handle_t *fh);
+
+extern int process(int file_id);
+
+extern tagsistant_id tagsistant_get_object_id(const gchar *path, gchar **purename);
+extern void init_syslog();
+extern void plugin_loader();
+extern void plugin_unloader();
 
 /**
  * allows for applying a function to all the ptree_and_node_t nodes of

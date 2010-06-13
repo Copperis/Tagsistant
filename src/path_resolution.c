@@ -334,7 +334,35 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 	if (QTREE_IS_ARCHIVE(qtree) || (QTREE_IS_TAGS(qtree) && qtree->complete)) {
 		qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
 	}
-	
+
+	/* object_path can't be null for completed /tags queries or /archive queries */
+	if (
+		(strlen(qtree->object_path) == 0) &&
+		(
+			(QTREE_IS_TAGS(qtree) && qtree->complete) || 
+			QTREE_IS_ARCHIVE(qtree) || QTREE_IS_STATS(qtree) || QTREE_IS_RELATIONS(qtree)
+		)
+	) {
+		qtree->object_path = strdup(tagsistant.archive);
+	}
+
+	/*
+	 * guess if query points to an object on disk or not
+	 * that's true if object_path property is not null or zero length
+	 * and both query is /archive or query is a complete /tags (including = sign)
+	 */
+	if (
+		(strlen(qtree->object_path) > 0) &&
+		(
+		 	QTREE_IS_ARCHIVE(qtree) ||
+			(QTREE_IS_TAGS(qtree) && qtree->complete)
+		)
+	) {
+		qtree->points_to_object = 1;
+	} else {
+		qtree->points_to_object = 0;
+	}
+
 	/* get the id of the object referred by first element */
 	gchar *dot = g_strstr_len(*token_ptr, -1, ".");
 	if (NULL != dot) {

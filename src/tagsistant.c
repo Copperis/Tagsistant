@@ -26,331 +26,8 @@
 #include <mcheck.h>
 #endif
 
-FILE *debugfd = NULL;
-
-#ifdef DEBUG_TO_LOGFILE
-void open_debug_file()
-{
-	char debug_file[1024];
-	sprintf(debug_file, "/tmp/tagsistant.debug.%d", getpid());
-	debugfd = fopen(debug_file, "w");
-	if (debugfd != NULL) {
-		dbg(LOG_INFO, "Logfile %s open!", debug_file);
-	} else {
-		dbg(LOG_ERR, "Can't open logfile %s: %s!", debug_file, strerror(errno));
-	}
-}
-#endif
-
-#ifdef DEBUG_STRDUP
-char *real_strdup(const char *orig, char *file, int line)
-{
-	if (orig == NULL) return NULL;
-	/* dbg(LOG_INFO, "strdup(%s) @%s:%d", orig, file, line); */
-	char *res = g_malloc0(sizeof(char) * (strlen(orig) + 1));
-	memcpy(res, orig, strlen(orig));
-	if (debugfd != NULL) fprintf(debugfd, "0x%.8x: strdup(%s) @%s:%d\n", (unsigned int) res, orig, file, line);
-	return res;
-}
-#endif
-
-int debug = 0;
-int log_enabled = 0;
-
-/**
- * Return the real path on the underlying filesystem to access a file.
- * The file can be provided as its basename with the "filename" parameter,
- * or through its unique ID using the "file_id" parameter. If the file is
- * not located inside the DB, and a "filename" has been provided, a path
- * inside the archive/ directory is returned. The "filename" and "file_id"
- * parameters can be specified exclusively.
- *
- * EXAMPLE 1: _get_file_path(NULL, 12) will return the path of file with
- * ID 12, if existing, NULL otherwise.
- *
- * EXAMPLE 2: _get_file_path("passwd", 0) will return the path of the only
- * "passwd" file in the files table. If more than one file exist, NULL
- * is returned. If no file is found, the path "<repository>/archive/passwd"
- * is returned, where <repository> is the path of Tagsistant repository.
- *
- * \param @filename a string with the basename of the file
- * \param @file_id an ID referring to a file
- * \param @use_first_match if no file_id is provided and more than one filename
- *   matches "filename", use the first instead of returning NULL
- * \returns a string, if appropriate, NULL otherwise. Must be freed!
- */
-gchar *_get_file_path(const gchar *filename, int file_id, int use_first_match)
-{
-	gchar *path = NULL;
-
-	if (file_id) {
-		tagsistant_query("select path from objects where id = %u", return_string, &path, file_id);
-		if ((path == NULL) && (filename != NULL)) {
-			path = g_strdup_printf("%s%s", tagsistant.archive, filename);
-		}
-	} else if (filename != NULL) {
-		int count = 0;
-		tagsistant_query("select count(filename) from objects where basename = \"%s\"", return_integer, &count, filename);
-
-		if (count == 0) {
-			path = g_strdup_printf("%s%s", tagsistant.archive, filename);
-		} else if ((count == 1) || use_first_match) {
-			tagsistant_query("select path from objects where basename = \"%s\"", return_string, &path, filename);
-		} else {
-			// if more than 1 entry match the file name, the corresponding path can't be guessed
-		}
-	}
-
-	dbg(LOG_INFO, "get_file_path(\"%s\", %u) == \"%s\"", filename, file_id, path);
-	return path;
-}
-
 /* defines command line options for tagsistant mount tool */
 /* static */ struct tagsistant tagsistant;
-
-/**
- * given a full path, returns the filename, the filepath (relative
- * to archive directory) and the tagname
- *
- * \param path original path to analize
- * \param filename pointer to path filename
- * \param filepath pointer to path other part which is not filename
- * \param tagname pointer to path last tag
- * \return 1 if successfull, 0 otherwise
- * \todo return value is not conditional, this function always returns 1!
- */
-int get_filename_and_tagname(const char *path, char **filename, char **filepath, char **tagname)
-{
-	*filename = g_path_get_basename(path);
-	*filepath = get_file_path(*filename, 0);
-	char *path_dup = g_strdup(path);
-	char *ri = rindex(path_dup, '/');
-	*ri = '\0';
-	ri = rindex(path_dup, '/');
-	if (ri) {
-		ri++;
-		*tagname = g_strdup(ri);
-	}
-	freenull(path_dup);
-	return 1;
-}
-
-#ifdef _DEBUG_SYSLOG
-/**
- * initialize syslog stream
- */
-void init_syslog()
-{
-	if (log_enabled)
-		return;
-
-	openlog("tagsistant", LOG_PID, LOG_DAEMON);
-	log_enabled = 1;
-}
-#endif
-
-/**
- * Check if a file with id "file_id" is associated with a given tag.
- *
- * \param file_id the file_id to be checked
- * \param tagname the name of the tag to be searched on filename
- * \return 1 if file filename is tagged with tag tagname, 0 otherwise.
- */
-gboolean is_tagged(int file_id, char *tagname)
-{
-	int exists = 0;
-	tagsistant_query(
-		"select count(filename) from tagging where file_id = \"%d\" and tagname = \"%s\";",
-		return_integer, &exists, file_id, tagname);
-	return exists ? TRUE : FALSE;
-}
-
-/**
- * Check if a file named "filename" is associated with a given tag.
- *
- * \param filename the filename to be checked (no path)
- * \param tagname the name of the tag to be searched on filename
- * \return 1 if file filename is tagged with tag tagname, 0 otherwise.
- */
-gboolean filename_is_tagged(const char *filename, const char *tagname)
-{
-	int is_tagged = 0;
-	tagsistant_query(
-		"select count(tagname) from tagging join objects on objects.id = tagging.file_id where objects.filename = \"%s\" and tagging.tagname = \"%s\";",
-		return_integer, &is_tagged, filename, tagname);
-	return is_tagged ? TRUE : FALSE;
-}
-
-#ifdef MACOSX
-ssize_t getline(char **lineptr, size_t *n, FILE *stream)
-{
-	if (*lineptr == NULL)
-		*lineptr = g_malloc0(sizeof(char) * (*n + 1));
-
-	if (*lineptr == NULL)
-		return 0;
-
-	if (fgets(*lineptr, *n, stream) == NULL)
-		*n = 0;
-	else
-		*n = strlen(*lineptr);
-
-	return *n;
-}
-#endif
-
-/******************\
- * PLUGIN SUPPORT *
-\******************/
-
-/**
- * the head of plugin list
- */
-tagsistant_plugin_t *plugins = NULL;
-
-/**
- * guess the MIME type of passed filename
- *
- * \param filename file to be processed (just the name, will be looked up in /archive)
- * \return the string rappresenting MIME type (like "audio/mpeg"); the string is dynamically
- *   allocated and need to be freenull()ed by outside code
- */
-char *get_file_mimetype(const char *filename)
-{
-	char *type = NULL;
-
-	/* get file extension */
-	char *ext = rindex(filename, '.');
-	if (ext == NULL) {
-		return NULL;
-	}
-	ext++;
-
-	char *ext_space = g_strdup_printf("%s ", ext); /* trailing space is used later in matching */
-
-	/* open /etc/mime.types */
-	FILE *f = fopen("/etc/mime.types", "r");
-	if (f == NULL) {
-		dbg(LOG_ERR, "Can't open /etc/mime.types");
-		return type;
-	}
-
-	/* parse /etc/mime.types */
-	char *line = NULL;
-	size_t len = 0;
-	while (getline(&line, &len, f) != -1) {
-		/* remove line break */
-		if (index(line, '\n') != NULL)
-			*(index(line, '\n')) = '\0';
-
-		/* get the mimetype and the extention list */
-		char *ext_list = index(line, '\t');
-		if (ext_list != NULL) {
-			while (*ext_list == '\t') {
-				*ext_list = '\0';
-				ext_list++;
-			}
-
-			while (*ext_list != '\0') {
-				if ((strstr(ext_list, ext) == ext_list) || (strstr(ext_list, ext_space) == ext_list)) {
-					type = g_strdup(line);
-					dbg(LOG_INFO, "File %s is %s", filename, type);
-					freenull(line);
-					goto BREAK_MIME_SEARCH;
-				}
-
-				/* advance to next extension */
-				while ((*ext_list != ' ') && (*ext_list != '\0')) ext_list++;
-				if (*ext_list == ' ') ext_list++;
-			}
-		}
-
-		if (line != NULL) freenull(line);
-		line = NULL;
-	}
-
-BREAK_MIME_SEARCH:
-	freenull(ext_space);
-	fclose(f);
-	return type;
-}
-
-/**
- * process a file using plugin chain
- *
- * \param filename file to be processed (just the name, will be looked up in /archive)
- * \return zero on fault, one on success
- */
-int process(int file_id)
-{
-	int res = 0, process_res = 0;
-
-	// load the filename from the database
-	char *filename = NULL;
-	tagsistant_query("select filename from file where file_id = %d", return_string, &filename, file_id);
-	if (filename == NULL) {
-		dbg(LOG_INFO, "process() unable to locate filename with id %u", file_id);
-		return 0;
-	}
-
-	dbg(LOG_INFO, "Processing file %s", filename);
-
-	char *mime_type = get_file_mimetype(filename);
-
-	if (mime_type == NULL) {
-		dbg(LOG_ERR, "process() wasn't able to guess mime type for %s", filename);
-		return 0;
-	}
-
-	char *mime_generic = g_strdup(mime_type);
-	char *slash = index(mime_generic, '/');
-	slash++;
-	*slash = '*';
-	slash++;
-	*slash = '\0';
-
-	/* apply plugins in order */
-	tagsistant_plugin_t *plugin = plugins;
-	while (plugin != NULL) {
-		if (
-			(strcmp(plugin->mime_type, mime_type) == 0) ||
-			(strcmp(plugin->mime_type, mime_generic) == 0) ||
-			(strcmp(plugin->mime_type, "*/*") == 0)
-		) {
-			/* call plugin processor */
-			process_res = (plugin->processor)(filename);
-
-			/* report about processing */
-			switch (process_res) {
-				case TP_ERROR:
-					dbg(LOG_ERR, "Plugin %s was supposed to apply to %s, but failed!", plugin->filename, filename);
-					break;
-				case TP_OK:
-					dbg(LOG_INFO, "Plugin %s tagged %s", plugin->filename, filename);
-					break;
-				case TP_STOP:
-					dbg(LOG_INFO, "Plugin %s stopped chain on %s", plugin->filename, filename);
-					goto STOP_CHAIN_TAGGING;
-					break;
-				case TP_NULL:
-					dbg(LOG_INFO, "Plugin %s did not tagged %s", plugin->filename, filename);
-					break;
-				default:
-					dbg(LOG_ERR, "Plugin %s returned unknown result %d", plugin->filename, process_res);
-					break;
-			}
-		}
-		plugin = plugin->next;
-	}
-
-STOP_CHAIN_TAGGING:
-
-	freenull(mime_type);
-	freenull(mime_generic);
-
-	dbg(LOG_INFO, "Processing of %s ended.", filename);
-	return res;
-}
 
 /**
  * lstat equivalent
@@ -465,16 +142,17 @@ static int tagsistant_readlink(const char *path, char *buf, size_t size)
 	}
 
 	if ((QTREE_IS_TAGS(qtree) && qtree->complete) || QTREE_IS_ARCHIVE(qtree)) {
-		readlink_path = qtree->object_path; // that's not correct - get file from SQL and than figure out the real path!!!!
+		readlink_path = qtree->object_path;
 	} else if (QTREE_IS_STATS(qtree) || QTREE_IS_RELATIONS(qtree)) {
 		res = -1;
 		tagsistant_errno = EINVAL;
 		goto READLINK_EXIT;
 	}
 
+	// do real readlink()
 	res = readlink(readlink_path, buf, size);
-	if (res > 0) buf[res] = '\0';
 	tagsistant_errno = errno;
+	if (res > 0) buf[res] = '\0';
 
 READLINK_EXIT:
 	destroy_querytree(qtree);
@@ -488,7 +166,7 @@ READLINK_EXIT:
 }
 
 /**
- * used by add_entry_to_dir() SQL callback to perform readdir() ops.
+ * used by add_entry_to_dir() SQL callback to perform readdir() operations
  */
 struct use_filler_struct {
 	fuse_fill_dir_t filler;	/**< libfuse filler hook to return dir entries */
@@ -558,10 +236,52 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 	(void) fi;
 	(void) offset;
 
+	// add . and ..
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
 
 	dbg(LOG_INFO, "READDIR on %s", path);
+
+	// build querytree
+	querytree_t *qtree = build_querytree(path, 0);
+
+	// -- malformed --
+	if (QTREE_IS_MALFORMED(qtree)) {
+		res = -1;
+		tagsistant_errno = ENOENT;
+		goto READDIR_EXIT;
+	}
+
+	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+		DIR *dp = opendir(path);
+		if (dp == NULL) {
+			tagsistant_errno = errno;
+			goto READDIR_EXIT;
+		}
+
+		while ((de = readdir(dp)) != NULL) {
+			struct stat st;
+			memset(&st, 0, sizeof(st));
+			st.st_ino = de->d_ino;
+			st.st_mode = de->d_type << 12;
+			if (filler(buf, de->d_name, &st, 0))
+				break;
+		}
+
+		closedir(dp);
+	} else if (QTREE_IS_ARCHIVE(qtree)
+	} else if (QTREE_IS_STATS(qtree)) {
+	}
+
+
+
+
+
+
+
+
+
+
 
 	char *tagname = get_tag_name(path);
 	if (
@@ -634,6 +354,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 		freenull(ufs);
 	}
 
+READDIR_EXIT:
 	freenull(tagname);
 
 	return 0;
@@ -654,6 +375,7 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 	init_time_profile();
 	start_time_profile();
 
+#if 0
 	char *filename = NULL, *fullfilename = NULL, *tagname = NULL;
 	get_filename_and_tagname(path, &filename, &fullfilename, &tagname);
 	free(fullfilename);
@@ -719,6 +441,7 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 
 	freenull(filename);
 	freenull(tagname);
+#endif
 
 	return (res == -1) ? -tagsistant_errno: 0;
 }
@@ -737,6 +460,7 @@ static int tagsistant_mkdir(const char *path, mode_t mode)
 	init_time_profile();
 	start_time_profile();
 
+#if 0
 	char *tagname = get_tag_name(path);
 
 	dbg(LOG_INFO, "MKDIR on %s", tagname);
@@ -744,6 +468,7 @@ static int tagsistant_mkdir(const char *path, mode_t mode)
 	sql_create_tag(tagname);
 
 	freenull(tagname);
+#endif
 
 	stop_labeled_time_profile("mkdir");
 	return (res == -1) ? -tagsistant_errno : 0;
@@ -1100,6 +825,8 @@ int internal_open(const char *filepath, int flags, int *_errno)
 static int tagsistant_open(const char *path, struct fuse_file_info *fi)
 {
     int res = -1, tagsistant_errno = ENOENT;
+
+#if 0
 	char *filename = NULL, *filepath = NULL, *tagname = NULL;
 	get_filename_and_tagname(path, &filename, &filepath, &tagname);
 
@@ -1126,6 +853,7 @@ static int tagsistant_open(const char *path, struct fuse_file_info *fi)
 	freenull(filepath);
 	freenull(tagname);
 	destroy_querytree(qtree);
+#endif
 
 	stop_labeled_time_profile("open");
 	return (res == -1) ? -tagsistant_errno : 0;
@@ -1147,9 +875,8 @@ static int tagsistant_read(const char *path, char *buf, size_t size, off_t offse
     int res = 0, tagsistant_errno = 0;
 
 	char *filename = get_tag_name(path);
-	int file_id = 0;
-	char *purename = NULL;
-	get_file_id_and_name(filename, &file_id, &purename);
+	gchar *purename = NULL;
+	tagsistant_id file_id = tagsistant_get_object_id(filename, &purename); // change it with qtree->object_path
 	char *filepath = get_file_path(purename, file_id);
 
 	init_time_profile();
@@ -1186,9 +913,8 @@ static int tagsistant_write(const char *path, const char *buf, size_t size,
     int res = 0, tagsistant_errno = 0;
 
 	char *filename = get_tag_name(path);
-	int file_id = 0;
 	char *purename = NULL;
-	get_file_id_and_name(filename, &file_id, &purename);
+	int file_id = tagsistant_get_object_id(filename, &purename);
 	char *filepath = get_file_path(purename, file_id);
 
 	init_time_profile();
@@ -1753,107 +1479,7 @@ int main(int argc, char *argv[])
 	/*
 	 * loading plugins
 	 */
-	char *tagsistant_plugins = NULL;
-	if (getenv("TAGSISTANT_PLUGINS") != NULL) {
-		tagsistant_plugins = g_strdup(getenv("TAGSISTANT_PLUGINS"));
-		if (!tagsistant.quiet)
-			fprintf(stderr, " Using user defined plugin dir: %s\n", tagsistant_plugins);
-	} else {
-		tagsistant_plugins = g_strdup(PLUGINS_DIR);
-		if (!tagsistant.quiet)
-			fprintf(stderr, " Using default plugin dir: %s\n", tagsistant_plugins);
-	}
-
-	struct stat st;
-	if (lstat(tagsistant_plugins, &st) == -1) {
-		if (!tagsistant.quiet)
-			fprintf(stderr, " *** error opening directory %s: %s ***\n", tagsistant_plugins, strerror(errno));
-	} else if (!S_ISDIR(st.st_mode)) {
-		if (!tagsistant.quiet)
-			fprintf(stderr, " *** error opening directory %s: not a directory ***\n", tagsistant_plugins);
-	} else {
-		/* open directory and read contents */
-		DIR *p = opendir(tagsistant_plugins);
-		if (p == NULL) {
-			if (!tagsistant.quiet)
-				fprintf(stderr, " *** error opening plugin directory %s ***\n", tagsistant_plugins);
-		} else {
-			struct dirent *de = NULL;
-			while ((de = readdir(p)) != NULL) {
-				/* checking if file begins with tagsistant plugin prefix */
-				char *needle = strstr(de->d_name, TAGSISTANT_PLUGIN_PREFIX);
-				if ((needle == NULL) || (needle != de->d_name)) continue;
-
-#				ifdef MACOSX
-#					define PLUGIN_EXT ".dylib"
-#				else
-#					define PLUGIN_EXT ".so"
-#				endif
-
-				needle = strstr(de->d_name, PLUGIN_EXT);
-				if ((needle == NULL) || (needle != de->d_name + strlen(de->d_name) - strlen(PLUGIN_EXT)))
-					continue;
-
-				/* file is a tagsistant plugin (beginning by right prefix) and is processed */
-				/* allocate new plugin object */
-				tagsistant_plugin_t *plugin = g_new0(tagsistant_plugin_t, 1);
-
-				char *pname = g_strdup_printf("%s/%s", tagsistant_plugins, de->d_name);
-
-				/* load the plugin */
-				plugin->handle = dlopen(pname, RTLD_NOW|RTLD_GLOBAL);
-				if (plugin->handle == NULL) {
-					if (!tagsistant.quiet)
-						fprintf(stderr, " *** error dlopen()ing plugin %s: %s ***\n", de->d_name, dlerror());
-					freenull(plugin);
-				} else {
-					/* search for init function and call it */
-					int (*init_function)() = NULL;
-					init_function = dlsym(plugin->handle, "plugin_init");
-					if (init_function != NULL) {
-						int init_res = init_function();
-						if (!init_res) {
-							/* if init failed, ignore this plugin */
-							dbg(LOG_ERR, " *** error calling plugin_init() on %s ***\n", de->d_name);
-							freenull(plugin);
-							continue;
-						}
-					}
-
-					/* search for MIME type string */
-					plugin->mime_type = dlsym(plugin->handle, "mime_type");
-					if (plugin->mime_type == NULL) {
-						if (!tagsistant.quiet)
-							fprintf(stderr, " *** error finding %s processor function: %s ***\n", de->d_name, dlerror());
-						freenull(plugin);
-					} else {
-						/* search for processor function */
-						plugin->processor = dlsym(plugin->handle, "processor");	
-						if (plugin->processor == NULL) {
-							if (!tagsistant.quiet)
-								fprintf(stderr, " *** error finding %s processor function: %s ***\n", de->d_name, dlerror());
-							freenull(plugin);
-						} else {
-							plugin->free = dlsym(plugin->handle, "plugin_free");
-							if (plugin->free == NULL) {
-								if (!tagsistant.quiet)
-									fprintf(stderr, " *** error finding %s free function: %s (still registering the plugin) ***", de->d_name, dlerror());
-							}
-
-							/* add this plugin on queue head */
-							plugin->filename = g_strdup(de->d_name);
-							plugin->next = plugins;
-							plugins = plugin;
-							if (!tagsistant.quiet)
-								fprintf(stderr, " Loaded plugin %s \t-> \"%s\"\n", de->d_name, plugin->mime_type);
-						}
-					}
-				}
-				freenull(pname);
-			}
-			closedir(p);
-		}
-	}
+	plugin_loader();
 
 	dbg(LOG_INFO, "Mounting filesystem");
 
@@ -1872,44 +1498,17 @@ int main(int argc, char *argv[])
 
 	fuse_opt_free_args(&args);
 
-	/* unregistering plugins */
-	tagsistant_plugin_t *pp = plugins;
-	tagsistant_plugin_t *ppnext = pp;
-	while (pp != NULL) {
-		/* call plugin free method to let it free allocated resources */
-		if (pp->free != NULL) {
-			(pp->free)();
-		}
-		freenull(pp->filename);	/* free plugin filename */
-		dlclose(pp->handle);	/* unload the plugin */
-		ppnext = pp->next;		/* save next plugin in tagsistant chain */
-		freenull(pp);			/* free this plugin entry in tagsistant chain */
-		pp = ppnext;			/* point to next plugin in tagsistant chain */
-	}
+	/*
+	 * unloading plugins
+	 */
+	plugin_unloader();
 
 	/* free memory to better perfom memory leak profiling */
-	freenull(tagsistant_plugins);
 	freenull(tagsistant.repository);
 	freenull(tagsistant.archive);
 	freenull(tagsistant.tags);
 
 	return res;
-}
-
-/**
- * Return the file id and pure name, if the filename apply to <id>.<purename>
- * convetion. Otherwise id will be 0, and purename will be a copy of original.
- */
-void get_file_id_and_name(const gchar *original, int *id, char **purename)
-{
-	char _purename[1024];
-	memset(_purename, 0, 1024);
-	if (sscanf(original, "%u.%s", id, _purename) != 2) {
-		id = 0;
-		*purename = g_strdup(original);
-	} else {
-		*purename = g_strdup(_purename);
-	}
 }
 
 // vim:ts=4:autoindent:nocindent:syntax=c

@@ -27,6 +27,28 @@
 #endif
 
 /**
+ * Return the ID of an object from its path name
+ */
+tagsistant_id tagsistant_get_object_id(const gchar *path, gchar **purename)
+{
+	gchar **splitted = g_strsplit(path, "/", 512); /* split up to 512 tokens */
+	tagsistant_id id = 0;
+	gchar _purename[255];
+	static GStaticMutex mutex = G_STATIC_MUTEX_INIT;
+
+	g_static_mutex_lock(&mutex);
+	memset(_purename, 0, 255);
+	if (sscanf(path, "%u.%s", id, _purename) != 2) {
+		if (*purename != NULL) *purename = g_strdup(path);
+	} else {
+		if (*purename != NULL) *purename = g_strdup(_purename);
+	}
+	g_static_mutex_unlock(&mutex);
+
+	g_strfreev(splitted);
+}
+
+/**
  * Append a tag in the object's tags GList
  *
  * \param @list is a GList** pointer masked as a void* pointer (the GList may change during append operations)
