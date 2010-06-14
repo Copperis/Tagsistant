@@ -59,24 +59,31 @@ extern void sql_delete_object(tagsistant_id object_id);
 
 #define sql_create_tag(tagname) tagsistant_query("insert into tags(tagname) values(\"%s\");", NULL, NULL, tagname)
 
+#define sql_get_tag_id(tagname, tag_id) tagsistant_query("select tag_id from tags where tagname = \"%s\"", return_integer, &tag_id, tagname);\
+
 #define sql_delete_tag(tagname) {\
+	int tag_id = 0;\
+	sql_get_tag_id(tagname, tag_id);\
 	tagsistant_query("delete from tags where tagname = \"%s\";", NULL, NULL, tagname);\
-	tagsistant_query("delete from tagging where tagname = \"%s\";", NULL, NULL, tagname);\
-	tagsistant_query("delete from relations where tag1 = \"%s\" or tag2 = \"%s\";", NULL, NULL, tagname, tagname);\
+	tagsistant_query("delete from tagging where tag_id = \"%d\";", NULL, NULL, tag_id);\
+	tagsistant_query("delete from relations where tag1_id = \"%d\" or tag2_id = \"%d\";", NULL, NULL, tag_id, tag_id);\
 }
 
 #define sql_tag_object(tagname, object_id) {\
-	tagsistant_query("insert into tagging(tagname, object_id) values(\"%s\", \"%d\");", NULL, NULL, tagname, object_id);\
+	int tag_id = 0;\
 	tagsistant_query("insert into tags(tagname) values(\"%s\");", NULL, NULL, tagname);\
+	sql_get_tag_id(tagname, tag_id);\
+	tagsistant_query("insert into tagging(tag_id, object_id) values(\"%d\", \"%d\");", NULL, NULL, tag_id, object_id);\
 }
 
-#define sql_untag_object(tagname, object_id)\
-	tagsistant_query("delete from tagging where tagname = \"%s\" and object_id = \"%d\";", NULL, NULL, tagname, object_id)
+#define sql_untag_object(tagname, object_id) {\
+	int tag_id = 0;\
+	sql_get_tag_id(tagname, tag_id);\
+	tagsistant_query("delete from tagging where tag_id = \"%d\" and object_id = \"%d\";", NULL, NULL, tag_id, object_id)\
+}
 
-#define sql_rename_tag(tagname, oldtagname) {\
-	tagsistant_query("update tagging set tagname = \"%s\" where tagname = \"%s\";", NULL, NULL, tagname, oldtagname);\
+#define sql_rename_tag(tagname, oldtagname)\
 	tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\";", NULL, NULL, tagname, oldtagname);\
-}
 
 #define sql_rename_object(object_id, newname)\
 	tagsistant_query("update objects set objectname = \"%s\" where object_id = %d", NULL, NULL, newname, object_id);

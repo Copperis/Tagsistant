@@ -168,6 +168,9 @@ typedef struct querytree {
 	/** the path of the object, if provided */
 	gchar *object_path;
 
+	/** the path of the object with the archive prefix */
+	gchar *archive_path;
+
 	/** the query points to an object on disk? */
 	int points_to_object;
 

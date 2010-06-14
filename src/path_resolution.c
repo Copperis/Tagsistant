@@ -164,8 +164,9 @@ void destroy_querytree(querytree_t *qtree)
 	}
 
 	// free paths and other strings
-	freenull(qtree->object_path);
 	freenull(qtree->full_path);
+	freenull(qtree->object_path);
+	freenull(qtree->archive_path);
 	freenull(qtree->first_tag);
 	freenull(qtree->second_tag);
 	freenull(qtree->relation);
@@ -326,6 +327,9 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 	if (QTREE_IS_ARCHIVE(qtree) || (QTREE_IS_TAGS(qtree) && qtree->complete)) {
 		// object path result from joining remaining tokens
 		qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
+
+		// archive path is object path inside archive
+		qtree->archive_path = g_strdup_printf("%s%s%s", TAGSISTANT_ARCHIVE_PLACEHOLDER, G_DIR_SEPARATOR_S, qtree->object_path);
 
 		// a path points is_taggable if it does not contains "/"
 		// as in "23892.mydocument.odt" and not in "23893.myfolder/photo.jpg"

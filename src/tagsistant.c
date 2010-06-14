@@ -396,6 +396,8 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		if (QTREE_IS_TAGGABLE(qtree)) {
 			// 1. create the object on disk
+			tagsistant_query("insert into objects (objectname, path) values (\"%s\", \"%s\")", NULL, NULL, objectname, path);
+
 			// 2. tag it using qtree for all the tags
 		} else {
 			res = mknod(qtree->object_path, mode, rdev);
