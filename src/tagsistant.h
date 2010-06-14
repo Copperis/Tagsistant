@@ -150,6 +150,7 @@ typedef enum {
 #define QTREE_IS_RELATIONS(qtree) (QTYPE_RELATIONS == qtree->type)
 #define QTREE_IS_STATS(qtree) (QTYPE_STATS == qtree->type)
 #define QTREE_POINTS_TO_OBJECT(qtree) (qtree->points_to_object == 1)
+#define QTREE_IS_TAGGABLE(qtree) (qtree->is_taggable == 1)
 
 /**
  * define the querytree structure
@@ -169,6 +170,9 @@ typedef struct querytree {
 
 	/** the query points to an object on disk? */
 	int points_to_object;
+
+	/** the object path pointed to is taggable (one element path) */
+	int is_taggable;
 
 	/** the ID of the object, if directly managed by tagsistant */
 	tagsistant_id object_id;

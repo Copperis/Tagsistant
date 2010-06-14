@@ -231,16 +231,8 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 
 	// if the query is a QTYPE_TAGS query, parse it
 	if (QTREE_IS_TAGS(qtree)) {
-		// guess where the object path starts
-		qtree->object_path = g_strstr_len(path, strlen(path), "=");
-
 		// state if the query is complete or not
-		if (qtree->object_path != NULL) {
-			qtree->complete = 1;
-			qtree->object_path++;
-		} else {
-			qtree->complete = 0;
-		}
+		qtree->complete = g_strstr_len(path, strlen(path), "=") ? 1 : 0;
 
 		// by default a query is valid until somethig wrong happens while parsing it
 		qtree->valid = 1;
@@ -332,7 +324,17 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 
 	/* remaining part is the object pathname */
 	if (QTREE_IS_ARCHIVE(qtree) || (QTREE_IS_TAGS(qtree) && qtree->complete)) {
+		// object path result from joining remaining tokens
 		qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
+
+		// a path points is_taggable if it does not contains "/"
+		// as in "23892.mydocument.odt" and not in "23893.myfolder/photo.jpg"
+		if (
+			(strlen(qtree->object_path) > 0) &&
+			(g_strstr_len(qtree->object_path, strlen(qtree->object_path), G_DIR_SEPARATOR_S) == NULL)
+		) {
+			qtree->is_taggable = 1;
+		}
 	}
 
 	/* object_path can't be null for completed /tags queries or /archive queries */
