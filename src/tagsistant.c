@@ -395,10 +395,13 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 	// -- archive --
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		if (QTREE_IS_TAGGABLE(qtree)) {
-			// 1. create the object on disk
-			tagsistant_query("insert into objects (objectname, path) values (\"%s\", \"%s\")", NULL, NULL, objectname, path);
+			// 1. create the object on db
+			tagsistant_id ID;
+			tagsistant_query("insert into objects (objectname, path) values (\"%s\", \"%s\")", NULL, NULL, qtree->object_path, qtree->full_archive_path);
+			tagsistant_query("select last_insert_rowid()", return_integer, &ID);
 
 			// 2. tag it using qtree for all the tags
+			traverse_querytree(qtree, _tag_object_by_and_node_t, ID);
 		} else {
 			res = mknod(qtree->object_path, mode, rdev);
 			tagsistant_errno = errno;
@@ -506,12 +509,22 @@ static int tagsistant_mkdir(const char *path, mode_t mode)
 	// -- archive
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		if (QTREE_IS_TAGGABLE(qtree)) {
-			// tag the object
+			// create a new directory inside tagsistant.archive directory
+			// and tag it with all the tags in the qtree
+			tagsistant_id ID;
+			tagsistant_query("insert into objects (objectname, path) values (\"%s\", \"%s\")", NULL, NULL, qtree->object_path, qtree->full_archive_path);
+			tagsistant_query("select last_insert_rowid()", return_integer, &ID);
+			traverse_querytree(qtree, _tag_object_by_and_node_t, ID);
 		} else {
 			// do a real mkdir
-			res = mkdir(qtree->object_path, mode);
+			res = mkdir(qtree->full_archive_path, mode);
 			tagsistant_errno = errno;
 		}
+	} else
+
+	// -- tags but incomplete (means: create a new tag) --
+	if (QTREE_IS_TAGS(qtree)) {
+		sql_create_tag(qtree->last_tag);	
 	} else
 
 	// -- relations --
@@ -524,9 +537,14 @@ static int tagsistant_mkdir(const char *path, mode_t mode)
 			sql_create_tag(qtree->second_tag);
 			int tag1_id = get_exact_tag_id(qtree->first_tag);
 			int tag2_id = get_exact_tag_id(qtree->second_tag);
-			tagsistant_query(
-				"insert into relations (tag1_id, tag2_id, relation) values (%d, %d, \"%s\")",
-				NULL, NULL, tag1_id, tag2_id, qtree->relation);
+			if (tag1_id && tag2_id && IS_VALID_RELATION(qtree->relation)) {
+				tagsistant_query(
+					"insert into relations (tag1_id, tag2_id, relation) values (%d, %d, \"%s\")",
+					NULL, NULL, tag1_id, tag2_id, qtree->relation);
+			} else {
+				res = -1;
+				tagsistant_errno = EFAULT;
+			}
 		} else {
 			res = -1;
 			tagsistant_errno = EROFS;
@@ -535,19 +553,10 @@ static int tagsistant_mkdir(const char *path, mode_t mode)
 
 	// -- stats
 	if (QTREE_IS_STATS(qtree)) {
+		res = -1;
+		tagsistant_errno = EROFS;
 	}
 	
-
-#if 0
-	char *tagname = get_tag_name(path);
-
-	dbg(LOG_INFO, "MKDIR on %s", tagname);
-
-	sql_create_tag(tagname);
-
-	freenull(tagname);
-#endif
-
 	stop_labeled_time_profile("mkdir");
 	return (res == -1) ? -tagsistant_errno : 0;
 }
@@ -904,37 +913,39 @@ static int tagsistant_open(const char *path, struct fuse_file_info *fi)
 {
     int res = -1, tagsistant_errno = ENOENT;
 
-#if 0
-	char *filename = NULL, *filepath = NULL, *tagname = NULL;
-	get_filename_and_tagname(path, &filename, &filepath, &tagname);
-
 	init_time_profile();
 	start_time_profile();
 
-	dbg(LOG_INFO, "OPEN: %s", path);
+	gchar *open_path = NULL;
 
-	querytree_t *qtree = build_querytree(path, FALSE);
-	ptree_or_node_t *ptx = qtree->tree;
-	while (ptx != NULL && res == -1) {
-		ptree_and_node_t *and = ptx->and_set;
-		while (and != NULL && res == -1) {
-			if (filename_is_tagged(filename, and->tag)) {
-				res = internal_open(filepath, fi->flags|O_RDONLY, &tagsistant_errno);
-				if (res != -1) close(res);
-			}
-			and = and->next;
-		}
-		ptx = ptx->next;
+	// build querytree
+	querytree_t *qtree = build_querytree(path, 0);
+
+	// -- malformed --
+	if (QTREE_IS_MALFORMED(qtree)) {
+		res = -1;
+		tagsistant_errno = ENOENT;
+	} else
+
+	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+		open_path = qtree->full_archive_path;
+		res = internal_open(qtree->full_archive_path, fi->flags|O_RDONLY, &tagsistant_errno);
+		if (-1 != res) close(res);
+	} else if (QTREE_IS_STATS(qtree)) {
+		open_path = qtree->stats_path;
+		// do proper action
 	}
-
-	freenull(filename);
-	freenull(filepath);
-	freenull(tagname);
+	
 	destroy_querytree(qtree);
-#endif
-
 	stop_labeled_time_profile("open");
-	return (res == -1) ? -tagsistant_errno : 0;
+
+	if ( res == -1 ) {
+		dbg(LOG_ERR, "OPEN on %s (%s): %d %d: %s", path, open_path, res, tagsistant_errno, strerror(tagsistant_errno));
+		return -tagsistant_errno;
+	} else {
+		dbg(LOG_INFO, "OPEN on %s: OK", path);
+		return 0;
+	}
 }
 
 /**

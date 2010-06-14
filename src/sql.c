@@ -160,7 +160,7 @@ int return_string(void *return_string, int argc, char **argv, char **azColName)
 int get_exact_tag_id(const gchar *tagname)
 {
 	int id;
-	tagsistant_query("select id from tags where tagname = \"%s\";", return_integer, &id, tagname);
+	tagsistant_query("select tag_id from tags where tagname = \"%s\";", return_integer, &id, tagname);
 	return id;
 }
 

@@ -79,7 +79,7 @@ extern void sql_delete_object(tagsistant_id object_id);
 #define sql_untag_object(tagname, object_id) {\
 	int tag_id = 0;\
 	sql_get_tag_id(tagname, tag_id);\
-	tagsistant_query("delete from tagging where tag_id = \"%d\" and object_id = \"%d\";", NULL, NULL, tag_id, object_id)\
+	tagsistant_query("delete from tagging where tag_id = \"%d\" and object_id = \"%d\";", NULL, NULL, tag_id, object_id);\
 }
 
 #define sql_rename_tag(tagname, oldtagname)\

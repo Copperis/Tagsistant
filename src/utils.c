@@ -191,3 +191,22 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream)
 }
 #endif
 
+/**
+ * Tag an object_id (ID) with a tag guessed from a
+ * a ptree_and_node_t struct. Used as a callback for
+ * traverse_querytree() macro.
+ */
+void _tag_object_by_and_node_t(ptree_and_node_t *an, tagsistant_id object_id)
+{
+	sql_tag_object(an->tag, object_id);
+}
+
+/**
+ * Untag an object_id (ID) by a tag guessed from a
+ * a ptree_and_node_t struct. Used as a callback for
+ * traverse_querytree() macro.
+ */
+void _untag_object_by_and_node_t(ptree_and_node_t *an, tagsistant_id object_id)
+{
+	sql_untag_object(an->tag, object_id);
+}

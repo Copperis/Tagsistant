@@ -110,6 +110,12 @@ typedef uint32_t tagsistant_id;
 extern gchar *_dyn_strcat(gchar *original, const gchar *newstring);
 
 /**
+ * evaluates true if string "relation" matches at least
+ * one of available relations
+ */
+#define IS_VALID_RELATION(relation) ((g_strcmp0(relation, "is_equivalent")) == 0 || (g_strcmp0(relation, "includes")))
+
+/**
  * defines an AND token in a query path
  */
 typedef struct ptree_and_node {
@@ -168,8 +174,11 @@ typedef struct querytree {
 	/** the path of the object, if provided */
 	gchar *object_path;
 
-	/** the path of the object with the archive prefix */
+	/** the path of the object with the archive placeholder prefix */
 	gchar *archive_path;
+
+	/** like the previous one, but with actual archive path prefixed */
+	gchar *full_archive_path;
 
 	/** the query points to an object on disk? */
 	int points_to_object;
@@ -325,7 +334,6 @@ extern gboolean filename_is_tagged(const char *filename, const char *tagname);
 
 extern querytree_t *build_querytree(const char *path, int do_reasoning);
 extern file_handle_t *build_filetree(ptree_or_node_t *query, const char *path);
-extern void traverse_querytree(querytree_t *qtree, void (*funcpointer)(ptree_and_node_t *, ...), ...);
 
 extern void destroy_querytree(querytree_t *qtree);
 extern void destroy_filetree(file_handle_t *fh);
@@ -336,6 +344,9 @@ extern tagsistant_id tagsistant_get_object_id(const gchar *path, gchar **purenam
 extern void init_syslog();
 extern void plugin_loader();
 extern void plugin_unloader();
+
+extern  void _tag_object_by_and_node_t(ptree_and_node_t *an, tagsistant_id object_id);
+extern  void _untag_object_by_and_node_t(ptree_and_node_t *an, tagsistant_id object_id);
 
 /**
  * allows for applying a function to all the ptree_and_node_t nodes of

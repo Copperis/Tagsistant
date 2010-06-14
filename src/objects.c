@@ -46,6 +46,8 @@ tagsistant_id tagsistant_get_object_id(const gchar *path, gchar **purename)
 	g_static_mutex_unlock(&mutex);
 
 	g_strfreev(splitted);
+
+	return id;
 }
 
 /**
