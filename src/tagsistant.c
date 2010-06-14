@@ -272,8 +272,19 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 
 		closedir(dp);
 	} else if (QTREE_IS_TAGS(qtree)) {
+		// fill with tags not included into last and branch
 	} else if (QTREE_IS_STATS(qtree)) {
+		// fill with available statistics
 	} else if (QTREE_IS_RELATIONS(qtree)) {
+		if (qtree->second_tag) {
+			// nothin'
+		} else if (qtree->relation) {
+			// list all tags related to first_tag with this relation
+		} else if (qtree->first_tag) {
+			// list all relations
+		} else {
+			// list all tags
+		}
 	}
 
 #if 0
