@@ -326,12 +326,10 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 
 	/* remaining part is the object pathname */
 	if (QTREE_IS_ARCHIVE(qtree) || (QTREE_IS_TAGS(qtree) && qtree->complete)) {
-		// object path result from joining remaining tokens
-		qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
+		qtree_set_object_path(qtree, token_ptr);
 
-		// archive path is object path inside archive
-		qtree->archive_path = g_strdup_printf("%s%s%s", TAGSISTANT_ARCHIVE_PLACEHOLDER, G_DIR_SEPARATOR_S, qtree->object_path);
-		qtree->full_archive_path = g_strdup_printf("%s%s%s", tagsistant.archive, G_DIR_SEPARATOR_S, qtree->object_path);
+		// set the object path and compute the relative paths
+		qtree_set_object_path(qtree, g_strjoinv(G_DIR_SEPARATOR_S, token_ptr));
 
 		// a path points is_taggable if it does not contains "/"
 		// as in "23892.mydocument.odt" and not in "23893.myfolder/photo.jpg"
@@ -343,7 +341,14 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 		}
 	}
 
+#if 0
 	/* object_path can't be null for completed /tags queries or /archive queries */
+	/*
+	 * update: that's not true! object_path must be zero length if nothing follows
+	 * the = sign in /tags queries. that path is supposed to be relative to
+	 * tagsistant.archive. the path used on all disk ops is ->full_archive_path
+	 * which must actually be not null
+	 */
 	if (
 		(strlen(qtree->object_path) == 0) &&
 		(
@@ -353,6 +358,7 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 	) {
 		qtree->object_path = strdup(tagsistant.archive);
 	}
+#endif
 
 	/*
 	 * guess if query points to an object on disk or not

@@ -157,6 +157,7 @@ typedef enum {
 #define QTREE_IS_STATS(qtree) (QTYPE_STATS == qtree->type)
 #define QTREE_POINTS_TO_OBJECT(qtree) (qtree->points_to_object == 1)
 #define QTREE_IS_TAGGABLE(qtree) (qtree->is_taggable == 1)
+#define QTREE_IS_COMPLETE(qtree) (qtree->complete)
 
 /**
  * define the querytree structure
@@ -394,6 +395,12 @@ char *real_strdup(const char *orig, char *file, int line);
 	} else {\
 		dbg(LOG_ERR, "FREE ERROR: symbol %s is NULL @%s:%u!", __STRING(symbol), __FILE__, __LINE__);\
 	}\
+}
+
+#define qtree_set_object_path(qtree, path) {\
+	qtree->object_path = path;\
+	qtree->archive_path = g_strdup_printf("%s%s%s", TAGSISTANT_ARCHIVE_PLACEHOLDER, G_DIR_SEPARATOR_S, qtree->object_path);\
+	qtree->full_archive_path = g_strdup_printf("%s%s%s", tagsistant.archive, G_DIR_SEPARATOR_S, qtree->object_path);\
 }
 
 // vim:ts=4:nocindent:nowrap

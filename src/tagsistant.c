@@ -56,7 +56,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 	
 	// -- tags --
 	if (QTREE_IS_TAGS(qtree)) {
-		lstat_path = qtree->complete ?  qtree->object_path : tagsistant.archive;
+		lstat_path = QTREE_IS_COMPLETE(qtree) ?  qtree->object_path : tagsistant.archive;
 	} else
 
 	// -- archive --
@@ -79,7 +79,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 	// postprocess output
 	if (QTREE_IS_TAGS(qtree)) {
-		if (qtree->complete) {
+		if (QTREE_IS_COMPLETE(qtree)) {
 		} else if (g_strcmp0(qtree->last_tag, "+") == 0) {
 			stbuf->st_ino += 1;
 			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
@@ -140,7 +140,7 @@ static int tagsistant_readlink(const char *path, char *buf, size_t size)
 		goto READLINK_EXIT;
 	}
 
-	if ((QTREE_IS_TAGS(qtree) && qtree->complete) || QTREE_IS_ARCHIVE(qtree)) {
+	if ((QTREE_IS_TAGS(qtree) && QTREE_IS_COMPLETE(qtree)) || QTREE_IS_ARCHIVE(qtree)) {
 		readlink_path = qtree->object_path;
 	} else if (QTREE_IS_STATS(qtree) || QTREE_IS_RELATIONS(qtree)) {
 		res = -1;
@@ -726,48 +726,56 @@ RETURN:
  */
 static int tagsistant_symlink(const char *from, const char *to)
 {
-    int tagsistant_errno = 0, file_id = 0;
+    int tagsistant_errno = 0, res = 0;
 
 	dbg(LOG_INFO, "Entering symlink...");
 
 	init_time_profile();
 	start_time_profile();
 
-	char *filename = get_tag_name(to);
-	char *topath = get_file_path(filename, 0); /* ask for a new filename */
+	querytree_t *to_qtree = build_querytree(to, 0);
 
-	/* check if file is already linked */
-	tagsistant_query("select id from objects where path = \"%s\"", return_integer, &file_id, from);
+	// -- malformed --
+	if (QTREE_IS_MALFORMED(to_qtree)) {
+		res = -1;
+		tagsistant_errno = ENOENT;
+	} else
 
-	/* create the file, if does not exists */
-	if (!file_id) {
-		tagsistant_query("insert into objects (basename, path) values (\"%s\", \"%s\")", NULL, NULL, filename, from);
-		tagsistant_query("select last_insert_rowid()", return_integer, &file_id);
-	}
-
-	/* split the path and do the tagging */
-	if (file_id) {
-		gchar **tokens = g_strsplit(to, "/", 512);
-		gchar **tokens_ptr = tokens;
-
-		while ((*tokens_ptr != NULL) && (g_strcmp0(*tokens_ptr, filename) != 0)) {
-			if (strlen(*tokens_ptr)) {
-				dbg(LOG_INFO, "Tagging file %s as %s inside tagsistant_symlink() or tagsistant_link()", filename, *tokens_ptr);
-				// tag_file(file_id, *tokens_ptr);
-			}
-			tokens_ptr++;
+	// -- object on disk --
+	if (QTREE_POINTS_TO_OBJECT(to_qtree) || (QTREE_IS_TAGS(to_qtree) && QTREE_IS_COMPLETE(to_qtree))) {
+		// if object_path is null, borrow it from original path
+		if (strlen(to_qtree->object_path) == 0) {
+			qtree_set_object_path(to_qtree, g_strdup(g_path_get_basename(from)));
 		}
 
-		g_strfreev(tokens);
-	} else {
-		tagsistant_errno = EIO;
+		// if qtree is taggable, do it
+		if (QTREE_IS_TAGGABLE(to_qtree)) {
+			tagsistant_id ID = sql_create_object(to_qtree->object_path, to_qtree->archive_path);
+			traverse_querytree(to_qtree, sql_tag_object, ID);
+		}
+
+		// do the real symlink on disk
+		res = symlink(from, to_qtree->full_archive_path);
+		tagsistant_errno = errno;
+	} else
+
+	// -- tags (uncomplete) --
+	// -- stats --
+	// -- relations --
+	{
+		// nothin'?
 	}
 
-	freenull(filename);
-	freenull(topath);
+	destroy_querytree(to_qtree);
 
 	stop_labeled_time_profile("symlink");
-	return (file_id != 0) ? -tagsistant_errno : 0;
+	if ( res == -1 ) {
+		dbg(LOG_ERR, "SYMLINK from %s to %s (%s): %d %d: %s", from, to, to_qtree->full_archive_path, res, tagsistant_errno, strerror(tagsistant_errno));
+		return -tagsistant_errno;
+	} else {
+		dbg(LOG_INFO, "SYMLINK from %s to %s: OK", from, to);
+		return 0;
+	}
 }
 
 /**
