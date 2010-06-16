@@ -90,6 +90,7 @@ tagsistant_object_t *tagsistant_object_load(tagsistant_id ID) {
 
 int tagsistant_object_create_on_disk(const gchar *path, mode_t mode) {
 	// write a switch statement to create each kind of object	
+	return 0;
 }
 
 /**

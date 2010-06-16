@@ -253,3 +253,51 @@ gchar *sql_objectpath(tagsistant_id object_id)
 	
 	return objectpath;
 }
+
+void sql_create_tag(const gchar *tagname)
+{
+	tagsistant_query("insert into tags(tagname) values(\"%s\");", NULL, NULL, tagname);
+}
+
+tagsistant_id sql_get_tag_id(const gchar *tagname)
+{
+	tagsistant_id tag_id;
+
+	tagsistant_query("select tag_id from tags where tagname = \"%s\"", return_integer, &tag_id, tagname);
+
+	return tag_id;
+}
+
+void sql_delete_tag(const gchar *tagname)
+{
+	tagsistant_id tag_id = sql_get_tag_id(tagname);
+
+	tagsistant_query("delete from tags where tagname = \"%s\";", NULL, NULL, tagname);
+	tagsistant_query("delete from tagging where tag_id = \"%d\";", NULL, NULL, tag_id);
+	tagsistant_query("delete from relations where tag1_id = \"%d\" or tag2_id = \"%d\";", NULL, NULL, tag_id, tag_id);
+}
+
+void sql_tag_object(const gchar *tagname, tagsistant_id object_id)
+{
+	int tag_id = sql_get_tag_id(tagname);
+
+	tagsistant_query("insert into tags(tagname) values(\"%s\");", NULL, NULL, tagname);
+	tagsistant_query("insert into tagging(tag_id, object_id) values(\"%d\", \"%d\");", NULL, NULL, tag_id, object_id);
+}
+
+void sql_untag_object(const gchar *tagname, tagsistant_id object_id)
+{
+	int tag_id = sql_get_tag_id(tagname);
+
+	tagsistant_query("delete from tagging where tag_id = \"%d\" and object_id = \"%d\";", NULL, NULL, tag_id, object_id);\
+}
+
+extern void sql_rename_tag(const gchar *tagname, const gchar *oldtagname)
+{
+	tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\";", NULL, NULL, tagname, oldtagname);\
+}
+
+extern void sql_rename_object(tagsistant_id object_id, const gchar *newname)
+{
+	tagsistant_query("update objects set objectname = \"%s\" where object_id = %d", NULL, NULL, newname, object_id);
+}

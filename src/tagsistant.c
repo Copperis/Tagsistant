@@ -202,8 +202,8 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 		return 0;
 	}
 	char *last_subquery = path_duplicate;
-	while (strstr(last_subquery, "/OR") != NULL) {
-		last_subquery = strstr(last_subquery, "/OR") + strlen("/OR");
+	while (strstr(last_subquery, "/+") != NULL) {
+		last_subquery = strstr(last_subquery, "/+") + strlen("/+");
 	}
 
 	gchar *tag_to_check = g_strdup_printf("/%s/", argv[0]);
@@ -272,7 +272,23 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 
 		closedir(dp);
 	} else if (QTREE_IS_TAGS(qtree)) {
-		// fill with tags not included into last and branch
+		/*
+		 * if path does terminate with a logical operator
+		 * directory should be filled with tagsdir registered tags
+		 */
+		struct use_filler_struct *ufs = g_new0(struct use_filler_struct, 1);
+		if (ufs == NULL) {
+			dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+			goto READDIR_EXIT;
+		}
+
+		ufs->filler = filler;
+		ufs->buf = buf;
+		ufs->path = path;
+
+		/* parse tagsdir list */
+		tagsistant_query("select tagname from tags;", add_entry_to_dir, ufs);
+		freenull(ufs);
 	} else if (QTREE_IS_STATS(qtree)) {
 		// fill with available statistics
 	} else if (QTREE_IS_RELATIONS(qtree)) {
@@ -389,6 +405,7 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 	if (QTREE_IS_MALFORMED(qtree)) {
 		res = -1;
 		tagsistant_errno = EFAULT;
+		goto MKNOD_EXIT;
 	} else
 
 	// -- tags --
@@ -401,11 +418,11 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 			tagsistant_query("select last_insert_rowid()", return_integer, &ID);
 
 			// 2. tag it using qtree for all the tags
-			traverse_querytree(qtree, _tag_object_by_and_node_t, ID);
-		} else {
-			res = mknod(qtree->object_path, mode, rdev);
-			tagsistant_errno = errno;
+			traverse_querytree(qtree, sql_tag_object, ID);
 		}
+
+		res = mknod(qtree->full_archive_path, mode, rdev);
+		tagsistant_errno = errno;
 	} else
 	
 	// -- stats --
@@ -514,7 +531,7 @@ static int tagsistant_mkdir(const char *path, mode_t mode)
 			tagsistant_id ID;
 			tagsistant_query("insert into objects (objectname, path) values (\"%s\", \"%s\")", NULL, NULL, qtree->object_path, qtree->full_archive_path);
 			tagsistant_query("select last_insert_rowid()", return_integer, &ID);
-			traverse_querytree(qtree, _tag_object_by_and_node_t, ID);
+			traverse_querytree(qtree, sql_tag_object, ID);
 		} else {
 			// do a real mkdir
 			res = mkdir(qtree->full_archive_path, mode);
@@ -574,43 +591,44 @@ static int tagsistant_unlink(const char *path)
 	init_time_profile();
 	start_time_profile();
 
-	char *filename = get_tag_name(path);
+	// build querytree
+	querytree_t *qtree = build_querytree(path, 0);
 
-	dbg(LOG_INFO, "UNLINK on %s", filename);
+	// -- malformed --
+	if (QTREE_IS_MALFORMED(qtree)) {
+		res = -1;
+		tagsistant_errno = ENOENT;
+	} else
 
-	querytree_t *qtree = build_querytree(path, FALSE);
-	ptree_or_node_t *ptx = qtree->tree;
-
-	while (ptx != NULL) {
-		ptree_and_node_t *element = ptx->and_set;
-		while (element != NULL) {
-			dbg(LOG_INFO, "removing tag %s from %s", element->tag, filename);
-
-			sql_untag_object(element->tag, filename);
-
-			element = element->next;
+	// -- objects on disk --
+	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+		if (QTREE_IS_TAGGABLE(qtree)) {
+			traverse_querytree(qtree, sql_untag_object, qtree->object_id);
+			tagsistant_query("delete from objects where object_id = %d", NULL, NULL, qtree->object_id);
 		}
-		ptx = ptx->next;
+
+		res = unlink(qtree->full_archive_path);
+		tagsistant_errno = errno;
+	} else
+
+	// -- tags --
+	// -- stats --
+	// -- relations --
+	{
+		res = -1;
+		tagsistant_errno = EROFS;
 	}
 
 	destroy_querytree(qtree);
 
-	/* checking if file has more tags or is untagged */
-	int exists = 0;
-	tagsistant_query("select count(tagname) from tagged where basename = \"%s\";", return_integer, &exists, filename);
-	if (!exists) {
-		/* file is no longer tagged, so can be deleted from archive */
-		char *filepath = get_file_path(filename, 0);
-		dbg(LOG_INFO, "Unlinking file %s: it's no longer tagged!", filepath);
-		res = unlink(filepath);
-		tagsistant_errno = errno;
-		freenull(filepath);
-	}
-
-	freenull(filename);
-
 	stop_labeled_time_profile("unlink");
-	return (res == -1) ? -tagsistant_errno : 0;
+	if ( res == -1 ) {
+		dbg(LOG_ERR, "UNLINK on %s (%s): %d %d: %s", path, qtree->full_archive_path, res, tagsistant_errno, strerror(tagsistant_errno));
+		return -tagsistant_errno;
+	} else {
+		dbg(LOG_INFO, "UNLINK on %s: OK", path);
+		return 0;
+	}
 }
 
 /**
@@ -686,10 +704,10 @@ static int tagsistant_rename(const char *from, const char *to)
 		/* ..... */
 
 		// 2. deletes all the tagging between "from" file and all AND nodes in "from" path
-		traverse_querytree(from_tree, sql_untag_object, from_tree->object_path);
+		traverse_querytree(from_tree, sql_untag_object, from_tree->object_id);
 
 		// 3. adds all the tags from "to" path
-		traverse_querytree(to_tree, sql_tag_object, from_tree->object_path);
+		traverse_querytree(to_tree, sql_tag_object, from_tree->object_id);
 	}
 
 RETURN:

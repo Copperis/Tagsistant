@@ -367,6 +367,11 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 		)
 	) {
 		qtree->points_to_object = 1;
+
+		/*
+		 * try to guess the object ID
+		 */
+		qtree->object_id = tagsistant_get_object_id(qtree->object_path, NULL);
 	} else {
 		qtree->points_to_object = 0;
 	}

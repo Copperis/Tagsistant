@@ -363,7 +363,7 @@ extern  void _untag_object_by_and_node_t(ptree_and_node_t *an, tagsistant_id obj
 		while (NULL != ptx) {\
 			ptree_and_node_t *andptx = ptx->and_set;\
 			while (NULL != andptx) {\
-				funcpointer(andptx, __VA_ARGS__);\
+				funcpointer(andptx->tag, __VA_ARGS__);\
 				andptx = andptx->next;\
 			}\
 			ptx = ptx->next;\

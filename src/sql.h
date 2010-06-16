@@ -57,36 +57,13 @@ extern void sql_delete_object(tagsistant_id object_id);
 	tagsistant_query("create index relations_type_index on relations (relation);", NULL, NULL);\
 }
 
-#define sql_create_tag(tagname) tagsistant_query("insert into tags(tagname) values(\"%s\");", NULL, NULL, tagname)
-
-#define sql_get_tag_id(tagname, tag_id) tagsistant_query("select tag_id from tags where tagname = \"%s\"", return_integer, &tag_id, tagname);\
-
-#define sql_delete_tag(tagname) {\
-	int tag_id = 0;\
-	sql_get_tag_id(tagname, tag_id);\
-	tagsistant_query("delete from tags where tagname = \"%s\";", NULL, NULL, tagname);\
-	tagsistant_query("delete from tagging where tag_id = \"%d\";", NULL, NULL, tag_id);\
-	tagsistant_query("delete from relations where tag1_id = \"%d\" or tag2_id = \"%d\";", NULL, NULL, tag_id, tag_id);\
-}
-
-#define sql_tag_object(tagname, object_id) {\
-	int tag_id = 0;\
-	tagsistant_query("insert into tags(tagname) values(\"%s\");", NULL, NULL, tagname);\
-	sql_get_tag_id(tagname, tag_id);\
-	tagsistant_query("insert into tagging(tag_id, object_id) values(\"%d\", \"%d\");", NULL, NULL, tag_id, object_id);\
-}
-
-#define sql_untag_object(tagname, object_id) {\
-	int tag_id = 0;\
-	sql_get_tag_id(tagname, tag_id);\
-	tagsistant_query("delete from tagging where tag_id = \"%d\" and object_id = \"%d\";", NULL, NULL, tag_id, object_id);\
-}
-
-#define sql_rename_tag(tagname, oldtagname)\
-	tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\";", NULL, NULL, tagname, oldtagname);\
-
-#define sql_rename_object(object_id, newname)\
-	tagsistant_query("update objects set objectname = \"%s\" where object_id = %d", NULL, NULL, newname, object_id);
+extern void sql_create_tag(const gchar *tagname);
+extern tagsistant_id sql_get_tag_id(const gchar *tagname);
+extern void sql_delete_tag(const gchar *tagname);
+extern void sql_tag_object(const gchar *tagname, tagsistant_id object_id);
+extern void sql_untag_object(const gchar *tagname, tagsistant_id object_id);
+extern void sql_rename_tag(const gchar *tagname, const gchar *oldtagname);
+extern void sql_rename_object(tagsistant_id object_id, const gchar *newname);
 
 #define ALL_FILES_TAGGED		"select objectname from objects join tagging on tagging.object_id = objects.id where tagging.tagname = \"%s\""
 

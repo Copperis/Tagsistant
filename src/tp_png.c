@@ -35,7 +35,7 @@ int plugin_init()
 int processor(const char *filename)
 {
 	dbg(LOG_INFO, "Taggings %s as %s", filename, DEFAULT_TAG);
-	tag_file(filename, DEFAULT_TAG);
+	// sql_tag_object(DEFAULT_TAG);
 	return TP_STOP;
 }
 
