@@ -805,17 +805,39 @@ static int tagsistant_chmod(const char *path, mode_t mode)
 	init_time_profile();
 	start_time_profile();
 
-	char *tagname = get_tag_name(path);
-	char *filepath = get_file_path(tagname, 0);
+	querytree_t *qtree = build_querytree(path, 0);
 
-	res = chmod(filepath, mode);
-	tagsistant_errno = errno;
+	// -- malformed --
+	if (QTREE_IS_MALFORMED(qtree)) {
+		res = -1;
+		tagsistant_errno = ENOENT;
+	} else
 
-	freenull(tagname);
-	freenull(filepath);
+	// -- object on disk --
+	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+		res = chmod(qtree->full_archive_path, mode);
+		tagsistant_errno = errno;
+	} else
+
+	// -- tags --
+	// -- stats --
+	// -- relations --
+	{
+		res = -1;
+		tagsistant_errno = EROFS;
+	}
+
+	destroy_querytree(qtree);
 
 	stop_labeled_time_profile("chmod");
-	return (res == -1) ? -tagsistant_errno : 0;
+
+	if ( res == -1 ) {
+		dbg(LOG_ERR, "CHMOD %s as %d: %d %d: %s", qtree->full_archive_path, mode, res, tagsistant_errno, strerror(tagsistant_errno));
+		return -tagsistant_errno;
+	} else {
+		dbg(LOG_INFO, "CHMOD %s, %d: OK", path, mode);
+		return 0;
+	}
 }
 
 /**
@@ -833,17 +855,39 @@ static int tagsistant_chown(const char *path, uid_t uid, gid_t gid)
 	init_time_profile();
 	start_time_profile();
 
-	char *tagname = get_tag_name(path);
-	char *filepath = get_file_path(tagname, 0);
+	querytree_t *qtree = build_querytree(path, 0);
 
-	res = chown(filepath, uid, gid);
-	tagsistant_errno = errno;
+	// -- malformed --
+	if (QTREE_IS_MALFORMED(qtree)) {
+		res = -1;
+		tagsistant_errno = ENOENT;
+	} else
 
-	freenull(tagname);
-	freenull(filepath);
+	// -- object on disk --
+	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+		res = chown(qtree->full_archive_path, uid, gid);
+		tagsistant_errno = errno;
+	} else
+
+	// -- tags --
+	// -- stats --
+	// -- relations --
+	{
+		res = -1;
+		tagsistant_errno = EROFS;
+	}
+
+	destroy_querytree(qtree);
 
 	stop_labeled_time_profile("chown");
-	return (res == -1) ? -tagsistant_errno : 0;
+
+	if ( res == -1 ) {
+		dbg(LOG_ERR, "CHMOD %s to %d,%d: %d %d: %s", qtree->full_archive_path, uid, gid, res, tagsistant_errno, strerror(tagsistant_errno));
+		return -tagsistant_errno;
+	} else {
+		dbg(LOG_INFO, "CHMOD %s, %d, %d: OK", path, uid, gid);
+		return 0;
+	}
 }
 
 /**
@@ -860,17 +904,39 @@ static int tagsistant_truncate(const char *path, off_t size)
 	init_time_profile();
 	start_time_profile();
 
-	char *tagname = get_tag_name(path);
-	char *filepath = get_file_path(tagname, 0);
+	querytree_t *qtree = build_querytree(path, 0);
 
-	res = truncate(filepath, size);
-	tagsistant_errno = errno;
+	// -- malformed --
+	if (QTREE_IS_MALFORMED(qtree)) {
+		res = -1;
+		tagsistant_errno = ENOENT;
+	} else
 
-	freenull(tagname);
-	freenull(filepath);
+	// -- object on disk --
+	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+		res = truncate(qtree->full_archive_path, size);
+		tagsistant_errno = errno;
+	} else
+
+	// -- tags --
+	// -- stats --
+	// -- relations --
+	{
+		res = -1;
+		tagsistant_errno = EROFS;
+	}
+
+	destroy_querytree(qtree);
 
 	stop_labeled_time_profile("truncate");
-	return (res == -1) ? -tagsistant_errno : 0;
+
+	if ( res == -1 ) {
+		dbg(LOG_ERR, "TRUNCATE %s at %llu: %d %d: %s", qtree->full_archive_path, (unsigned long long) size, res, tagsistant_errno, strerror(tagsistant_errno));
+		return -tagsistant_errno;
+	} else {
+		dbg(LOG_INFO, "TRUNCATE %s, %llu: OK", path, (unsigned long long) size);
+		return 0;
+	}
 }
 
 /**
@@ -883,22 +949,46 @@ static int tagsistant_truncate(const char *path, off_t size)
 static int tagsistant_utime(const char *path, struct utimbuf *buf)
 {
     int res = 0, tagsistant_errno = 0;
-	(void) path;
+	char *utime_path = NULL;
 
 	init_time_profile();
 	start_time_profile();
 
-	char *tagname = get_tag_name(path);
-	char *filepath = get_file_path(tagname, 0);
+	querytree_t *qtree = build_querytree(path, 0);
 
-	res = utime(filepath, buf);
+	// -- malformed --
+	if (QTREE_IS_MALFORMED(qtree)) {
+		res = -1;
+		tagsistant_errno = ENOENT;
+	} else
+
+	// -- object on disk --
+	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+		utime_path = qtree->full_archive_path;
+	} else
+
+	// -- tags --
+	// -- stats --
+	// -- relations --
+	{
+		utime_path = tagsistant.archive;
+	}
+
+	// do the real utime()
+	res = utime(utime_path, buf);
 	tagsistant_errno = errno;
 
-	freenull(tagname);
-	freenull(filepath);
+	destroy_querytree(qtree);
 
 	stop_labeled_time_profile("utime");
-	return (res == -1) ? -errno : 0;
+
+	if ( res == -1 ) {
+		dbg(LOG_ERR, "UTIME %s: %d %d: %s", utime_path, res, tagsistant_errno, strerror(tagsistant_errno));
+		return -tagsistant_errno;
+	} else {
+		dbg(LOG_INFO, "UTIME %s: OK", path);
+		return 0;
+	}
 }
 
 /**
@@ -953,15 +1043,26 @@ static int tagsistant_open(const char *path, struct fuse_file_info *fi)
 		tagsistant_errno = ENOENT;
 	} else
 
+	// -- object --
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		open_path = qtree->full_archive_path;
 		res = internal_open(qtree->full_archive_path, fi->flags|O_RDONLY, &tagsistant_errno);
 		if (-1 != res) close(res);
-	} else if (QTREE_IS_STATS(qtree)) {
+	} else
+	
+	// -- stats -- 
+	if (QTREE_IS_STATS(qtree)) {
 		open_path = qtree->stats_path;
 		// do proper action
+	} else
+
+	// -- tags --
+	// -- relations --
+	{
+		res = -1;
+		tagsistant_errno = EROFS;
 	}
-	
+
 	destroy_querytree(qtree);
 	stop_labeled_time_profile("open");
 
