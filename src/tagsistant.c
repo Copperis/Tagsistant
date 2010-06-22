@@ -1090,27 +1090,53 @@ static int tagsistant_read(const char *path, char *buf, size_t size, off_t offse
 {
     int res = 0, tagsistant_errno = 0;
 
-	char *filename = get_tag_name(path);
-	gchar *purename = NULL;
-	tagsistant_id file_id = tagsistant_get_object_id(filename, &purename); // change it with qtree->object_path
-	char *filepath = get_file_path(purename, file_id);
-
 	init_time_profile();
 	start_time_profile();
 
-	int fd = internal_open(filepath, fi->flags|O_RDONLY, &tagsistant_errno); 
-	if (fd != -1) {
-		res = pread(fd, buf, size, offset);
-		tagsistant_errno = errno;
-		close(fd);
+	querytree_t *qtree = build_querytree(path, 0);
+
+	// -- malformed --
+	if (QTREE_IS_MALFORMED(qtree)) {
+		res = -1;
+		tagsistant_errno = ENOENT;
+	} else
+
+	// -- object on disk --
+	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+		int fd = internal_open(qtree->full_archive_path, fi->flags|O_RDONLY, &tagsistant_errno); 
+		if (fd != -1) {
+			res = pread(fd, buf, size, offset);
+			tagsistant_errno = errno;
+			close(fd);
+		} else {
+			res = -1;
+			tagsistant_errno = errno;
+		}
+	} else
+
+	// -- stats --
+	if (QTREE_IS_STATS(qtree)) {
+		// do what is needed
+	} else
+
+	// -- tags --
+	// -- relations --
+	{
+		res = -1;
+		tagsistant_errno = EROFS;
 	}
 
-	freenull(filename);
-	freenull(purename);
-	freenull(filepath);
+	destroy_querytree(qtree);
 
 	stop_labeled_time_profile("read");
-	return (res == -1) ? -tagsistant_errno : res;
+
+	if ( res == -1 ) {
+		dbg(LOG_ERR, "READ %s: %d %d: %s", qtree->full_archive_path, res, tagsistant_errno, strerror(tagsistant_errno));
+		return -tagsistant_errno;
+	} else {
+		dbg(LOG_INFO, "READ %s: OK", path);
+		return 0;
+	}
 }
 
 /**
@@ -1128,43 +1154,49 @@ static int tagsistant_write(const char *path, const char *buf, size_t size,
 {
     int res = 0, tagsistant_errno = 0;
 
-	char *filename = get_tag_name(path);
-	char *purename = NULL;
-	int file_id = tagsistant_get_object_id(filename, &purename);
-	char *filepath = get_file_path(purename, file_id);
-
 	init_time_profile();
 	start_time_profile();
 
-	/* return if path is complex, i.e. including logical operators */
-	if ((strstr(path, "/AND") != NULL) || (strstr(path, "/OR") != NULL)) {
-		dbg(LOG_ERR, "Logical operators not allowed in open path");
-		return -ENOTDIR;
+	querytree_t *qtree = build_querytree(path, 0);
+
+	// -- malformed --
+	if (QTREE_IS_MALFORMED(qtree)) {
+		res = -1;
+		tagsistant_errno = ENOENT;
+	} else
+
+	// -- object on disk --
+	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+		int fd = internal_open(qtree->full_archive_path, fi->flags|O_WRONLY, &tagsistant_errno); 
+		if (fd != -1) {
+			res = pwrite(fd, buf, size, offset);
+			tagsistant_errno = errno;
+			close(fd);
+		} else {
+			res = -1;
+			tagsistant_errno = errno;
+		}
+	} else
+
+	// -- tags --
+	// -- stats --
+	// -- relations --
+	{
+		res = -1;
+		tagsistant_errno = EROFS;
 	}
 
-	int fd = internal_open(filepath, fi->flags|O_WRONLY, &tagsistant_errno); 
-	if (fd != -1) {
-#if VERBOSE_DEBUG
-		dbg(LOG_INFO, "writing %d bytes to %s", size, path);
-#endif
-		res = pwrite(fd, buf, size, offset);
-		tagsistant_errno = errno;
-
-		if (res == -1)
-			dbg(LOG_INFO, "Error on fd.%d: %s", fd, strerror(tagsistant_errno));
-
-		close(fd);
-
-	}
-
-	if (res == -1)
-		dbg(LOG_INFO, "WRITE: returning %d: %s", tagsistant_errno, strerror(tagsistant_errno));
-
-	freenull(filename);
-	freenull(filepath);
+	destroy_querytree(qtree);
 
 	stop_labeled_time_profile("write");
-	return (res == -1) ? -tagsistant_errno : res;
+
+	if ( res == -1 ) {
+		dbg(LOG_ERR, "WRITE %s: %d %d: %s", qtree->full_archive_path, res, tagsistant_errno, strerror(tagsistant_errno));
+		return -tagsistant_errno;
+	} else {
+		dbg(LOG_INFO, "WRITE %s: OK", path);
+		return 0;
+	}
 }
 
 #if FUSE_USE_VERSION >= 25
@@ -1187,7 +1219,7 @@ static int tagsistant_statvfs(const char *path, struct statvfs *stbuf)
 	res = statvfs(tagsistant.repository, stbuf);
 	tagsistant_errno = errno;
 
-	stop_labeled_time_profile("statfs");
+	stop_labeled_time_profile("statvfs");
     return (res == -1) ? -tagsistant_errno : 0;
 }
 
