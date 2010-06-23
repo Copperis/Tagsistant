@@ -48,12 +48,12 @@ unfreeable_t *freeblock;
 	unfreeable_t *uf = freeblock;\
 	while (uf != NULL) {\
 		if (uf->address == symbol) {\
-			dbg(LOG_INFO, "Trying to free(%s) at %s:%d, which is marked unfreeable!", __STRING(symbol), __FILE__, __LINE__);\
+			dbg(LOG_INFO, "Trying to free(%s), which is marked unfreeable!", __STRING(symbol));\
 			break;\
 		}\
 		uf = uf->next;\
 	}\
-	dbg(LOG_INFO, "free(%s) at %s:%d", __STRING(symbol), __FILE__, __LINE__);\
+	dbg(LOG_INFO, "free(%s)", __STRING(symbol));\
 	assert(symbol != NULL);\
 	free(symbol);\
 }

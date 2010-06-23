@@ -23,24 +23,28 @@
 #include <errno.h>
 #include <string.h>
 
-#ifndef _DEBUG_SYSLOG
-#ifndef _DEBUG_STDERR
-#define _DEBUG_SYSLOG
-#endif
-#endif
+#define _DEBUG_STDERR
+#undef	_DEBUG_SYSLOG
 
 #ifdef _DEBUG_SYSLOG
 #include <syslog.h>
 #define dbg(facility,string,...) {\
-	if (!tagsistant.quiet)\
-		if ((strstr(string, ("SQL")) == NULL) || tagsistant.verbose)\
-			syslog(facility,string,## __VA_ARGS__);\
+	if (!tagsistant.quiet) {\
+		if ((strstr(string, ("SQL")) == NULL) || tagsistant.verbose) {\
+			gchar *line = g_strdup_printf(string, ##__VA_ARGS__);\
+			gchar *complete = g_strdup_printf("%s (@%s:%d)", line, __FILE__, __LINE__);\
+			syslog(facility,complete);\
+			g_free(complete);\
+			g_free(line);\
+		}\
+	}\
 }
 #endif
 
 #ifdef _DEBUG_STDERR
 #include <stdio.h>
-#define dbg(facility,string,...) fprintf(stderr,"::> "), fprintf(stderr,string,## __VA_ARGS__), fprintf(stderr,"\n");
+#define dbg(facility,string,...)\
+	fprintf(stderr,"TS> "), fprintf(stderr,string,## __VA_ARGS__), fprintf(stderr," (@%s:%d)\n", __FILE__, __LINE__);
 #endif
 
 #ifdef _TIME_PROFILE
@@ -69,7 +73,7 @@
 
 extern int debug;
 
-#define oldfree(symbol) assert(symbol != NULL); dbg(LOG_INFO, "g_free(%s) at %s:%d", __STRING(symbol), __FILE__, __LINE__); g_free(symbol);
+#define oldfree(symbol) assert(symbol != NULL); dbg(LOG_INFO, "g_free(%s)", __STRING(symbol)); g_free(symbol);
 #define befree(symbol) {\
 	if (\
 		(strcmp(__STRING(symbol),"myself") == 0) ||\
@@ -77,12 +81,15 @@ extern int debug;
 		(strcmp(__STRING(symbol),"owner") == 0) ||\
 		(strcmp(__STRING(symbol),"node") == 0) \
 	) {\
-		dbg(LOG_INFO, "Trying to g_free(%s) at %s:%d, which is probably wrong!", __STRING(symbol), __FILE__, __LINE__);\
+		dbg(LOG_INFO, "Trying to g_free(%s) which is probably wrong!", __STRING(symbol));\
 	} else {\
-		dbg(LOG_INFO, "g_free(%s) at %s:%d", __STRING(symbol), __FILE__, __LINE__);\
+		dbg(LOG_INFO, "g_free(%s)", __STRING(symbol));\
 		assert(symbol != NULL);\
 		g_free(symbol);\
 	}\
 }
+
+#define strlen(string) ((string == NULL) ? 0 : strlen(string))
+int strlen0(const char *string);
 
 // vim:ts=4

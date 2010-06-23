@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- sql.c
-   Copyright (C) 2006-2008 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2010 Tx0 <tx0@strumentiresistenti.org>
 
    Tagsistant (tagfs) mount binary written using FUSE userspace library.
 

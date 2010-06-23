@@ -392,8 +392,8 @@ char *real_strdup(const char *orig, char *file, int line);
 		}\
 		g_free(symbol);\
 		symbol = NULL;\
-	} else {\
-		dbg(LOG_ERR, "FREE ERROR: symbol %s is NULL @%s:%u!", __STRING(symbol), __FILE__, __LINE__);\
+	} else if (VERBOSE_DEBUG) {\
+		dbg(LOG_INFO, "free(%s) but symbol is NULL!", __STRING(symbol));\
 	}\
 }
 

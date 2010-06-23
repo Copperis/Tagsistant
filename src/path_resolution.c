@@ -60,7 +60,7 @@ static int add_alias_tag(void *vreasoning, int argc, char **argv, char **azColNa
 	/* adding tag */
 	and->related = g_malloc(sizeof(ptree_and_node_t));
 	if (and->related == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		dbg(LOG_ERR, "Error allocating memory");
 		return 1;
 	}
 
@@ -121,7 +121,7 @@ querytree_t *new_querytree(const gchar *path)
 	// allocate the struct
 	querytree_t *qtree = g_new0(querytree_t, 1);
 	if (qtree == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		dbg(LOG_ERR, "Error allocating memory");
 		return NULL;
 	}
 
@@ -194,6 +194,8 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 {
 	unsigned int orcount = 0, andcount = 0;
 
+	dbg(LOG_INFO, "Building querytree for %s", path);
+
 	// allocate the querytree structure
 	querytree_t *qtree = new_querytree(path);
 	if (qtree == NULL) return NULL;
@@ -202,29 +204,37 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 	ptree_or_node_t *last_or = qtree->tree = g_new0(ptree_or_node_t, 1);
 	if (qtree->tree == NULL) {
 		freenull(qtree);
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		dbg(LOG_ERR, "Error allocating memory");
 		return NULL;
 	}
 	ptree_and_node_t *last_and = NULL;
 
 	// split the path
 	gchar **splitted = g_strsplit(path, "/", 512); /* split up to 512 tokens */
-	gchar **token_ptr = splitted;
+	gchar **token_ptr = splitted + 1; /* first element is always "" since path begins with '/' */
+
+#if VERBOSE_DEBUG
+	gchar **tkp = splitted + 1;
+	while (*tkp != NULL) {
+		dbg(LOG_INFO, " Token: [%s]", *tkp);
+		tkp++;
+	}
+#endif
 
 	// guess the type of the query by first token
-	if (g_strcmp0(*token_ptr, "tags")) {
+	if (g_strcmp0(*token_ptr, "tags") == 0) {
 		qtree->type = QTYPE_TAGS;
-	} else if (g_strcmp0(*token_ptr, "archive")) {
+	} else if (g_strcmp0(*token_ptr, "archive") == 0) {
  		qtree->type = QTYPE_ARCHIVE;
-	} else if (g_strcmp0(*token_ptr, "relations")) {
+	} else if (g_strcmp0(*token_ptr, "relations") == 0) {
  		qtree->type = QTYPE_RELATIONS;
-	} else if (g_strcmp0(*token_ptr, "stats")) {
+	} else if (g_strcmp0(*token_ptr, "stats") == 0) {
  		qtree->type = QTYPE_STATS;
-	} else if ((NULL == *token_ptr) || (g_strcmp0(*token_ptr, "") == 0)) {
+	} else if ((NULL == *token_ptr) || (g_strcmp0(*token_ptr, "") == 0 || (g_strcmp0(*token_ptr, "/") == 0))) {
 		qtree->type = QTYPE_ROOT;
 	} else {
 		qtree->type = QTYPE_MALFORMED;
-		dbg(LOG_ERR, "Non existant path (%s) @%s:%d", path, __FILE__, __LINE__);
+		dbg(LOG_ERR, "Non existant path (%s)", path);
 		goto RETURN;
 	}
 
@@ -252,7 +262,7 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 				andcount = 0;
 				ptree_or_node_t *new_or = g_new0(ptree_or_node_t, 1);
 				if (new_or == NULL) {
-					dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+					dbg(LOG_ERR, "Error allocating memory");
 					goto RETURN;
 				}
 				last_or->next = new_or;
@@ -263,7 +273,7 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 				/* save next token in new ptree_and_node_t slot */
 				ptree_and_node_t *and = g_new0(ptree_and_node_t, 1);
 				if (and == NULL) {
-					dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+					dbg(LOG_ERR, "Error allocating memory");
 					goto RETURN;
 				}
 				and->tag = g_strdup(*token_ptr);
@@ -326,7 +336,7 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 
 	/* remaining part is the object pathname */
 	if (QTREE_IS_ARCHIVE(qtree) || (QTREE_IS_TAGS(qtree) && qtree->complete)) {
-		qtree_set_object_path(qtree, token_ptr);
+		qtree_set_object_path(qtree, *token_ptr);
 
 		// set the object path and compute the relative paths
 		qtree_set_object_path(qtree, g_strjoinv(G_DIR_SEPARATOR_S, token_ptr));
@@ -383,7 +393,7 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 	}
 
 	/* get the id of the object referred by first element */
-	gchar *dot = g_strstr_len(*token_ptr, -1, ".");
+	gchar *dot = (NULL == *token_ptr) ? NULL : g_strstr_len(*token_ptr, -1, ".");
 	if (NULL != dot) {
 		qtree->object_id = strtol(*token_ptr, NULL, 10);
 		dot++;
@@ -391,7 +401,9 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 
 RETURN:
 	g_strfreev(splitted);
-	dbg(LOG_INFO, "returning from build_querytree...");
+#if VERBOSE_DEBUG
+	dbg(LOG_INFO, "Returning from build_querytree...");
+#endif
 	return qtree;
 }
 
@@ -551,7 +563,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 
 	struct atft *atft = g_new0(struct atft, 1);
 	if (atft == NULL) {
-		dbg(LOG_ERR, "Error allocating memory @%s:%d", __FILE__, __LINE__);
+		dbg(LOG_ERR, "Error allocating memory");
 		g_string_free(view_statement, TRUE);
 		destroy_filetree(result);
 		drop_views(query_dup, dbh);

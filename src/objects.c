@@ -27,25 +27,18 @@
 #endif
 
 /**
- * Return the ID of an object from its path name
+ * Return the ID of an object from its filename name
+ * If second parameter purename is not null, the name of
+ * the file without the leading number is copied
  */
-tagsistant_id tagsistant_get_object_id(const gchar *path, gchar **purename)
+tagsistant_id tagsistant_get_object_id(const gchar *filename, gchar **purename)
 {
-	gchar **splitted = g_strsplit(path, "/", 512); /* split up to 512 tokens */
 	tagsistant_id id = 0;
-	gchar _purename[255];
-	static GStaticMutex mutex = G_STATIC_MUTEX_INIT;
 
-	g_static_mutex_lock(&mutex);
-	memset(_purename, 0, 255);
-	if (sscanf(path, "%u.%s", id, _purename) != 2) {
-		if (*purename != NULL) *purename = g_strdup(path);
-	} else {
-		if (*purename != NULL) *purename = g_strdup(_purename);
-	}
-	g_static_mutex_unlock(&mutex);
-
-	g_strfreev(splitted);
+	if (purename != NULL)
+		sscanf(filename, "%lu.%s", (long unsigned *) &id, *purename);
+	else
+		sscanf(filename, "%lu.", (long unsigned *) &id);
 
 	return id;
 }
@@ -90,6 +83,8 @@ tagsistant_object_t *tagsistant_object_load(tagsistant_id ID) {
 
 int tagsistant_object_create_on_disk(const gchar *path, mode_t mode) {
 	// write a switch statement to create each kind of object	
+	(void) path;
+	(void) mode;
 	return 0;
 }
 

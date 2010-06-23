@@ -210,3 +210,8 @@ void _untag_object_by_and_node_t(ptree_and_node_t *an, tagsistant_id object_id)
 {
 	sql_untag_object(an->tag, object_id);
 }
+
+int strlen0(const char *string)
+{
+	return (string == NULL) ? 0 : strlen(string);
+}
