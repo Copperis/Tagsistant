@@ -68,11 +68,11 @@ int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, cha
 
 	char *sqlerror = NULL;
 	if (dbh == NULL) {
-		dbg(LOG_INFO, "SQL [disposable]: \"%s\"", statement);
+		dbg(LOG_INFO, "SQL [disposable]: \"%s\" @%s:%d", statement, file, line);
 	} else if (*dbh == NULL) {
-		dbg(LOG_INFO, "SQL [persistent]: \"%s\"", statement);
+		dbg(LOG_INFO, "SQL [persistent]: \"%s\" @%s:%d", statement, file, line);
 	} else {
-		dbg(LOG_INFO, "SQL [0x%.8x]: \"%s\"", (unsigned int) *dbh, statement);
+		dbg(LOG_INFO, "SQL [0x%.8x]: \"%s\" @%s:%d", (unsigned int) *dbh, statement, file, line);
 	}
 	result = sqlite3_exec(intdbh, statement, callback, firstarg, &sqlerror);
 	if (result != SQLITE_OK) {
@@ -106,7 +106,6 @@ int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)
 	va_start(ap, firstarg);
 
 	gchar *statement = g_strdup_vprintf(format, ap);
-	dbg(LOG_INFO, "%s", statement);
 	int res = real_do_sql(NULL, statement, callback, firstarg, file, line);
 	g_free(statement);
 

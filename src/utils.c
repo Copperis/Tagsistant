@@ -215,3 +215,21 @@ int strlen0(const char *string)
 {
 	return (string == NULL) ? 0 : strlen(string);
 }
+
+gchar *querytree_types[QTYPE_TOTAL];
+int querytree_types_initialized = 0;
+
+gchar *query_type(querytree_t *qtree)
+{
+	if (!querytree_types_initialized) {
+		querytree_types[QTYPE_MALFORMED] = g_strdup("QTYPE_MALFORMED");
+		querytree_types[QTYPE_ROOT] = g_strdup("QTYPE_ROOT");
+		querytree_types[QTYPE_ARCHIVE] = g_strdup("QTYPE_ARCHIVE");
+		querytree_types[QTYPE_TAGS] = g_strdup("QTYPE_TAGS");
+		querytree_types[QTYPE_RELATIONS] = g_strdup("QTYPE_RELATIONS");
+		querytree_types[QTYPE_STATS] = g_strdup("QTYPE_STATS");
+		querytree_types_initialized++;
+	}
+
+	return querytree_types[qtree->type];
+}

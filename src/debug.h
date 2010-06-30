@@ -90,6 +90,6 @@ extern int debug;
 }
 
 #define strlen(string) ((string == NULL) ? 0 : strlen(string))
-int strlen0(const char *string);
+extern int strlen0(const char *string);
 
 // vim:ts=4

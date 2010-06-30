@@ -146,7 +146,8 @@ typedef enum {
 	QTYPE_ARCHIVE,		// path pointing to objects on disk, begins with /archive/
 	QTYPE_TAGS,			// path that's a query, begins with /tags/
 	QTYPE_RELATIONS,	// path that's a relation between two or more tags, begins with /relations/
-	QTYPE_STATS			// path that's a special query for internal status, begins with /stats/
+	QTYPE_STATS,		// path that's a special query for internal status, begins with /stats/
+	QTYPE_TOTAL
 } query_type_t;
 
 #define QTREE_IS_MALFORMED(qtree) (QTYPE_MALFORMED == qtree->type)
@@ -200,7 +201,7 @@ typedef struct querytree {
 	int complete;
 
 	/** which kind of path is this? */
-	/** can be QTYPE_ROOT, QTYPE_TAGS, QTYPE_ARCHIVE, QTYPE_RELATIONS, QTYPE_STATS */
+	/** can be QTYPE_MALFORMED, QTYPE_ROOT, QTYPE_TAGS, QTYPE_ARCHIVE, QTYPE_RELATIONS, QTYPE_STATS */
 	int type;
 
 	/** the first tag in a relation */
@@ -402,5 +403,8 @@ char *real_strdup(const char *orig, char *file, int line);
 	qtree->archive_path = g_strdup_printf("%s%s%s", TAGSISTANT_ARCHIVE_PLACEHOLDER, G_DIR_SEPARATOR_S, qtree->object_path);\
 	qtree->full_archive_path = g_strdup_printf("%s%s%s", tagsistant.archive, G_DIR_SEPARATOR_S, qtree->object_path);\
 }
+
+// returns the type of query reppresented by a querytree_t struct
+extern gchar *query_type(querytree_t *qtree);
 
 // vim:ts=4:nocindent:nowrap

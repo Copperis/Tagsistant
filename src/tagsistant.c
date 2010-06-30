@@ -74,9 +74,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 	// postprocess output
 	if (QTREE_IS_TAGS(qtree)) {
-		if (QTREE_IS_COMPLETE(qtree)) {
-			// path ends by '='
-		} else if (g_strcmp0(qtree->last_tag, "+") == 0) {
+		if (g_strcmp0(qtree->last_tag, "+") == 0) {
 			// path ends by '+'
 			stbuf->st_ino += 1;
 			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
@@ -85,6 +83,8 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 			stbuf->st_ino += 2;
 			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
 			stbuf->st_nlink = 1;
+		} else if (NULL == qtree->last_tag) {
+			// ok
 		} else {
 			if (sql_tag_exists(qtree->last_tag)) {
 				// each directory holds 3 inodes: itself/, itself/+, itself/=
@@ -102,9 +102,9 @@ GETATTR_EXIT:
 	stop_labeled_time_profile("getattr");
 
 	if ( res == -1 ) {
-		dbg(LOG_ERR, "GETATTR on %s (%s): %d %d: %s", path, lstat_path, res, tagsistant_errno, strerror(tagsistant_errno));
+		dbg(LOG_ERR, "GETATTR on %s (%s) {%s}: %d %d: %s", path, lstat_path, query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		dbg(LOG_INFO, "GETATTR on %s: OK", path);
+		dbg(LOG_INFO, "GETATTR on %s (%s): OK", path, query_type(qtree));
 	}
 
 	destroy_querytree(qtree);
@@ -152,9 +152,9 @@ static int tagsistant_readlink(const char *path, char *buf, size_t size)
 
 READLINK_EXIT:
 	if ( res == -1 ) {
-		dbg(LOG_ERR, "READLINK on %s (%s): %d %d: %s", path, readlink_path, res, tagsistant_errno, strerror(tagsistant_errno));
+		dbg(LOG_ERR, "READLINK on %s (%s) (%s): %d %d: %s", path, readlink_path, query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		dbg(LOG_INFO, "REALINK on %s: OK", path);
+		dbg(LOG_INFO, "REALINK on %s (%s): OK", path, query_type(qtree));
 	}
 
 	destroy_querytree(qtree);
@@ -239,7 +239,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
 
-	dbg(LOG_INFO, "READDIR on %s", path);
+	// dbg(LOG_INFO, "READDIR on %s", path);
 
 	// build querytree
 	querytree_t *qtree = build_querytree(path, 0);
@@ -403,9 +403,9 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 
 READDIR_EXIT:
 	if ( res == -1 ) {
-		dbg(LOG_ERR, "READDIR on %s: %d %d: %s", path, res, tagsistant_errno, strerror(tagsistant_errno));
+		dbg(LOG_ERR, "READDIR on %s (%s): %d %d: %s", path, query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		dbg(LOG_INFO, "READDIR on %s: OK", path);
+		dbg(LOG_INFO, "READDIR on %s (%s): OK", path, query_type(qtree));
 	}
 
 	destroy_querytree(qtree);
@@ -519,9 +519,9 @@ MKNOD_EXIT:
 	stop_labeled_time_profile("mknod");
 
 	if ( res == -1 ) {
-		dbg(LOG_ERR, "MKNOD on %s (%s): %d %d: %s", path, mknod_path, res, tagsistant_errno, strerror(tagsistant_errno));
+		dbg(LOG_ERR, "MKNOD on %s (%s) (%s): %d %d: %s", path, mknod_path, query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		dbg(LOG_INFO, "MKNOD on %s: OK", path);
+		dbg(LOG_INFO, "MKNOD on %s (%s): OK", path, query_type(qtree));
 	}
 
 	destroy_querytree(qtree);
@@ -607,9 +607,9 @@ static int tagsistant_mkdir(const char *path, mode_t mode)
 	stop_labeled_time_profile("mkdir");
 
 	if ( res == -1 ) {
-		dbg(LOG_ERR, "MKDIR on %s: %d %d: %s", path, res, tagsistant_errno, strerror(tagsistant_errno));
+		dbg(LOG_ERR, "MKDIR on %s (%s): %d %d: %s", path, query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		dbg(LOG_INFO, "MKDIR on %s: OK", path);
+		dbg(LOG_INFO, "MKDIR on %s (%s): OK", path, query_type(qtree));
 	}
 
 	destroy_querytree(qtree);
@@ -660,9 +660,9 @@ static int tagsistant_unlink(const char *path)
 	stop_labeled_time_profile("unlink");
 
 	if ( res == -1 ) {
-		dbg(LOG_ERR, "UNLINK on %s (%s): %d %d: %s", path, qtree->full_archive_path, res, tagsistant_errno, strerror(tagsistant_errno));
+		dbg(LOG_ERR, "UNLINK on %s (%s) (%s): %d %d: %s", path, qtree->full_archive_path, query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		dbg(LOG_INFO, "UNLINK on %s: OK", path);
+		dbg(LOG_INFO, "UNLINK on %s (%s): OK", path, query_type(qtree));
 	}
 
 	destroy_querytree(qtree);
@@ -701,9 +701,9 @@ static int tagsistant_rmdir(const char *path)
 	stop_labeled_time_profile("rmdir");
 
 	if ( res == -1 ) {
-		dbg(LOG_ERR, "RMDIR on %s: %d %d: %s", path, res, tagsistant_errno, strerror(tagsistant_errno));
+		dbg(LOG_ERR, "RMDIR on %s (%s): %d %d: %s", path, query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		dbg(LOG_INFO, "RMDIR on %s: OK", path);
+		dbg(LOG_INFO, "RMDIR on %s (%s): OK", path, query_type(qtree));
 	}
 
 	destroy_querytree(qtree);
@@ -761,9 +761,9 @@ RETURN:
 	stop_labeled_time_profile("rename");
 
 	if ( res == -1 ) {
-		dbg(LOG_ERR, "RENAME %s to %s: %d %d: %s", from, to, res, tagsistant_errno, strerror(tagsistant_errno));
+		dbg(LOG_ERR, "RENAME %s (%s) to %s (%s): %d %d: %s", from, query_type(from_tree), to, query_type(to_tree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		dbg(LOG_INFO, "RENAME %s to %s: OK", from, to);
+		dbg(LOG_INFO, "RENAME %s (%s) to %s (%s): OK", from, query_type(from_tree), to, query_type(to_tree));
 	}
 
 	destroy_querytree(from_tree);
@@ -823,9 +823,9 @@ static int tagsistant_symlink(const char *from, const char *to)
 	stop_labeled_time_profile("symlink");
 
 	if ( res == -1 ) {
-		dbg(LOG_ERR, "SYMLINK from %s to %s (%s): %d %d: %s", from, to, to_qtree->full_archive_path, res, tagsistant_errno, strerror(tagsistant_errno));
+		dbg(LOG_ERR, "SYMLINK from %s to %s (%s) (%s): %d %d: %s", from, to, to_qtree->full_archive_path, query_type(to_qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		dbg(LOG_INFO, "SYMLINK from %s to %s: OK", from, to);
+		dbg(LOG_INFO, "SYMLINK from %s to %s (%s): OK", from, to, query_type(to_qtree));
 	}
 
 	destroy_querytree(to_qtree);
@@ -884,9 +884,9 @@ static int tagsistant_chmod(const char *path, mode_t mode)
 	stop_labeled_time_profile("chmod");
 
 	if ( res == -1 ) {
-		dbg(LOG_ERR, "CHMOD %s as %d: %d %d: %s", qtree->full_archive_path, mode, res, tagsistant_errno, strerror(tagsistant_errno));
+		dbg(LOG_ERR, "CHMOD %s (%s) as %d: %d %d: %s", qtree->full_archive_path, query_type(qtree), mode, res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		dbg(LOG_INFO, "CHMOD %s, %d: OK", path, mode);
+		dbg(LOG_INFO, "CHMOD %s (%s), %d: OK", path, query_type(qtree), mode);
 	}
 
 	destroy_querytree(qtree);
@@ -933,9 +933,9 @@ static int tagsistant_chown(const char *path, uid_t uid, gid_t gid)
 	stop_labeled_time_profile("chown");
 
 	if ( res == -1 ) {
-		dbg(LOG_ERR, "CHMOD %s to %d,%d: %d %d: %s", qtree->full_archive_path, uid, gid, res, tagsistant_errno, strerror(tagsistant_errno));
+		dbg(LOG_ERR, "CHMOD %s to %d,%d (%s): %d %d: %s", qtree->full_archive_path, uid, gid, query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		dbg(LOG_INFO, "CHMOD %s, %d, %d: OK", path, uid, gid);
+		dbg(LOG_INFO, "CHMOD %s, %d, %d (%s): OK", path, uid, gid, query_type(qtree));
 	}
 
 	destroy_querytree(qtree);
@@ -981,9 +981,9 @@ static int tagsistant_truncate(const char *path, off_t size)
 	stop_labeled_time_profile("truncate");
 
 	if ( res == -1 ) {
-		dbg(LOG_ERR, "TRUNCATE %s at %llu: %d %d: %s", qtree->full_archive_path, (unsigned long long) size, res, tagsistant_errno, strerror(tagsistant_errno));
+		dbg(LOG_ERR, "TRUNCATE %s at %llu (%s): %d %d: %s", qtree->full_archive_path, (unsigned long long) size, query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		dbg(LOG_INFO, "TRUNCATE %s, %llu: OK", path, (unsigned long long) size);
+		dbg(LOG_INFO, "TRUNCATE %s, %llu (%s): OK", path, (unsigned long long) size, query_type(qtree));
 	}
 
 	destroy_querytree(qtree);
@@ -1032,9 +1032,9 @@ static int tagsistant_utime(const char *path, struct utimbuf *buf)
 	stop_labeled_time_profile("utime");
 
 	if ( res == -1 ) {
-		dbg(LOG_ERR, "UTIME %s: %d %d: %s", utime_path, res, tagsistant_errno, strerror(tagsistant_errno));
+		dbg(LOG_ERR, "UTIME %s (%s): %d %d: %s", utime_path, query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		dbg(LOG_INFO, "UTIME %s: OK", path);
+		dbg(LOG_INFO, "UTIME %s (%s): OK", path, query_type(qtree));
 	}
 
 	destroy_querytree(qtree);
@@ -1116,9 +1116,9 @@ static int tagsistant_open(const char *path, struct fuse_file_info *fi)
 	stop_labeled_time_profile("open");
 
 	if ( res == -1 ) {
-		dbg(LOG_ERR, "OPEN on %s (%s): %d %d: %s", path, open_path, res, tagsistant_errno, strerror(tagsistant_errno));
+		dbg(LOG_ERR, "OPEN on %s (%s) (%s): %d %d: %s", path, open_path, query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		dbg(LOG_INFO, "OPEN on %s: OK", path);
+		dbg(LOG_INFO, "OPEN on %s (%s): OK", path, query_type(qtree));
 	}
 
 	destroy_querytree(qtree);
@@ -1179,9 +1179,9 @@ static int tagsistant_read(const char *path, char *buf, size_t size, off_t offse
 	stop_labeled_time_profile("read");
 
 	if ( res == -1 ) {
-		dbg(LOG_ERR, "READ %s: %d %d: %s", qtree->full_archive_path, res, tagsistant_errno, strerror(tagsistant_errno));
+		dbg(LOG_ERR, "READ %s (%s) (%s): %d %d: %s", path, qtree->full_archive_path, query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		dbg(LOG_INFO, "READ %s: OK", path);
+		dbg(LOG_INFO, "READ %s (%s): OK", path, query_type(qtree));
 	}
 
 	destroy_querytree(qtree);
@@ -1238,9 +1238,9 @@ static int tagsistant_write(const char *path, const char *buf, size_t size,
 	stop_labeled_time_profile("write");
 
 	if ( res == -1 ) {
-		dbg(LOG_ERR, "WRITE %s: %d %d: %s", qtree->full_archive_path, res, tagsistant_errno, strerror(tagsistant_errno));
+		dbg(LOG_ERR, "WRITE %s (%s) (%s): %d %d: %s", path, qtree->full_archive_path, query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		dbg(LOG_INFO, "WRITE %s: OK", path);
+		dbg(LOG_INFO, "WRITE %s (%s): OK", path, query_type(qtree));
 	}
 
 	destroy_querytree(qtree);
