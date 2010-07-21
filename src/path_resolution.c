@@ -194,7 +194,7 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 {
 	unsigned int orcount = 0, andcount = 0;
 
-	dbg(LOG_INFO, "Building querytree for %s", path);
+	// dbg(LOG_INFO, "Building querytree for %s", path);
 
 	// allocate the querytree structure
 	querytree_t *qtree = new_querytree(path);
@@ -244,7 +244,8 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 	// if the query is a QTYPE_TAGS query, parse it
 	if (QTREE_IS_TAGS(qtree)) {
 		// state if the query is complete or not
-		qtree->complete = g_strstr_len(path, strlen(path), "=") ? 1 : 0;
+		qtree->complete = (NULL == g_strstr_len(path, strlen(path), "=")) ? 0 : 1;
+		// dbg(LOG_INFO, "Path %s is %scomplete", path, qtree->complete ? "" : "not ");
 
 		// by default a query is valid until somethig wrong happens while parsing it
 		qtree->valid = 1;
@@ -277,7 +278,7 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 					goto RETURN;
 				}
 				and->tag = g_strdup(*token_ptr);
-				dbg(LOG_INFO, "New AND node allocated on tag %s...", and->tag);
+				// dbg(LOG_INFO, "New AND node allocated on tag %s...", and->tag);
 				and->next = NULL;
 				and->related = NULL;
 				if (last_and == NULL) {
@@ -287,7 +288,7 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 				}
 				last_and = and;
 	
-				dbg(LOG_INFO, "Query tree: %.2d.%.2d %s", orcount, andcount, *token_ptr);
+				// dbg(LOG_INFO, "Query tree: %.2d.%.2d %s", orcount, andcount, *token_ptr);
 				andcount++;
 	
 				/* search related tags */
@@ -336,18 +337,23 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 
 	/* remaining part is the object pathname */
 	if (QTREE_IS_ARCHIVE(qtree) || (QTREE_IS_TAGS(qtree) && qtree->complete)) {
-		qtree_set_object_path(qtree, *token_ptr);
+		if (QTREE_IS_TAGS(qtree) && qtree->complete) token_ptr++; // skip '='
 
-		// set the object path and compute the relative paths
-		qtree_set_object_path(qtree, g_strjoinv(G_DIR_SEPARATOR_S, token_ptr));
+		if (*token_ptr == NULL) {
+			// set a null path
+			qtree_set_object_path(qtree, g_strdup(""));
+		} else {
+			// set the object path and compute the relative paths
+			qtree_set_object_path(qtree, g_strjoinv(G_DIR_SEPARATOR_S, token_ptr));
 
-		// a path points is_taggable if it does not contains "/"
-		// as in "23892.mydocument.odt" and not in "23893.myfolder/photo.jpg"
-		if (
-			(strlen(qtree->object_path) > 0) &&
-			(g_strstr_len(qtree->object_path, strlen(qtree->object_path), G_DIR_SEPARATOR_S) == NULL)
-		) {
-			qtree->is_taggable = 1;
+			// a path points is_taggable if it does not contains "/"
+			// as in "23892.mydocument.odt" and not in "23893.myfolder/photo.jpg"
+			if (
+				(strlen(qtree->object_path) > 0) &&
+				(g_strstr_len(qtree->object_path, strlen(qtree->object_path), G_DIR_SEPARATOR_S) == NULL)
+			) {
+				qtree->is_taggable = 1;
+			}
 		}
 	}
 
@@ -518,7 +524,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 		g_string_printf(statement, "create view tv%.8x as ", (unsigned int) query);
 		
 		while (tag != NULL) {
-			g_string_append(statement, "select filename, id from files join tagging on tagging.file_id = files.id where tagname = \"");
+			g_string_append(statement, "select objectname, object_id from objects join tagging on tagging.object_id = objects.object_id join on tags on tags.tag_id = tagging.tag_id where tagname = \"");
 			g_string_append(statement, tag->tag);
 			g_string_append(statement, "\"");
 			

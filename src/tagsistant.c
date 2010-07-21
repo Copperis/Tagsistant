@@ -74,6 +74,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 	// postprocess output
 	if (QTREE_IS_TAGS(qtree)) {
+		dbg(LOG_INFO, "getattr: last tag is %s", qtree->last_tag);
 		if (g_strcmp0(qtree->last_tag, "+") == 0) {
 			// path ends by '+'
 			stbuf->st_ino += 1;
@@ -168,6 +169,7 @@ struct use_filler_struct {
 	fuse_fill_dir_t filler;	/**< libfuse filler hook to return dir entries */
 	void *buf;				/**< libfuse buffer to hold readdir results */
 	const char *path;		/**< the path that generates the query */
+	querytree_t *qtree;		/**< the querytree that originated the readdir() */
 };
 
 /**
@@ -193,6 +195,11 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 #endif
 
 	/* check if this tag has been already listed inside the path */
+	ptree_or_node_t *ptx = qtree->tree;
+	while (NULL != ptx->next) ptx = ptx->next; // last OR section
+
+	ptree_and_node_t *and_t = ptx->
+
 	char *path_duplicate = g_strdup(ufs->path);
 	if (path_duplicate == NULL) {
 		dbg(LOG_ERR, "Error duplicating path");
@@ -297,23 +304,54 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 				break;
 		}
 	} else if (QTREE_IS_TAGS(qtree)) {
-		/*
-		 * if path does terminate with a logical operator
-		 * directory should be filled with tagsdir registered tags
-		 */
-		struct use_filler_struct *ufs = g_new0(struct use_filler_struct, 1);
-		if (ufs == NULL) {
-			dbg(LOG_ERR, "Error allocating memory");
-			goto READDIR_EXIT;
+		if (qtree->complete) {
+			// build the filetree
+			file_handle_t *fh = build_filetree(qtree->tree, path);
+
+			// check filetree is not null
+			if (NULL == fh) {
+				tagsistant_errno = EBADF;
+				goto READDIR_EXIT;
+			}
+	
+			// save filetree reference to later destroy it
+			file_handle_t *fh_save = fh;
+		
+			// add each filetree node to directory
+			do {
+				if ( (fh->name != NULL) && strlen(fh->name)) {
+					dbg(LOG_INFO, "Adding %s to directory", fh->name);
+					if (filler(buf, fh->name, NULL, offset))
+						break;
+				}
+				fh = fh->next;
+			} while ( fh != NULL && fh->name != NULL );
+		
+			// destroy the file tree
+			destroy_filetree(fh_save);
+		} else {
+			/*
+		 	* if path does not terminate by =,
+		 	* directory should be filled with tagsdir registered tags
+		 	*/
+			filler(buf, "+", NULL, 0);
+			filler(buf, "=", NULL, 0);
+
+			struct use_filler_struct *ufs = g_new0(struct use_filler_struct, 1);
+			if (ufs == NULL) {
+				dbg(LOG_ERR, "Error allocating memory");
+				goto READDIR_EXIT;
+			}
+	
+			ufs->filler = filler;
+			ufs->buf = buf;
+			ufs->path = path;
+			ufs->qtree = qtree;
+	
+			/* parse tagsdir list */
+			tagsistant_query("select tagname from tags;", add_entry_to_dir, ufs);
+			freenull(ufs);
 		}
-
-		ufs->filler = filler;
-		ufs->buf = buf;
-		ufs->path = path;
-
-		/* parse tagsdir list */
-		tagsistant_query("select tagname from tags;", add_entry_to_dir, ufs);
-		freenull(ufs);
 	} else if (QTREE_IS_STATS(qtree)) {
 		// fill with available statistics
 	} else if (QTREE_IS_RELATIONS(qtree)) {
@@ -782,12 +820,17 @@ static int tagsistant_symlink(const char *from, const char *to)
 {
     int tagsistant_errno = 0, res = 0;
 
-	dbg(LOG_INFO, "Entering symlink...");
+	// remove last slash and following part from to
+	gchar *dir_to = g_strdup(to);
+	gchar *last_slash = g_strrstr(dir_to, "/");
+	if (NULL != last_slash) {
+		*last_slash = '\0';
+	}
 
 	init_time_profile();
 	start_time_profile();
 
-	querytree_t *to_qtree = build_querytree(to, 0);
+	querytree_t *to_qtree = build_querytree(dir_to, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(to_qtree)) {
@@ -797,6 +840,7 @@ static int tagsistant_symlink(const char *from, const char *to)
 
 	// -- object on disk --
 	if (QTREE_POINTS_TO_OBJECT(to_qtree) || (QTREE_IS_TAGS(to_qtree) && QTREE_IS_COMPLETE(to_qtree))) {
+
 		// if object_path is null, borrow it from original path
 		if (strlen(to_qtree->object_path) == 0) {
 			qtree_set_object_path(to_qtree, g_strdup(g_path_get_basename(from)));
@@ -818,6 +862,7 @@ static int tagsistant_symlink(const char *from, const char *to)
 	// -- relations --
 	{
 		// nothin'?
+		dbg(LOG_INFO, "%s non punta a un oggetto e non è una tags query completa", dir_to);
 	}
 
 	stop_labeled_time_profile("symlink");
@@ -829,6 +874,7 @@ static int tagsistant_symlink(const char *from, const char *to)
 	}
 
 	destroy_querytree(to_qtree);
+	g_free(dir_to);
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
@@ -1185,7 +1231,7 @@ static int tagsistant_read(const char *path, char *buf, size_t size, off_t offse
 	}
 
 	destroy_querytree(qtree);
-	return (res == -1) ? -tagsistant_errno : 0;
+	return (res == -1) ? -tagsistant_errno : res;
 }
 
 /**
@@ -1244,7 +1290,7 @@ static int tagsistant_write(const char *path, const char *buf, size_t size,
 	}
 
 	destroy_querytree(qtree);
-	return (res == -1) ? -tagsistant_errno : 0;
+	return (res == -1) ? -tagsistant_errno : res;
 }
 
 #if FUSE_USE_VERSION >= 25

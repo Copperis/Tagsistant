@@ -282,6 +282,8 @@ void sql_tag_object(const gchar *tagname, tagsistant_id object_id)
 
 	tagsistant_query("insert into tags(tagname) values(\"%s\");", NULL, NULL, tagname);
 	tagsistant_query("insert into tagging(tag_id, object_id) values(\"%d\", \"%d\");", NULL, NULL, tag_id, object_id);
+
+	dbg(LOG_INFO, "Tagging object %d as %s", object_id, tagname);
 }
 
 void sql_untag_object(const gchar *tagname, tagsistant_id object_id)
