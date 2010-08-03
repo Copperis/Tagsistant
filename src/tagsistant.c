@@ -195,11 +195,18 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 #endif
 
 	/* check if this tag has been already listed inside the path */
-	ptree_or_node_t *ptx = qtree->tree;
+	ptree_or_node_t *ptx = ufs->qtree->tree;
 	while (NULL != ptx->next) ptx = ptx->next; // last OR section
 
-	ptree_and_node_t *and_t = ptx->
+	ptree_and_node_t *and_t = ptx->and_set;
+	while (NULL != and_t) {
+		if (g_strcmp0(and_t->tag, argv[0]) == 0) {
+			return 0;
+		}
+		and_t = and_t->next;
+	}
 
+	/*
 	char *path_duplicate = g_strdup(ufs->path);
 	if (path_duplicate == NULL) {
 		dbg(LOG_ERR, "Error duplicating path");
@@ -220,6 +227,7 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 
 	freenull(tag_to_check);
 	freenull(path_duplicate);
+	*/
 
 	return ufs->filler(ufs->buf, argv[0], NULL, 0);
 }
