@@ -360,12 +360,14 @@ extern  void _untag_object_by_and_node_t(ptree_and_node_t *an, tagsistant_id obj
  * @param funcpointer the pointer to the function (barely the function name)
  */
 #define traverse_querytree(qtree, funcpointer, ...) {\
+	dbg(LOG_INFO, "Traversing querytree...");\
 	if (NULL != qtree) {\
 		ptree_or_node_t *ptx = qtree->tree;\
 		while (NULL != ptx) {\
 			ptree_and_node_t *andptx = ptx->and_set;\
 			while (NULL != andptx) {\
-				funcpointer(andptx->tag, __VA_ARGS__);\
+				funcpointer(andptx->tag, ##__VA_ARGS__);\
+				dbg(LOG_INFO, "Applying %s(%s,...)", #funcpointer, andptx->tag);\
 				andptx = andptx->next;\
 			}\
 			ptx = ptx->next;\
@@ -400,7 +402,7 @@ char *real_strdup(const char *orig, char *file, int line);
 
 #define qtree_set_object_path(qtree, path) {\
 	qtree->object_path = path;\
-	qtree->archive_path = g_strdup_printf("%s%s%s", TAGSISTANT_ARCHIVE_PLACEHOLDER, G_DIR_SEPARATOR_S, qtree->object_path);\
+	qtree->archive_path = g_strdup(qtree->object_path);\
 	qtree->full_archive_path = g_strdup_printf("%s%s%s", tagsistant.archive, G_DIR_SEPARATOR_S, qtree->object_path);\
 }
 

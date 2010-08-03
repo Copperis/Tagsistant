@@ -29,6 +29,20 @@
 /* defines command line options for tagsistant mount tool */
 /* static */ struct tagsistant tagsistant;
 
+GHashTable* aliases;
+
+void set_alias(const char *key, const char *value) {
+	g_hash_table_insert(aliases, g_strdup(key), g_strdup(value));
+}
+
+gchar *get_alias(const char *key) {
+	return g_hash_table_lookup(aliases, key);
+}
+
+void delete_alias(const char *key) {
+	g_hash_table_remove(aliases, key);
+}
+
 /**
  * lstat equivalent
  *
@@ -72,9 +86,17 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 	res = lstat(lstat_path, stbuf);
 	tagsistant_errno = errno;
 
+	if (-1 == res) {
+		gchar *alias = get_alias(path);
+		if (NULL != alias) {
+			/// double check here		
+			delete_alias(path);	
+		}
+	}
+
 	// postprocess output
 	if (QTREE_IS_TAGS(qtree)) {
-		dbg(LOG_INFO, "getattr: last tag is %s", qtree->last_tag);
+		// dbg(LOG_INFO, "getattr: last tag is %s", qtree->last_tag);
 		if (g_strcmp0(qtree->last_tag, "+") == 0) {
 			// path ends by '+'
 			stbuf->st_ino += 1;
@@ -205,29 +227,6 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 		}
 		and_t = and_t->next;
 	}
-
-	/*
-	char *path_duplicate = g_strdup(ufs->path);
-	if (path_duplicate == NULL) {
-		dbg(LOG_ERR, "Error duplicating path");
-		return 0;
-	}
-	char *last_subquery = path_duplicate;
-	while (strstr(last_subquery, "/+") != NULL) {
-		last_subquery = strstr(last_subquery, "/+") + strlen("/+");
-	}
-
-	gchar *tag_to_check = g_strdup_printf("/%s/", argv[0]);
-
-	if (strstr(last_subquery, tag_to_check) != NULL) {
-		freenull(tag_to_check);
-		freenull(path_duplicate);
-		return 0;
-	}
-
-	freenull(tag_to_check);
-	freenull(path_duplicate);
-	*/
 
 	return ufs->filler(ufs->buf, argv[0], NULL, 0);
 }
@@ -469,7 +468,6 @@ READDIR_EXIT:
 static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 {
 	int res = 0, tagsistant_errno = 0;
-	const char *mknod_path = path;
 
 	init_time_profile();
 	start_time_profile();
@@ -488,13 +486,34 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 	// -- archive --
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		if (QTREE_IS_TAGGABLE(qtree)) {
-			// 1. create the object on db
-			tagsistant_id ID;
-			tagsistant_query("insert into objects (objectname, path) values (\"%s\", \"%s\")", NULL, NULL, qtree->object_path, qtree->full_archive_path);
-			tagsistant_query("select last_insert_rowid()", return_integer, &ID);
+			// dbg(LOG_INFO, "Object is taggable!");
+
+			// 1. create the object on db or get its ID if exists
+			tagsistant_id ID = 0;
+			tagsistant_query("select object_id from objects where objectname = \"%s\"", return_integer, &ID, qtree->archive_path);
+
+			if (0 == ID) {
+				tagsistant_query("insert into objects (objectname, path) values (\"%s\", \"%s\")", NULL, NULL, qtree->object_path, qtree->archive_path);
+				tagsistant_query("select last_insert_rowid()", return_integer, &ID);
+			}
 
 			// 2. tag it using qtree for all the tags
+			if (0 == ID) {
+				dbg(LOG_ERR, "Object %s recorded as ID 0!", qtree->object_path);
+				tagsistant_errno = EIO;
+				goto MKNOD_EXIT;
+			}
+
+			// 3. adjust archive_path and full_archive_path with leading object_id
+			g_free(qtree->archive_path);
+			g_free(qtree->full_archive_path);
+
+			qtree->archive_path = g_strdup_printf("%d.%s", ID, qtree->object_path);
+			qtree->full_archive_path = g_strdup_printf("%s%s%d.%s", tagsistant.archive, G_DIR_SEPARATOR_S, ID, qtree->object_path);
+
 			traverse_querytree(qtree, sql_tag_object, ID);
+		} else {
+			// dbg(LOG_INFO, "Object is not taggable!");
 		}
 
 		res = mknod(qtree->full_archive_path, mode, rdev);
@@ -565,7 +584,7 @@ MKNOD_EXIT:
 	stop_labeled_time_profile("mknod");
 
 	if ( res == -1 ) {
-		dbg(LOG_ERR, "MKNOD on %s (%s) (%s): %d %d: %s", path, mknod_path, query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
+		dbg(LOG_ERR, "MKNOD on %s (%s) (%s): %d %d: %s", path, qtree->full_archive_path, query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
 		dbg(LOG_INFO, "MKNOD on %s (%s): OK", path, query_type(qtree));
 	}
@@ -1854,6 +1873,9 @@ int main(int argc, char *argv[])
 		fargc--;
 	}
 
+	/* init file aliases hash table */
+	aliases = g_hash_table_new_full(NULL, NULL, g_free, g_free);
+
 #if FUSE_VERSION <= 25
 	res = fuse_main(args.argc, args.argv, &tagsistant_oper);
 #else
@@ -1871,6 +1893,8 @@ int main(int argc, char *argv[])
 	freenull(tagsistant.repository);
 	freenull(tagsistant.archive);
 	freenull(tagsistant.tags);
+
+	g_hash_table_destroy(aliases);
 
 	return res;
 }

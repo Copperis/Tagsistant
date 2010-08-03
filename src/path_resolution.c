@@ -524,7 +524,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 		g_string_printf(statement, "create view tv%.8x as ", (unsigned int) query);
 		
 		while (tag != NULL) {
-			g_string_append(statement, "select objectname, object_id from objects join tagging on tagging.object_id = objects.object_id join on tags on tags.tag_id = tagging.tag_id where tagname = \"");
+			g_string_append(statement, "select objectname, objects.object_id as object_id from objects join tagging on tagging.object_id = objects.object_id join tags on tags.tag_id = tagging.tag_id where tagname = \"");
 			g_string_append(statement, tag->tag);
 			g_string_append(statement, "\"");
 			
@@ -557,7 +557,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	GString *view_statement = g_string_new("");
 	query = query_dup;
 	while (query != NULL) {
-		g_string_append_printf(view_statement, "select filename, id from tv%.8X", (unsigned int) query);
+		g_string_append_printf(view_statement, "select objectname, object_id from tv%.8X", (unsigned int) query);
 		
 		if (query->next != NULL) g_string_append(view_statement, " union ");
 		
