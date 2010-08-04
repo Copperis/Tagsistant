@@ -68,11 +68,11 @@ int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, cha
 
 	char *sqlerror = NULL;
 	if (dbh == NULL) {
-		dbg(LOG_INFO, "SQL [disposable]: \"%s\" @%s:%d", statement, file, line);
+		dbg(LOG_INFO, "SQL [disposable]: [%s] @%s:%d", statement, file, line);
 	} else if (*dbh == NULL) {
-		dbg(LOG_INFO, "SQL [persistent]: \"%s\" @%s:%d", statement, file, line);
+		dbg(LOG_INFO, "SQL [persistent]: [%s] @%s:%d", statement, file, line);
 	} else {
-		dbg(LOG_INFO, "SQL [0x%.8x]: \"%s\" @%s:%d", (unsigned int) *dbh, statement, file, line);
+		dbg(LOG_INFO, "SQL [0x%.8x]: [%s] @%s:%d", (unsigned int) *dbh, statement, file, line);
 	}
 	result = sqlite3_exec(intdbh, statement, callback, firstarg, &sqlerror);
 	if (result != SQLITE_OK) {
@@ -130,6 +130,9 @@ int return_integer(void *return_integer, int argc, char **argv, char **azColName
 	if (argv[0] != NULL) {
 		sscanf(argv[0], "%u", buffer);
 	}
+
+	dbg(LOG_INFO, "Returning %s as %d", argv[0], *buffer);
+
 	return 0;
 }
 
