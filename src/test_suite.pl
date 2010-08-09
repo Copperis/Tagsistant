@@ -20,6 +20,7 @@ use POSIX;
 
 my $BIN = "./tagsistant";
 my $MPOINT = "$ENV{HOME}/tags";
+my $MP = $MPOINT;
 my $REPOSITORY = "$ENV{HOME}/.tagsistant_test";
 my $MCMD = "$BIN -d -v --repository=$REPOSITORY $MPOINT 2>&1";
 my $UMCMD = "/usr/bin/fusermount -u $MPOINT";
@@ -35,12 +36,25 @@ print "Doing tests...\n";
 
 # ---------[tagsistant is mounted, do tests]---------------------------- <---
 
-test("ls -a $MPOINT");
-test("ls -a $MPOINT/tags");
+test("ls -a $MP");
+test("ls -a $MP/tags");
 out_test('^\.$', '^\.\.$');
-test("ls -a $MPOINT/archive");
-test("ls -a $MPOINT/stats");
-test("ls -a $MPOINT/relations");
+test("ls -a $MP/archive");
+out_test('^\.$', '^\.\.$');
+test("ls -a $MP/stats");
+out_test('^\.$', '^\.\.$');
+test("ls -a $MP/relations");
+out_test('^\.$', '^\.\.$');
+
+test("mkdir $MP/tags/t1");
+test("ls -a $MP/tags/t1/=");
+out_test('^\.$', '^\.\.$');
+test("ls -a $MP/tags");
+out_test('t1$');
+test("cp /etc/issue $MP/tags/t1/=");
+test("ls -a $MP/tags/t1/=");
+test("stat $MP/tags/t1/=/issue");
+test("stat $MP/tags/t1/=/1.issue");
 
 # ---------[no more test to run]---------------------------------------- <---
 
@@ -129,7 +143,7 @@ sub test {
 	#
 	# print summary
 	#
-	print "\n.... $status [#$tc] $command ", "." x (60 - length($tc) - length($command)), "cmd..\n\n$output";
+	print "\n____ $status [#$tc] $command ", "_" x (60 - length($tc) - length($command)), "cmd__\n\n$output";
 
 	#
 	# return 0 if everything went OK
@@ -166,18 +180,23 @@ sub test {
 sub out_test {
 	my $stc = 0;
 	my $status = undef;
+	my $got_an_error = 0;
+	$tc++;
 	for my $rx (@_) {
-		$tc++;
 		$stc++;
 		unless ($output =~ m/$rx/m) {
-			$tc_error++;
+			$got_an_error++;
 			$status = "[ERROR!]";
 		} else {
-			$tc_ok++;
 			$status = "[  OK  ]";
 		}
-		print "\n \\.. $status [#$tc.$stc] /$rx/ ", "." x (56 - length($tc) - length($stc) - length($rx)), "..re..\n";
+		print "\n \\__ $status [#$tc.$stc] /$rx/ ", "_" x (56 - length($tc) - length($stc) - length($rx)), "__re__\n";
 	}
 
+	if ($got_an_error) {
+		$tc_error++;
+	} else {
+		$tc_ok++;
+	}
 	return 0;
 }
