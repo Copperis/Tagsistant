@@ -29,6 +29,7 @@ my $tc = 0;
 my $tc_ok = 0;
 my $tc_error = 0;
 my $output = undef;
+my $error_stack = "";
 
 start_tagsistant();
 
@@ -61,10 +62,28 @@ test("ls -a $MP/tags/t2/=");
 out_test('issue');
 test("stat $MP/tags/t2/=/issue");
 test("stat $MP/tags/t2/=/1.issue");
+test("cp /etc/motd $MP/tags/t1/=");
+test("ls -a $MP/tags/t1/t2/=");
+out_test('issue');
+test("ls -a $MP/tags/t1/=");
+out_test('motd');
+$output =~ m/(\d+\.issue)/m;
+my $issue = $1;
+$output =~ m/(\d+\.motd)/m;
+my $motd = $1;
+test("ls -a $MP/tags/t1/=/$issue");
+test("ls -a $MP/tags/t1/=/$motd");
+test("ls -a $MP/tags/t2/=/$issue");
+test("ls -a $MP/tags/t1/t2/=/$issue");
+test("ls -a $MP/tags/t2/t1/=/$issue");
+test("ls -a $MP/tags/t2/t1/+/t1/=/$issue");
+test("ls -a $MP/tags/t2/t1/+/t2/=/$issue");
 
 # ---------[no more test to run]---------------------------------------- <---
 
 print "\nTests done! $tc test run - $tc_ok test succeeded - $tc_error test failed\n";
+
+print $error_stack;
 
 stop_tagsistant();
 $TID->join();
@@ -149,7 +168,9 @@ sub test {
 	#
 	# print summary
 	#
-	print "\n____ $status [#$tc] $command ", "_" x (60 - length($tc) - length($command)), "cmd__\n\n$output";
+	my $status_line = "\n____ $status [#$tc] $command " . "_" x (60 - length($tc) - length($command)) . "cmd__\n\n$output";
+	print $status_line;
+	$error_stack .= $status_line if $status =~ /ERROR/;
 
 	#
 	# return 0 if everything went OK
@@ -196,7 +217,9 @@ sub out_test {
 		} else {
 			$status = "[  OK  ]";
 		}
-		print "\n \\__ $status [#$tc.$stc] /$rx/ ", "_" x (56 - length($tc) - length($stc) - length($rx)), "__re__\n";
+		my $status_line = "\n \\__ $status [#$tc.$stc] /$rx/ " . "_" x (56 - length($tc) - length($stc) - length($rx)) . "__re__\n";
+		print $status_line;
+		$error_stack .= $status_line if $status =~ /ERROR/;
 	}
 
 	if ($got_an_error) {
