@@ -81,7 +81,7 @@ test("ls -a $MP/tags/t2/t1/+/t2/=/$issue");
 
 # ---------[no more test to run]---------------------------------------- <---
 
-print "\nTests done! $tc test run - $tc_ok test succeeded - $tc_error test failed\n";
+print "\nTests done! $tc test run - $tc_ok test succeeded - $tc_error test failed, summary follows:\n";
 
 print $error_stack;
 
