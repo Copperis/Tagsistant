@@ -55,6 +55,12 @@ test("cp /etc/issue $MP/tags/t1/=");
 test("ls -a $MP/tags/t1/=");
 test("stat $MP/tags/t1/=/issue");
 test("stat $MP/tags/t1/=/1.issue");
+test("mkdir $MP/tags/t2");
+test("cp /etc/issue $MP/tags/t2/=");
+test("ls -a $MP/tags/t2/=");
+out_test('issue');
+test("stat $MP/tags/t2/=/issue");
+test("stat $MP/tags/t2/=/1.issue");
 
 # ---------[no more test to run]---------------------------------------- <---
 
