@@ -106,11 +106,22 @@ test("diff /etc/hostname $MP/tags/t1/=/hostname");
 test("diff /etc/hostname $MP/tags/t1/=/*hostname");
 test("diff /etc/hostname $MP/archive/*hostname");
 
+test("cat /etc/motd > $MP/tags/t1/=/buffer1");
+test("diff /etc/motd $MP/tags/t1/=/buffer1");
+test("ln -s $MP/tags/t1/=/buffer1 $MP/tags/t2/=/");
+test("ln -s $MP/tags/t1/=/buffer1 $MP/tags/t2/=/buffer2");
+test("diff $MP/tags/t1/=/buffer1 $MP/tags/t2/=/buffer1");
+
 # ---------[no more test to run]---------------------------------------- <---
 
+print "\n" x 80;
+print "*" x 80;
 print "\nTests done! $tc test run - $tc_ok test succeeded - $tc_error test failed, summary follows:\n";
 
 print $error_stack;
+
+print "\n press [ENTER] to umount tagsistant...";
+<STDIN>;
 
 EXITSUITE: stop_tagsistant();
 $TID->join();
