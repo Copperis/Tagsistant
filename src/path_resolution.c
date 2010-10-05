@@ -346,8 +346,8 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 			// set the object path and compute the relative paths
 			qtree_set_object_path(qtree, g_strjoinv(G_DIR_SEPARATOR_S, token_ptr));
 
-			// a path points is_taggable if it does not contains "/"
-			// as in "23892.mydocument.odt" and not in "23893.myfolder/photo.jpg"
+			// an object_path is_taggable if it does not contains "/"
+			// as in "23892.mydocument.odt" and not in "8346.myfolder/photo.jpg"
 			if (
 				(strlen(qtree->object_path) > 0) &&
 				(g_strstr_len(qtree->object_path, strlen(qtree->object_path), G_DIR_SEPARATOR_S) == NULL)

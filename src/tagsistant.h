@@ -168,18 +168,22 @@ typedef enum {
  */
 typedef struct querytree {
 	/** the complete path that generated the tree */
+	/** i.e. <MPOINT>/t1/+/t2/=/object/path.txt */
 	gchar *full_path;
 
 	/** the query tree */
 	ptree_or_node_t *tree;
 
 	/** the path of the object, if provided */
+	/** i.e. object/path.txt */
 	gchar *object_path;
 
 	/** the path of the object with the archive placeholder prefix */
+	/** <TAGSISTANT_ARCHIVE>/NNN.object/path.txt */
 	gchar *archive_path;
 
 	/** like the previous one, but with actual archive path prefixed */
+	/** ~/.tagsistant/archive/NNN.object/path.txt */
 	gchar *full_archive_path;
 
 	/** the query points to an object on disk? */
@@ -404,6 +408,18 @@ char *real_strdup(const char *orig, char *file, int line);
 	qtree->object_path = path;\
 	qtree->archive_path = g_strdup(qtree->object_path);\
 	qtree->full_archive_path = g_strdup_printf("%s%s%s", tagsistant.archive, G_DIR_SEPARATOR_S, qtree->object_path);\
+}
+
+#define qtree_reset_object_path(qtree, path) {\
+	g_free(qtree->archive_path);\
+	g_free(qtree->full_archive_path);\
+	qtree_set_object_path(qtree, path);\
+}
+
+#define qtree_copy_object_path(from_qtree, to_qtree) {\
+	if (to_qtree->archive_path) { g_free(to_qtree->archive_path); }\
+	if (to_qtree->full_archive_path) { g_free(to_qtree->full_archive_path); }\
+	qtree_set_object_path(to_qtree, from_qtree->object_path);\
 }
 
 // returns the type of query reppresented by a querytree_t struct

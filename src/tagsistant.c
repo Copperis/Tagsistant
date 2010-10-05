@@ -227,6 +227,7 @@ static int tagsistant_readlink(const char *path, char *buf, size_t size)
 
 	if ((QTREE_IS_TAGS(qtree) && QTREE_IS_COMPLETE(qtree)) || QTREE_IS_ARCHIVE(qtree)) {
 		readlink_path = qtree->object_path;
+		readlink_path = qtree->full_archive_path;
 	} else if (QTREE_IS_STATS(qtree) || QTREE_IS_RELATIONS(qtree)) {
 		res = -1;
 		tagsistant_errno = EINVAL;
@@ -1020,19 +1021,24 @@ RENAME_EXIT:
  */
 static int tagsistant_symlink(const char *from, const char *to)
 {
-    int tagsistant_errno = 0, res = 0;
+	int tagsistant_errno = 0, res = 0;
 
+#if 0
 	// remove last slash and following part from to
 	gchar *dir_to = g_strdup(to);
 	gchar *last_slash = g_strrstr(dir_to, "/");
 	if (NULL != last_slash) {
 		*last_slash = '\0';
 	}
+#endif
 
 	init_time_profile();
 	start_time_profile();
 
-	querytree_t *to_qtree = build_querytree(dir_to, 0);
+	querytree_t *from_qtree = build_querytree(from, 0);
+	querytree_t *to_qtree = build_querytree(to, 0);
+
+	qtree_copy_object_path(from_qtree, to_qtree);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(to_qtree)) {
@@ -1053,7 +1059,7 @@ static int tagsistant_symlink(const char *from, const char *to)
 			res = create_and_tag_object(to_qtree, &tagsistant_errno);
 			if (-1 == res) goto SYMLINK_EXIT;
 		} else {
-			dbg(LOG_INFO, "%s is not taggable!", to_qtree->full_path);
+			dbg(LOG_INFO, "%s is not taggable!", to_qtree->full_path); // ??? why ??? should be taggable!!
 		}
 
 		// do the real symlink on disk
@@ -1066,7 +1072,7 @@ static int tagsistant_symlink(const char *from, const char *to)
 	// -- relations --
 	{
 		// nothin'?
-		dbg(LOG_INFO, "%s non punta a un oggetto e non è una tags query completa", dir_to);
+		dbg(LOG_INFO, "%s non punta a un oggetto e non è una tags query completa", to);
 	}
 
 SYMLINK_EXIT:
@@ -1078,8 +1084,11 @@ SYMLINK_EXIT:
 		dbg(LOG_INFO, "SYMLINK from %s to %s (%s): OK", from, to, query_type(to_qtree));
 	}
 
+	destroy_querytree(from_qtree);
 	destroy_querytree(to_qtree);
+#if 0
 	g_free(dir_to);
+#endif
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
@@ -1677,35 +1686,35 @@ static struct fuse_operations tagsistant_oper = {
     .getattr	= tagsistant_getattr,
     .readlink	= tagsistant_readlink,
     .readdir	= tagsistant_readdir,
-    .mknod		= tagsistant_mknod,
-    .mkdir		= tagsistant_mkdir,
+    .mknod	= tagsistant_mknod,
+    .mkdir	= tagsistant_mkdir,
     .symlink	= tagsistant_symlink,
-    .unlink		= tagsistant_unlink,
-    .rmdir		= tagsistant_rmdir,
-    .rename		= tagsistant_rename,
-    .link		= tagsistant_link,
-    .chmod		= tagsistant_chmod,
-    .chown		= tagsistant_chown,
+    .unlink	= tagsistant_unlink,
+    .rmdir	= tagsistant_rmdir,
+    .rename	= tagsistant_rename,
+    .link	= tagsistant_link,
+    .chmod	= tagsistant_chmod,
+    .chown	= tagsistant_chown,
     .truncate	= tagsistant_truncate,
-    .utime		= tagsistant_utime,
-    .open		= tagsistant_open,
-    .read		= tagsistant_read,
-    .write		= tagsistant_write,
+    .utime	= tagsistant_utime,
+    .open	= tagsistant_open,
+    .read	= tagsistant_read,
+    .write	= tagsistant_write,
 #if FUSE_USE_VERSION >= 25
-    .statfs		= tagsistant_statvfs,
+    .statfs	= tagsistant_statvfs,
 #else
-    .statfs		= tagsistant_statfs,
+    .statfs	= tagsistant_statfs,
 #endif
     .release	= tagsistant_release,
-    .fsync		= tagsistant_fsync,
+    .fsync	= tagsistant_fsync,
 #ifdef HAVE_SETXATTR
     .setxattr	= tagsistant_setxattr,
     .getxattr	= tagsistant_getxattr,
     .listxattr	= tagsistant_listxattr,
     .removexattr= tagsistant_removexattr,
 #endif
-	.access		= tagsistant_access,
-	.init		= tagsistant_init,
+    .access	= tagsistant_access,
+    .init	= tagsistant_init,
 };
 
 enum {
