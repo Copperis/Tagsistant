@@ -18,12 +18,21 @@ use threads::shared;
 use Errno;
 use POSIX;
 
+my $FUSE_GROUP = "fuse";
+
+# mount command
 my $BIN = "./tagsistant";
 my $MPOINT = "$ENV{HOME}/tags";
 my $MP = $MPOINT;
 my $REPOSITORY = "$ENV{HOME}/.tagsistant_test";
 my $MCMD = "$BIN -d -v --repository=$REPOSITORY $MPOINT 2>&1";
-my $UMCMD = "/usr/bin/fusermount -u $MPOINT";
+
+# umount command
+my $FUSERMOUNT = `which fusermount` || die("No fusermount found!\n");
+chomp $FUSERMOUNT;
+my $UMCMD = "$FUSERMOUNT -u $MPOINT";
+
+# other global vars
 my $TID = undef;
 my $tc = 0;
 my $tc_ok = 0;
@@ -37,8 +46,20 @@ print "Doing tests...\n";
 
 # ---------[tagsistant is mounted, do tests]---------------------------- <---
 
-test("ls -a $MP");
-test("ls -a $MP/tags");
+my $testbed_ok = !test("ls -a $MP");
+
+unless ($testbed_ok) {
+	print "Testbed not ok!\n";
+	goto EXITSUITE;
+}
+
+$testbed_ok = !test("ls -a $MP/tags");
+
+unless ($testbed_ok) {
+	print "Testbed not ok!\n";
+	goto EXITSUITE;
+}
+
 out_test('^\.$', '^\.\.$');
 test("ls -a $MP/archive");
 out_test('^\.$', '^\.\.$');
@@ -78,6 +99,9 @@ test("ls -a $MP/tags/t1/t2/=/$issue");
 test("ls -a $MP/tags/t2/t1/=/$issue");
 test("ls -a $MP/tags/t2/t1/+/t1/=/$issue");
 test("ls -a $MP/tags/t2/t1/+/t2/=/$issue");
+test("ln -s /etc/hostname $MP/tags/t1/=");
+test("stat $MP/tags/t1/=/hostname");
+test("ls $MP/tags/t1/=/*hostname");
 
 # ---------[no more test to run]---------------------------------------- <---
 
@@ -85,7 +109,7 @@ print "\nTests done! $tc test run - $tc_ok test succeeded - $tc_error test faile
 
 print $error_stack;
 
-stop_tagsistant();
+EXITSUITE: stop_tagsistant();
 $TID->join();
 
 exit();
@@ -97,6 +121,7 @@ exit();
 # by start_tagsistant()
 #
 sub run_tagsistant {
+	print "Mounting tagsistant: $MCMD...\n";
 	open(TS, "$MCMD|") or die("Can't start tagsistant ($MCMD)\n");
 	open(LOG, ">/tmp/tagsistant.log") or die("Can't open log file /tmp/tagsistant.log\n");
 
@@ -113,6 +138,14 @@ sub run_tagsistant {
 #
 sub start_tagsistant {
 	print "Creating the testbed...\n";
+
+	#
+	# check if user is part of fuse group
+	#
+	my $id = qx|id|;
+	unless ($id =~ /\($FUSE_GROUP\)/) {
+		die("User is not in $FUSE_GROUP group and is not allowed to mount a tagsistant filesystem");
+	}
 
 	#
 	# remove old copy of the repository
@@ -141,6 +174,7 @@ sub start_tagsistant {
 }
 
 sub stop_tagsistant {
+	print "\nUnmounting tagsistant: $UMCMD...\n";
 	system($UMCMD);
 }
 

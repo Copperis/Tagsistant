@@ -131,6 +131,7 @@ else
   echo Skipping configure process.
 fi
 
+sed -i -e 's/ECHO="echo"/echo="echo"/' libtool
 
 #aclocal
 #autoheader

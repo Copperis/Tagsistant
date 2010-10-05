@@ -1050,8 +1050,10 @@ static int tagsistant_symlink(const char *from, const char *to)
 
 		// if qtree is taggable, do it
 		if (QTREE_IS_TAGGABLE(to_qtree)) {
-			tagsistant_id ID = sql_create_object(to_qtree->object_path, to_qtree->archive_path);
-			traverse_querytree(to_qtree, sql_tag_object, ID);
+			res = create_and_tag_object(to_qtree, &tagsistant_errno);
+			if (-1 == res) goto SYMLINK_EXIT;
+		} else {
+			dbg(LOG_INFO, "%s is not taggable!", to_qtree->full_path);
 		}
 
 		// do the real symlink on disk
@@ -1067,6 +1069,7 @@ static int tagsistant_symlink(const char *from, const char *to)
 		dbg(LOG_INFO, "%s non punta a un oggetto e non è una tags query completa", dir_to);
 	}
 
+SYMLINK_EXIT:
 	stop_labeled_time_profile("symlink");
 
 	if ( res == -1 ) {
@@ -1857,7 +1860,7 @@ int main(int argc, char *argv[])
 
 	fuse_opt_add_arg(&args, "-ofsname=tagsistant");
 	fuse_opt_add_arg(&args, "-ouse_ino,readdir_ino");
-	fuse_opt_add_arg(&args, "-oallow_other");
+	// fuse_opt_add_arg(&args, "-oallow_other");
 
 #ifdef MACOSX
 	fuse_opt_add_arg(&args, "-odefer_permissions");
