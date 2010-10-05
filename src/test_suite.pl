@@ -102,6 +102,9 @@ test("ls -a $MP/tags/t2/t1/+/t2/=/$issue");
 test("ln -s /etc/hostname $MP/tags/t1/=");
 test("stat $MP/tags/t1/=/hostname");
 test("ls $MP/tags/t1/=/*hostname");
+test("diff /etc/hostname $MP/tags/t1/=/hostname");
+test("diff /etc/hostname $MP/tags/t1/=/*hostname");
+test("diff /etc/hostname $MP/archive/*hostname");
 
 # ---------[no more test to run]---------------------------------------- <---
 
