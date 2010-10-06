@@ -99,18 +99,22 @@ test("ls -a $MP/tags/t1/t2/=/$issue");
 test("ls -a $MP/tags/t2/t1/=/$issue");
 test("ls -a $MP/tags/t2/t1/+/t1/=/$issue");
 test("ls -a $MP/tags/t2/t1/+/t2/=/$issue");
-test("ln -s /etc/hostname $MP/tags/t1/=");
-test("stat $MP/tags/t1/=/hostname");
-test("ls $MP/tags/t1/=/*hostname");
-test("diff /etc/hostname $MP/tags/t1/=/hostname");
-test("diff /etc/hostname $MP/tags/t1/=/*hostname");
-test("diff /etc/hostname $MP/archive/*hostname");
 
 test("cat /etc/motd > $MP/tags/t1/=/buffer1");
 test("diff /etc/motd $MP/tags/t1/=/buffer1");
 test("ln -s $MP/tags/t1/=/buffer1 $MP/tags/t2/=/");
 test("ln -s $MP/tags/t1/=/buffer1 $MP/tags/t2/=/buffer2");
 test("diff $MP/tags/t1/=/buffer1 $MP/tags/t2/=/buffer1");
+
+system("dmesg > /tmp/clutter");
+test("ln -s /tmp/clutter $MP/tags/t1/=");
+test("stat $MP/tags/t1/=/clutter");
+test("ls $MP/tags/t1/=/*clutter");
+test("diff /tmp/clutter $MP/tags/t1/=/clutter");
+test("diff /tmp/clutter $MP/tags/t1/=/*clutter");
+test("diff /tmp/clutter $MP/archive/*clutter");
+test("cp /tmp/clutter $MP/tags/t2/=");
+test("stat $MP/tags/t2/=");
 
 # ---------[no more test to run]---------------------------------------- <---
 
