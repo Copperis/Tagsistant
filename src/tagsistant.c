@@ -58,34 +58,52 @@ void delete_alias(const char *key) {
 	// g_hash_table_remove(aliases, key);
 }
 
-int create_and_tag_object(querytree_t *qtree, int *tagsistant_errno)
+int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force_create)
 {
-	dbg(LOG_INFO, "Creating object %s into db...", qtree->full_path);
+	tagsistant_id ID = 0;
 
 	// 1. create the object on db or get its ID if exists
-	tagsistant_id ID = 0;
-	tagsistant_query("select object_id from objects where objectname = \"%s\"", return_integer, &ID, qtree->archive_path);
-
-	if (0 == ID) {
-		tagsistant_query("insert into objects (objectname, path) values (\"%s\", \"%s\")", NULL, NULL, qtree->object_path, qtree->archive_path);
-		tagsistant_query("select object_id from objects where objectname = \"%s\"", return_integer, &ID, qtree->archive_path);
+	//    if force_create is true, create a new object and fetch its ID
+	//    if force_create is false, try to find an object with name and path matching
+	//    and use its ID, otherwise create a new one
+	if (!force_create) {
+		tagsistant_query(
+			"select max(object_id) from objects where objectname = \"%s\" and path = \"%s\"",
+			return_integer, &ID,
+			qtree->object_path, qtree->archive_path);
 	}
 
-	// 2. tag it using qtree for all the tags
+	if (force_create || (0 == ID)) {
+		tagsistant_query(
+			"insert into objects (objectname, path) values (\"%s\", \"-\")",
+			NULL, NULL,
+			qtree->object_path);
+		tagsistant_query(
+			"select max(object_id) from objects where objectname = \"%s\" and path = \"-\"",
+			return_integer, &ID,
+			qtree->object_path);
+	}
+
 	if (0 == ID) {
 		dbg(LOG_ERR, "Object %s recorded as ID 0!", qtree->object_path);
 		*tagsistant_errno = EIO;
 		return -1;
 	}
 
-	// 3. adjust archive_path and full_archive_path with leading object_id
+	// 2. adjust archive_path and full_archive_path with leading object_id
 	g_free(qtree->archive_path);
 	g_free(qtree->full_archive_path);
 
 	qtree->archive_path = g_strdup_printf("%d.%s", ID, qtree->object_path);
 	qtree->full_archive_path = g_strdup_printf("%s%s%d.%s", tagsistant.archive, G_DIR_SEPARATOR_S, ID, qtree->object_path);
 
-	// 4. set an alias for getattr
+	// 2.bis adjust object_path inside DB
+	tagsistant_query(
+		"update objects set path = \"%s\" where object_id = %d",
+		NULL, NULL,
+		qtree->archive_path, ID);
+
+	// 3. set an alias for getattr
 	set_alias(qtree->full_path, qtree->full_archive_path);
 
 	// 5. tag the object
@@ -93,6 +111,19 @@ int create_and_tag_object(querytree_t *qtree, int *tagsistant_errno)
 
 	return 0;
 }
+
+int create_and_tag_object(querytree_t *qtree, int *tagsistant_errno)
+{
+	dbg(LOG_INFO, "Creating object %s into db...", qtree->full_path);
+	return __create_and_tag_object(qtree, tagsistant_errno, 0);
+}
+
+int force_create_and_tag_object(querytree_t *qtree, int *tagsistant_errno)
+{
+	dbg(LOG_INFO, "Forcing creation of object %s into db...", qtree->full_path);
+	return __create_and_tag_object(qtree, tagsistant_errno, 1);
+}
+
 
 /**
  * lstat equivalent
@@ -575,10 +606,11 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 	// -- archive --
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		if (QTREE_IS_TAGGABLE(qtree)) {
-			res = create_and_tag_object(qtree, &tagsistant_errno);
+			res = force_create_and_tag_object(qtree, &tagsistant_errno);
 			if (-1 == res) goto MKNOD_EXIT;
 		}
 
+		dbg(LOG_INFO, "NEW object on disk: mknod(%s)", qtree->full_archive_path);
 		res = mknod(qtree->full_archive_path, mode, rdev);
 		tagsistant_errno = errno;
 	} else
@@ -1023,22 +1055,24 @@ static int tagsistant_symlink(const char *from, const char *to)
 {
 	int tagsistant_errno = 0, res = 0;
 
-#if 0
-	// remove last slash and following part from to
-	gchar *dir_to = g_strdup(to);
-	gchar *last_slash = g_strrstr(dir_to, "/");
-	if (NULL != last_slash) {
-		*last_slash = '\0';
-	}
-#endif
-
 	init_time_profile();
 	start_time_profile();
 
-	querytree_t *from_qtree = build_querytree(from, 0);
+	/*
+	 * guess if query points to an external or internal object
+	 */
+	char *_from = (char *) from;
+	if (!TAGSISTANT_PATH_IS_EXTERNAL(from)) {
+		_from = (char * ) from + strlen(tagsistant.mountpoint);
+		// dbg(LOG_INFO, "%s is internal to %s, trimmed to %s", from, tagsistant.mountpoint, _from);
+	}
+
+	querytree_t *from_qtree = build_querytree(_from, 0);
 	querytree_t *to_qtree = build_querytree(to, 0);
 
-	qtree_copy_object_path(from_qtree, to_qtree);
+	from_qtree->is_external = (from == _from) ? 1 : 0;
+
+	if (from_qtree->object_path) qtree_copy_object_path(from_qtree, to_qtree);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(to_qtree)) {
@@ -1051,18 +1085,32 @@ static int tagsistant_symlink(const char *from, const char *to)
 
 		// if object_path is null, borrow it from original path
 		if (strlen(to_qtree->object_path) == 0) {
+			dbg(LOG_INFO, "Getting object path from %s", from);
 			qtree_set_object_path(to_qtree, g_strdup(g_path_get_basename(from)));
 		}
 
+		// if qtree is internal, just re-tag it, taking the tags from to_qtree but
+		// the ID from from_qtree
+		if (QTREE_IS_INTERNAL(from_qtree)) {
+			dbg(LOG_INFO, "Retagging %s as internal to %s", from, tagsistant.mountpoint);
+			traverse_querytree(to_qtree, sql_tag_object, from_qtree->object_id);
+			goto SYMLINK_EXIT;
+		} else
+
 		// if qtree is taggable, do it
 		if (QTREE_IS_TAGGABLE(to_qtree)) {
+			dbg(LOG_INFO, "SYMLINK : Creating %s", to_qtree->object_path);
 			res = create_and_tag_object(to_qtree, &tagsistant_errno);
 			if (-1 == res) goto SYMLINK_EXIT;
-		} else {
+		} else
+
+		// nothing to do about tags
+		{
 			dbg(LOG_INFO, "%s is not taggable!", to_qtree->full_path); // ??? why ??? should be taggable!!
 		}
 
 		// do the real symlink on disk
+		dbg(LOG_INFO, "Symlinking %s to %s", from, to_qtree->object_path);
 		res = symlink(from, to_qtree->full_archive_path);
 		tagsistant_errno = errno;
 	} else
@@ -1072,7 +1120,6 @@ static int tagsistant_symlink(const char *from, const char *to)
 	// -- relations --
 	{
 		// nothin'?
-		dbg(LOG_INFO, "%s non punta a un oggetto e non è una tags query completa", to);
 	}
 
 SYMLINK_EXIT:
@@ -1086,9 +1133,7 @@ SYMLINK_EXIT:
 
 	destroy_querytree(from_qtree);
 	destroy_querytree(to_qtree);
-#if 0
-	g_free(dir_to);
-#endif
+
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 

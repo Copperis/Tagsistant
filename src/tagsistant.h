@@ -159,6 +159,10 @@ typedef enum {
 #define QTREE_POINTS_TO_OBJECT(qtree) (qtree->points_to_object == 1)
 #define QTREE_IS_TAGGABLE(qtree) (qtree->is_taggable == 1)
 #define QTREE_IS_COMPLETE(qtree) (qtree->complete)
+#define QTREE_IS_EXTERNAL(qtree) (qtree->is_external)
+#define QTREE_IS_INTERNAL(qtree) (!qtree->is_external)
+
+#define TAGSISTANT_PATH_IS_EXTERNAL(path) (g_strstr_len(path, strlen(path), tagsistant.mountpoint) != path)
 
 /**
  * define the querytree structure
@@ -191,6 +195,9 @@ typedef struct querytree {
 
 	/** the object path pointed to is taggable (one element path) */
 	int is_taggable;
+
+	/** the object is external to tagsistant mountpoint */
+	int is_external;
 
 	/** the ID of the object, if directly managed by tagsistant */
 	tagsistant_id object_id;
@@ -419,7 +426,7 @@ char *real_strdup(const char *orig, char *file, int line);
 #define qtree_copy_object_path(from_qtree, to_qtree) {\
 	if (to_qtree->archive_path) { g_free(to_qtree->archive_path); }\
 	if (to_qtree->full_archive_path) { g_free(to_qtree->full_archive_path); }\
-	qtree_set_object_path(to_qtree, from_qtree->object_path);\
+	qtree_set_object_path(to_qtree, g_strdup(from_qtree->object_path));\
 }
 
 // returns the type of query reppresented by a querytree_t struct

@@ -85,7 +85,7 @@ test("stat $MP/tags/t2/=/issue");
 test("stat $MP/tags/t2/=/1.issue");
 test("cp /etc/motd $MP/tags/t1/=");
 test("ls -a $MP/tags/t1/t2/=");
-out_test('issue');
+out_test('issue', -1);
 test("ls -a $MP/tags/t1/=");
 out_test('motd');
 $output =~ m/(\d+\.issue)/m;
@@ -103,6 +103,7 @@ test("ls -a $MP/tags/t2/t1/+/t2/=/$issue");
 test("cat /etc/motd > $MP/tags/t1/=/buffer1");
 test("diff /etc/motd $MP/tags/t1/=/buffer1");
 test("ln -s $MP/tags/t1/=/buffer1 $MP/tags/t2/=/");
+test("echo ciao");
 test("ln -s $MP/tags/t1/=/buffer1 $MP/tags/t2/=/buffer2");
 test("diff $MP/tags/t1/=/buffer1 $MP/tags/t2/=/buffer1");
 
@@ -205,7 +206,13 @@ sub test {
 	#
 	# build the command
 	#
-	my $command = join(" ", @_);
+	#my $command = join(" ", @_);
+	my $command = shift();
+
+	#
+	# expected exit status
+	#
+	my $expected_exit_status = shift() || 0;
 
 	#
 	# run the command and trap the output in a global variable
@@ -215,7 +222,7 @@ sub test {
 	#
 	# guess the operation status (OK or ERROR!)
 	#
-	my $status = ($? == 0) ? "[  OK  ]" : "[ERROR!]";
+	my $status = ($? == $expected_exit_status) ? "[  OK  ]" : "[ERROR!]";
 
 	#
 	# print summary

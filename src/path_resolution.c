@@ -194,7 +194,7 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 {
 	unsigned int orcount = 0, andcount = 0;
 
-	// dbg(LOG_INFO, "Building querytree for %s", path);
+	dbg(LOG_INFO, "Building querytree for %s", path);
 
 	// allocate the querytree structure
 	querytree_t *qtree = new_querytree(path);
@@ -356,25 +356,6 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 			}
 		}
 	}
-
-#if 0
-	/* object_path can't be null for completed /tags queries or /archive queries */
-	/*
-	 * update: that's not true! object_path must be zero length if nothing follows
-	 * the = sign in /tags queries. that path is supposed to be relative to
-	 * tagsistant.archive. the path used on all disk ops is ->full_archive_path
-	 * which must actually be not null
-	 */
-	if (
-		(strlen(qtree->object_path) == 0) &&
-		(
-			(QTREE_IS_TAGS(qtree) && qtree->complete) || 
-			QTREE_IS_ARCHIVE(qtree) || QTREE_IS_STATS(qtree) || QTREE_IS_RELATIONS(qtree)
-		)
-	) {
-		qtree->object_path = strdup(tagsistant.archive);
-	}
-#endif
 
 	/*
 	 * guess if query points to an object on disk or not
