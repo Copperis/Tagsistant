@@ -62,12 +62,6 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 {
 	tagsistant_id ID = 0;
 
-	if (force_create) {
-		dbg(LOG_INFO, "Forcing creation of object %s", qtree->object_path);
-	} else {
-		dbg(LOG_INFO, "Trying creation of object %s", qtree->object_path);
-	}
-
 	// 1. create the object on db or get its ID if exists
 	//    if force_create is true, create a new object and fetch its ID
 	//    if force_create is false, try to find an object with name and path matching
@@ -115,21 +109,11 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 	// 5. tag the object
 	traverse_querytree(qtree, sql_tag_object, ID);
 
-	return 0;
+	return ID;
 }
 
-int create_and_tag_object(querytree_t *qtree, int *tagsistant_errno)
-{
-	dbg(LOG_INFO, "Creating object %s into db...", qtree->full_path);
-	return __create_and_tag_object(qtree, tagsistant_errno, 0);
-}
-
-int force_create_and_tag_object(querytree_t *qtree, int *tagsistant_errno)
-{
-	dbg(LOG_INFO, "Forcing creation of object %s into db...", qtree->full_path);
-	return __create_and_tag_object(qtree, tagsistant_errno, 1);
-}
-
+#define create_and_tag_object(qtree, errno) __create_and_tag_object(qtree, errno, 0); dbg(LOG_INFO, "Tried creation of object %s", qtree->full_path)
+#define force_create_and_tag_object(qtree, errno) __create_and_tag_object(qtree, errno, 1); dbg(LOG_INFO, "Forced creation of object %s", qtree->full_path)
 
 /**
  * lstat equivalent
