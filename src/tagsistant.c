@@ -62,6 +62,12 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 {
 	tagsistant_id ID = 0;
 
+	if (force_create) {
+		dbg(LOG_INFO, "Forcing creation of object %s", qtree->object_path);
+	} else {
+		dbg(LOG_INFO, "Trying creation of object %s", qtree->object_path);
+	}
+
 	// 1. create the object on db or get its ID if exists
 	//    if force_create is true, create a new object and fetch its ID
 	//    if force_create is false, try to find an object with name and path matching
