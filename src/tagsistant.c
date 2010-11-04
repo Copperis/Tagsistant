@@ -1060,6 +1060,8 @@ static int tagsistant_symlink(const char *from, const char *to)
 	querytree_t *from_qtree = build_querytree(_from, 0);
 	querytree_t *to_qtree = build_querytree(to, 0);
 
+	dbg(LOG_INFO, " === > Symlinking %s to %s (id.%d)", to, _from, from_qtree->object_id);
+
 	from_qtree->is_external = (from == _from) ? 1 : 0;
 
 	if (from_qtree->object_path) qtree_copy_object_path(from_qtree, to_qtree);
@@ -1081,7 +1083,7 @@ static int tagsistant_symlink(const char *from, const char *to)
 
 		// if qtree is internal, just re-tag it, taking the tags from to_qtree but
 		// the ID from from_qtree
-		if (QTREE_IS_INTERNAL(from_qtree)) {
+		if (QTREE_IS_INTERNAL(from_qtree) && from_qtree->object_id) {
 			dbg(LOG_INFO, "Retagging %s as internal to %s", from, tagsistant.mountpoint);
 			traverse_querytree(to_qtree, sql_tag_object, from_qtree->object_id);
 			goto SYMLINK_EXIT;
@@ -1090,7 +1092,7 @@ static int tagsistant_symlink(const char *from, const char *to)
 		// if qtree is taggable, do it
 		if (QTREE_IS_TAGGABLE(to_qtree)) {
 			dbg(LOG_INFO, "SYMLINK : Creating %s", to_qtree->object_path);
-			res = create_and_tag_object(to_qtree, &tagsistant_errno);
+			res = force_create_and_tag_object(to_qtree, &tagsistant_errno);
 			if (-1 == res) goto SYMLINK_EXIT;
 		} else
 
