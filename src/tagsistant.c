@@ -251,7 +251,7 @@ static int tagsistant_readlink(const char *path, char *buf, size_t size)
 		readlink_path = qtree->full_archive_path;
 	} else if (QTREE_IS_STATS(qtree) || QTREE_IS_RELATIONS(qtree)) {
 		res = -1;
-		tagsistant_errno = EINVAL;
+		tagsistant_errno = EINVAL; /* symlinks exist in archive/ and tags/ only */
 		goto READLINK_EXIT;
 	}
 
@@ -983,8 +983,8 @@ static int tagsistant_rename(const char *from, const char *to)
 	if (QTREE_POINTS_TO_OBJECT(from_qtree)) {
 		if (QTREE_IS_TAGGABLE(from_qtree)) {
 			// 1. rename the object
-			tagsistant_query("update objects set object_name = \"%s\" where object_id = %d", NULL, NULL, to_qtree->object_path, to_qtree->object_id);
-			tagsistant_query("update objects set path = \"%s\" where object_id = %d", NULL, NULL, to_qtree->full_archive_path, to_qtree->object_id);
+			tagsistant_query("update objects set objectname = \"%s\" where object_id = %d", NULL, NULL, to_qtree->object_path, from_qtree->object_id);
+			tagsistant_query("update objects set path = \"%s\" where object_id = %d", NULL, NULL, to_qtree->full_archive_path, from_qtree->object_id);
 
 			// 2. deletes all the tagging between "from" file and all AND nodes in "from" path
 			traverse_querytree(from_qtree, sql_untag_object, from_qtree->object_id);
@@ -1111,7 +1111,8 @@ static int tagsistant_symlink(const char *from, const char *to)
 	// -- stats --
 	// -- relations --
 	{
-		// nothin'?
+		res = -1;
+		tagsistant_errno = EINVAL; /* can't symlink outside of tags/ and archive/ */
 	}
 
 SYMLINK_EXIT:
