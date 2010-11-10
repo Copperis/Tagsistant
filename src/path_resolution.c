@@ -585,6 +585,11 @@ void destroy_filetree(file_handle_t *fh)
 	freenull(fh);
 }
 
+/**
+ * strip the id part of an object name, starting from qtree->object_path field.
+ * if you provide a qtree with object_path == "321.document.txt", this function
+ * will return "document.txt".
+ */
 gchar *tagsistant_strip_object_id(querytree_t *qtree)
 {
 		GRegex *r = g_regex_new("^[0-9]+\\.", 0, 0, NULL);
@@ -594,6 +599,10 @@ gchar *tagsistant_strip_object_id(querytree_t *qtree)
 		return stripped;
 }
 
+/**
+ * renumber an object, by changing its object_id and rebuilding its
+ * object_path, archive_path and full_archive_path.
+ */
 void tagsistant_qtree_renumber(querytree_t *qtree, tagsistant_id object_id)
 {
 	if (qtree && object_id) {
@@ -612,6 +621,23 @@ void tagsistant_qtree_renumber(querytree_t *qtree, tagsistant_id object_id)
 		g_free(qtree->full_archive_path);
 		qtree->full_archive_path = g_strdup_printf("%s%s%s", tagsistant.archive, G_DIR_SEPARATOR_S, qtree->archive_path);\
 	}
+}
+
+/**
+ * Return the ID of an object from its filename name
+ * If second parameter purename is not null, the name of
+ * the file without the leading number is copied
+ */
+tagsistant_id tagsistant_get_object_id(const gchar *filename, gchar **purename)
+{
+	tagsistant_id id = 0;
+
+	if (purename != NULL)
+		sscanf(filename, "%lu.%s", (long unsigned *) &id, *purename);
+	else
+		sscanf(filename, "%lu.", (long unsigned *) &id);
+
+	return id;
 }
 
 // vim:ts=4:nowrap:nocindent

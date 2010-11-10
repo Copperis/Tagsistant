@@ -791,14 +791,40 @@ static int tagsistant_unlink(const char *path)
 
 	// -- objects on disk --
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
-		if (QTREE_IS_TAGGABLE(qtree)) {
+		if (QTREE_IS_TAGGABLE(qtree) && QTREE_IS_TAGS(qtree)) {
+
+			// if object is pointed by a tags/ query, then untag it
+			// from the tags included in the query path...
 			traverse_querytree(qtree, sql_untag_object, qtree->object_id);
-			tagsistant_query("delete from objects where object_id = %d", NULL, NULL, qtree->object_id);
+
+			// ...then check if it's tagged elsewhere...
+			int still_exists = 0;
+			tagsistant_query(
+				"select count(object_id) from tagging where object_id = %d", 
+				return_integer, &still_exists,
+				qtree->object_id
+			);
+
+			// ...if still tagged, then avoid real unlink(): the object must survive!
+			if (still_exists) goto UNLINK_EXIT;
+
+			// otherwise just delete if from the objects table and go on.
+
+		} else if (QTREE_IS_ARCHIVE(qtree)) {
+			// if the query path points to archive/, it's clear that the
+			// object is required to disappear from the filesystem, so
+			// must be erased from the tagging table.
+			tagsistant_query("delete from tagging where object_id = %d", NULL, NULL, qtree->object_id);
 		}
 
+		// wipe the object from objects table...
+		tagsistant_query("delete from objects where object_id = %d", NULL, NULL, qtree->object_id);
+
+		// ... and do the real unlink()
 		unlink_path = qtree->full_archive_path;
 		res = unlink(unlink_path);
 		tagsistant_errno = errno;
+
 		if (-1 == res) {
 			unlink_path = get_alias(qtree->full_path);
 			if (NULL != unlink_path) {
@@ -816,6 +842,7 @@ static int tagsistant_unlink(const char *path)
 		tagsistant_errno = EROFS;
 	}
 
+UNLINK_EXIT:
 	stop_labeled_time_profile("unlink");
 
 	if ( res == -1 ) {
@@ -930,18 +957,19 @@ static int tagsistant_rename(const char *from, const char *to)
 {
     int res = 0, tagsistant_errno = 0;
 	gchar *rename_path = NULL;
+	querytree_t *from_qtree = NULL, *to_qtree = NULL;
 
 	init_time_profile();
 	start_time_profile();
 
-	querytree_t *from_qtree = build_querytree(from, FALSE);
-	if (from_qtree == NULL) {
+	from_qtree = build_querytree(from, FALSE);
+	if (NULL == from_qtree) {
 		tagsistant_errno = ENOMEM;
 		goto RENAME_EXIT;
 	}
 
-	querytree_t *to_qtree = build_querytree(to, FALSE);
-	if (to_qtree == NULL) {
+	to_qtree = build_querytree(to, FALSE);
+	if (NULL == to_qtree) {
 		tagsistant_errno = ENOMEM;
 		goto RENAME_EXIT;
 	}

@@ -100,33 +100,6 @@ gchar *_get_file_path(const gchar *filename, int file_id, int use_first_match)
 	return path;
 }
 
-/**
- * given a full path, returns the filename, the filepath (relative
- * to archive directory) and the tagname
- *
- * \param path original path to analize
- * \param filename pointer to path filename
- * \param filepath pointer to path other part which is not filename
- * \param tagname pointer to path last tag
- * \return 1 if successfull, 0 otherwise
- * \todo return value is not conditional, this function always returns 1!
- */
-int get_filename_and_tagname(const char *path, char **filename, char **filepath, char **tagname)
-{
-	*filename = g_path_get_basename(path);
-	*filepath = get_file_path(*filename, 0);
-	char *path_dup = g_strdup(path);
-	char *ri = rindex(path_dup, '/');
-	*ri = '\0';
-	ri = rindex(path_dup, '/');
-	if (ri) {
-		ri++;
-		*tagname = g_strdup(ri);
-	}
-	freenull(path_dup);
-	return 1;
-}
-
 #ifdef _DEBUG_SYSLOG
 /**
  * initialize syslog stream

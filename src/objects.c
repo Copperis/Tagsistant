@@ -26,22 +26,7 @@
 #include <mcheck.h>
 #endif
 
-/**
- * Return the ID of an object from its filename name
- * If second parameter purename is not null, the name of
- * the file without the leading number is copied
- */
-tagsistant_id tagsistant_get_object_id(const gchar *filename, gchar **purename)
-{
-	tagsistant_id id = 0;
-
-	if (purename != NULL)
-		sscanf(filename, "%lu.%s", (long unsigned *) &id, *purename);
-	else
-		sscanf(filename, "%lu.", (long unsigned *) &id);
-
-	return id;
-}
+#if 0
 
 /**
  * Append a tag in the object's tags GList
@@ -148,5 +133,7 @@ void tagsistant_object_free(tagsistant_object_t *obj) {
 	// free the object structure
 	g_free(obj);
 }
+
+#endif
 
 // vim:ts=4:autoindent:nocindent:syntax=c
