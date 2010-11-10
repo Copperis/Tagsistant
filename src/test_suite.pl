@@ -123,6 +123,44 @@ test("ls -la $MP/tags/t1/=");
 test("ls -la $MP/tags/t3/=/");
 test("ls -la $MP/tags/t1/t3/=/");
 
+# now we check the unlink() method. first we copy two
+# files in a tag directory. then we delete the first
+# from the directory and the second from the archive/.
+test("cp /tmp/clutter $MP/tags/t1/=/tobedeleted");
+test("cp /tmp/clutter $MP/tags/t2/=/tobedeleted_fromarchive");
+test("rm $MP/tags/t1/=/*tobedeleted");
+test("ls -l $MP/tags/t1/=/*tobedeleted", 2); # we specify 2 as exit status 'cause we don't expect to find what we are searching
+my $filename = qx|ls $MP/archive/*tobedeleted_fromarchive|;
+test("rm $filename");
+test("ls $MP/tags/t2/=/*tobedeleted*", 2); # 2 again
+test("ls $MP/archive/*tobedeleted*", 2); # same reason: the file should be gone
+
+# now we create a file in two directories and than
+# we delete if from just one. we expect the file to
+# be still available in the other. then we delete
+# from the second and last one and we expect it to
+# desappear from the archive/ as well.
+test("cp /tmp/clutter $MP/tags/t1/t2/=/multifile");
+test("stat $MP/tags/t1/=/*multifile");
+test("stat $MP/tags/t2/=/*multifile");
+test("rm $MP/tags/t2/=/*multifile");
+test("ls -l $MP/tags/t1/=/*multifile", 0); # 0! we DO expect the file to be here
+test("diff /tmp/clutter $MP/tags/t1/=/*multifile");
+test("diff /tmp/clutter $MP/archive/*multifile");
+test("rm $MP/tags/t1/=/*multifile");
+test("ls -l $MP/tags/t1/=/*multifile", 2); # 2! we DON'T expect the file to be here
+test("ls -l $MP/archive/*multifile", 2); # 2! we DON'T expect the file to be here too
+
+# truncate() test
+test("cp /tmp/clutter $MP/tags/t1/=/truncate1");
+test("truncate -s 0 $MP/tags/t1/=/*truncate1");
+test("stat $MP/tags/t1/=/*truncate1");
+out_test('Size: 0');
+test("cp /tmp/clutter $MP/tags/t2/=/truncate2");
+test("truncate -s 10 $MP/tags/t2/=/*truncate2");
+test("stat $MP/tags/t2/=/*truncate2");
+out_test('Size: 10');
+
 ### test("ls -a $MP/tags/t1/=");
 ### out_test('^\.$', '^\.\.$');
 ### test("ls -a $MP/tags");
@@ -294,7 +332,8 @@ sub test {
 	#
 	# guess the operation status (OK or ERROR!)
 	#
-	my $status = ($? == $expected_exit_status) ? "[  OK  ]" : "[ERROR!]";
+	my $cmdexit = $? >> 8;
+	my $status = ($cmdexit == $expected_exit_status) ? "[  OK  ]" : "[ERROR!] ($cmdexit)";
 
 	#
 	# print summary
@@ -306,7 +345,7 @@ sub test {
 	#
 	# return 0 if everything went OK
 	#
-	if ($? == 0) {
+	if ($status =~ /OK/) {
 		$tc_ok++;
 		return 0;
 	}
