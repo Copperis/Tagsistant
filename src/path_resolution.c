@@ -585,4 +585,33 @@ void destroy_filetree(file_handle_t *fh)
 	freenull(fh);
 }
 
+gchar *tagsistant_strip_object_id(querytree_t *qtree)
+{
+		GRegex *r = g_regex_new("^[0-9]+\\.", 0, 0, NULL);
+		gchar *stripped = g_regex_replace(r, qtree->object_path, -1, 0, "", 0, NULL);
+		g_regex_unref(r);
+
+		return stripped;
+}
+
+void tagsistant_qtree_renumber(querytree_t *qtree, tagsistant_id object_id)
+{
+	if (qtree && object_id) {
+		// save the object id
+		qtree->object_id = object_id;
+
+		// strip the object id
+		gchar *stripped = tagsistant_strip_object_id(qtree);
+		g_free(qtree->object_path);
+		qtree->object_path = stripped;
+
+		// build the new object name
+		g_free(qtree->archive_path);
+		qtree->archive_path = g_strdup_printf("%d.%s", qtree->object_id, qtree->object_path);
+
+		g_free(qtree->full_archive_path);
+		qtree->full_archive_path = g_strdup_printf("%s%s%s", tagsistant.archive, G_DIR_SEPARATOR_S, qtree->archive_path);\
+	}
+}
+
 // vim:ts=4:nowrap:nocindent

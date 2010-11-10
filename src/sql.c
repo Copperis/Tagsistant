@@ -281,17 +281,20 @@ void sql_delete_tag(const gchar *tagname)
 
 void sql_tag_object(const gchar *tagname, tagsistant_id object_id)
 {
-	int tag_id = sql_get_tag_id(tagname);
-
 	tagsistant_query("insert into tags(tagname) values(\"%s\");", NULL, NULL, tagname);
-	tagsistant_query("insert into tagging(tag_id, object_id) values(\"%d\", \"%d\");", NULL, NULL, tag_id, object_id);
 
-	dbg(LOG_INFO, "Tagging object %d as %s", object_id, tagname);
+	tagsistant_id tag_id = sql_get_tag_id(tagname);
+
+	dbg(LOG_INFO, "Tagging object %d as %s (%d)", object_id, tagname, tag_id);
+
+	tagsistant_query("insert into tagging(tag_id, object_id) values(\"%d\", \"%d\");", NULL, NULL, tag_id, object_id);
 }
 
 void sql_untag_object(const gchar *tagname, tagsistant_id object_id)
 {
 	int tag_id = sql_get_tag_id(tagname);
+
+	dbg(LOG_INFO, "Untagging object %d from tag %s (%d)", object_id, tagname, tag_id);
 
 	tagsistant_query("delete from tagging where tag_id = \"%d\" and object_id = \"%d\";", NULL, NULL, tag_id, object_id);\
 }

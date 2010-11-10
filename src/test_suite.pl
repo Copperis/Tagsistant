@@ -68,73 +68,126 @@ out_test('^\.$', '^\.\.$');
 test("ls -a $MP/relations");
 out_test('^\.$', '^\.\.$');
 
+# first we create some directories
 test("mkdir $MP/tags/t1");
 test("touch $MP/tags/t1");
-test("ls -a $MP/tags/t1/=");
-out_test('^\.$', '^\.\.$');
-test("ls -a $MP/tags");
-out_test('t1$');
-test("cp tagsistant $MP/tags/t1/=");
-test("ls -a $MP/tags/t1/=");
-test("stat $MP/tags/t1/=/tagsistant");
-test("stat $MP/tags/t1/=/1.tagsistant");
-test("truncate -s 1 $MP/tags/t1/=/1.tagsistant");
-test("chown $>:$> $MP/tags/t1/=/1.tagsistant");
-test("chmod 000 $MP/tags/t1/=/1.tagsistant");
-test("chmod 777 $MP/tags/t1/=/1.tagsistant");
-test("chmod 755 $MP/archive/1.tagsistant");
-test("mv $MP/archive/1.tagsistant $MP/archive/1.tagsistant-renamed");
-test("mv $MP/archive/1.tagsistant-renamed $MP/archive/1.tagsistant");
-# test("mv $MP/t1/=/1.tagsistant $MP/t1/=/1.tagsistant-renamed");
-# test("mv $MP/t1/=/1.tagsistant-renamed $MP/t1/=/1.tagsistant");
-test("mkdir $MP/tags/toberenamed");
-test("mv $MP/tags/toberenamed $MP/tags/renamed");
-test("stat $MP/tags/renamed");
-test("ls $MP/tags/renamed");
-test("cp /etc/motd $MP/tags/t1/=/junk");
-test("rm $MP/tags/t1/=/junk");
-test("cp /etc/motd $MP/tags/t1/=/junk");
-test("rm $MP/archive/*junk");
 test("mkdir $MP/tags/t2");
-test("cp tagsistant $MP/tags/t2/=");
-test("ls -a $MP/tags/t2/=");
-out_test('tagsistant');
-test("stat $MP/tags/t2/=/tagsistant");
-test("stat $MP/tags/t2/=/1.tagsistant");
-test("touch $MP/tags/t2/=/1.tagsistant");
-test("cp /etc/motd $MP/tags/t1/=");
-test("ls -a $MP/tags/t1/t2/=");
-out_test('tagsistant', -1);
-test("ls -a $MP/tags/t1/=");
-out_test('motd');
-$output =~ m/(\d+\.tagsistant)/m;
-my $tagsistant = $1;
-$output =~ m/(\d+\.motd)/m;
-my $motd = $1;
-test("ls -a $MP/tags/t1/=/$tagsistant");
-test("ls -a $MP/tags/t1/=/$motd");
-test("ls -a $MP/tags/t2/=/$tagsistant");
-test("ls -a $MP/tags/t1/t2/=/$tagsistant");
-test("ls -a $MP/tags/t2/t1/=/$tagsistant");
-test("ls -a $MP/tags/t2/t1/+/t1/=/$tagsistant");
-test("ls -a $MP/tags/t2/t1/+/t2/=/$tagsistant");
+test("stat $MP/tags/t2");
+test("stat $MP/tags/t1");
+test("mkdir $MP/tags/t3");
+test("mkdir $MP/tags/toberenamed");
+test("mkdir $MP/tags/tobedeleted");
+test("ls $MP/tags");
+test("ls $MP/archive");
 
-test("cat /etc/motd > $MP/tags/t1/=/buffer1");
-test("diff /etc/motd $MP/tags/t1/=/buffer1");
-test("ln -s $MP/tags/t1/=/buffer1 $MP/tags/t2/=/");
-test("echo ciao");
-test("ln -s $MP/tags/t1/=/buffer1 $MP/tags/t2/=/buffer2");
-test("diff $MP/tags/t1/=/buffer1 $MP/tags/t2/=/buffer1");
+# then we check rename and remove of tag directories
+test("mv $MP/tags/toberenamed $MP/tags/renamed");
+test("rmdir $MP/tags/tobedeleted");
 
+# then create a garbage file and use it as a test dummy
+# the file gets copied and linked inside multiple directories
+# and than read again using diff. this ensures proper operations
+# on open(), read(), write(), symlink() and readlink()
 system("dmesg > /tmp/clutter");
-test("ln -s /tmp/clutter $MP/tags/t1/=");
-test("stat $MP/tags/t1/=/clutter");
-test("ls $MP/tags/t1/=/*clutter");
-test("diff /tmp/clutter $MP/tags/t1/=/clutter");
-test("diff /tmp/clutter $MP/tags/t1/=/*clutter");
-test("diff /tmp/clutter $MP/archive/*clutter");
-test("cp /tmp/clutter $MP/tags/t2/=");
-test("stat $MP/tags/t2/=");
+test("cp /tmp/clutter $MP/tags/t1/=/");
+test("cp /tmp/clutter $MP/tags/t2/=/");
+test("ln -s /tmp/clutter $MP/tags/t3/=");
+test("readlink $MP/tags/t3/=/*clutter");
+test("ls -la $MP/archive/");
+test("ls -la $MP/tags/t1/=");
+test("ls -la $MP/tags/t1/+/t2/=");
+test("ls -la $MP/tags/t1/t2/=");
+test("diff $MP/tags/t1/=/1.clutter $MP/tags/t2/=/2.clutter");
+test("diff $MP/tags/t1/=/1.clutter $MP/tags/t3/=/3.clutter");
+
+# then we rename a file
+test("mv $MP/tags/t1/=/1.clutter $MP/tags/t1/=/1.clutter_renamed");
+test("ls -la $MP/tags/t1/=/");
+test("stat $MP/tags/t1/=/1.clutter_renamed");
+
+# then we rename it again using a wrong syntax:
+# by providing a destination path with and ID on it.
+# tagsistant should strip the wrong ID and put the
+# right one in place
+test("mv $MP/tags/t2/=/2.clutter $MP/tags/t2/=/10.clutter");
+test("ls $MP/tags/t2/=");
+
+# then we rename a file out of a directory into another;
+# that means, from a tagsistant point of view, untag the
+# file with all the tag contained in original path and
+# tag it with all the tags contained in the destination
+# path
+test("mv $MP/tags/t2/=/2.clutter $MP/tags/t1/t3/=/2.clutter");
+test("ls -la $MP/tags/t2/=");
+test("ls -la $MP/tags/t1/=");
+test("ls -la $MP/tags/t3/=/");
+test("ls -la $MP/tags/t1/t3/=/");
+
+### test("ls -a $MP/tags/t1/=");
+### out_test('^\.$', '^\.\.$');
+### test("ls -a $MP/tags");
+### out_test('t1$');
+### test("cp tagsistant $MP/tags/t1/=");
+### test("ls -a $MP/tags/t1/=");
+### test("stat $MP/tags/t1/=/tagsistant");
+### test("stat $MP/tags/t1/=/1.tagsistant");
+### test("truncate -s 1 $MP/tags/t1/=/1.tagsistant");
+### test("chown $>:$> $MP/tags/t1/=/1.tagsistant");
+### test("chmod 000 $MP/tags/t1/=/1.tagsistant");
+### test("chmod 777 $MP/tags/t1/=/1.tagsistant");
+### test("chmod 755 $MP/archive/1.tagsistant");
+### test("mv $MP/archive/1.tagsistant $MP/archive/1.tagsistant-renamed");
+### test("mv $MP/archive/1.tagsistant-renamed $MP/archive/1.tagsistant");
+### # test("mv $MP/t1/=/1.tagsistant $MP/t1/=/1.tagsistant-renamed");
+### # test("mv $MP/t1/=/1.tagsistant-renamed $MP/t1/=/1.tagsistant");
+### test("mkdir $MP/tags/toberenamed");
+### test("mv $MP/tags/toberenamed $MP/tags/renamed");
+### test("stat $MP/tags/renamed");
+### test("ls $MP/tags/renamed");
+### test("cp tagsistant $MP/tags/t1/=/junk");
+### test("rm $MP/tags/t1/=/junk");
+### test("cp tagsistant $MP/tags/t1/=/junk");
+### test("rm $MP/archive/*junk");
+### test("mkdir $MP/tags/t2");
+### test("cp tagsistant $MP/tags/t2/=");
+### test("ls -a $MP/tags/t2/=");
+### out_test('tagsistant');
+### test("stat $MP/tags/t2/=/tagsistant");
+### test("stat $MP/tags/t2/=/1.tagsistant");
+### test("touch $MP/tags/t2/=/1.tagsistant");
+### test("cp tagsistant $MP/tags/t1/=");
+### test("ls -a $MP/tags/t1/t2/=");
+### out_test('tagsistant', -1);
+### test("ls -a $MP/tags/t1/=");
+### out_test('tagsistant');
+### $output =~ m/(\d+\.tagsistant)/m;
+### my $tagsistant = $1;
+### $output =~ m/(\d+\.motd)/m;
+### my $motd = $1;
+### test("ls -a $MP/tags/t1/=/$tagsistant");
+### test("ls -a $MP/tags/t1/=/$motd");
+### test("ls -a $MP/tags/t2/=/$tagsistant");
+### test("ls -a $MP/tags/t1/t2/=/$tagsistant");
+### test("ls -a $MP/tags/t2/t1/=/$tagsistant");
+### test("ls -a $MP/tags/t2/t1/+/t1/=/$tagsistant");
+### test("ls -a $MP/tags/t2/t1/+/t2/=/$tagsistant");
+### 
+### test("cat tagsistant > $MP/tags/t1/=/buffer1");
+### test("diff tagsistant $MP/tags/t1/=/buffer1");
+### test("ln -s $MP/tags/t1/=/buffer1 $MP/tags/t2/=/");
+### test("echo ciao");
+### test("ln -s $MP/tags/t1/=/buffer1 $MP/tags/t2/=/buffer2");
+### test("diff $MP/tags/t1/=/buffer1 $MP/tags/t2/=/buffer1");
+### 
+### system("dmesg > /tmp/clutter");
+### test("ln -s /tmp/clutter $MP/tags/t1/=");
+### test("stat $MP/tags/t1/=/clutter");
+### test("ls $MP/tags/t1/=/*clutter");
+### test("diff /tmp/clutter $MP/tags/t1/=/clutter");
+### test("diff /tmp/clutter $MP/tags/t1/=/*clutter");
+### test("diff /tmp/clutter $MP/archive/*clutter");
+### test("cp /tmp/clutter $MP/tags/t2/=");
+### test("stat $MP/tags/t2/=");
 
 # ---------[no more test to run]---------------------------------------- <---
 

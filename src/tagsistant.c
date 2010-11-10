@@ -959,21 +959,15 @@ static int tagsistant_rename(const char *from, const char *to)
 		goto RENAME_EXIT;
 	}
 
-	// -- can't rename non objects into objects --
-	if (QTREE_POINTS_TO_OBJECT(to_qtree) && !QTREE_POINTS_TO_OBJECT(from_qtree)) {
+	// -- can't rename objects of different type or not both complete
+	if (!QTREES_ARE_SIMILAR(from_qtree, to_qtree)) {
 		res = -1;
 		tagsistant_errno = EINVAL;
 		goto RENAME_EXIT;
 	}
 
 	// -- can't rename anything from or into /stats or /relations
-	if (QTREE_IS_STATS(to_qtree) || QTREE_IS_STATS(from_qtree)) {
-		res = -1;
-		tagsistant_errno = EINVAL;
-		goto RENAME_EXIT;
-	}
-
-	if (QTREE_IS_RELATIONS(to_qtree) || QTREE_IS_RELATIONS(from_qtree)) {
+	if (QTREE_IS_STATS(to_qtree) || QTREE_IS_STATS(from_qtree) || QTREE_IS_RELATIONS(to_qtree) || QTREE_IS_RELATIONS(from_qtree)) {
 		res = -1;
 		tagsistant_errno = EINVAL;
 		goto RENAME_EXIT;
@@ -982,6 +976,9 @@ static int tagsistant_rename(const char *from, const char *to)
 	// -- object on disk (/archive and complete /tags) --
 	if (QTREE_POINTS_TO_OBJECT(from_qtree)) {
 		if (QTREE_IS_TAGGABLE(from_qtree)) {
+			// 0. strip trailing number (i.e. 283.filename -> filename)
+			tagsistant_qtree_renumber(to_qtree, from_qtree->object_id);
+
 			// 1. rename the object
 			tagsistant_query("update objects set objectname = \"%s\" where object_id = %d", NULL, NULL, to_qtree->object_path, from_qtree->object_id);
 			tagsistant_query("update objects set path = \"%s\" where object_id = %d", NULL, NULL, to_qtree->full_archive_path, from_qtree->object_id);

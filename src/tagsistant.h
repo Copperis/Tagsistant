@@ -162,6 +162,8 @@ typedef enum {
 #define QTREE_IS_EXTERNAL(qtree) (qtree->is_external)
 #define QTREE_IS_INTERNAL(qtree) (!qtree->is_external)
 
+#define QTREES_ARE_SIMILAR(qtree1, qtree2) ((qtree1->type == qtree2->type) && (qtree1->complete == qtree2->complete))
+
 #define TAGSISTANT_PATH_IS_EXTERNAL(path) (g_strstr_len(path, strlen(path), tagsistant.mountpoint) != path)
 
 /**
@@ -428,6 +430,9 @@ char *real_strdup(const char *orig, char *file, int line);
 	if (to_qtree->full_archive_path) { g_free(to_qtree->full_archive_path); }\
 	qtree_set_object_path(to_qtree, g_strdup(from_qtree->object_path));\
 }
+
+// change the object ID to a querytree_t structure
+extern void tagsistant_qtree_renumber(querytree_t *qtree, tagsistant_id object_id);
 
 // returns the type of query reppresented by a querytree_t struct
 extern gchar *query_type(querytree_t *qtree);

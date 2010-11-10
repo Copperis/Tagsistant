@@ -50,7 +50,7 @@ extern void sql_delete_object(tagsistant_id object_id);
 #define tagsistant_init_database() {\
 	tagsistant_query("create table tags (tag_id integer primary key autoincrement not null, tagname varchar(65) unique not null);", NULL, NULL);\
 	tagsistant_query("create table objects (object_id integer not null primary key autoincrement, objectname text(255) not null, path text(1024) unique not null);", NULL, NULL);\
-	tagsistant_query("create table tagging (object_id integer not null primary key autoincrement, tag_id not null, constraint Tagging_key unique (object_id, tag_id));", NULL, NULL);\
+	tagsistant_query("create table tagging (object_id integer not null, tag_id not null, constraint Tagging_key unique (object_id, tag_id));", NULL, NULL);\
 	tagsistant_query("create table relations(relation_id integer primary key autoincrement not null, tag1_id integer not null, relation varchar not null, tag2_id integer not null);", NULL, NULL);\
 	tagsistant_query("create index tags_index on tagging (object_id, tag_id);", NULL, NULL);\
 	tagsistant_query("create index relations_index on relations (tag1_id, tag2_id);", NULL, NULL);\
