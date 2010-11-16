@@ -99,10 +99,16 @@
 #include <compat/fuse_opt.h>
 #endif
 
+/*
+ * each object is identified by a unique number of type tagsistant_id
+ */
 typedef uint32_t tagsistant_id;
 
 #include "sql.h"
 
+/*
+ * some limits mainly taken from POSIX standard
+ */
 #define TAGSISTANT_MAX_TAG_LENGTH 255
 #define TAGSISTANT_MAX_PATH_TOKENS 128
 
@@ -140,6 +146,9 @@ typedef struct ptree_or_node {
 	struct ptree_and_node *and_set;
 } ptree_or_node_t;
 
+/*
+ * depeding on relative path, a query can be one in the following:
+ */
 typedef enum {
 	QTYPE_MALFORMED,	// wrong path (not starting by /tags, /archive, /stats or /relations)
 	QTYPE_ROOT,			// no path, that's a special case for root directory
@@ -150,20 +159,49 @@ typedef enum {
 	QTYPE_TOTAL
 } query_type_t;
 
+/*
+ * to ease coding, there are some macros to check
+ * if a query if of a given type
+ */
 #define QTREE_IS_MALFORMED(qtree) (QTYPE_MALFORMED == qtree->type)
 #define QTREE_IS_ROOT(qtree) (QTYPE_ROOT == qtree->type)
 #define QTREE_IS_TAGS(qtree) (QTYPE_TAGS == qtree->type)
 #define QTREE_IS_ARCHIVE(qtree) (QTYPE_ARCHIVE == qtree->type)
 #define QTREE_IS_RELATIONS(qtree) (QTYPE_RELATIONS == qtree->type)
 #define QTREE_IS_STATS(qtree) (QTYPE_STATS == qtree->type)
+
+/*
+ * if a query points to an object on disk this returns true;
+ * that's:
+ *
+ *   archive/something
+ *   tags/t1/t2/.../tN/=/something
+ */
 #define QTREE_POINTS_TO_OBJECT(qtree) (qtree->points_to_object == 1)
+
+/*
+ * some more info about a query:
+ * is_taggable -> points_to_object but on first level (so not on tags/t1/t2/.../tN/=/something/more/...)
+ * is_complete -> query is of type tags/ and has an =/
+ * is_external -> the query points outside tagsistant mountpoint
+ * is_internal -> the query points inside tagsistant mountpoint
+ */
 #define QTREE_IS_TAGGABLE(qtree) (qtree->is_taggable == 1)
 #define QTREE_IS_COMPLETE(qtree) (qtree->complete)
 #define QTREE_IS_EXTERNAL(qtree) (qtree->is_external)
 #define QTREE_IS_INTERNAL(qtree) (!qtree->is_external)
 
+/*
+ * two queries are of the same type and are both complete
+ * the second is true for tags/ if both are complete,
+ * and always for other types of queries
+ */
 #define QTREES_ARE_SIMILAR(qtree1, qtree2) ((qtree1->type == qtree2->type) && (qtree1->complete == qtree2->complete))
 
+/*
+ * check if a path is external to tagsistant mountpoint
+ * without requiring query resolution and querytree building
+ */
 #define TAGSISTANT_PATH_IS_EXTERNAL(path) (g_strstr_len(path, strlen(path), tagsistant.mountpoint) != path)
 
 /**
@@ -336,17 +374,6 @@ extern struct tagsistant tagsistant;
 extern int debug;
 extern int log_enabled;
 
-#define get_tag_name(path) g_path_get_basename(path)
-
-extern gchar *_get_file_path(const gchar *filename, int file_id, int use_first_match);
-#define get_file_path(filename, file_id) _get_file_path(filename, file_id, FALSE)
-#define get_first_file_path(filename, file_id) _get_file_path(filename, file_id, TRUE)
-
-extern void get_file_id_and_name(const gchar *original, int *id, char **name);
-
-extern gboolean is_tagged(int file_id, char *tagname);
-extern gboolean filename_is_tagged(const char *filename, const char *tagname);
-
 extern querytree_t *build_querytree(const char *path, int do_reasoning);
 extern file_handle_t *build_filetree(ptree_or_node_t *query, const char *path);
 
@@ -356,12 +383,10 @@ extern void destroy_filetree(file_handle_t *fh);
 extern int process(int file_id);
 
 extern tagsistant_id tagsistant_get_object_id(const gchar *path, gchar **purename);
+
 extern void init_syslog();
 extern void plugin_loader();
 extern void plugin_unloader();
-
-extern  void _tag_object_by_and_node_t(ptree_and_node_t *an, tagsistant_id object_id);
-extern  void _untag_object_by_and_node_t(ptree_and_node_t *an, tagsistant_id object_id);
 
 /**
  * allows for applying a function to all the ptree_and_node_t nodes of
@@ -419,11 +444,13 @@ char *real_strdup(const char *orig, char *file, int line);
 	qtree->full_archive_path = g_strdup_printf("%s%s%s", tagsistant.archive, G_DIR_SEPARATOR_S, qtree->object_path);\
 }
 
+#if 0
 #define qtree_reset_object_path(qtree, path) {\
 	g_free(qtree->archive_path);\
 	g_free(qtree->full_archive_path);\
 	qtree_set_object_path(qtree, path);\
 }
+#endif
 
 #define qtree_copy_object_path(from_qtree, to_qtree) {\
 	if (to_qtree->archive_path) { g_free(to_qtree->archive_path); }\

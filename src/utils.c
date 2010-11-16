@@ -52,54 +52,6 @@ char *real_strdup(const char *orig, char *file, int line)
 int debug = 0;
 int log_enabled = 0;
 
-/**
- * Return the real path on the underlying filesystem to access a file.
- * The file can be provided as its basename with the "filename" parameter,
- * or through its unique ID using the "file_id" parameter. If the file is
- * not located inside the DB, and a "filename" has been provided, a path
- * inside the archive/ directory is returned. The "filename" and "file_id"
- * parameters can be specified exclusively.
- *
- * EXAMPLE 1: _get_file_path(NULL, 12) will return the path of file with
- * ID 12, if existing, NULL otherwise.
- *
- * EXAMPLE 2: _get_file_path("passwd", 0) will return the path of the only
- * "passwd" file in the files table. If more than one file exist, NULL
- * is returned. If no file is found, the path "<repository>/archive/passwd"
- * is returned, where <repository> is the path of Tagsistant repository.
- *
- * \param @filename a string with the basename of the file
- * \param @file_id an ID referring to a file
- * \param @use_first_match if no file_id is provided and more than one filename
- *   matches "filename", use the first instead of returning NULL
- * \returns a string, if appropriate, NULL otherwise. Must be freed!
- */
-gchar *_get_file_path(const gchar *filename, int file_id, int use_first_match)
-{
-	gchar *path = NULL;
-
-	if (file_id) {
-		tagsistant_query("select path from objects where id = %u", return_string, &path, file_id);
-		if ((path == NULL) && (filename != NULL)) {
-			path = g_strdup_printf("%s%s", tagsistant.archive, filename);
-		}
-	} else if (filename != NULL) {
-		int count = 0;
-		tagsistant_query("select count(filename) from objects where basename = \"%s\"", return_integer, &count, filename);
-
-		if (count == 0) {
-			path = g_strdup_printf("%s%s", tagsistant.archive, filename);
-		} else if ((count == 1) || use_first_match) {
-			tagsistant_query("select path from objects where basename = \"%s\"", return_string, &path, filename);
-		} else {
-			// if more than 1 entry match the file name, the corresponding path can't be guessed
-		}
-	}
-
-	dbg(LOG_INFO, "get_file_path(\"%s\", %u) == \"%s\"", filename, file_id, path);
-	return path;
-}
-
 #ifdef _DEBUG_SYSLOG
 /**
  * initialize syslog stream
@@ -113,38 +65,6 @@ void init_syslog()
 	log_enabled = 1;
 }
 #endif
-
-/**
- * Check if a file with id "file_id" is associated with a given tag.
- *
- * \param file_id the file_id to be checked
- * \param tagname the name of the tag to be searched on filename
- * \return 1 if file filename is tagged with tag tagname, 0 otherwise.
- */
-gboolean is_tagged(int file_id, char *tagname)
-{
-	int exists = 0;
-	tagsistant_query(
-		"select count(filename) from tagging where file_id = \"%d\" and tagname = \"%s\";",
-		return_integer, &exists, file_id, tagname);
-	return exists ? TRUE : FALSE;
-}
-
-/**
- * Check if a file named "filename" is associated with a given tag.
- *
- * \param filename the filename to be checked (no path)
- * \param tagname the name of the tag to be searched on filename
- * \return 1 if file filename is tagged with tag tagname, 0 otherwise.
- */
-gboolean filename_is_tagged(const char *filename, const char *tagname)
-{
-	int is_tagged = 0;
-	tagsistant_query(
-		"select count(tagname) from tagging join objects on objects.id = tagging.file_id where objects.filename = \"%s\" and tagging.tagname = \"%s\";",
-		return_integer, &is_tagged, filename, tagname);
-	return is_tagged ? TRUE : FALSE;
-}
 
 #ifdef MACOSX
 ssize_t getline(char **lineptr, size_t *n, FILE *stream)
@@ -163,31 +83,6 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream)
 	return *n;
 }
 #endif
-
-/**
- * Tag an object_id (ID) with a tag guessed from a
- * a ptree_and_node_t struct. Used as a callback for
- * traverse_querytree() macro.
- */
-void _tag_object_by_and_node_t(ptree_and_node_t *an, tagsistant_id object_id)
-{
-	sql_tag_object(an->tag, object_id);
-}
-
-/**
- * Untag an object_id (ID) by a tag guessed from a
- * a ptree_and_node_t struct. Used as a callback for
- * traverse_querytree() macro.
- */
-void _untag_object_by_and_node_t(ptree_and_node_t *an, tagsistant_id object_id)
-{
-	sql_untag_object(an->tag, object_id);
-}
-
-int strlen0(const char *string)
-{
-	return (string == NULL) ? 0 : strlen(string);
-}
 
 gchar *querytree_types[QTYPE_TOTAL];
 int querytree_types_initialized = 0;
