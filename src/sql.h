@@ -18,6 +18,20 @@
  * SQL FUNCTIONS *
 \*****************/
 
+//
+// Tagsistant offers an SQLite backend but plans to implement
+// a MySQL backend too. If you want to switch to experimental
+// MySQL backend, use:
+//
+// CFLAGS="-D TAGSISTANT_SQL_BACKEND=TAGSISTANT_MYSQL_BACKEND"
+//
+#define TAGSISTANT_SQLITE_BACKEND 0
+#define TAGSISTANT_MYSQL_BACKEND 1
+
+#ifndef TAGSISTANT_SQL_BACKEND
+#	define TAGSISTANT_SQL_BACKEND TAGSISTANT_SQLITE_BACKEND
+#endif
+
 /* execute SQL query adding file:line coords */
 #define  do_sql(dbh, statement, callback, firstarg)\
 	real_do_sql(dbh, statement, callback, firstarg, __FILE__, (unsigned int) __LINE__)

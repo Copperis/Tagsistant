@@ -28,6 +28,8 @@
 #include <mcheck.h>
 #endif
 
+#if 0
+
 /**
  * Return the path of a file inside Tagsistant repository
  *
@@ -87,5 +89,7 @@ tagsistant_id create_dir(const char *dirname, mode_t mode)
 	g_free(dirpath);
 	return object_id;
 }
+
+#endif
 
 // vim:ts=4:autoindent:nocindent:syntax=c

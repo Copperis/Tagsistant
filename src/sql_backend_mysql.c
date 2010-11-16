@@ -1,8 +1,8 @@
 /*
-   Tagsistant (tagfs) -- sql.c
+   Tagsistant (tagfs) -- sql_backend_mysql.c
    Copyright (C) 2006-2010 Tx0 <tx0@strumentiresistenti.org>
 
-   Tagsistant (tagfs) mount binary written using FUSE userspace library.
+   Tagsistant (tagfs) MySQL backend
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -21,6 +21,8 @@
 
 extern struct tagsistant tagsistant;
 #include "tagsistant.h"
+
+#if TAGSISTANT_SQL_BACKEND == TAGSISTANT_MYSQL_BACKEND
 
 /**
  * Perform SQL queries. This function was added to avoid database opening
@@ -299,12 +301,14 @@ void sql_untag_object(const gchar *tagname, tagsistant_id object_id)
 	tagsistant_query("delete from tagging where tag_id = \"%d\" and object_id = \"%d\";", NULL, NULL, tag_id, object_id);\
 }
 
-extern void sql_rename_tag(const gchar *tagname, const gchar *oldtagname)
+void sql_rename_tag(const gchar *tagname, const gchar *oldtagname)
 {
 	tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\";", NULL, NULL, tagname, oldtagname);\
 }
 
-extern void sql_rename_object(tagsistant_id object_id, const gchar *newname)
+void sql_rename_object(tagsistant_id object_id, const gchar *newname)
 {
 	tagsistant_query("update objects set objectname = \"%s\" where object_id = %d", NULL, NULL, newname, object_id);
 }
+
+#endif /* TAGSISTANT_SQL_BACKEND == "MYSQL" */
