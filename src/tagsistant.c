@@ -1870,6 +1870,8 @@ int main(int argc, char *argv[])
 	/* fuse_opt_add_arg(&args, "-odefault_permissions"); */
 #endif
 
+#if 0
+
 	/***
 	 * TODO
 	 * NOTE
@@ -1882,6 +1884,7 @@ int main(int argc, char *argv[])
 	if (!tagsistant.quiet)
 		fprintf(stderr, " *** forcing single thread mode until our SQLite interface is broken! ***\n");
 	tagsistant.singlethread = 1;
+#endif
 
 	if (tagsistant.singlethread) {
 		if (!tagsistant.quiet)

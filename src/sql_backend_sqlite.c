@@ -107,8 +107,25 @@ int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)
 	va_list ap;
 	va_start(ap, firstarg);
 
+	// declare static SQLite handle
+	static sqlite3 *dbh = NULL;
+
+	// declare static mutex
+	GStaticMutex mtx = G_STATIC_MUTEX_INIT;
+
+	// format the SQL statement
 	gchar *statement = g_strdup_vprintf(format, ap);
-	int res = real_do_sql(NULL, statement, callback, firstarg, file, line);
+
+	// lock the mutex
+	g_static_mutex_lock(&mtx);
+
+	// do the query
+	int res = real_do_sql(&dbh, statement, callback, firstarg, file, line);
+
+	// unlock the mutex
+	g_static_mutex_unlock(&mtx);
+
+	// free the statement
 	g_free(statement);
 
 	return res;
@@ -222,7 +239,7 @@ tagsistant_id sql_create_object(const gchar *basename, const gchar *path)
 		if (path) {
 			tagsistant_query("insert into objects (basename, path) values (\"%s\", \"%s\")", NULL, NULL, basename, path);
 		} else {
-			gchar *guessed_path = g_strdup_printf("%s%s%lu", TAGSISTANT_ARCHIVE_PLACEHOLDER, G_DIR_SEPARATOR_S, ID);
+			gchar *guessed_path = g_strdup_printf("%s%s%u", TAGSISTANT_ARCHIVE_PLACEHOLDER, G_DIR_SEPARATOR_S, ID);
 			tagsistant_query("insert into objects (basename, path) values (\"%s\", \"%s\")", NULL, NULL, basename, guessed_path);
 			g_free(guessed_path);
 		}
