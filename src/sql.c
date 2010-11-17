@@ -1,8 +1,8 @@
 /*
-   Tagsistant (tagfs) -- sql_backend_sqlite.c
+   Tagsistant (tagfs) -- sql.c
    Copyright (C) 2006-2010 Tx0 <tx0@strumentiresistenti.org>
 
-   Tagsistant (tagfs) SQLite backend
+   Tagsistant (tagfs) DBI-based SQL backend
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -22,7 +22,30 @@
 extern struct tagsistant tagsistant;
 #include "tagsistant.h"
 
-#if TAGSISTANT_SQL_BACKEND == TAGSISTANT_SQLITE_BACKEND
+/* DBI connection handler used by subsequent calls to dbi_* functions */
+dbi_conn conn;
+
+#if TAGSISTANT_SQL_BACKEND == TAGSISTANT_MYSQL_BACKEND
+
+/**
+ * opens DBI connection to MySQL
+ */
+void tagsistant_db_connection()
+{
+	dbi_initialize(NULL);
+	conn = dbi_conn_new("mysql");
+
+	dbi_conn_set_option(conn, "host", "localhost");
+	dbi_conn_set_option(conn, "username", "tagsistant");
+	dbi_conn_set_option(conn, "password", "tagsistant");
+	dbi_conn_set_option(conn, "dbname", "tagsistant");
+	dbi_conn_set_option(conn, "encoding", "UTF-8");
+
+	if (dbi_conn_connect(conn) < 0) {
+		dbg(LOG_ERR, "Could not connect to MySQL. Please check the option settings\n");
+		exit(1);
+	}
+}
 
 /**
  * Perform SQL queries. This function was added to avoid database opening
@@ -33,7 +56,6 @@ extern struct tagsistant tagsistant;
  * NEVER use real_do_sql() directly. Always use do_sql() macro which adds
  * __FILE__ and __LINE__ transparently for you. Code will be cleaner.
  *
- * \param dbh pointer to sqlite3 database handle
  * \param statement SQL query to be performed
  * \param callback pointer to function to be called on results of SQL query
  * \param firstarg pointer to buffer for callback retured data
@@ -41,57 +63,45 @@ extern struct tagsistant tagsistant;
  * \param line __LINE__ passed by calling function
  * \return 0 (always, due to SQLite policy)
  */
-int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, char **, char **),
+int real_do_sql(char *statement, int (*callback)(void *, dbi_result),
 	void *firstarg, char *file, unsigned int line)
 {
-	int result = SQLITE_OK;
-	sqlite3 *intdbh = NULL;
+	// check if connection is open
+	if (NULL == conn) {
+		dbg(LOG_ERR, "ERROR! DBI connection was not initialized!");
+		return 0;
+	}
 
-	if (statement == NULL) {
+	// check if statement is not null
+	if (NULL == statement) {
 		dbg(LOG_ERR, "Null SQL statement");
 		return 0;
 	}
 
-	/*
-	 * check if:
-	 * 1. no database handle location has been passed (means: use local dbh)
-	 * 2. database handle location is empty (means: create new dbh and return it)
-	 */
-	if ((dbh == NULL) || (*dbh == NULL)) {
-		result = sqlite3_open(tagsistant.tags, &intdbh);
-		if (result != SQLITE_OK) {
-			dbg(LOG_ERR, "Error [%d] opening database %s", result, tagsistant.tags);
-			dbg(LOG_ERR, "%s", sqlite3_errmsg(intdbh));
-			return 0;
+	dbg(LOG_INFO, "SQL: [%s] @%s:%d", statement, file, line);
+
+	// declare static mutex
+	GStaticMutex mtx = G_STATIC_MUTEX_INIT;
+
+	// do the real query
+	g_static_mutex_lock(&mtx);
+	dbi_result result = dbi_conn_queryf(conn, statement);
+	g_static_mutex_unlock(&mtx);
+
+	int rows = 0;
+
+	// call the callback function on results or report an error
+	if (result) {
+		while (dbi_result_next_row(result)) {
+			callback(firstarg, result);
+			rows++;
 		}
-	} else {
-		intdbh = *dbh;
+		dbi_result_free(result);
+		return rows;
 	}
 
-	char *sqlerror = NULL;
-	if (dbh == NULL) {
-		dbg(LOG_INFO, "SQL [disposable]: [%s] @%s:%d", statement, file, line);
-	} else if (*dbh == NULL) {
-		dbg(LOG_INFO, "SQL [persistent]: [%s] @%s:%d", statement, file, line);
-	} else {
-		dbg(LOG_INFO, "SQL [0x%.8x]: [%s] @%s:%d", (unsigned int) *dbh, statement, file, line);
-	}
-	result = sqlite3_exec(intdbh, statement, callback, firstarg, &sqlerror);
-	if (result != SQLITE_OK) {
-		dbg(LOG_ERR, "SQL error: [%d] %s @%s:%u", result, sqlerror, file, line);
-		sqlite3_free(sqlerror);
-		return 0;
-	}
-	// freenull(file);
-	sqlite3_free(sqlerror);
-
-	if (dbh == NULL) {
-		sqlite3_close(intdbh);
-	} else /* if (*dbh == NULL) */ {
-		*dbh = intdbh;
-	}
-
-	return result;
+	dbg(LOG_ERR, "SQL ERROR: %s", "PUT HERE REAL SQL ERROR");
+	return -1;
 }
 
 /**
@@ -102,30 +112,13 @@ int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, cha
  * \param firstarg pointer to buffer for callback retured data
  * \return 0 (always, due to SQLite policy)
  */
-int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)(void *, int, char **, char **), void *firstarg, ...)
+int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)(void *, dbi_result), void *firstarg, ...)
 {
 	va_list ap;
 	va_start(ap, firstarg);
 
-	// declare static SQLite handle
-	static sqlite3 *dbh = NULL;
-
-	// declare static mutex
-	GStaticMutex mtx = G_STATIC_MUTEX_INIT;
-
-	// format the SQL statement
 	gchar *statement = g_strdup_vprintf(format, ap);
-
-	// lock the mutex
-	g_static_mutex_lock(&mtx);
-
-	// do the query
-	int res = real_do_sql(&dbh, statement, callback, firstarg, file, line);
-
-	// unlock the mutex
-	g_static_mutex_unlock(&mtx);
-
-	// free the statement
+	int res = real_do_sql(statement, callback, firstarg, file, line);
 	g_free(statement);
 
 	return res;
@@ -135,22 +128,16 @@ int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)
  * SQL callback. Return an integer from a query
  *
  * \param return_integer integer pointer cast to void* which holds the integer to be returned
- * \param argc counter of argv arguments
- * \param argv array of SQL given results
- * \param azColName array of SQL column names
- * \return 0 (always, due to SQLite policy)
+ * \param result dbi_result pointer
+ * \return 0 (always, due to SQLite policy, may change in the future)
  */
-int return_integer(void *return_integer, int argc, char **argv, char **azColName)
+int return_integer(void *return_integer, dbi_result result)
 {
-	(void) argc;
-	(void) azColName;
 	uint32_t *buffer = (uint32_t *) return_integer;
 
-	if (argv[0] != NULL) {
-		sscanf(argv[0], "%u", buffer);
-	}
+	*buffer = dbi_result_get_uint_idx(result, 1);
 
-	dbg(LOG_INFO, "Returning %s as %d", argv[0], *buffer);
+	dbg(LOG_INFO, "Returning integer: %d", *buffer);
 
 	return 0;
 }
@@ -163,18 +150,17 @@ int return_integer(void *return_integer, int argc, char **argv, char **azColName
  *   tagsistant_query("SQL statement;", return_string, &string); // note the &
  * 
  * \param return_integer string pointer cast to void* which holds the string to be returned
- * \param argc counter of argv arguments
- * \param argv array of SQL given results
- * \param azColName array of SQL column names
- * \return 0 (always, due to SQLite policy)
+ * \param result dbi_result pointer
+ * \return 0 (always, due to SQLite policy, may change in the future)
  */
-int return_string(void *return_string, int argc, char **argv, char **azColName)
+int return_string(void *return_string, dbi_result result)
 {
-	(void) argc;
-	(void) azColName;
+	gchar **result_string = (gchar **) return_string;
 
-	gchar **result = (gchar **) return_string;
-	*result = (argv[0] != NULL) ? g_strdup(argv[0]) : NULL;
+	*result_string = g_strdup(dbi_result_get_string_idx(result, 1));
+
+	dbg(LOG_INFO, "Returning string: %s", *result_string);
+
 	return 0;
 }
 
@@ -235,4 +221,9 @@ void sql_untag_object(const gchar *tagname, tagsistant_id object_id)
 	tagsistant_query("delete from tagging where tag_id = \"%d\" and object_id = \"%d\";", NULL, NULL, tag_id, object_id);\
 }
 
-#endif /* TAGSISTANT_SQL_BACKEND == "SQLITE" */
+void sql_rename_tag(const gchar *tagname, const gchar *oldtagname)
+{
+	tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\";", NULL, NULL, tagname, oldtagname);\
+}
+
+#endif /* TAGSISTANT_SQL_BACKEND == "MYSQL" */

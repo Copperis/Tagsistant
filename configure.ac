@@ -2,8 +2,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.63)
-AC_INIT([tagsistant],[0.2.20080218],[tx0@strumentiresistenti.org])
-AM_INIT_AUTOMAKE(tagsistant, 0.2.20080218)
+AC_INIT([tagsistant],[0.3.20101117],[tx0@strumentiresistenti.org])
+AM_INIT_AUTOMAKE(tagsistant, 0.2.20101117)
 AC_COPYRIGHT([tagsistant is (C) Tx0 <tx0@strumentiresistenti.org>])
 AC_CONFIG_SRCDIR([src/tagsistant.c])
 AC_CONFIG_HEADER([config.h])
@@ -110,6 +110,13 @@ AC_CHECK_LIB([sqlite3],[sqlite3_open],,[
 	echo "less than normal client/server implementations. tagsistant use SQLite to store"
 	echo "file<->tag relationship. For more informations please visit:"
 	echo "http://www.sqlite.org/"
+	exit 1
+])
+
+AC_CHECK_LIB([dbi],[dbi_conn_new],,[
+	echo "DBI is an generic database abstactio layer used to connect to MySQL"
+	echo "and will probably used to connect to SQLite too in future releases"
+	echo "http://libdbi.sourceforge.net/"
 	exit 1
 ])
 

@@ -24,6 +24,29 @@ extern struct tagsistant tagsistant;
 
 #if TAGSISTANT_SQL_BACKEND == TAGSISTANT_MYSQL_BACKEND
 
+/* DBI connection handler used by subsequent calls to dbi_* functions */
+dbi_conn conn;
+
+/**
+ * opens DBI connection to MySQL
+ */
+void tagsistant_db_connection()
+{
+	dbi_initialize(NULL);
+	conn = dbi_conn_new("mysql");
+
+	dbi_conn_set_option(conn, "host", "localhost");
+	dbi_conn_set_option(conn, "username", "tagsistant");
+	dbi_conn_set_option(conn, "password", "tagsistant");
+	dbi_conn_set_option(conn, "dbname", "tagsistant");
+	dbi_conn_set_option(conn, "encoding", "UTF-8");
+
+	if (dbi_conn_connect(conn) < 0) {
+		dbg(LOG_ERR, "Could not connect to MySQL. Please check the option settings\n");
+		exit(1);
+	}
+}
+
 /**
  * Perform SQL queries. This function was added to avoid database opening
  * duplication and better handle SQLite interfacement. If dbh is passed
@@ -168,94 +191,11 @@ int get_exact_tag_id(const gchar *tagname)
 	return id;
 }
 
-/**
- * SQL callback. Report if an entity exists in database.
- *
- * \param exist_buffer integer pointer cast to void* which holds 1 if entity exists, 0 otherwise
- * \param argc counter of argv arguments
- * \param argv array of SQL given results
- * \param azColName array of SQL column names
- * \return 0 (always, due to SQLite policy)
- */
-int report_if_exists(void *exists_buffer, int argc, char **argv, char **azColName)
-{
-	(void) argc;
-	(void) azColName;
-	int *exists = (int *) exists_buffer;
-	if (argv[0] != NULL) {
-		*exists = 1;
-	} else {
-		*exists = 0;
-	}
-	return 0;
-}
-
 gboolean sql_tag_exists(const gchar* tagname)
 {
 	gboolean exists;
 	tagsistant_query("select count(tagname) from tags where tagname = \"%s\";", return_integer, &exists, tagname);
 	return exists;
-}
-
-/**
- * add an object to the database.
- *
- * @param basename is the object basename; can't be null
- * @param @path the full path; if it's NULL, the object is relative and path
- * has to be computed using the object id
- *
- * @return the ID of the object
- */
-tagsistant_id sql_create_object(const gchar *basename, const gchar *path)
-{
-	tagsistant_id ID = 0;
-
-	/* check if object is already stored */
-	if (path != NULL) {
-		tagsistant_query(
-			"select id from objects where path = \"%s\" and basename = \"%s\"",
-			return_integer, &ID, path, basename);
-	}
-
-	/* create the object, if does not exists */
-	if (!ID) {
-		if (path) {
-			tagsistant_query("insert into objects (basename, path) values (\"%s\", \"%s\")", NULL, NULL, basename, path);
-		} else {
-			gchar *guessed_path = g_strdup_printf("%s%s%lu", TAGSISTANT_ARCHIVE_PLACEHOLDER, G_DIR_SEPARATOR_S, ID);
-			tagsistant_query("insert into objects (basename, path) values (\"%s\", \"%s\")", NULL, NULL, basename, guessed_path);
-			g_free(guessed_path);
-		}
-		tagsistant_query("select last_insert_rowid()", return_integer, &ID);
-	}
-
-	return ID;
-}
-
-void sql_delete_object(tagsistant_id object_id)
-{
-	tagsistant_query("delete from objects where object_id = %d", NULL, NULL, object_id);
-	// ... to be completed???
-}
-
-/**
- * Return the full objectpath of a object_id
- *
- * @param object_id the ID of the object inside tagsistant sql database
- *
- * @return the path of the object, directly useable, no matter if internal
- * or external to tagsistant backend
- */
-gchar *sql_objectpath(tagsistant_id object_id)
-{
-	gchar *objectpath = NULL;
-
-	tagsistant_query(
-		"select replace(path,\"%s\",\"%s\") || \"%s\" || objectname from objects where id = %d",
-		return_string, &objectpath,
-		TAGSISTANT_ARCHIVE_PLACEHOLDER, tagsistant.archive, G_DIR_SEPARATOR_S, object_id);
-	
-	return objectpath;
 }
 
 void sql_create_tag(const gchar *tagname)
@@ -304,11 +244,6 @@ void sql_untag_object(const gchar *tagname, tagsistant_id object_id)
 void sql_rename_tag(const gchar *tagname, const gchar *oldtagname)
 {
 	tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\";", NULL, NULL, tagname, oldtagname);\
-}
-
-void sql_rename_object(tagsistant_id object_id, const gchar *newname)
-{
-	tagsistant_query("update objects set objectname = \"%s\" where object_id = %d", NULL, NULL, newname, object_id);
 }
 
 #endif /* TAGSISTANT_SQL_BACKEND == "MYSQL" */

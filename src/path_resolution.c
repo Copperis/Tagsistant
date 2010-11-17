@@ -22,6 +22,8 @@
 
 #include "tagsistant.h"
 
+#if TAGSISTANT_SQL_BACKEND == TAGSISTANT_SQLITE_BACKEND
+
 /**
  * SQL callback. Add new tag derived from reasoning to a ptree_and_node_t structure.
  *
@@ -77,6 +79,61 @@ static int add_alias_tag(void *vreasoning, int argc, char **argv, char **azColNa
 	dbg(LOG_INFO, "Adding related tag %s (because %s %s)", and->related->tag, argv[1], argv[2]);
 	return 0;
 }
+
+#elif TAGSISTANT_SQL_BACKEND == TAGSISTANT_MYSQL_BACKEND
+
+/**
+ * SQL callback. Add new tag derived from reasoning to a ptree_and_node_t structure.
+ *
+ * \param vreasoning pointer to be casted to reasoning_t* structure
+ * \param result dbi_result pointer
+ * \return 0 (always, due to SQLite policy, may change in the future)
+ */
+static int add_alias_tag(void *vreasoning, dbi_result result)
+{
+	/* point to a reasoning_t structure */
+	reasoning_t *reasoning = (reasoning_t *) vreasoning;
+	assert(reasoning != NULL);
+	assert(reasoning->start_node != NULL);
+	assert(reasoning->actual_node != NULL);
+	assert(reasoning->added_tags >= 0);
+
+	const char *t1 = dbi_result_get_string_idx(result, 1);
+	const char *rel = dbi_result_get_string_idx(result, 2);
+	const char *t2 = dbi_result_get_string_idx(result, 3);
+
+	ptree_and_node_t *and = reasoning->start_node;
+	while (and->related != NULL) {
+		assert(and->tag != NULL);
+		if (strcmp(and->tag, t1) == 0) {
+			/* tag is already present, avoid looping */
+			return 0;
+		}
+		and = and->related;
+	}
+
+	/* adding tag */
+	and->related = g_malloc(sizeof(ptree_and_node_t));
+	if (and->related == NULL) {
+		dbg(LOG_ERR, "Error allocating memory");
+		return 1;
+	}
+
+	and->related->next = NULL;
+	and->related->related = NULL;
+	and->related->tag = strdup(t1);
+
+	assert(and != NULL);
+	assert(and->related != NULL);
+	assert(and->related->tag != NULL);
+
+	reasoning->added_tags += 1;
+
+	dbg(LOG_INFO, "Adding related tag %s (because %s %s)", and->related->tag, rel, t2);
+	return 0;
+}
+
+#endif
 
 /**
  * Search and add related tags to a ptree_and_node_t,
@@ -401,6 +458,8 @@ struct atft {
 	sqlite3 *dbh;
 };
 
+#if TAGSISTANT_SQL_BACKEND == TAGSISTANT_SQLITE_BACKEND
+
 /**
  * add a file to the file tree (callback function)
  */
@@ -410,10 +469,6 @@ static int add_to_filetree(void *atft_struct, int argc, char **argv, char **azCo
 	(void) azColName;
 	struct atft *atft = (struct atft*) atft_struct;
 	file_handle_t **fh = atft->fh;
-
-#if VERBOSE_DEBUG
-	dbg(LOG_INFO, "add_to_file_tree: %s", argv[0]);
-#endif
 
 	/* no need to add empty files */
 	if (argv[0] == NULL || strlen(argv[0]) == 0)
@@ -430,18 +485,46 @@ static int add_to_filetree(void *atft_struct, int argc, char **argv, char **azCo
 	(*fh)->next = NULL;
 	(*fh)->name = NULL;
 
-#if VERBOSE_DEBUG
-	dbg(LOG_INFO, "add_to_file_tree %s done!", argv[0]);
-#endif
 	return 0;
 }
 
-void drop_views(ptree_or_node_t *query, sqlite3 *dbh)
+#elif TAGSISTANT_SQL_BACKEND == TAGSISTANT_MYSQL_BACKEND
+
+/**
+ * add a file to the file tree (callback function)
+ */
+static int add_to_filetree(void *atft_struct, dbi_result result)
+{
+	struct atft *atft = (struct atft*) atft_struct;
+	file_handle_t **fh = atft->fh;
+
+	const char *objectname = dbi_result_get_string_idx(result, 1);
+	const tagsistant_id objectid = dbi_result_get_uint_idx(result, 2);
+
+	/* no need to add empty files */
+	if (objectname == NULL || strlen(objectname) == 0)
+		return 0;
+
+	(*fh)->name = g_strdup_printf("%s.%u", objectname, objectid); // strdup(argv[0]);
+	dbg(LOG_INFO, "adding %s to filetree", (*fh)->name);
+	(*fh)->next = g_new0(file_handle_t, 1);
+	if ((*fh)->next == NULL) {
+		dbg(LOG_ERR, "Can't allocate memory in build_filetree");
+		return 1;
+	}
+	(*fh) = (*fh)->next;
+	(*fh)->next = NULL;
+	(*fh)->name = NULL;
+
+	return 0;
+}
+
+#endif
+
+void drop_views(ptree_or_node_t *query)
 {
 	while (query != NULL) {
-		char *mini = g_strdup_printf("drop view tv%.8X;", (unsigned int) query);
-		do_sql(&dbh, mini, NULL, NULL);
-		freenull(mini);
+		tagsistant_query("drop view tv%.8X", NULL, NULL, (unsigned int) query);
 		query = query->next;
 	}
 }
@@ -553,7 +636,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 		dbg(LOG_ERR, "Error allocating memory");
 		g_string_free(view_statement, TRUE);
 		destroy_filetree(result);
-		drop_views(query_dup, dbh);
+		drop_views(query_dup);
 		sqlite3_close(dbh);
 		return NULL;
 	}
@@ -561,12 +644,12 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	atft->dbh = dbh;
 
 	/* apply view statement */
-	do_sql(&dbh, view_statement->str, add_to_filetree, atft);
+	tagsistant_query(view_statement->str, add_to_filetree, atft);
 	freenull(atft);
 
 	g_string_free(view_statement, TRUE);
 
-	drop_views(query_dup, dbh);
+	drop_views(query_dup);
 	sqlite3_close(dbh);
 	return result;
 }

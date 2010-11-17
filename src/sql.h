@@ -18,6 +18,8 @@
  * SQL FUNCTIONS *
 \*****************/
 
+#include <dbi/dbi.h>
+
 //
 // Tagsistant offers an SQLite backend but plans to implement
 // a MySQL backend too. If you want to switch to experimental
@@ -29,8 +31,12 @@
 #define TAGSISTANT_MYSQL_BACKEND 1
 
 #ifndef TAGSISTANT_SQL_BACKEND
-#	define TAGSISTANT_SQL_BACKEND TAGSISTANT_SQLITE_BACKEND
+#	define TAGSISTANT_SQL_BACKEND TAGSISTANT_MYSQL_BACKEND
 #endif
+
+#if TAGSISTANT_SQL_BACKEND == TAGSISTANT_SQLITE_BACKEND // <-------------- sqlite backend ------------------------------------------------------------
+
+#define tagsistant_db_connection {}
 
 /* execute SQL query adding file:line coords */
 #define  do_sql(dbh, statement, callback, firstarg)\
@@ -47,15 +53,32 @@ extern int _tagsistant_query(const char *format, gchar *file, int line, int (*ca
 
 extern int return_integer(void *return_integer, int argc, char **argv, char **azColName);
 extern int return_string(void *return_string, int argc, char **argv, char **azColName);
+
+#elif TAGSISTANT_SQL_BACKEND == TAGSISTANT_MYSQL_BACKEND // <-------------- mysql backend ------------------------------------------------------------
+
+extern void tagsistant_db_connection();
+
+/* execute SQL query adding file:line coords */
+#define  do_sql(statement, callback, firstarg)\
+	real_do_sql(statement, callback, firstarg, __FILE__, (unsigned int) __LINE__)
+
+/* real function to execute SQL statements */
+extern int real_do_sql(char *statement, int (*callback)(void *, dbi_result), void *firstarg, char *file, unsigned int line);
+
+/* execute SQL statements autoformatting the SQL string and adding file:line coords */
+#define tagsistant_query(format, callback, firstarg, ...) _tagsistant_query(format, __FILE__, __LINE__, callback, firstarg, ## __VA_ARGS__)
+
+/* the real code behind the previous macro */
+extern int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)(void *, dbi_result), void *firstarg, ...);
+
+extern int return_string(void *return_string, dbi_result result);
+extern int return_integer(void *return_integer, dbi_result result);
+
+#endif
+
 extern int get_exact_tag_id(const gchar *tagname);
 
-extern int report_if_exists(void *exists_buffer, int argc, char **argv, char **azColName);
 extern gboolean sql_tag_exists(const gchar* tagname);
-
-extern tagsistant_id sql_create_object(const gchar *basename, const gchar *path);
-
-extern gchar *sql_objectpath(tagsistant_id object_id);
-extern void sql_delete_object(tagsistant_id object_id);
 
 /***************\
  * SQL QUERIES *
@@ -77,9 +100,5 @@ extern void sql_delete_tag(const gchar *tagname);
 extern void sql_tag_object(const gchar *tagname, tagsistant_id object_id);
 extern void sql_untag_object(const gchar *tagname, tagsistant_id object_id);
 extern void sql_rename_tag(const gchar *tagname, const gchar *oldtagname);
-extern void sql_rename_object(tagsistant_id object_id, const gchar *newname);
 
 #define ALL_FILES_TAGGED		"select objectname from objects join tagging on tagging.object_id = objects.id where tagging.tagname = \"%s\""
-
-#define tag_object(object_id, tagname) sql_tag_object(tagname, object_id)
-#define untag_object(object_id, tagname) sql_untag_object(tagname, object_id)

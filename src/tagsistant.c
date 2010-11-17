@@ -290,6 +290,8 @@ struct use_filler_struct {
 	querytree_t *qtree;		/**< the querytree that originated the readdir() */
 };
 
+#if TAGSISTANT_SQL_BACKEND == TAGSISTANT_SQLITE_BACKEND
+
 /**
  * SQL callback. Add dir entries to libfuse buffer.
  *
@@ -308,10 +310,6 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 	if (argv[0] == NULL || strlen(argv[0]) == 0)
 		return 0;
 
-#if VERBOSE_DEBUG
-	dbg(LOG_INFO, "add_entry_to_dir: + %s", argv[0]);
-#endif
-
 	/* check if this tag has been already listed inside the path */
 	ptree_or_node_t *ptx = ufs->qtree->tree;
 	while (NULL != ptx->next) ptx = ptx->next; // last OR section
@@ -326,6 +324,40 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 
 	return ufs->filler(ufs->buf, argv[0], NULL, 0);
 }
+
+#elif TAGSISTANT_SQL_BACKEND == TAGSISTANT_MYSQL_BACKEND
+
+/**
+ * SQL callback. Add dir entries to libfuse buffer.
+ *
+ * \param filler_ptr struct use_filler_struct pointer (cast to void*)
+ * \param result dbi_result pointer
+ * \return 0 (always, see SQLite policy, may change in the future)
+ */
+static int add_entry_to_dir(void *filler_ptr, dbi_result result)
+{
+	struct use_filler_struct *ufs = (struct use_filler_struct *) filler_ptr;
+	const char *dir = dbi_result_get_string_idx(result, 1);
+
+	if (dir == NULL || strlen(dir) == 0)
+		return 0;
+
+	/* check if this tag has been already listed inside the path */
+	ptree_or_node_t *ptx = ufs->qtree->tree;
+	while (NULL != ptx->next) ptx = ptx->next; // last OR section
+
+	ptree_and_node_t *and_t = ptx->and_set;
+	while (NULL != and_t) {
+		if (g_strcmp0(and_t->tag, dir) == 0) {
+			return 0;
+		}
+		and_t = and_t->next;
+	}
+
+	return ufs->filler(ufs->buf, dir, NULL, 0);
+}
+
+#endif
 
 /**
  * readdir equivalent (in FUSE paradigm)
