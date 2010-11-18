@@ -18,6 +18,10 @@ use threads::shared;
 use Errno;
 use POSIX;
 
+if ((defined $ARGV[0]) and ($ARGV[0] eq "--mysql")) {
+	system("echo 'drop table objects; drop table tags; drop table tagging; drop table relations;' | mysql -u tagsistant --password='tagsistant' tagsistant");
+}
+
 my $FUSE_GROUP = "fuse";
 
 # mount command

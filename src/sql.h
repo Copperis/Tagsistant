@@ -75,8 +75,8 @@ extern int return_integer(void *return_integer, dbi_result result);
 extern void tagsistant_db_connection();
 
 extern int get_exact_tag_id(const gchar *tagname);
+#define sql_tag_exists(tagname) get_exact_tag_id(tagname)
 
-extern int sql_tag_exists(const gchar* tagname);
 
 /***************\
  * SQL QUERIES *

@@ -464,4 +464,22 @@ extern void tagsistant_qtree_renumber(querytree_t *qtree, tagsistant_id object_i
 // returns the type of query reppresented by a querytree_t struct
 extern gchar *query_type(querytree_t *qtree);
 
+#define TAGSISTANT_START(line,...) {\
+	init_time_profile();\
+	start_time_profile();\
+	dbg(LOG_INFO, line, ##__VA_ARGS__);\
+	tagsistant_query("start transaction", NULL, NULL);\
+}
+
+#define TAGSISTANT_STOP_OK(line,...) {\
+	tagsistant_query("commit", NULL, NULL);\
+	dbg(LOG_INFO, line, ##__VA_ARGS__);\
+}
+
+#define TAGSISTANT_STOP_ERROR(line,...) {\
+	tagsistant_query("rollback", NULL, NULL);\
+	dbg(LOG_ERR, line, ##__VA_ARGS__);\
+}
+
+
 // vim:ts=4:nocindent:nowrap

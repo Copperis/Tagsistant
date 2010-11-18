@@ -498,14 +498,14 @@ static int add_to_filetree(void *atft_struct, dbi_result result)
 	struct atft *atft = (struct atft*) atft_struct;
 	file_handle_t **fh = atft->fh;
 
-	const char *objectname = dbi_result_get_string_idx(result, 1);
-	const tagsistant_id objectid = dbi_result_get_uint_idx(result, 2);
+	const char *objectname = dbi_result_get_string(result, "objectname");
+	const tagsistant_id object_id = dbi_result_get_uint(result, "object_id");
 
 	/* no need to add empty files */
 	if (objectname == NULL || strlen(objectname) == 0)
 		return 0;
 
-	(*fh)->name = g_strdup_printf("%s.%u", objectname, objectid); // strdup(argv[0]);
+	(*fh)->name = g_strdup_printf("%u.%s", object_id, objectname); // strdup(argv[0]);
 	dbg(LOG_INFO, "adding %s to filetree", (*fh)->name);
 	(*fh)->next = g_new0(file_handle_t, 1);
 	if ((*fh)->next == NULL) {
@@ -585,7 +585,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	while (query != NULL) {
 		ptree_and_node_t *tag = query->and_set;
 		GString *statement = g_string_new("");
-		g_string_printf(statement, "create view tv%.8x as ", (unsigned int) query);
+		g_string_printf(statement, "create view tv%.8X as ", (unsigned int) query);
 		
 		while (tag != NULL) {
 			g_string_append(statement, "select objectname, objects.object_id as object_id from objects join tagging on tagging.object_id = objects.object_id join tags on tags.tag_id = tagging.tag_id where tagname = \"");
@@ -609,7 +609,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 		}
 
 		g_string_append(statement, ";");
-		dbg(LOG_INFO, "SQL: final statement is [%s]", statement->str);
+		// dbg(LOG_INFO, "SQL: final statement is [%s]", statement->str);
 
 		/* create view */
 		tagsistant_query(statement->str, NULL, NULL);
@@ -629,7 +629,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	}
 
 	g_string_append(view_statement, ";");
-	dbg(LOG_INFO, "SQL view statement: %s", view_statement->str);
+	// dbg(LOG_INFO, "SQL view statement: %s", view_statement->str);
 
 	struct atft *atft = g_new0(struct atft, 1);
 	if (atft == NULL) {

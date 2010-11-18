@@ -34,19 +34,30 @@ void tagsistant_db_connection()
 {
 	dbi_initialize(NULL);
 
+	// list available drivers
 	dbg(LOG_INFO, "Available drivers:");
 	dbi_driver driver = NULL;
-	int driver_counter = 0;
+	int counter = 0;
+	int driver_found = 0;
 	while ((driver = dbi_driver_list(driver)) != NULL) {
-		driver_counter++;
-		dbg(LOG_INFO, "  Driver #%d: %s - %s", driver_counter, dbi_driver_get_name(driver), dbi_driver_get_filename(driver));
+		counter++;
+		dbg(LOG_INFO, "  Driver #%d: %s - %s", counter, dbi_driver_get_name(driver), dbi_driver_get_filename(driver));
+		if (strcmp(dbi_driver_get_name(driver), "mysql") == 0) {
+			driver_found = 1;
+		}
 	}
 
-	if (!driver_counter) {
+	if (!counter) {
 		dbg(LOG_ERR, "No SQL driver found! Exiting now.");
 		exit(1);
 	}
 
+	if (!driver_found) {
+		dbg(LOG_ERR, "No MySQL driver found!");
+		exit(1);
+	}
+
+	// open a MySQL connection
 	if (NULL == (conn = dbi_conn_new("mysql"))) {
 		dbg(LOG_ERR, "Error connecting to MySQL");
 		exit(1);
@@ -58,6 +69,15 @@ void tagsistant_db_connection()
 	dbi_conn_set_option(conn, "dbname",		"tagsistant");
 	dbi_conn_set_option(conn, "encoding",	"UTF-8");
 
+	// list available options
+	const char *option = NULL;
+	counter = 0;
+	dbg(LOG_INFO, "Connection settings: ");
+	while ((option = dbi_conn_get_option_list(conn, option)) != NULL) {
+		counter++;
+		dbg(LOG_INFO, "  Option #%d: %s = %s", counter, option, dbi_conn_get_option(conn, option));
+	}
+	
 	if (dbi_conn_connect(conn) < 0) {
 		const char *errmsg;
 		(void) dbi_conn_error(conn, &errmsg);
@@ -75,12 +95,14 @@ void tagsistant_db_connection()
 	tagsistant_query("create index relations_index on relations (tag1_id, tag2_id);", NULL, NULL);
 	tagsistant_query("create index relations_type_index on relations (relation);", NULL, NULL);
 
+#if 0
 	// do some testing
 	tagsistant_query("insert into tags (tagname) values (\"testtag1\")", NULL, NULL);
 	tagsistant_query("insert into tags (tagname) values (\"testtag2\")", NULL, NULL);
 	int i = 0;
 	tagsistant_query("select tag_id from tags where tagname = \"testtag2\"", return_integer, &i);
 	dbg(LOG_INFO, "Preliminary test: id should be 2 and is %d", i);
+#endif
 }
 
 /**
@@ -102,15 +124,27 @@ void tagsistant_db_connection()
 int real_do_sql(char *statement, int (*callback)(void *, dbi_result),
 	void *firstarg, char *file, unsigned int line)
 {
-	// check if connection is open
+	// check if statement is not null
+	if (NULL == statement) {
+		dbg(LOG_ERR, "Null SQL statement");
+		return 0;
+	}
+
+	// check if connection has been created
 	if (NULL == conn) {
 		dbg(LOG_ERR, "ERROR! DBI connection was not initialized!");
 		return 0;
 	}
 
-	// check if statement is not null
-	if (NULL == statement) {
-		dbg(LOG_ERR, "Null SQL statement");
+	int counter = 0;
+	while (counter < 3) {
+		if (dbi_conn_ping(conn)) break;
+		dbi_conn_connect(conn);
+		counter++;
+	}
+
+	if (!dbi_conn_ping(conn)) {
+		dbg(LOG_ERR, "ERROR! DBI Connection has gone!");
 		return 0;
 	}
 
@@ -204,16 +238,9 @@ int return_string(void *return_string, dbi_result result)
 
 int get_exact_tag_id(const gchar *tagname)
 {
-	int id;
+	int id = 0;
 	tagsistant_query("select tag_id from tags where tagname = \"%s\";", return_integer, &id, tagname);
 	return id;
-}
-
-int sql_tag_exists(const gchar* tagname)
-{
-	int exists;
-	tagsistant_query("select tag_id from tags where tagname = \"%s\";", return_integer, &exists, tagname);
-	return exists;
 }
 
 void sql_create_tag(const gchar *tagname)

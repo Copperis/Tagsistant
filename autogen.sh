@@ -131,7 +131,11 @@ else
   echo Skipping configure process.
 fi
 
+echo "Riconfiguro libtool"
+cp libtool libtool.back
 sed -i -e 's/ECHO="echo"/echo="echo"/' libtool
+echo "Fatto! Differenze:"
+diff libtool libtool.back
 
 #aclocal
 #autoheader
