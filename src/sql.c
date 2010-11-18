@@ -33,18 +33,54 @@ dbi_conn conn;
 void tagsistant_db_connection()
 {
 	dbi_initialize(NULL);
-	conn = dbi_conn_new("mysql");
 
-	dbi_conn_set_option(conn, "host", "localhost");
-	dbi_conn_set_option(conn, "username", "tagsistant");
-	dbi_conn_set_option(conn, "password", "tagsistant");
-	dbi_conn_set_option(conn, "dbname", "tagsistant");
-	dbi_conn_set_option(conn, "encoding", "UTF-8");
+	dbg(LOG_INFO, "Available drivers:");
+	dbi_driver driver = NULL;
+	int driver_counter = 0;
+	while ((driver = dbi_driver_list(driver)) != NULL) {
+		driver_counter++;
+		dbg(LOG_INFO, "  Driver #%d: %s - %s", driver_counter, dbi_driver_get_name(driver), dbi_driver_get_filename(driver));
+	}
 
-	if (dbi_conn_connect(conn) < 0) {
-		dbg(LOG_ERR, "Could not connect to MySQL. Please check the option settings\n");
+	if (!driver_counter) {
+		dbg(LOG_ERR, "No SQL driver found! Exiting now.");
 		exit(1);
 	}
+
+	if (NULL == (conn = dbi_conn_new("mysql"))) {
+		dbg(LOG_ERR, "Error connecting to MySQL");
+		exit(1);
+	}
+
+	dbi_conn_set_option(conn, "host",		"localhost");
+	dbi_conn_set_option(conn, "username",	"tagsistant");
+	dbi_conn_set_option(conn, "password",	"tagsistant");
+	dbi_conn_set_option(conn, "dbname",		"tagsistant");
+	dbi_conn_set_option(conn, "encoding",	"UTF-8");
+
+	if (dbi_conn_connect(conn) < 0) {
+		const char *errmsg;
+		(void) dbi_conn_error(conn, &errmsg);
+		dbg(LOG_ERR, "Could not connect to MySQL: %s. Please check the option settings", errmsg);
+		exit(1);
+	}
+
+	dbg(LOG_INFO, "MySQL: Connection established, initializing database");
+
+	tagsistant_query("create table if not exists tags (tag_id integer primary key auto_increment not null, tagname varchar(65) unique not null);", NULL, NULL);
+	tagsistant_query("create table if not exists objects (object_id integer not null primary key auto_increment, objectname varchar(255) not null, path varchar(1000) unique not null);", NULL, NULL);
+	tagsistant_query("create table if not exists tagging (object_id integer not null, tag_id integer not null, constraint Tagging_key unique key (object_id, tag_id));", NULL, NULL);
+	tagsistant_query("create table if not exists relations(relation_id integer primary key auto_increment not null, tag1_id integer not null, relation varchar(32) not null, tag2_id integer not null);", NULL, NULL);
+	tagsistant_query("create index tags_index on tagging (object_id, tag_id);", NULL, NULL);
+	tagsistant_query("create index relations_index on relations (tag1_id, tag2_id);", NULL, NULL);
+	tagsistant_query("create index relations_type_index on relations (relation);", NULL, NULL);
+
+	// do some testing
+	tagsistant_query("insert into tags (tagname) values (\"testtag1\")", NULL, NULL);
+	tagsistant_query("insert into tags (tagname) values (\"testtag2\")", NULL, NULL);
+	int i = 0;
+	tagsistant_query("select tag_id from tags where tagname = \"testtag2\"", return_integer, &i);
+	dbg(LOG_INFO, "Preliminary test: id should be 2 and is %d", i);
 }
 
 /**
@@ -100,7 +136,9 @@ int real_do_sql(char *statement, int (*callback)(void *, dbi_result),
 		return rows;
 	}
 
-	dbg(LOG_ERR, "SQL ERROR: %s", "PUT HERE REAL SQL ERROR");
+	const char *errmsg;
+	(void) dbi_conn_error(conn, &errmsg);
+	dbg(LOG_ERR, "SQL Error: %s.", errmsg);
 	return -1;
 }
 
@@ -157,7 +195,7 @@ int return_string(void *return_string, dbi_result result)
 {
 	gchar **result_string = (gchar **) return_string;
 
-	*result_string = g_strdup(dbi_result_get_string_idx(result, 1));
+	*result_string = dbi_result_get_string_copy_idx(result, 1);
 
 	dbg(LOG_INFO, "Returning string: %s", *result_string);
 
@@ -171,10 +209,10 @@ int get_exact_tag_id(const gchar *tagname)
 	return id;
 }
 
-gboolean sql_tag_exists(const gchar* tagname)
+int sql_tag_exists(const gchar* tagname)
 {
-	gboolean exists;
-	tagsistant_query("select count(tagname) from tags where tagname = \"%s\";", return_integer, &exists, tagname);
+	int exists;
+	tagsistant_query("select tag_id from tags where tagname = \"%s\";", return_integer, &exists, tagname);
 	return exists;
 }
 

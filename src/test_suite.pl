@@ -25,7 +25,7 @@ my $BIN = "./tagsistant";
 my $MPOINT = "$ENV{HOME}/tags";
 my $MP = $MPOINT;
 my $REPOSITORY = "$ENV{HOME}/.tagsistant_test";
-my $MCMD = "$BIN -d -v --repository=$REPOSITORY $MPOINT 2>&1";
+my $MCMD = "$BIN -s -d -v --repository=$REPOSITORY $MPOINT 2>&1";
 
 # umount command
 my $FUSERMOUNT = `which fusermount` || die("No fusermount found!\n");

@@ -43,8 +43,13 @@
 
 #ifdef _DEBUG_STDERR
 #include <stdio.h>
-#define dbg(facility,string,...)\
-	fprintf(stderr,"TS> "), fprintf(stderr,string,## __VA_ARGS__), fprintf(stderr," (@%s:%d)\n", __FILE__, __LINE__);
+#define dbg(facility,string,...) {\
+	fprintf(stderr,"TS> ");\
+	if ((*string != '/') && (*string != '\\')) fprintf(stderr,"| ");\
+	fprintf(stderr,string,## __VA_ARGS__);\
+	fprintf(stderr," (@%s:%d)\n", __FILE__, __LINE__);\
+	if (*string == '\\') fprintf(stderr,"TS> \n");\
+}
 #endif
 
 #ifdef _TIME_PROFILE

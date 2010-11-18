@@ -24,6 +24,37 @@ extern struct tagsistant tagsistant;
 
 #if TAGSISTANT_SQL_BACKEND == TAGSISTANT_SQLITE_BACKEND
 
+void tagsistant_db_connection()
+{
+	/* check if db exists or has to be created */
+	struct stat dbstat;
+	int db_exists = lstat(tagsistant.tags, &dbstat);
+
+	/* open connection to sqlite database */
+	int result = sqlite3_open(tagsistant.tags, &(tagsistant.dbh));
+
+	/* check if open has been fullfilled */
+	if (result != SQLITE_OK) {
+		dbg(LOG_ERR, "Error [%d] opening database %s", result, tagsistant.tags);
+		dbg(LOG_ERR, "%s", sqlite3_errmsg(tagsistant.dbh));
+		exit(1);
+	}
+
+	/* if db does not existed, some SQL init is needed */
+	if (db_exists != 0) {
+		tagsistant_query("create table if not exists tags (tag_id integer primary key autoincrement not null, tagname varchar(65) unique not null);", NULL, NULL);\
+		tagsistant_query("create table if not exists objects (object_id integer not null primary key autoincrement, objectname text(255) not null, path text(1024) unique not null);", NULL, NULL);\
+		tagsistant_query("create table if not exists tagging (object_id integer not null, tag_id not null, constraint Tagging_key unique (object_id, tag_id));", NULL, NULL);\
+		tagsistant_query("create table if not exists relations(relation_id integer primary key autoincrement not null, tag1_id integer not null, relation varchar not null, tag2_id integer not null);", NULL, NULL);\
+		tagsistant_query("create index if not exists tags_index on tagging (object_id, tag_id);", NULL, NULL);\
+		tagsistant_query("create index if not exists relations_index on relations (tag1_id, tag2_id);", NULL, NULL);\
+		tagsistant_query("create index if not exists relations_type_index on relations (relation);", NULL, NULL);\
+	}
+
+	/* tagsistant.dbh is no longer used as a permanent connection */
+	sqlite3_close(tagsistant.dbh);
+}
+
 /**
  * Perform SQL queries. This function was added to avoid database opening
  * duplication and better handle SQLite interfacement. If dbh is passed
@@ -185,9 +216,9 @@ int get_exact_tag_id(const gchar *tagname)
 	return id;
 }
 
-gboolean sql_tag_exists(const gchar* tagname)
+int sql_tag_exists(const gchar* tagname)
 {
-	gboolean exists;
+	int exists;
 	tagsistant_query("select count(tagname) from tags where tagname = \"%s\";", return_integer, &exists, tagname);
 	return exists;
 }

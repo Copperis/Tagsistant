@@ -36,8 +36,6 @@
 
 #if TAGSISTANT_SQL_BACKEND == TAGSISTANT_SQLITE_BACKEND // <-------------- sqlite backend ------------------------------------------------------------
 
-#define tagsistant_db_connection {}
-
 /* execute SQL query adding file:line coords */
 #define  do_sql(dbh, statement, callback, firstarg)\
 	real_do_sql(dbh, statement, callback, firstarg, __FILE__, (unsigned int) __LINE__)
@@ -55,8 +53,6 @@ extern int return_integer(void *return_integer, int argc, char **argv, char **az
 extern int return_string(void *return_string, int argc, char **argv, char **azColName);
 
 #elif TAGSISTANT_SQL_BACKEND == TAGSISTANT_MYSQL_BACKEND // <-------------- mysql backend ------------------------------------------------------------
-
-extern void tagsistant_db_connection();
 
 /* execute SQL query adding file:line coords */
 #define  do_sql(statement, callback, firstarg)\
@@ -76,23 +72,15 @@ extern int return_integer(void *return_integer, dbi_result result);
 
 #endif
 
+extern void tagsistant_db_connection();
+
 extern int get_exact_tag_id(const gchar *tagname);
 
-extern gboolean sql_tag_exists(const gchar* tagname);
+extern int sql_tag_exists(const gchar* tagname);
 
 /***************\
  * SQL QUERIES *
 \***************/
-
-#define tagsistant_init_database() {\
-	tagsistant_query("create table tags (tag_id integer primary key autoincrement not null, tagname varchar(65) unique not null);", NULL, NULL);\
-	tagsistant_query("create table objects (object_id integer not null primary key autoincrement, objectname text(255) not null, path text(1024) unique not null);", NULL, NULL);\
-	tagsistant_query("create table tagging (object_id integer not null, tag_id not null, constraint Tagging_key unique (object_id, tag_id));", NULL, NULL);\
-	tagsistant_query("create table relations(relation_id integer primary key autoincrement not null, tag1_id integer not null, relation varchar not null, tag2_id integer not null);", NULL, NULL);\
-	tagsistant_query("create index tags_index on tagging (object_id, tag_id);", NULL, NULL);\
-	tagsistant_query("create index relations_index on relations (tag1_id, tag2_id);", NULL, NULL);\
-	tagsistant_query("create index relations_type_index on relations (relation);", NULL, NULL);\
-}
 
 extern void sql_create_tag(const gchar *tagname);
 extern tagsistant_id sql_get_tag_id(const gchar *tagname);
