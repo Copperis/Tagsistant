@@ -18,18 +18,40 @@ use threads::shared;
 use Errno;
 use POSIX;
 
-if ((defined $ARGV[0]) and ($ARGV[0] eq "--mysql")) {
-	system("echo 'drop table objects; drop table tags; drop table tagging; drop table relations;' | mysql -u tagsistant --password='tagsistant' tagsistant");
+my $driver = undef;
+
+if (defined $ARGV[0]) {
+	if ($ARGV[0] eq "--mysql") {
+		$driver = "mysql";
+		system("echo 'drop table objects; drop table tags; drop table tagging; drop table relations;' | mysql -u tagsistant --password='tagsistant' tagsistant");
+	} elsif (($ARGV[0] eq "--sqlite") || ($ARGV[0] eq "--sqlite3")) {
+		$driver = "sqlite3";
+	} else {
+		die("Please specify --mysql or --sqlite3");
+	}
+} else {
+	die("Please specify --mysql or --sqlite3");
 }
 
 my $FUSE_GROUP = "fuse";
+
+print "Testing with $driver driver\n";
+sleep 2;
 
 # mount command
 my $BIN = "./tagsistant";
 my $MPOINT = "$ENV{HOME}/tags";
 my $MP = $MPOINT;
 my $REPOSITORY = "$ENV{HOME}/.tagsistant_test";
-my $MCMD = "$BIN --db=mysql:localhost:tagsistant:tagsistant:tagsistant -s -d -v --repository=$REPOSITORY $MPOINT 2>&1";
+my $MCMD = "$BIN -s -d -v --repository=$REPOSITORY ";
+if ($driver eq "mysql") {
+	$MCMD .= "--db=mysql:localhost:tagsistant:tagsistant:tagsistant ";
+} elsif ($driver eq "sqlite3") {
+	$MCMD .= "--db=sqlite3";
+} else {
+	die("No driver!");
+}
+$MCMD .= " $MPOINT 2>&1";
 
 # umount command
 my $FUSERMOUNT = `which fusermount` || die("No fusermount found!\n");

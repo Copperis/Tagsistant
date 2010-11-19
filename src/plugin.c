@@ -109,7 +109,7 @@ int process(int file_id)
 
 	// load the filename from the database
 	char *filename = NULL;
-	tagsistant_query("select filename from file where file_id = %d", return_string, &filename, file_id);
+	tagsistant_query("select objectname from objects where object_id = %d", return_string, &filename, file_id);
 	if (filename == NULL) {
 		dbg(LOG_INFO, "process() unable to locate filename with id %u", file_id);
 		return 0;

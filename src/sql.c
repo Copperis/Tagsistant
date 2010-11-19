@@ -25,6 +25,15 @@ extern struct tagsistant tagsistant;
 /* DBI connection handler used by subsequent calls to dbi_* functions */
 dbi_conn conn;
 
+/* DBI driver family */
+int tagsistant_database_driver = TAGSISTANT_NULL_BACKEND;
+
+/**
+ * check if requested driver is provided by local DBI installation
+ * 
+ * @param driver_name string with the name of the driver
+ * @return 1 if exists, 0 otherwise
+ */
 int tagsistant_driver_is_available(const char *driver_name)
 {
 	int counter = 0;
@@ -37,7 +46,7 @@ int tagsistant_driver_is_available(const char *driver_name)
 	while ((driver = dbi_driver_list(driver)) != NULL) {
 		counter++;
 		dbg(LOG_INFO, "  Driver #%d: %s - %s", counter, dbi_driver_get_name(driver), dbi_driver_get_filename(driver));
-		if (strcmp(dbi_driver_get_name(driver), driver_name) == 0) {
+		if (g_strcmp0(dbi_driver_get_name(driver), driver_name) == 0) {
 			driver_found = 1;
 		}
 	}
@@ -55,6 +64,9 @@ int tagsistant_driver_is_available(const char *driver_name)
 	return 1;
 }
 
+/**
+ * Print into log file SQL connection options
+ */
 void tagsistant_log_connection_options()
 {
 	const char *option = NULL;
@@ -66,27 +78,42 @@ void tagsistant_log_connection_options()
 	}
 }
 
-/* DBI driver family */
-int tagsistant_database_driver = TAGSISTANT_NULL_BACKEND;
-
+/**
+ * Parse command line options, create connection object,
+ * start the connection and finally create database schema
+ */
 int tagsistant_db_connection()
 {
+	// init DBI library
 	dbi_initialize(NULL);
 
 	// if no database option has been passed, use default SQLite3
 	if (strlen(tagsistant.dboptions) == 0) {
 		tagsistant_database_driver = TAGSISTANT_DBI_SQLITE_BACKEND;
 		if (!tagsistant_driver_is_available("sqlite3")) exit(1);
+		dbg(LOG_INFO, "Using default driver: sqlite3");
 		return TAGSISTANT_DBI_SQLITE_BACKEND;
 	}
 
-	gchar **splitted = g_strsplit(tagsistant.dboptions, "/", 6); /* split up to 6 tokens */
+	dbg(LOG_INFO, "Database options: %s", tagsistant.dboptions);
 
-	if (strcmp(splitted[0], "mysql")) {
+	// split database option value
+	gchar **splitted = g_strsplit(tagsistant.dboptions, ":", 6); /* split up to 6 tokens */
+
+	dbg(LOG_INFO, "Database driver: %s", splitted[0]);
+
+	// initialize different drivers
+	if (g_strcmp0(splitted[0], "mysql") == 0) {
 		tagsistant_database_driver = TAGSISTANT_DBI_MYSQL_BACKEND;
 		if (!tagsistant_driver_is_available("mysql")) exit(1);
 
-		dbg(LOG_INFO, "Database driver used: sqlite3_native");
+		dbg(LOG_INFO, "Database driver used: mysql");
+
+		// create connection
+		if (NULL == (conn = dbi_conn_new("mysql"))) {
+			dbg(LOG_ERR, "Error creating MySQL connection");
+			exit(1);
+		}
 
 		// set connection options
 		if (strlen(splitted[1])) {
@@ -102,17 +129,23 @@ int tagsistant_db_connection()
 					}
 				} else {
 					dbi_conn_set_option(conn, "username", "tagsistant");
+					dbi_conn_set_option(conn, "password", "tagsistant");
 				}
 			} else {
 				dbi_conn_set_option(conn, "dbname", "tagsistant");
+				dbi_conn_set_option(conn, "username", "tagsistant");
+				dbi_conn_set_option(conn, "password", "tagsistant");
 			}
 		} else {
 			dbi_conn_set_option(conn, "host", "localhost");
+			dbi_conn_set_option(conn, "dbname", "tagsistant");
+			dbi_conn_set_option(conn, "username", "tagsistant");
+			dbi_conn_set_option(conn, "password", "tagsistant");
 		}
 
 		dbi_conn_set_option(conn, "encoding",	"UTF-8");
 
-	} else if (strcmp(splitted[0], "sqlite3")) {
+	} else if ((g_strcmp0(splitted[0], "sqlite3") == 0) || (g_strcmp0(splitted[0], "sqlite"))) {
 		tagsistant_database_driver = TAGSISTANT_DBI_SQLITE_BACKEND;
 		if (!tagsistant_driver_is_available("sqlite3")) exit(1);
 
@@ -128,15 +161,15 @@ int tagsistant_db_connection()
 		dbi_conn_set_option(conn, "dbname",			"tags.sql");
 		dbi_conn_set_option(conn, "sqlite3_dbdir",	tagsistant.repository);
 
-	} else if (strcmp(splitted[0], "sqlite3_native")) {
+	} else if (g_strcmp0(splitted[0], "sqlite3_native") == 0) {
 		tagsistant_database_driver = TAGSISTANT_SQLITE_BACKEND;
-
 		dbg(LOG_INFO, "Database driver used: sqlite3_native");
 
 	} else {
 		dbg(LOG_ERR, "No or wrong database family specified!");
 	}
 
+	// free DBI option splitted array
 	g_strfreev(splitted);
 
 	// list configured options
@@ -144,17 +177,15 @@ int tagsistant_db_connection()
 
 	// try to connect
 	if (dbi_conn_connect(conn) < 0) {
-		const char **errmsg = NULL;
-		if (dbi_conn_error(conn, errmsg)) {
-			dbg(LOG_ERR, "Could not connect to DB: %s. Please check the --db settings", *errmsg);
-		} else {
-			dbg(LOG_ERR, "Could not connect to DB. Please check the --db settings");
-		}
+		// const char **errmsg = NULL;
+		int error = dbi_conn_error(conn, NULL);
+		dbg(LOG_ERR, "Could not connect to DB (error %d). Please check the --db settings", error);
 		exit(1);
 	}
 
 	dbg(LOG_INFO, "SQL connection established, initializing database");
 
+	// create database schema
 	switch (tagsistant_database_driver) {
 		case TAGSISTANT_SQLITE_BACKEND:
 		case TAGSISTANT_DBI_SQLITE_BACKEND:
@@ -182,6 +213,33 @@ int tagsistant_db_connection()
 	}
 
 	return tagsistant_database_driver;
+}
+
+// start a transaction
+void tagsistant_start_transaction()
+{
+	switch (tagsistant_database_driver) {
+		case TAGSISTANT_DBI_SQLITE_BACKEND:
+		case TAGSISTANT_SQLITE_BACKEND:
+			tagsistant_query("begin transaction", NULL, NULL);
+			break;
+
+		case TAGSISTANT_DBI_MYSQL_BACKEND:
+			tagsistant_query("start transaction", NULL, NULL);
+			break;
+	}
+}
+
+// commit a transaction
+void tagsistant_commit_transaction()
+{
+	tagsistant_query("commit", NULL, NULL);
+}
+
+// rollback a transaction
+void tagsistant_rollback_transaction()
+{
+	tagsistant_query("rollback", NULL, NULL);
 }
 
 #if TAGSISTANT_SQL_BACKEND != TAGSISTANT_SQLITE_BACKEND
@@ -277,17 +335,23 @@ int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)
 	return res;
 }
 
+/**
+ * return last insert row ID
+ */
 tagsistant_id tagsistant_last_insert_id()
 {
 	tagsistant_id ID = 0;
 
-#if TAGSISTANT_SQL_BACKEND == TAGSISTANT_SQLITE_BACKEND
-	tagsistant_query("SELECT last_insert_rowid() as result", return_integer, &ID);
-#elif TAGSISTANT_SQL_BACKEND == TAGSISTANT_DBI_SQLITE_BACKEND
-	tagsistant_query("SELECT last_insert_rowid() as result", return_integer, &ID);
-#elif TAGSISTANT_SQL_BACKEND == TAGSISTANT_DBI_MYSQL_BACKEND
-	tagsistant_query("SELECT last_insert_id() as result", return_integer, &ID);
-#endif
+	switch (tagsistant_database_driver) {
+		case TAGSISTANT_SQLITE_BACKEND:
+		case TAGSISTANT_DBI_SQLITE_BACKEND:
+			tagsistant_query("SELECT last_insert_rowid() ", return_integer, &ID);
+			break;
+
+		case TAGSISTANT_DBI_MYSQL_BACKEND:
+			tagsistant_query("SELECT last_insert_id() ", return_integer, &ID);
+			break;
+	}
 
 	return ID;
 }
@@ -302,8 +366,21 @@ tagsistant_id tagsistant_last_insert_id()
 int return_integer(void *return_integer, dbi_result result)
 {
 	uint32_t *buffer = (uint32_t *) return_integer;
+	*buffer = 0;
 
-	*buffer = dbi_result_get_uint(result, "result");
+#if 0
+	switch (tagsistant_database_driver) {
+		case TAGSISTANT_DBI_MYSQL_BACKEND:
+			*buffer = dbi_result_get_uint(result, "result");
+			break;
+
+		case TAGSISTANT_DBI_SQLITE_BACKEND:
+			*buffer = dbi_result_get_uint_idx(result, 1);
+			break;
+	}
+#endif
+
+	*buffer = dbi_result_get_uint_idx(result, 1);
 
 	dbg(LOG_INFO, "Returning integer: %d", *buffer);
 
@@ -337,11 +414,27 @@ void sql_create_tag(const gchar *tagname)
 	tagsistant_query("insert into tags(tagname) values(\"%s\");", NULL, NULL, tagname);
 }
 
+int tagsistant_object_is_tagged(tagsistant_id object_id)
+{
+	tagsistant_id still_exists = 0;
+
+	tagsistant_query(
+		"select object_id from tagging where object_id = %d", 
+		return_integer, &still_exists, object_id);
+	
+	return (still_exists) ? 1 : 0;
+}
+
+void tagsistant_full_untag_object(tagsistant_id object_id)
+{
+	tagsistant_query("delete from tagging where object_id = %d", NULL, NULL, object_id);
+}
+
 tagsistant_id get_exact_tag_id(const gchar *tagname)
 {
-	tagsistant_id tag_id;
+	tagsistant_id tag_id = 0;
 
-	tagsistant_query("select tag_id as result from tags where tagname = \"%s\"", return_integer, &tag_id, tagname);
+	tagsistant_query("select tag_id from tags where tagname = \"%s\"", return_integer, &tag_id, tagname);
 
 	return tag_id;
 }

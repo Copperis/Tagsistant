@@ -469,16 +469,16 @@ extern gchar *query_type(querytree_t *qtree);
 	init_time_profile();\
 	start_time_profile();\
 	dbg(LOG_INFO, line, ##__VA_ARGS__);\
-	TAGSISTANT_START_TRANSACTION();\
+	tagsistant_start_transaction();\
 }
 
 #define TAGSISTANT_STOP_OK(line,...) {\
-	TAGSISTANT_COMMIT_TRANSACTION();\
+	tagsistant_commit_transaction();\
 	dbg(LOG_INFO, line, ##__VA_ARGS__);\
 }
 
 #define TAGSISTANT_STOP_ERROR(line,...) {\
-	TAGSISTANT_ROLLBACK_TRANSACTION();\
+	tagsistant_rollback_transaction();\
 	dbg(LOG_ERR, line, ##__VA_ARGS__);\
 }
 

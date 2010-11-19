@@ -68,7 +68,7 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 	//    and use its ID, otherwise create a new one
 	if (!force_create) {
 		tagsistant_query(
-			"select object_id as result from objects where objectname = \"%s\" and path = \"%s\"",
+			"select object_id from objects where objectname = \"%s\" and path = \"%s\"",
 			return_integer, &ID,
 			qtree->object_path, qtree->archive_path);
 	}
@@ -78,7 +78,12 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 			"insert into objects (objectname, path) values (\"%s\", \"-\")",
 			NULL, NULL,
 			qtree->object_path);
-		ID = tagsistant_last_insert_id();
+		tagsistant_query(
+			"select max(object_id) from objects where objectname = \"%s\" and path = \"-\"",
+			return_integer, &ID,
+			qtree->object_path);
+
+		// ID = tagsistant_last_insert_id(); // don't know why it does not work on MySQL
 	}
 
 	if (0 == ID) {
@@ -179,17 +184,18 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 	// postprocess output
 	if (QTREE_IS_TAGS(qtree)) {
 		// dbg(LOG_INFO, "getattr: last tag is %s", qtree->last_tag);
-		if (g_strcmp0(qtree->last_tag, "+") == 0) {
+		if (NULL == qtree->last_tag) {
+			// ok
+		} else if (g_strcmp0(qtree->last_tag, "+") == 0) {
 			// path ends by '+'
 			stbuf->st_ino += 1;
 			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
 			stbuf->st_nlink = 1;
 		} else if (g_strcmp0(qtree->last_tag, "=") == 0) {
+			// path ends by '='
 			stbuf->st_ino += 2;
 			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
 			stbuf->st_nlink = 1;
-		} else if (NULL == qtree->last_tag) {
-			// ok
 		} else {
 			tagsistant_id tag_id = get_exact_tag_id(qtree->last_tag);
 			if (tag_id) {
@@ -697,23 +703,16 @@ static int tagsistant_unlink(const char *path)
 			traverse_querytree(qtree, sql_untag_object, qtree->object_id);
 
 			// ...then check if it's tagged elsewhere...
-			int still_exists = 0;
-			tagsistant_query(
-				"select object_id as result from tagging where object_id = %d", 
-				return_integer, &still_exists,
-				qtree->object_id
-			);
-
 			// ...if still tagged, then avoid real unlink(): the object must survive!
-			if (still_exists) goto UNLINK_EXIT;
+			if (tagsistant_object_is_tagged(qtree->object_id))
+				goto UNLINK_EXIT;
 
 			// otherwise just delete if from the objects table and go on.
-
 		} else if (QTREE_IS_ARCHIVE(qtree)) {
 			// if the query path points to archive/, it's clear that the
 			// object is required to disappear from the filesystem, so
 			// must be erased from the tagging table.
-			tagsistant_query("delete from tagging where object_id = %d", NULL, NULL, qtree->object_id);
+			tagsistant_full_untag_object(qtree->object_id);
 		}
 
 		// wipe the object from objects table...

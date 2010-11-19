@@ -74,27 +74,11 @@ extern int return_integer(void *return_integer, dbi_result result);
 
 #endif
 
-#if TAGSISTANT_SQL_BACKEND == TAGSISTANT_SQLITE_BACKEND // <-------------- sqlite macros (native version)
-
-#	define TAGSISTANT_START_TRANSACTION()		tagsistant_query("begin transaction", NULL, NULL)
-#	define TAGSISTANT_COMMIT_TRANSACTION()		tagsistant_query("commit", NULL, NULL)
-#	define TAGSISTANT_ROLLBACK_TRANSACTION()	tagsistant_query("rollback", NULL, NULL)
-
-#elif TAGSISTANT_SQL_BACKEND == TAGSISTANT_DBI_SQLITE_BACKEND // <-------------- SQLITE macros (DBI version)
-
-#	define TAGSISTANT_START_TRANSACTION()		tagsistant_query("begin transaction", NULL, NULL)
-#	define TAGSISTANT_COMMIT_TRANSACTION()		tagsistant_query("commit", NULL, NULL)
-#	define TAGSISTANT_ROLLBACK_TRANSACTION()	tagsistant_query("rollback", NULL, NULL)
-
-#elif TAGSISTANT_SQL_BACKEND == TAGSISTANT_DBI_MYSQL_BACKEND // <------------ MYSQL macros
-
-#	define TAGSISTANT_START_TRANSACTION()		tagsistant_query("start transaction", NULL, NULL)
-#	define TAGSISTANT_COMMIT_TRANSACTION()		tagsistant_query("commit", NULL, NULL)
-#	define TAGSISTANT_ROLLBACK_TRANSACTION()	tagsistant_query("rollback", NULL, NULL)
-
-#endif
-
 extern int tagsistant_db_connection();
+
+extern void tagsistant_start_transaction();
+extern void tagsistant_commit_transaction();
+extern void tagsistant_rollback_transaction();
 
 /***************\
  * SQL QUERIES *
@@ -110,3 +94,5 @@ extern tagsistant_id tagsistant_last_insert_id();
 extern tagsistant_id get_exact_tag_id(const gchar *tagname);
 #define sql_tag_exists(tagname) get_exact_tag_id(tagname)
 #define sql_get_tag_id(tagname) get_exact_tag_id(tagname)
+extern int tagsistant_object_is_tagged(tagsistant_id object_id);
+extern void tagsistant_full_untag_object(tagsistant_id object_id);
