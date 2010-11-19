@@ -25,85 +25,166 @@ extern struct tagsistant tagsistant;
 /* DBI connection handler used by subsequent calls to dbi_* functions */
 dbi_conn conn;
 
-#if TAGSISTANT_SQL_BACKEND == TAGSISTANT_MYSQL_BACKEND
-
-/**
- * opens DBI connection to MySQL
- */
-void tagsistant_db_connection()
+int tagsistant_driver_is_available(const char *driver_name)
 {
-	dbi_initialize(NULL);
+	int counter = 0;
+	int driver_found = 0;
+	dbi_driver driver = NULL;
 
 	// list available drivers
 	dbg(LOG_INFO, "Available drivers:");
-	dbi_driver driver = NULL;
-	int counter = 0;
-	int driver_found = 0;
+
 	while ((driver = dbi_driver_list(driver)) != NULL) {
 		counter++;
 		dbg(LOG_INFO, "  Driver #%d: %s - %s", counter, dbi_driver_get_name(driver), dbi_driver_get_filename(driver));
-		if (strcmp(dbi_driver_get_name(driver), "mysql") == 0) {
+		if (strcmp(dbi_driver_get_name(driver), driver_name) == 0) {
 			driver_found = 1;
 		}
 	}
 
 	if (!counter) {
 		dbg(LOG_ERR, "No SQL driver found! Exiting now.");
-		exit(1);
+		return 0;
 	}
 
 	if (!driver_found) {
-		dbg(LOG_ERR, "No MySQL driver found!");
-		exit(1);
+		dbg(LOG_ERR, "No %s driver found!", driver_name);
+		return 0;
 	}
 
-	// open a MySQL connection
-	if (NULL == (conn = dbi_conn_new("mysql"))) {
-		dbg(LOG_ERR, "Error connecting to MySQL");
-		exit(1);
-	}
+	return 1;
+}
 
-	dbi_conn_set_option(conn, "host",		"localhost");
-	dbi_conn_set_option(conn, "username",	"tagsistant");
-	dbi_conn_set_option(conn, "password",	"tagsistant");
-	dbi_conn_set_option(conn, "dbname",		"tagsistant");
-	dbi_conn_set_option(conn, "encoding",	"UTF-8");
-
-	// list available options
+void tagsistant_log_connection_options()
+{
 	const char *option = NULL;
-	counter = 0;
+	int counter = 0;
 	dbg(LOG_INFO, "Connection settings: ");
 	while ((option = dbi_conn_get_option_list(conn, option)) != NULL) {
 		counter++;
 		dbg(LOG_INFO, "  Option #%d: %s = %s", counter, option, dbi_conn_get_option(conn, option));
 	}
-	
+}
+
+/* DBI driver family */
+int tagsistant_database_driver = TAGSISTANT_NULL_BACKEND;
+
+int tagsistant_db_connection()
+{
+	dbi_initialize(NULL);
+
+	// if no database option has been passed, use default SQLite3
+	if (strlen(tagsistant.dboptions) == 0) {
+		tagsistant_database_driver = TAGSISTANT_DBI_SQLITE_BACKEND;
+		if (!tagsistant_driver_is_available("sqlite3")) exit(1);
+		return TAGSISTANT_DBI_SQLITE_BACKEND;
+	}
+
+	gchar **splitted = g_strsplit(tagsistant.dboptions, "/", 6); /* split up to 6 tokens */
+
+	if (strcmp(splitted[0], "mysql")) {
+		tagsistant_database_driver = TAGSISTANT_DBI_MYSQL_BACKEND;
+		if (!tagsistant_driver_is_available("mysql")) exit(1);
+
+		dbg(LOG_INFO, "Database driver used: sqlite3_native");
+
+		// set connection options
+		if (strlen(splitted[1])) {
+			dbi_conn_set_option(conn, "host", g_strdup(splitted[1]));
+			if (strlen(splitted[2])) {
+				dbi_conn_set_option(conn, "dbname", g_strdup(splitted[2]));
+				if (strlen(splitted[3])) {
+					dbi_conn_set_option(conn, "username", g_strdup(splitted[3]));
+					if (strlen(splitted[4])) {
+						dbi_conn_set_option(conn, "password", g_strdup(splitted[4]));
+					} else {
+						dbi_conn_set_option(conn, "password", "tagsistant");
+					}
+				} else {
+					dbi_conn_set_option(conn, "username", "tagsistant");
+				}
+			} else {
+				dbi_conn_set_option(conn, "dbname", "tagsistant");
+			}
+		} else {
+			dbi_conn_set_option(conn, "host", "localhost");
+		}
+
+		dbi_conn_set_option(conn, "encoding",	"UTF-8");
+
+	} else if (strcmp(splitted[0], "sqlite3")) {
+		tagsistant_database_driver = TAGSISTANT_DBI_SQLITE_BACKEND;
+		if (!tagsistant_driver_is_available("sqlite3")) exit(1);
+
+		dbg(LOG_INFO, "Database driver used: sqlite3");
+
+		// create connection
+		if (NULL == (conn = dbi_conn_new("sqlite3"))) {
+			dbg(LOG_ERR, "Error connecting to SQLite3");
+			exit(1);
+		}
+
+		// set connection options
+		dbi_conn_set_option(conn, "dbname",			"tags.sql");
+		dbi_conn_set_option(conn, "sqlite3_dbdir",	tagsistant.repository);
+
+	} else if (strcmp(splitted[0], "sqlite3_native")) {
+		tagsistant_database_driver = TAGSISTANT_SQLITE_BACKEND;
+
+		dbg(LOG_INFO, "Database driver used: sqlite3_native");
+
+	} else {
+		dbg(LOG_ERR, "No or wrong database family specified!");
+	}
+
+	g_strfreev(splitted);
+
+	// list configured options
+	tagsistant_log_connection_options();
+
+	// try to connect
 	if (dbi_conn_connect(conn) < 0) {
-		const char *errmsg;
-		(void) dbi_conn_error(conn, &errmsg);
-		dbg(LOG_ERR, "Could not connect to MySQL: %s. Please check the option settings", errmsg);
+		const char **errmsg = NULL;
+		if (dbi_conn_error(conn, errmsg)) {
+			dbg(LOG_ERR, "Could not connect to DB: %s. Please check the --db settings", *errmsg);
+		} else {
+			dbg(LOG_ERR, "Could not connect to DB. Please check the --db settings");
+		}
 		exit(1);
 	}
 
-	dbg(LOG_INFO, "MySQL: Connection established, initializing database");
+	dbg(LOG_INFO, "SQL connection established, initializing database");
 
-	tagsistant_query("create table if not exists tags (tag_id integer primary key auto_increment not null, tagname varchar(65) unique not null);", NULL, NULL);
-	tagsistant_query("create table if not exists objects (object_id integer not null primary key auto_increment, objectname varchar(255) not null, path varchar(1000) unique not null);", NULL, NULL);
-	tagsistant_query("create table if not exists tagging (object_id integer not null, tag_id integer not null, constraint Tagging_key unique key (object_id, tag_id));", NULL, NULL);
-	tagsistant_query("create table if not exists relations(relation_id integer primary key auto_increment not null, tag1_id integer not null, relation varchar(32) not null, tag2_id integer not null);", NULL, NULL);
-	tagsistant_query("create index tags_index on tagging (object_id, tag_id);", NULL, NULL);
-	tagsistant_query("create index relations_index on relations (tag1_id, tag2_id);", NULL, NULL);
-	tagsistant_query("create index relations_type_index on relations (relation);", NULL, NULL);
+	switch (tagsistant_database_driver) {
+		case TAGSISTANT_SQLITE_BACKEND:
+		case TAGSISTANT_DBI_SQLITE_BACKEND:
+			tagsistant_query("create table if not exists tags (tag_id integer primary key autoincrement not null, tagname varchar(65) unique not null);", NULL, NULL);\
+			tagsistant_query("create table if not exists objects (object_id integer not null primary key autoincrement, objectname text(255) not null, path text(1024) unique not null);", NULL, NULL);\
+			tagsistant_query("create table if not exists tagging (object_id integer not null, tag_id not null, constraint Tagging_key unique (object_id, tag_id));", NULL, NULL);\
+			tagsistant_query("create table if not exists relations(relation_id integer primary key autoincrement not null, tag1_id integer not null, relation varchar not null, tag2_id integer not null);", NULL, NULL);\
+			tagsistant_query("create index if not exists tags_index on tagging (object_id, tag_id);", NULL, NULL);\
+			tagsistant_query("create index if not exists relations_index on relations (tag1_id, tag2_id);", NULL, NULL);\
+			tagsistant_query("create index if not exists relations_type_index on relations (relation);", NULL, NULL);\
+			break;
 
-#if 0
-	// do some testing
-	tagsistant_query("insert into tags (tagname) values (\"testtag1\")", NULL, NULL);
-	tagsistant_query("insert into tags (tagname) values (\"testtag2\")", NULL, NULL);
-	int i = 0;
-	tagsistant_query("select tag_id from tags where tagname = \"testtag2\"", return_integer, &i);
-	dbg(LOG_INFO, "Preliminary test: id should be 2 and is %d", i);
-#endif
+		case TAGSISTANT_DBI_MYSQL_BACKEND:
+			tagsistant_query("create table if not exists tags (tag_id integer primary key auto_increment not null, tagname varchar(65) unique not null);", NULL, NULL);
+			tagsistant_query("create table if not exists objects (object_id integer not null primary key auto_increment, objectname varchar(255) not null, path varchar(1000) unique not null);", NULL, NULL);
+			tagsistant_query("create table if not exists tagging (object_id integer not null, tag_id integer not null, constraint Tagging_key unique key (object_id, tag_id));", NULL, NULL);
+			tagsistant_query("create table if not exists relations(relation_id integer primary key auto_increment not null, tag1_id integer not null, relation varchar(32) not null, tag2_id integer not null);", NULL, NULL);
+			tagsistant_query("create index tags_index on tagging (object_id, tag_id);", NULL, NULL);
+			tagsistant_query("create index relations_index on relations (tag1_id, tag2_id);", NULL, NULL);
+			tagsistant_query("create index relations_type_index on relations (relation);", NULL, NULL);
+			break;
+
+		default:
+			break;
+	}
+
+	return tagsistant_database_driver;
 }
+
+#if TAGSISTANT_SQL_BACKEND != TAGSISTANT_SQLITE_BACKEND
 
 /**
  * Perform SQL queries. This function was added to avoid database opening
@@ -196,6 +277,21 @@ int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)
 	return res;
 }
 
+tagsistant_id tagsistant_last_insert_id()
+{
+	tagsistant_id ID = 0;
+
+#if TAGSISTANT_SQL_BACKEND == TAGSISTANT_SQLITE_BACKEND
+	tagsistant_query("SELECT last_insert_rowid() as result", return_integer, &ID);
+#elif TAGSISTANT_SQL_BACKEND == TAGSISTANT_DBI_SQLITE_BACKEND
+	tagsistant_query("SELECT last_insert_rowid() as result", return_integer, &ID);
+#elif TAGSISTANT_SQL_BACKEND == TAGSISTANT_DBI_MYSQL_BACKEND
+	tagsistant_query("SELECT last_insert_id() as result", return_integer, &ID);
+#endif
+
+	return ID;
+}
+
 /**
  * SQL callback. Return an integer from a query
  *
@@ -207,7 +303,7 @@ int return_integer(void *return_integer, dbi_result result)
 {
 	uint32_t *buffer = (uint32_t *) return_integer;
 
-	*buffer = dbi_result_get_uint_idx(result, 1);
+	*buffer = dbi_result_get_uint(result, "result");
 
 	dbg(LOG_INFO, "Returning integer: %d", *buffer);
 
@@ -236,23 +332,16 @@ int return_string(void *return_string, dbi_result result)
 	return 0;
 }
 
-int get_exact_tag_id(const gchar *tagname)
-{
-	int id = 0;
-	tagsistant_query("select tag_id from tags where tagname = \"%s\";", return_integer, &id, tagname);
-	return id;
-}
-
 void sql_create_tag(const gchar *tagname)
 {
 	tagsistant_query("insert into tags(tagname) values(\"%s\");", NULL, NULL, tagname);
 }
 
-tagsistant_id sql_get_tag_id(const gchar *tagname)
+tagsistant_id get_exact_tag_id(const gchar *tagname)
 {
 	tagsistant_id tag_id;
 
-	tagsistant_query("select tag_id from tags where tagname = \"%s\"", return_integer, &tag_id, tagname);
+	tagsistant_query("select tag_id as result from tags where tagname = \"%s\"", return_integer, &tag_id, tagname);
 
 	return tag_id;
 }
@@ -291,4 +380,4 @@ void sql_rename_tag(const gchar *tagname, const gchar *oldtagname)
 	tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\";", NULL, NULL, tagname, oldtagname);\
 }
 
-#endif /* TAGSISTANT_SQL_BACKEND == "MYSQL" */
+#endif /* TAGSISTANT_SQL_BACKEND != TAGSISTANT_SQLITE_BACKEND */

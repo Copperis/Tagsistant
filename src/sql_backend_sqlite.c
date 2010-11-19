@@ -209,32 +209,16 @@ int return_string(void *return_string, int argc, char **argv, char **azColName)
 	return 0;
 }
 
-int get_exact_tag_id(const gchar *tagname)
+tagsistant_id get_exact_tag_id(const gchar *tagname)
 {
-	int id;
+	tagsistant_id id;
 	tagsistant_query("select tag_id from tags where tagname = \"%s\";", return_integer, &id, tagname);
 	return id;
-}
-
-int sql_tag_exists(const gchar* tagname)
-{
-	int exists;
-	tagsistant_query("select count(tagname) from tags where tagname = \"%s\";", return_integer, &exists, tagname);
-	return exists;
 }
 
 void sql_create_tag(const gchar *tagname)
 {
 	tagsistant_query("insert into tags(tagname) values(\"%s\");", NULL, NULL, tagname);
-}
-
-tagsistant_id sql_get_tag_id(const gchar *tagname)
-{
-	tagsistant_id tag_id;
-
-	tagsistant_query("select tag_id from tags where tagname = \"%s\"", return_integer, &tag_id, tagname);
-
-	return tag_id;
 }
 
 void sql_delete_tag(const gchar *tagname)

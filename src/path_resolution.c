@@ -80,7 +80,7 @@ static int add_alias_tag(void *vreasoning, int argc, char **argv, char **azColNa
 	return 0;
 }
 
-#elif TAGSISTANT_SQL_BACKEND == TAGSISTANT_MYSQL_BACKEND
+#else
 
 /**
  * SQL callback. Add new tag derived from reasoning to a ptree_and_node_t structure.
@@ -488,7 +488,7 @@ static int add_to_filetree(void *atft_struct, int argc, char **argv, char **azCo
 	return 0;
 }
 
-#elif TAGSISTANT_SQL_BACKEND == TAGSISTANT_MYSQL_BACKEND
+#else
 
 /**
  * add a file to the file tree (callback function)

@@ -68,7 +68,7 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 	//    and use its ID, otherwise create a new one
 	if (!force_create) {
 		tagsistant_query(
-			"select max(object_id) from objects where objectname = \"%s\" and path = \"%s\"",
+			"select object_id as result from objects where objectname = \"%s\" and path = \"%s\"",
 			return_integer, &ID,
 			qtree->object_path, qtree->archive_path);
 	}
@@ -78,10 +78,7 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 			"insert into objects (objectname, path) values (\"%s\", \"-\")",
 			NULL, NULL,
 			qtree->object_path);
-		tagsistant_query(
-			"select max(object_id) from objects where objectname = \"%s\" and path = \"-\"",
-			return_integer, &ID,
-			qtree->object_path);
+		ID = tagsistant_last_insert_id();
 	}
 
 	if (0 == ID) {
@@ -324,7 +321,7 @@ static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azCo
 	return ufs->filler(ufs->buf, argv[0], NULL, 0);
 }
 
-#elif TAGSISTANT_SQL_BACKEND == TAGSISTANT_MYSQL_BACKEND
+#else // DBI-DRIVEN-backend
 
 /**
  * SQL callback. Add dir entries to libfuse buffer.
@@ -702,7 +699,7 @@ static int tagsistant_unlink(const char *path)
 			// ...then check if it's tagged elsewhere...
 			int still_exists = 0;
 			tagsistant_query(
-				"select object_id from tagging where object_id = %d", 
+				"select object_id as result from tagging where object_id = %d", 
 				return_integer, &still_exists,
 				qtree->object_id
 			);
@@ -1688,6 +1685,7 @@ static struct fuse_opt tagsistant_opts[] = {
 	TAGSISTANT_OPT("--repository=%s",		repository,		0),
 	TAGSISTANT_OPT("-f",					foreground,		1),
 	TAGSISTANT_OPT("-s",					singlethread,	1),
+	TAGSISTANT_OPT("--db=%s",				dboptions,		0),
 	TAGSISTANT_OPT("-r",					readonly,		1),
 	TAGSISTANT_OPT("-v",					verbose,		1),
 	TAGSISTANT_OPT("-q",					quiet,			1),
@@ -1730,11 +1728,13 @@ void usage(char *progname)
 		" along with this program; if not, write to the Free Software\n"
 		" Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA\n"
 		" \n"
-		" Usage: %s [OPTIONS] [--repository=<PATH>] /mountpoint\n"
+		" Usage: \n"
+		" \n"
+		"  %s [OPTIONS] [--repository=<PATH>] [--db=<OPTIONS>] /mountpoint\n"
 		"\n"
-		"    -q  be quiet\n"
-		"    -r  mount readonly\n"
-		"    -v  verbose syslogging\n"
+		"  -q  be quiet\n"
+		"  -r  mount readonly\n"
+		"  -v  verbose syslogging\n"
 		"\n" /*fuse options will follow... */
 		, PACKAGE_VERSION, FUSE_USE_VERSION, progname
 	);
@@ -1849,10 +1849,10 @@ int main(int argc, char *argv[])
 	 * to temporary solve this problem we force here single threaded
 	 * operations. should be really solved by better real_do_sql()
 	 */
-#endif
 	if (!tagsistant.quiet)
 		fprintf(stderr, " *** forcing single thread mode until our SQLite interface is broken! ***\n");
 	tagsistant.singlethread = 1;
+#endif
 
 	if (tagsistant.singlethread) {
 		if (!tagsistant.quiet)
@@ -1873,6 +1873,14 @@ int main(int argc, char *argv[])
 		if (!tagsistant.quiet)
 			fprintf(stderr, " *** will log verbosely ***\n");
 		fuse_opt_add_arg(&args, "-d");
+	}
+	if (tagsistant.dboptions) {
+		if (!tagsistant.quiet)
+			fprintf(stderr, " *** connecting to %s\n", tagsistant.dboptions);
+	}
+	if (tagsistant.repository) {
+		if (!tagsistant.quiet)
+			fprintf(stderr, " *** saving repository in %s\n", tagsistant.repository);
 	}
 
 	/* checking mountpoint */
@@ -2028,6 +2036,7 @@ int main(int argc, char *argv[])
 	plugin_unloader();
 
 	/* free memory to better perfom memory leak profiling */
+	freenull(tagsistant.dboptions);
 	freenull(tagsistant.repository);
 	freenull(tagsistant.archive);
 	freenull(tagsistant.tags);

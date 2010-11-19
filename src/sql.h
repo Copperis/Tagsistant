@@ -25,16 +25,18 @@
 // a MySQL backend too. If you want to switch to experimental
 // MySQL backend, use:
 //
-// CFLAGS="-D TAGSISTANT_SQL_BACKEND=TAGSISTANT_MYSQL_BACKEND"
+// CFLAGS="-D TAGSISTANT_SQL_BACKEND=TAGSISTANT_DBI_MYSQL_BACKEND"
 //
-#define TAGSISTANT_SQLITE_BACKEND 0
-#define TAGSISTANT_MYSQL_BACKEND 1
+#define TAGSISTANT_NULL_BACKEND			0
+#define TAGSISTANT_SQLITE_BACKEND		1
+#define TAGSISTANT_DBI_MYSQL_BACKEND	2
+#define TAGSISTANT_DBI_SQLITE_BACKEND	3
 
 #ifndef TAGSISTANT_SQL_BACKEND
-#	define TAGSISTANT_SQL_BACKEND TAGSISTANT_MYSQL_BACKEND
+#	define TAGSISTANT_SQL_BACKEND TAGSISTANT_DBI_SQLITE_BACKEND
 #endif
 
-#if TAGSISTANT_SQL_BACKEND == TAGSISTANT_SQLITE_BACKEND // <-------------- sqlite backend ------------------------------------------------------------
+#if TAGSISTANT_SQL_BACKEND == TAGSISTANT_SQLITE_BACKEND // <-------------- sqlite native backend -------
 
 /* execute SQL query adding file:line coords */
 #define  do_sql(dbh, statement, callback, firstarg)\
@@ -52,7 +54,7 @@ extern int _tagsistant_query(const char *format, gchar *file, int line, int (*ca
 extern int return_integer(void *return_integer, int argc, char **argv, char **azColName);
 extern int return_string(void *return_string, int argc, char **argv, char **azColName);
 
-#elif TAGSISTANT_SQL_BACKEND == TAGSISTANT_MYSQL_BACKEND // <-------------- mysql backend ------------------------------------------------------------
+#else // <-------------- dbi-driven backend ------------------------------------------------------------
 
 /* execute SQL query adding file:line coords */
 #define  do_sql(statement, callback, firstarg)\
@@ -72,11 +74,27 @@ extern int return_integer(void *return_integer, dbi_result result);
 
 #endif
 
-extern void tagsistant_db_connection();
+#if TAGSISTANT_SQL_BACKEND == TAGSISTANT_SQLITE_BACKEND // <-------------- sqlite macros (native version)
 
-extern int get_exact_tag_id(const gchar *tagname);
-#define sql_tag_exists(tagname) get_exact_tag_id(tagname)
+#	define TAGSISTANT_START_TRANSACTION()		tagsistant_query("begin transaction", NULL, NULL)
+#	define TAGSISTANT_COMMIT_TRANSACTION()		tagsistant_query("commit", NULL, NULL)
+#	define TAGSISTANT_ROLLBACK_TRANSACTION()	tagsistant_query("rollback", NULL, NULL)
 
+#elif TAGSISTANT_SQL_BACKEND == TAGSISTANT_DBI_SQLITE_BACKEND // <-------------- SQLITE macros (DBI version)
+
+#	define TAGSISTANT_START_TRANSACTION()		tagsistant_query("begin transaction", NULL, NULL)
+#	define TAGSISTANT_COMMIT_TRANSACTION()		tagsistant_query("commit", NULL, NULL)
+#	define TAGSISTANT_ROLLBACK_TRANSACTION()	tagsistant_query("rollback", NULL, NULL)
+
+#elif TAGSISTANT_SQL_BACKEND == TAGSISTANT_DBI_MYSQL_BACKEND // <------------ MYSQL macros
+
+#	define TAGSISTANT_START_TRANSACTION()		tagsistant_query("start transaction", NULL, NULL)
+#	define TAGSISTANT_COMMIT_TRANSACTION()		tagsistant_query("commit", NULL, NULL)
+#	define TAGSISTANT_ROLLBACK_TRANSACTION()	tagsistant_query("rollback", NULL, NULL)
+
+#endif
+
+extern int tagsistant_db_connection();
 
 /***************\
  * SQL QUERIES *
@@ -88,5 +106,7 @@ extern void sql_delete_tag(const gchar *tagname);
 extern void sql_tag_object(const gchar *tagname, tagsistant_id object_id);
 extern void sql_untag_object(const gchar *tagname, tagsistant_id object_id);
 extern void sql_rename_tag(const gchar *tagname, const gchar *oldtagname);
-
-#define ALL_FILES_TAGGED		"select objectname from objects join tagging on tagging.object_id = objects.id where tagging.tagname = \"%s\""
+extern tagsistant_id tagsistant_last_insert_id();
+extern tagsistant_id get_exact_tag_id(const gchar *tagname);
+#define sql_tag_exists(tagname) get_exact_tag_id(tagname)
+#define sql_get_tag_id(tagname) get_exact_tag_id(tagname)

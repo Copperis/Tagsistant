@@ -365,6 +365,7 @@ struct tagsistant {
 	char    *repository;	/**< it's where files and tags are archived, no? */
 	char    *archive;		/**< a directory holding all the files */
 	char    *tags;			/**< a SQLite database on file */
+	char    *dboptions;		/**< database options for DBI */
 
 	sqlite3 *dbh;			/**< database handle to operate on SQLite thingy, but no longer used? */
 };
@@ -468,18 +469,17 @@ extern gchar *query_type(querytree_t *qtree);
 	init_time_profile();\
 	start_time_profile();\
 	dbg(LOG_INFO, line, ##__VA_ARGS__);\
-	tagsistant_query("start transaction", NULL, NULL);\
+	TAGSISTANT_START_TRANSACTION();\
 }
 
 #define TAGSISTANT_STOP_OK(line,...) {\
-	tagsistant_query("commit", NULL, NULL);\
+	TAGSISTANT_COMMIT_TRANSACTION();\
 	dbg(LOG_INFO, line, ##__VA_ARGS__);\
 }
 
 #define TAGSISTANT_STOP_ERROR(line,...) {\
-	tagsistant_query("rollback", NULL, NULL);\
+	TAGSISTANT_ROLLBACK_TRANSACTION();\
 	dbg(LOG_ERR, line, ##__VA_ARGS__);\
 }
-
 
 // vim:ts=4:nocindent:nowrap
