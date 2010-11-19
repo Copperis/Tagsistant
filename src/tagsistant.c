@@ -68,7 +68,7 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 	//    and use its ID, otherwise create a new one
 	if (!force_create) {
 		tagsistant_query(
-			"select object_id from objects where objectname = \"%s\" and path = \"%s\"",
+			"select object_id from objects where objectname = \"%s\" and path = \"%s\" limit 1",
 			return_integer, &ID,
 			qtree->object_path, qtree->archive_path);
 	}

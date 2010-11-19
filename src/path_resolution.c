@@ -582,6 +582,21 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 
 	dbg(LOG_INFO, "building filetree...");
 
+	//
+	// MySQL does not support intersect!
+	// So we must find an alternative way.
+	// Some hints:
+	//
+	// 1. select distinct objectname, objects.object_id as object_id
+	//      from objects
+	//        join tagging on tagging.object_id = objects.object_id
+	//        join tags on tagging.tag_id = tags.tag_id
+	//      where tags.tagname in ("t1", "t2", "t3");
+	//
+	// Main problem with 1. is that it finds all the objects tagged
+	// at least with one of the tags listed.
+	//
+
 	while (query != NULL) {
 		ptree_and_node_t *tag = query->and_set;
 		GString *statement = g_string_new("");

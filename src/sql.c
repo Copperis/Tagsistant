@@ -419,7 +419,7 @@ int tagsistant_object_is_tagged(tagsistant_id object_id)
 	tagsistant_id still_exists = 0;
 
 	tagsistant_query(
-		"select object_id from tagging where object_id = %d", 
+		"select object_id from tagging where object_id = %d limit 1", 
 		return_integer, &still_exists, object_id);
 	
 	return (still_exists) ? 1 : 0;
@@ -434,7 +434,7 @@ tagsistant_id get_exact_tag_id(const gchar *tagname)
 {
 	tagsistant_id tag_id = 0;
 
-	tagsistant_query("select tag_id from tags where tagname = \"%s\"", return_integer, &tag_id, tagname);
+	tagsistant_query("select tag_id from tags where tagname = \"%s\" limit 1", return_integer, &tag_id, tagname);
 
 	return tag_id;
 }
