@@ -477,13 +477,17 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 			// destroy the file tree
 			destroy_filetree(fh_save);
 		} else {
+			// add operators if path is not "/tags", to avoid
+			// "/tags/+" and "/tags/="
+			if (g_strcmp0(path, "/tags") != 0) {
+				filler(buf, "+", NULL, 0);
+				filler(buf, "=", NULL, 0);
+			}
+
 			/*
 		 	* if path does not terminate by =,
 		 	* directory should be filled with tagsdir registered tags
 		 	*/
-			filler(buf, "+", NULL, 0);
-			filler(buf, "=", NULL, 0);
-
 			struct use_filler_struct *ufs = g_new0(struct use_filler_struct, 1);
 			if (ufs == NULL) {
 				dbg(LOG_ERR, "Error allocating memory");

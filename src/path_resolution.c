@@ -587,25 +587,54 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	// So we must find an alternative way.
 	// Some hints:
 	//
-	// 1. select distinct objectname, objects.object_id as object_id
-	//      from objects
-	//        join tagging on tagging.object_id = objects.object_id
-	//        join tags on tagging.tag_id = tags.tag_id
-	//      where tags.tagname in ("t1", "t2", "t3");
+	// 1. select distinct objectname, objects.object_id as object_id from objects
+	//    join tagging on tagging.object_id = objects.object_id
+	//    join tags on tagging.tag_id = tags.tag_id
+	//    where tags.tagname in ("t1", "t2", "t3");
 	//
 	// Main problem with 1. is that it finds all the objects tagged
-	// at least with one of the tags listed.
+	// at least with one of the tags listed, not what the AND-set
+	// means
+	//
+	// 2. select distinct objects.object_id from objects
+	//    inner join tagging on tagging.object_id = objects.object_id
+	//    inner join tags on tagging.tag_id = tags.tag_id
+	//    where tagname = 't1' and objects.object_id in (
+	//      select distinct objects.object_id from objects
+	//      inner join tagging on tagging.object_id = objects.object_id
+	//      inner join tags on tagging.tag_id = tags.tag_id
+	//      where tagname = 't2' and objects.object_id in (
+	//        select distinct objects.object_id from objects
+	//        inner join tagging on tagging.object_id = objects.object_id
+	//        inner join tags on tagging.tag_id = tags.tag_id
+	//        where tagname = 't3'
+	//      )
+	//    )
+	//
+	// That's the longest and less readable form but seems to work.
 	//
 
+	int nesting = 0;
 	while (query != NULL) {
 		ptree_and_node_t *tag = query->and_set;
 		GString *statement = g_string_new("");
 		g_string_printf(statement, "create view tv%.8X as ", (unsigned int) query);
 		
 		while (tag != NULL) {
-			g_string_append(statement, "select objectname, objects.object_id as object_id from objects join tagging on tagging.object_id = objects.object_id join tags on tags.tag_id = tagging.tag_id where tagname = \"");
-			g_string_append(statement, tag->tag);
-			g_string_append(statement, "\"");
+			if (tagsistant_sql_backend_have_intersect) {
+				g_string_append(statement, "select objectname, objects.object_id as object_id from objects join tagging on tagging.object_id = objects.object_id join tags on tags.tag_id = tagging.tag_id where tagname = \"");
+				g_string_append(statement, tag->tag);
+				g_string_append(statement, "\"");
+			} else {
+				if (nesting) {
+					g_string_append(statement, " and objects.object_id in (select distinct objects.object_id from objects inner join tagging on tagging.object_id = objects.object_id inner join tags on tagging.tag_id = tags.tag_id where tagname = '");
+				} else {
+					g_string_append(statement, " select distinct objectname, objects.object_id as object_id from objects inner join tagging on tagging.object_id = objects.object_id inner join tags on tagging.tag_id = tags.tag_id where tagname = '");
+				}
+				g_string_append(statement, tag->tag);
+				g_string_append(statement, "'");	
+				nesting++;
+			}
 			
 			/* add related tags */
 			if (tag->related != NULL) {
@@ -618,9 +647,18 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 				}
 			}
 
-			if (tag->next != NULL) g_string_append(statement, " intersect ");
+			if (tagsistant_sql_backend_have_intersect && (tag->next != NULL))
+				g_string_append(statement, " intersect ");
 
 			tag = tag->next;
+		}
+
+		if (!tagsistant_sql_backend_have_intersect) {
+			nesting--; // we need one closed parenthesis less than nested subquery
+			while (nesting) {
+				g_string_append(statement, ")");
+				nesting--;
+			}
 		}
 
 		g_string_append(statement, ";");

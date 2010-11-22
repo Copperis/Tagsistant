@@ -22,6 +22,9 @@
 extern struct tagsistant tagsistant;
 #include "tagsistant.h"
 
+/* set to 1 if sql dialect support intersect operator */
+int tagsistant_sql_backend_have_intersect = 1;
+
 /* DBI connection handler used by subsequent calls to dbi_* functions */
 dbi_conn conn;
 
@@ -109,6 +112,9 @@ int tagsistant_db_connection()
 
 		dbg(LOG_INFO, "Database driver used: mysql");
 
+		// unlucky, MySQL does not provide INTERSECT operator
+		tagsistant_sql_backend_have_intersect = 0;
+
 		// create connection
 		if (NULL == (conn = dbi_conn_new("mysql"))) {
 			dbg(LOG_ERR, "Error creating MySQL connection");
@@ -174,6 +180,12 @@ int tagsistant_db_connection()
 
 	// list configured options
 	tagsistant_log_connection_options();
+
+	if (tagsistant_sql_backend_have_intersect) {
+		dbg(LOG_INFO, "Database supports INTERSECT operator");
+	} else {
+		dbg(LOG_INFO, "Database does not support INTERSECT operator");
+	}
 
 	// try to connect
 	if (dbi_conn_connect(conn) < 0) {
@@ -368,19 +380,10 @@ int return_integer(void *return_integer, dbi_result result)
 	uint32_t *buffer = (uint32_t *) return_integer;
 	*buffer = 0;
 
-#if 0
-	switch (tagsistant_database_driver) {
-		case TAGSISTANT_DBI_MYSQL_BACKEND:
-			*buffer = dbi_result_get_uint(result, "result");
-			break;
-
-		case TAGSISTANT_DBI_SQLITE_BACKEND:
-			*buffer = dbi_result_get_uint_idx(result, 1);
-			break;
-	}
-#endif
-
-	*buffer = dbi_result_get_uint_idx(result, 1);
+	if (tagsistant_database_driver == TAGSISTANT_DBI_SQLITE_BACKEND)
+		*buffer = dbi_result_get_ulonglong_idx(result, 1);
+	else
+		*buffer = dbi_result_get_uint_idx(result, 1);
 
 	dbg(LOG_INFO, "Returning integer: %d", *buffer);
 
