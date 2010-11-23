@@ -201,13 +201,14 @@ int tagsistant_db_connection()
 	switch (tagsistant_database_driver) {
 		case TAGSISTANT_SQLITE_BACKEND:
 		case TAGSISTANT_DBI_SQLITE_BACKEND:
-			tagsistant_query("create table if not exists tags (tag_id integer primary key autoincrement not null, tagname varchar(65) unique not null);", NULL, NULL);\
-			tagsistant_query("create table if not exists objects (object_id integer not null primary key autoincrement, objectname text(255) not null, path text(1024) unique not null);", NULL, NULL);\
-			tagsistant_query("create table if not exists tagging (object_id integer not null, tag_id not null, constraint Tagging_key unique (object_id, tag_id));", NULL, NULL);\
-			tagsistant_query("create table if not exists relations(relation_id integer primary key autoincrement not null, tag1_id integer not null, relation varchar not null, tag2_id integer not null);", NULL, NULL);\
-			tagsistant_query("create index if not exists tags_index on tagging (object_id, tag_id);", NULL, NULL);\
-			tagsistant_query("create index if not exists relations_index on relations (tag1_id, tag2_id);", NULL, NULL);\
-			tagsistant_query("create index if not exists relations_type_index on relations (relation);", NULL, NULL);\
+			tagsistant_query("create table if not exists tags (tag_id integer primary key autoincrement not null, tagname varchar(65) unique not null);", NULL, NULL);
+			tagsistant_query("create table if not exists objects (object_id integer not null primary key autoincrement, objectname text(255) not null, path text(1024) unique not null);", NULL, NULL);
+			tagsistant_query("create table if not exists tagging (object_id integer not null, tag_id not null, constraint Tagging_key unique (object_id, tag_id));", NULL, NULL);
+			tagsistant_query("create table if not exists relations(relation_id integer primary key autoincrement not null, tag1_id integer not null, relation varchar not null, tag2_id integer not null);", NULL, NULL);
+			tagsistant_query("create index if not exists tags_index on tagging (object_id, tag_id);", NULL, NULL);
+			tagsistant_query("create index if not exists relations_index on relations (tag1_id, tag2_id);", NULL, NULL);
+			tagsistant_query("create index if not exists relations_type_index on relations (relation);", NULL, NULL);
+			tagsistant_query("create table if not exists aliases (id primary key autoincrement not null, alias varchar(1000) unique not null, aliased varchar(1000) not null)", NULL, NULL);
 			break;
 
 		case TAGSISTANT_DBI_MYSQL_BACKEND:
@@ -218,6 +219,7 @@ int tagsistant_db_connection()
 			tagsistant_query("create index tags_index on tagging (object_id, tag_id);", NULL, NULL);
 			tagsistant_query("create index relations_index on relations (tag1_id, tag2_id);", NULL, NULL);
 			tagsistant_query("create index relations_type_index on relations (relation);", NULL, NULL);
+			tagsistant_query("create table if not exists aliases (id integer primary key auto_increment not null, alias varchar(1000) unique not null, aliased varchar(1000) not null)", NULL, NULL);
 			break;
 
 		default:
@@ -426,6 +428,17 @@ int tagsistant_object_is_tagged(tagsistant_id object_id)
 		return_integer, &still_exists, object_id);
 	
 	return (still_exists) ? 1 : 0;
+}
+
+int tagsistant_object_is_tagged_as(tagsistant_id object_id, tagsistant_id tag_id)
+{
+	tagsistant_id is_tagged = 0;
+
+	tagsistant_query(
+		"select object_id from tagging where object_id = %d and tag_id = %d limit 1", 
+		return_integer, &is_tagged, object_id, tag_id);
+	
+	return (is_tagged) ? 1 : 0;
 }
 
 void tagsistant_full_untag_object(tagsistant_id object_id)

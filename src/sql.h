@@ -96,5 +96,7 @@ extern tagsistant_id tagsistant_last_insert_id();
 extern tagsistant_id get_exact_tag_id(const gchar *tagname);
 #define sql_tag_exists(tagname) get_exact_tag_id(tagname)
 #define sql_get_tag_id(tagname) get_exact_tag_id(tagname)
+#define tagsistant_get_tag_id(tagname) get_exact_tag_id(tagname)
 extern int tagsistant_object_is_tagged(tagsistant_id object_id);
+extern int tagsistant_object_is_tagged_as(tagsistant_id object_id, tagsistant_id tag_id);
 extern void tagsistant_full_untag_object(tagsistant_id object_id);

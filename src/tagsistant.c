@@ -40,22 +40,21 @@
  * must be used with get_alias(), set_alias() and delete_alias().
  *
  */
-GHashTable* aliases;
-
-void set_alias(const char *key, const char *value) {
-	g_hash_table_insert(aliases, g_strdup(key), g_strdup(value));
-	dbg(LOG_INFO, "Setting alias %s for %s (set to %s)", value, key, (gchar *) g_hash_table_lookup(aliases, key));
+void set_alias(const char *alias, const char *aliased) {
+	dbg(LOG_INFO, "Setting alias %s for %s", aliased, alias);
+	tagsistant_query("insert into aliases (alias, aliased) values (\"%s\", \"%s\")", NULL, NULL, alias, aliased);
 }
 
-gchar *get_alias(const char *key) {
-	gchar *alias = g_hash_table_lookup(aliases, key);
-	dbg(LOG_INFO, "Looking for an alias for %s, found %s", key, alias);
-	return alias;
+gchar *get_alias(const char *alias) {
+	gchar *aliased = NULL;
+	tagsistant_query("select aliased from aliases where alias = \"%s\"", return_string, &aliased, alias);
+	dbg(LOG_INFO, "Looking for an alias for %s, found %s", alias, aliased);
+	return aliased;
 }
 
-void delete_alias(const char *key) {
-	dbg(LOG_INFO, "Deleting alias for %s", key);
-	// g_hash_table_remove(aliases, key);
+void delete_alias(const char *alias) {
+	dbg(LOG_INFO, "Deleting alias for %s", alias);
+	tagsistant_query("delete from aliases where alias = \"%s\"", NULL, NULL, alias);
 }
 
 int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force_create)
@@ -143,6 +142,36 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 	
 	// -- object on disk --
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+
+#if 0
+		// TODO :: we should check if path points to an object which is
+		// tagged at least as one of the contained tags
+		int exists = 0;
+		ptree_or_node_t *or_ptr = qtree->tree;
+
+// CHECK_EXISTANCE: while (NULL != or_ptr) {
+		while (NULL != or_ptr) {
+			ptree_and_node_t *and_ptr = or_ptr->and_set;
+
+			while (NULL != and_ptr) {
+				tagsistant_id tag_id = tagsistant_get_tag_id(and_ptr->tag);
+				if (tag_id && tagsistant_object_is_tagged_as(qtree->object_id, tag_id)) {
+					exists = 1;
+					// break CHECK_EXISTANCE;
+				}
+				and_ptr = and_ptr->next;
+			}
+
+			or_ptr = or_ptr->next;
+		}
+
+		if (!exists) {
+			res = -1;
+			tagsistant_errno = ENOENT;
+			goto GETATTR_EXIT;
+		}
+#endif
+
 		lstat_path = qtree->full_archive_path;
 	} else
 
@@ -965,6 +994,28 @@ RENAME_EXIT:
  * \param from existing file name
  * \param to new file name
  * \return 0 on success, -errno otherwise
+ *
+ * TODO :: Huston, we have a problem with Nautilus:
+ *
+ * TS> / SYMLINK /home/tx0/tags/tags/t1/=/1.clutter_renamed to /tags/t1/=/Link to 1.clutter_renamed (@tagsistant.c:973)
+ * TS> | SQL: [start transaction] @sql.c:240 (@sql.c:302)
+ * TS> | Building querytree for /tags/t1/=/1.clutter_renamed (@path_resolution.c:254)
+ * TS> | Building querytree for /tags/t1/=/Link to 1.clutter_renamed (@path_resolution.c:254)
+ * TS> | Retagging /home/tx0/tags/tags/t1/=/1.clutter_renamed as internal to /home/tx0/tags (@tagsistant.c:1011)
+ * TS> | Traversing querytree... (@tagsistant.c:1012)
+ * TS> | SQL: [insert into tags(tagname) values("t1");] @sql.c:456 (@sql.c:302)
+ * TS> | SQL Error: 1062: Duplicate entry 't1' for key 'tagname'. (@sql.c:326)
+ * TS> | SQL: [select tag_id from tags where tagname = "t1" limit 1] @sql.c:440 (@sql.c:302)
+ * TS> | Returning integer: 1 (@sql.c:388)
+ * TS> | Tagging object 1 as t1 (1) (@sql.c:460)
+ * TS> | SQL: [insert into tagging(tag_id, object_id) values("1", "1");] @sql.c:462 (@sql.c:302)
+ * TS> | SQL Error: 1062: Duplicate entry '1-1' for key 'Tagging_key'. (@sql.c:326)
+ * TS> | Applying sql_tag_object(t1,...) (@tagsistant.c:1012)
+ * TS> | SQL: [commit] @sql.c:248 (@sql.c:302)
+ * TS> \ SYMLINK from /home/tx0/tags/tags/t1/=/1.clutter_renamed to /tags/t1/=/Link to 1.clutter_renamed (QTYPE_TAGS): OK (@tagsistant.c:1048)
+ *
+ * May be we should reconsider the idea of retagging internal
+ * paths while symlinking...
  */
 static int tagsistant_symlink(const char *from, const char *to)
 {
@@ -983,8 +1034,6 @@ static int tagsistant_symlink(const char *from, const char *to)
 
 	querytree_t *from_qtree = build_querytree(_from, 0);
 	querytree_t *to_qtree = build_querytree(to, 0);
-
-	dbg(LOG_INFO, " === > Symlinking %s to %s (id.%d)", to, _from, from_qtree->object_id);
 
 	from_qtree->is_external = (from == _from) ? 1 : 0;
 
@@ -2022,9 +2071,6 @@ int main(int argc, char *argv[])
 		fargc--;
 	}
 
-	/* init file aliases hash table */
-	aliases = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
-
 #if FUSE_VERSION <= 25
 	res = fuse_main(args.argc, args.argv, &tagsistant_oper);
 #else
@@ -2043,8 +2089,6 @@ int main(int argc, char *argv[])
 	freenull(tagsistant.repository);
 	freenull(tagsistant.archive);
 	freenull(tagsistant.tags);
-
-	g_hash_table_destroy(aliases);
 
 	return res;
 }
