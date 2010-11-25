@@ -23,7 +23,7 @@ my $driver = undef;
 if (defined $ARGV[0]) {
 	if ($ARGV[0] eq "--mysql") {
 		$driver = "mysql";
-		system("echo 'drop table objects; drop table tags; drop table tagging; drop table relations;' | mysql -u tagsistant --password='tagsistant' tagsistant");
+		system("echo 'drop table objects; drop table tags; drop table tagging; drop table relations; drop table aliases;' | mysql -u tagsistant --password='tagsistant' tagsistant");
 	} elsif (($ARGV[0] eq "--sqlite") || ($ARGV[0] eq "--sqlite3")) {
 		$driver = "sqlite3";
 	} else {
@@ -114,7 +114,7 @@ test("rmdir $MP/tags/tobedeleted");
 # the file gets copied and linked inside multiple directories
 # and than read again using diff. this ensures proper operations
 # on open(), read(), write(), symlink() and readlink()
-system("dmesg > /tmp/clutter");
+system("dmesg | tail > /tmp/clutter");
 test("cp /tmp/clutter $MP/tags/t1/=/");
 test("cp /tmp/clutter $MP/tags/t2/=/");
 test("ln -s /tmp/clutter $MP/tags/t3/=");

@@ -37,22 +37,22 @@
  * original paths to actual paths is required.
  *
  * the aliases hash table gets instantiated inside main() and
- * must be used with get_alias(), set_alias() and delete_alias().
+ * must be used with tagsistant_get_alias(), tagsistant_set_alias() and tagsistant_delete_alias().
  *
  */
-void set_alias(const char *alias, const char *aliased) {
+void tagsistant_set_alias(const char *alias, const char *aliased) {
 	dbg(LOG_INFO, "Setting alias %s for %s", aliased, alias);
 	tagsistant_query("insert into aliases (alias, aliased) values (\"%s\", \"%s\")", NULL, NULL, alias, aliased);
 }
 
-gchar *get_alias(const char *alias) {
+gchar *tagsistant_get_alias(const char *alias) {
 	gchar *aliased = NULL;
 	tagsistant_query("select aliased from aliases where alias = \"%s\"", return_string, &aliased, alias);
 	dbg(LOG_INFO, "Looking for an alias for %s, found %s", alias, aliased);
 	return aliased;
 }
 
-void delete_alias(const char *alias) {
+void tagsistant_delete_alias(const char *alias) {
 	dbg(LOG_INFO, "Deleting alias for %s", alias);
 	tagsistant_query("delete from aliases where alias = \"%s\"", NULL, NULL, alias);
 }
@@ -105,7 +105,7 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 		qtree->archive_path, ID);
 
 	// 3. set an alias for getattr
-	set_alias(qtree->full_path, qtree->full_archive_path);
+	tagsistant_set_alias(qtree->full_path, qtree->full_archive_path);
 
 	// 5. tag the object
 	traverse_querytree(qtree, sql_tag_object, ID);
@@ -115,6 +115,91 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 
 #define create_and_tag_object(qtree, errno) __create_and_tag_object(qtree, errno, 0); dbg(LOG_INFO, "Tried creation of object %s", qtree->full_path)
 #define force_create_and_tag_object(qtree, errno) __create_and_tag_object(qtree, errno, 1); dbg(LOG_INFO, "Forced creation of object %s", qtree->full_path)
+
+gchar *tagsistant_strip_id(const char *path)
+{
+	// this is the stripped version
+	gchar *stripped = NULL;
+
+	// this is a utility copy
+	gchar *path_copy = g_strdup(path);
+
+	// seek last slash
+	gchar *last_slash = NULL;
+	gchar *filename = path_copy;
+
+	// if one is found, filename starts on its right
+	// and last slash ends the directory path with '\0'
+	if ((last_slash = g_strrstr(path_copy, "/")) != NULL) {
+		filename = last_slash + 1;
+		*last_slash = '\0';
+	}
+
+	// if no dot is found reset filename on the right of
+	// last slash, otherwise keep the right of the first
+	// dot
+	gchar *filename_stripped = NULL;
+	if ((filename_stripped = g_strstr_len(filename, -1, ".")) == NULL) {
+		filename_stripped = filename;
+	} else {
+		filename_stripped++; // on the right of the dot
+	}
+
+	stripped = g_strdup_printf("%s/%s", path_copy, filename_stripped);
+
+	dbg(LOG_INFO, "Stripped %s to %s", path, stripped);
+
+	free(path_copy);
+	return stripped;
+}
+
+int tagsistant_check_tagging_consistency(querytree_t *qtree)
+{
+	int exists = 0;
+
+	if (!QTREE_IS_TAGS(qtree)) {
+		return 1;
+	}
+
+	ptree_or_node_t *or_ptr = qtree->tree;
+
+	while (NULL != or_ptr) {
+		ptree_and_node_t *and_ptr = or_ptr->and_set;
+
+		while (NULL != and_ptr) {
+			tagsistant_id tag_id = tagsistant_get_tag_id(and_ptr->tag);
+			if (tag_id && tagsistant_object_is_tagged_as(qtree->object_id, tag_id)) {
+				dbg(LOG_INFO, "Object %d is tagged as %d", qtree->object_id, tag_id);
+				exists = 1;
+			} else {
+				dbg(LOG_INFO, "Object %d is NOT tagged as %d", qtree->object_id, tag_id);
+			}
+			and_ptr = and_ptr->next;
+		}
+
+		or_ptr = or_ptr->next;
+	}
+
+	// an object could be tagged with an alias so we must
+	// check if that alias can pass the check
+	if (!exists) {
+		gchar *alias = tagsistant_get_alias(qtree->full_path);
+		if (alias) {
+			// swap current object_id with alias object_id
+			tagsistant_id current_id = qtree->object_id;
+			tagsistant_id alias_id = tagsistant_get_object_id(alias, NULL);
+
+			// check tagging consistency with alias id
+			qtree->object_id = alias_id;
+			exists = tagsistant_check_tagging_consistency(qtree);
+
+			// reset current id
+			qtree->object_id = current_id;
+		}
+	}
+
+	return exists;
+}
 
 /**
  * lstat equivalent
@@ -142,35 +227,15 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 	
 	// -- object on disk --
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
-
-#if 0
-		// TODO :: we should check if path points to an object which is
-		// tagged at least as one of the contained tags
-		int exists = 0;
-		ptree_or_node_t *or_ptr = qtree->tree;
-
-// CHECK_EXISTANCE: while (NULL != or_ptr) {
-		while (NULL != or_ptr) {
-			ptree_and_node_t *and_ptr = or_ptr->and_set;
-
-			while (NULL != and_ptr) {
-				tagsistant_id tag_id = tagsistant_get_tag_id(and_ptr->tag);
-				if (tag_id && tagsistant_object_is_tagged_as(qtree->object_id, tag_id)) {
-					exists = 1;
-					// break CHECK_EXISTANCE;
-				}
-				and_ptr = and_ptr->next;
+		if (!tagsistant_check_tagging_consistency(qtree)) {
+			gchar *alias = tagsistant_get_alias(path);
+			if (!alias) {
+				res = -1;
+				tagsistant_errno = ENOENT;
+				goto GETATTR_EXIT;
 			}
 
-			or_ptr = or_ptr->next;
 		}
-
-		if (!exists) {
-			res = -1;
-			tagsistant_errno = ENOENT;
-			goto GETATTR_EXIT;
-		}
-#endif
 
 		lstat_path = qtree->full_archive_path;
 	} else
@@ -203,7 +268,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 	//   tags/t1/=/N.filename
 	//
 	if (-1 == res) {
-		lstat_path = get_alias(path);
+		lstat_path = tagsistant_get_alias(path);
 		if (NULL != lstat_path) {
 			res = lstat(lstat_path, stbuf);
 			tagsistant_errno = errno;
@@ -291,7 +356,7 @@ static int tagsistant_readlink(const char *path, char *buf, size_t size)
 	tagsistant_errno = errno;
 
 	if (-1 == res) {
-		readlink_path = get_alias(qtree->full_path);
+		readlink_path = tagsistant_get_alias(qtree->full_path);
 		if (NULL != readlink_path) {
 			res = readlink(readlink_path, buf, size);
 			tagsistant_errno = errno;
@@ -426,7 +491,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 		DIR *dp = opendir(qtree->full_archive_path);
 		if (NULL == dp) {
 
-			readdir_path = get_alias(path);
+			readdir_path = tagsistant_get_alias(path);
 			if (NULL != readdir_path) {
 				dp = opendir(readdir_path);
 				tagsistant_errno = errno;
@@ -575,8 +640,10 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 
 	TAGSISTANT_START("/ MKNOD on %s [mode: %u rdev: %u]", path, mode, (unsigned int) rdev);
 
+	gchar *stripped_path = tagsistant_strip_id(path);
+
 	// build querytree
-	querytree_t *qtree = build_querytree(path, 0);
+	querytree_t *qtree = build_querytree(stripped_path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -611,9 +678,11 @@ MKNOD_EXIT:
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("\\ MKNOD on %s (%s) (%s): %d %d: %s", path, qtree->full_archive_path, query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
+		tagsistant_set_alias(path, qtree->full_archive_path);
 		TAGSISTANT_STOP_OK("\\ MKNOD on %s (%s): OK", path, query_type(qtree));
 	}
 
+	g_free(stripped_path);
 	destroy_querytree(qtree);
 	return (res == -1) ? -tagsistant_errno : 0;
 }
@@ -632,8 +701,10 @@ static int tagsistant_mkdir(const char *path, mode_t mode)
 
 	TAGSISTANT_START("/ MKDIR on %s [mode: %d]", path, mode);
 
+	gchar *stripped_path = tagsistant_strip_id(path);
+
 	// build querytree
-	querytree_t *qtree = build_querytree(path, 0);
+	querytree_t *qtree = build_querytree(stripped_path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -698,9 +769,11 @@ MKDIR_EXIT:
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("\\ MKDIR on %s (%s): %d %d: %s", path, query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
+		tagsistant_set_alias(path, qtree->full_archive_path);
 		TAGSISTANT_STOP_OK("\\ MKDIR on %s (%s): OK", path, query_type(qtree));
 	}
 
+	g_free(stripped_path);
 	destroy_querytree(qtree);
 	return (res == -1) ? -tagsistant_errno : 0;
 }
@@ -757,7 +830,7 @@ static int tagsistant_unlink(const char *path)
 		tagsistant_errno = errno;
 
 		if (-1 == res) {
-			unlink_path = get_alias(qtree->full_path);
+			unlink_path = tagsistant_get_alias(qtree->full_path);
 			if (NULL != unlink_path) {
 				res = unlink(unlink_path);
 				tagsistant_errno = errno;
@@ -820,7 +893,7 @@ static int tagsistant_rmdir(const char *path)
 			res = rmdir(rmdir_path);
 			tagsistant_errno = errno;
 			if (-1 == res) {
-				rmdir_path = get_alias(path);
+				rmdir_path = tagsistant_get_alias(path);
 				if (NULL != rmdir_path) {
 					res = rmdir(rmdir_path);
 					tagsistant_errno = errno;
@@ -952,7 +1025,7 @@ static int tagsistant_rename(const char *from, const char *to)
 		tagsistant_errno = errno;
 
 		if (-1 == res) {
-			rename_path = get_alias(rename_path);
+			rename_path = tagsistant_get_alias(rename_path);
 			if (NULL != rename_path) {
 				res = rename(rename_path, to_qtree->full_archive_path);
 				tagsistant_errno = errno;
@@ -1056,7 +1129,7 @@ static int tagsistant_symlink(const char *from, const char *to)
 
 		// if qtree is internal, just re-tag it, taking the tags from to_qtree but
 		// the ID from from_qtree
-		if (QTREE_IS_INTERNAL(from_qtree) && from_qtree->object_id) {
+		if (0 && QTREE_IS_INTERNAL(from_qtree) && from_qtree->object_id) {
 			dbg(LOG_INFO, "Retagging %s as internal to %s", from, tagsistant.mountpoint);
 			traverse_querytree(to_qtree, sql_tag_object, from_qtree->object_id);
 			goto SYMLINK_EXIT;
@@ -1325,7 +1398,7 @@ int internal_open(querytree_t *qtree, int flags, int *_errno)
 
 	// later look for an alias and try it
 	if (-1 == res) {
-		gchar *alias = get_alias(qtree->full_path);
+		gchar *alias = tagsistant_get_alias(qtree->full_path);
 		if (NULL != alias) {
 			res = open(alias, flags);
 		}

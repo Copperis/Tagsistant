@@ -462,6 +462,10 @@ char *real_strdup(const char *orig, char *file, int line);
 // change the object ID to a querytree_t structure
 extern void tagsistant_qtree_renumber(querytree_t *qtree, tagsistant_id object_id);
 
+extern void tagsistant_set_alias(const char *alias, const char *aliased);
+extern gchar *tagsistant_get_alias(const char *alias);
+extern void tagsistant_delete_alias(const char *alias);
+
 // returns the type of query reppresented by a querytree_t struct
 extern gchar *query_type(querytree_t *qtree);
 

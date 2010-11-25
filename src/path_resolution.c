@@ -432,6 +432,20 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 		 * try to guess the object ID
 		 */
 		qtree->object_id = tagsistant_get_object_id(qtree->object_path, NULL);
+
+		if (!qtree->object_id) {
+			dbg(LOG_INFO, "Qtree path %s does NOT contain an ID", qtree->object_path);
+			char *alias = tagsistant_get_alias(path);
+			if (alias) {
+				dbg(LOG_INFO, "Looking for ID in %s", alias);
+				qtree->object_id = tagsistant_get_object_id(alias, NULL);
+				free(alias);
+
+				if (qtree->object_id) {
+					tagsistant_qtree_renumber(qtree, qtree->object_id);
+				}
+			}
+		}
 	} else {
 		qtree->points_to_object = 0;
 	}
@@ -768,10 +782,22 @@ tagsistant_id tagsistant_get_object_id(const gchar *filename, gchar **purename)
 {
 	tagsistant_id id = 0;
 
-	if (purename != NULL)
-		sscanf(filename, "%lu.%s", (long unsigned *) &id, *purename);
+	const gchar *proper_name = g_strrstr(filename, "/");
+
+	if (!proper_name)
+		proper_name = filename;
 	else
-		sscanf(filename, "%lu.", (long unsigned *) &id);
+		proper_name++;
+
+	dbg(LOG_INFO, "Searching for an ID in %s", proper_name);
+
+	if (purename != NULL) {
+		sscanf(proper_name, "%lu.%s", (long unsigned *) &id, *purename);
+	} else {
+		sscanf(proper_name, "%lu.", (long unsigned *) &id);
+	}
+
+	dbg(LOG_INFO, "Returning ID %lu", (long unsigned) id);
 
 	return id;
 }
