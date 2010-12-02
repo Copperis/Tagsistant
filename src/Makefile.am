@@ -3,7 +3,7 @@
 bin_PROGRAMS = tagsistant
 
 tagsistant_SOURCES = tagsistant.c path_resolution.c\
-	compat/fuse_opt.c debug.h debug_free_calls.h sql_backend_sqlite.c\
+	compat/fuse_opt.c debug.h debug_free_calls.h\
 	sql.c tagsistant.h sql.h utils.c plugin.c
 
 #### tagsistant_CFLAGS = -D'PLUGINS_DIR="@libexecdir@/tagsistant"'

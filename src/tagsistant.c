@@ -68,7 +68,7 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 	if (!force_create) {
 		tagsistant_query(
 			"select object_id from objects where objectname = \"%s\" and path = \"%s\" limit 1",
-			return_integer, &ID,
+			tagsistant_return_integer, &ID,
 			qtree->object_path, qtree->archive_path);
 	}
 
@@ -79,7 +79,7 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 			qtree->object_path);
 		tagsistant_query(
 			"select max(object_id) from objects where objectname = \"%s\" and path = \"-\"",
-			return_integer, &ID,
+			tagsistant_return_integer, &ID,
 			qtree->object_path);
 
 		// ID = tagsistant_last_insert_id(); // don't know why it does not work on MySQL
@@ -386,43 +386,6 @@ struct use_filler_struct {
 	querytree_t *qtree;		/**< the querytree that originated the readdir() */
 };
 
-#if TAGSISTANT_SQL_BACKEND == TAGSISTANT_SQLITE_BACKEND
-
-/**
- * SQL callback. Add dir entries to libfuse buffer.
- *
- * \param filler_ptr struct use_filler_struct pointer (cast to void*)
- * \param argc argv counter
- * \param argv array of SQL results
- * \param azColName array of column names
- * \return 0 (always, see SQLite policy)
- */
-static int add_entry_to_dir(void *filler_ptr, int argc, char **argv, char **azColName)
-{
-	struct use_filler_struct *ufs = (struct use_filler_struct *) filler_ptr;
-	(void) argc;
-	(void) azColName;
-
-	if (argv[0] == NULL || strlen(argv[0]) == 0)
-		return 0;
-
-	/* check if this tag has been already listed inside the path */
-	ptree_or_node_t *ptx = ufs->qtree->tree;
-	while (NULL != ptx->next) ptx = ptx->next; // last OR section
-
-	ptree_and_node_t *and_t = ptx->and_set;
-	while (NULL != and_t) {
-		if (g_strcmp0(and_t->tag, argv[0]) == 0) {
-			return 0;
-		}
-		and_t = and_t->next;
-	}
-
-	return ufs->filler(ufs->buf, argv[0], NULL, 0);
-}
-
-#else // DBI-DRIVEN-backend
-
 /**
  * SQL callback. Add dir entries to libfuse buffer.
  *
@@ -452,8 +415,6 @@ static int add_entry_to_dir(void *filler_ptr, dbi_result result)
 
 	return ufs->filler(ufs->buf, dir, NULL, 0);
 }
-
-#endif
 
 /**
  * readdir equivalent (in FUSE paradigm)

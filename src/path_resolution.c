@@ -22,66 +22,6 @@
 
 #include "tagsistant.h"
 
-#if TAGSISTANT_SQL_BACKEND == TAGSISTANT_SQLITE_BACKEND
-
-/**
- * SQL callback. Add new tag derived from reasoning to a ptree_and_node_t structure.
- *
- * \param vreasoning pointer to be casted to reasoning_t* structure
- * \param argc counter of argv arguments
- * \param argv array of SQL given results
- * \param azColName array of SQL column names
- * \return 0 (always, due to SQLite policy)
- */
-static int add_alias_tag(void *vreasoning, int argc, char **argv, char **azColName)
-{
-	(void) argc;
-	(void) azColName;
-
-	/* point to a reasoning_t structure */
-	reasoning_t *reasoning = (reasoning_t *) vreasoning;
-	assert(reasoning != NULL);
-	assert(reasoning->start_node != NULL);
-	assert(reasoning->actual_node != NULL);
-	assert(reasoning->added_tags >= 0);
-
-	assert(argv[0]);
-	assert(argv[1]);
-	assert(argv[2]);
-
-	ptree_and_node_t *and = reasoning->start_node;
-	while (and->related != NULL) {
-		assert(and->tag != NULL);
-		if (strcmp(and->tag, argv[0]) == 0) {
-			/* tag is already present, avoid looping */
-			return 0;
-		}
-		and = and->related;
-	}
-
-	/* adding tag */
-	and->related = g_malloc(sizeof(ptree_and_node_t));
-	if (and->related == NULL) {
-		dbg(LOG_ERR, "Error allocating memory");
-		return 1;
-	}
-
-	and->related->next = NULL;
-	and->related->related = NULL;
-	and->related->tag = strdup(argv[0]);
-
-	assert(and != NULL);
-	assert(and->related != NULL);
-	assert(and->related->tag != NULL);
-
-	reasoning->added_tags += 1;
-
-	dbg(LOG_INFO, "Adding related tag %s (because %s %s)", and->related->tag, argv[1], argv[2]);
-	return 0;
-}
-
-#else
-
 /**
  * SQL callback. Add new tag derived from reasoning to a ptree_and_node_t structure.
  *
@@ -89,7 +29,7 @@ static int add_alias_tag(void *vreasoning, int argc, char **argv, char **azColNa
  * \param result dbi_result pointer
  * \return 0 (always, due to SQLite policy, may change in the future)
  */
-static int add_alias_tag(void *vreasoning, dbi_result result)
+static int tagsistant_add_alias_tag(void *vreasoning, dbi_result result)
 {
 	/* point to a reasoning_t structure */
 	reasoning_t *reasoning = (reasoning_t *) vreasoning;
@@ -133,8 +73,6 @@ static int add_alias_tag(void *vreasoning, dbi_result result)
 	return 0;
 }
 
-#endif
-
 /**
  * Search and add related tags to a ptree_and_node_t,
  * enabling build_filetree to later add more criteria to SQL
@@ -152,15 +90,15 @@ int reasoner(reasoning_t *reasoning)
 
 	tagsistant_query(
 		"select tag1, tag2, relation from relations where tag2 = \"%s\" and relation = \"is equivalent\";",
-		add_alias_tag, reasoning, reasoning->actual_node->tag);
+		tagsistant_add_alias_tag, reasoning, reasoning->actual_node->tag);
 	
 	tagsistant_query(
 		"select tag2, tag1, relation from relations where tag1 = \"%s\" and relation = \"is equivalent\";",
-		add_alias_tag, reasoning, reasoning->actual_node->tag);
+		tagsistant_add_alias_tag, reasoning, reasoning->actual_node->tag);
 	
 	tagsistant_query(
 		"select tag2, tag1, relation from relations where tag1 = \"%s\" and relation = \"includes\";",
-		add_alias_tag, reasoning, reasoning->actual_node->tag);
+		tagsistant_add_alias_tag, reasoning, reasoning->actual_node->tag);
 	
 	if (reasoning->actual_node->related != NULL) {
 		reasoning->actual_node = reasoning->actual_node->related;
@@ -472,38 +410,6 @@ struct atft {
 	sqlite3 *dbh;
 };
 
-#if TAGSISTANT_SQL_BACKEND == TAGSISTANT_SQLITE_BACKEND
-
-/**
- * add a file to the file tree (callback function)
- */
-static int add_to_filetree(void *atft_struct, int argc, char **argv, char **azColName)
-{
-	(void) argc;
-	(void) azColName;
-	struct atft *atft = (struct atft*) atft_struct;
-	file_handle_t **fh = atft->fh;
-
-	/* no need to add empty files */
-	if (argv[0] == NULL || strlen(argv[0]) == 0)
-		return 0;
-
-	(*fh)->name = g_strdup_printf("%s.%s", argv[1], argv[0]); // strdup(argv[0]);
-	dbg(LOG_INFO, "adding %s to filetree", (*fh)->name);
-	(*fh)->next = g_new0(file_handle_t, 1);
-	if ((*fh)->next == NULL) {
-		dbg(LOG_ERR, "Can't allocate memory in build_filetree");
-		return 1;
-	}
-	(*fh) = (*fh)->next;
-	(*fh)->next = NULL;
-	(*fh)->name = NULL;
-
-	return 0;
-}
-
-#else
-
 /**
  * add a file to the file tree (callback function)
  */
@@ -532,8 +438,6 @@ static int add_to_filetree(void *atft_struct, dbi_result result)
 
 	return 0;
 }
-
-#endif
 
 void drop_views(ptree_or_node_t *query)
 {

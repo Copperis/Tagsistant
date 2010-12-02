@@ -167,10 +167,6 @@ int tagsistant_db_connection()
 		dbi_conn_set_option(conn, "dbname",			"tags.sql");
 		dbi_conn_set_option(conn, "sqlite3_dbdir",	tagsistant.repository);
 
-	} else if (g_strcmp0(splitted[0], "sqlite3_native") == 0) {
-		tagsistant_database_driver = TAGSISTANT_SQLITE_BACKEND;
-		dbg(LOG_INFO, "Database driver used: sqlite3_native");
-
 	} else {
 		dbg(LOG_ERR, "No or wrong database family specified!");
 	}
@@ -199,7 +195,6 @@ int tagsistant_db_connection()
 
 	// create database schema
 	switch (tagsistant_database_driver) {
-		case TAGSISTANT_SQLITE_BACKEND:
 		case TAGSISTANT_DBI_SQLITE_BACKEND:
 			tagsistant_query("create table if not exists tags (tag_id integer primary key autoincrement not null, tagname varchar(65) unique not null);", NULL, NULL);
 			tagsistant_query("create table if not exists objects (object_id integer not null primary key autoincrement, objectname text(255) not null, path text(1024) unique not null);", NULL, NULL);
@@ -234,7 +229,6 @@ void tagsistant_start_transaction()
 {
 	switch (tagsistant_database_driver) {
 		case TAGSISTANT_DBI_SQLITE_BACKEND:
-		case TAGSISTANT_SQLITE_BACKEND:
 			tagsistant_query("begin transaction", NULL, NULL);
 			break;
 
@@ -256,15 +250,13 @@ void tagsistant_rollback_transaction()
 	tagsistant_query("rollback", NULL, NULL);
 }
 
-#if TAGSISTANT_SQL_BACKEND != TAGSISTANT_SQLITE_BACKEND
-
 /**
  * Perform SQL queries. This function was added to avoid database opening
  * duplication and better handle SQLite interfacement. If dbh is passed
  * NULL, a new SQLite connection will be opened. Otherwise, existing
  * connection will be used.
  *
- * NEVER use real_do_sql() directly. Always use do_sql() macro which adds
+ * NEVER use tagistant_real_do_sql() directly. Always use do_sql() macro which adds
  * __FILE__ and __LINE__ transparently for you. Code will be cleaner.
  *
  * \param statement SQL query to be performed
@@ -274,7 +266,7 @@ void tagsistant_rollback_transaction()
  * \param line __LINE__ passed by calling function
  * \return 0 (always, due to SQLite policy)
  */
-int real_do_sql(char *statement, int (*callback)(void *, dbi_result),
+int tagistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result),
 	void *firstarg, char *file, unsigned int line)
 {
 	// check if statement is not null
@@ -343,7 +335,7 @@ int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)
 	va_start(ap, firstarg);
 
 	gchar *statement = g_strdup_vprintf(format, ap);
-	int res = real_do_sql(statement, callback, firstarg, file, line);
+	int res = tagistant_real_do_sql(statement, callback, firstarg, file, line);
 	g_free(statement);
 
 	return res;
@@ -357,13 +349,12 @@ tagsistant_id tagsistant_last_insert_id()
 	tagsistant_id ID = 0;
 
 	switch (tagsistant_database_driver) {
-		case TAGSISTANT_SQLITE_BACKEND:
 		case TAGSISTANT_DBI_SQLITE_BACKEND:
-			tagsistant_query("SELECT last_insert_rowid() ", return_integer, &ID);
+			tagsistant_query("SELECT last_insert_rowid() ", tagsistant_return_integer, &ID);
 			break;
 
 		case TAGSISTANT_DBI_MYSQL_BACKEND:
-			tagsistant_query("SELECT last_insert_id() ", return_integer, &ID);
+			tagsistant_query("SELECT last_insert_id() ", tagsistant_return_integer, &ID);
 			break;
 	}
 
@@ -377,7 +368,7 @@ tagsistant_id tagsistant_last_insert_id()
  * \param result dbi_result pointer
  * \return 0 (always, due to SQLite policy, may change in the future)
  */
-int return_integer(void *return_integer, dbi_result result)
+int tagsistant_return_integer(void *return_integer, dbi_result result)
 {
 	uint32_t *buffer = (uint32_t *) return_integer;
 	*buffer = 0;
@@ -399,7 +390,7 @@ int return_integer(void *return_integer, dbi_result result)
  *   gchar *string;
  *   tagsistant_query("SQL statement;", return_string, &string); // note the &
  * 
- * \param return_integer string pointer cast to void* which holds the string to be returned
+ * \param return_string string pointer cast to void* which holds the string to be returned
  * \param result dbi_result pointer
  * \return 0 (always, due to SQLite policy, may change in the future)
  */
@@ -425,7 +416,7 @@ int tagsistant_object_is_tagged(tagsistant_id object_id)
 
 	tagsistant_query(
 		"select object_id from tagging where object_id = %d limit 1", 
-		return_integer, &still_exists, object_id);
+		tagsistant_return_integer, &still_exists, object_id);
 	
 	return (still_exists) ? 1 : 0;
 }
@@ -436,7 +427,7 @@ int tagsistant_object_is_tagged_as(tagsistant_id object_id, tagsistant_id tag_id
 
 	tagsistant_query(
 		"select object_id from tagging where object_id = %d and tag_id = %d limit 1", 
-		return_integer, &is_tagged, object_id, tag_id);
+		tagsistant_return_integer, &is_tagged, object_id, tag_id);
 	
 	return (is_tagged) ? 1 : 0;
 }
@@ -450,7 +441,9 @@ tagsistant_id get_exact_tag_id(const gchar *tagname)
 {
 	tagsistant_id tag_id = 0;
 
-	tagsistant_query("select tag_id from tags where tagname = \"%s\" limit 1", return_integer, &tag_id, tagname);
+	tagsistant_query(
+		"select tag_id from tags where tagname = \"%s\" limit 1",
+		tagsistant_return_integer, &tag_id, tagname);
 
 	return tag_id;
 }
@@ -488,5 +481,3 @@ void sql_rename_tag(const gchar *tagname, const gchar *oldtagname)
 {
 	tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\";", NULL, NULL, tagname, oldtagname);\
 }
-
-#endif /* TAGSISTANT_SQL_BACKEND != TAGSISTANT_SQLITE_BACKEND */

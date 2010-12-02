@@ -28,9 +28,8 @@
 // CFLAGS="-D TAGSISTANT_SQL_BACKEND=TAGSISTANT_DBI_MYSQL_BACKEND"
 //
 #define TAGSISTANT_NULL_BACKEND		0
-#define TAGSISTANT_SQLITE_BACKEND	1
-#define TAGSISTANT_DBI_MYSQL_BACKEND	2
-#define TAGSISTANT_DBI_SQLITE_BACKEND	3
+#define TAGSISTANT_DBI_MYSQL_BACKEND	1
+#define TAGSISTANT_DBI_SQLITE_BACKEND	2
 
 extern int tagsistant_sql_backend_have_intersect;
 
@@ -38,32 +37,12 @@ extern int tagsistant_sql_backend_have_intersect;
 #	define TAGSISTANT_SQL_BACKEND TAGSISTANT_DBI_SQLITE_BACKEND
 #endif
 
-#if TAGSISTANT_SQL_BACKEND == TAGSISTANT_SQLITE_BACKEND // <-------------- sqlite native backend -------
-
 /* execute SQL query adding file:line coords */
-#define  do_sql(dbh, statement, callback, firstarg)\
-	real_do_sql(dbh, statement, callback, firstarg, __FILE__, (unsigned int) __LINE__)
+#define tagsistant_do_sql(statement, callback, firstarg)\
+	tagsistant_real_do_sql(statement, callback, firstarg, __FILE__, (unsigned int) __LINE__)
 
 /* real function to execute SQL statements */
-extern int real_do_sql(sqlite3 **dbh, char *statement, int (*callback)(void *, int, char **, char **), void *firstarg, char *file, unsigned int line);
-
-/* execute SQL statements autoformatting the SQL string and adding file:line coords */
-#define tagsistant_query(format, callback, firstarg, ...) _tagsistant_query(format, __FILE__, __LINE__, callback, firstarg, ## __VA_ARGS__)
-
-/* the real code behind the previous macro */
-extern int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)(void *, int, char **, char **), void *firstarg, ...);
-
-extern int return_integer(void *return_integer, int argc, char **argv, char **azColName);
-extern int return_string(void *return_string, int argc, char **argv, char **azColName);
-
-#else // <-------------- dbi-driven backend ------------------------------------------------------------
-
-/* execute SQL query adding file:line coords */
-#define  do_sql(statement, callback, firstarg)\
-	real_do_sql(statement, callback, firstarg, __FILE__, (unsigned int) __LINE__)
-
-/* real function to execute SQL statements */
-extern int real_do_sql(char *statement, int (*callback)(void *, dbi_result), void *firstarg, char *file, unsigned int line);
+extern int tagsistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result), void *firstarg, char *file, unsigned int line);
 
 /* execute SQL statements autoformatting the SQL string and adding file:line coords */
 #define tagsistant_query(format, callback, firstarg, ...) _tagsistant_query(format, __FILE__, __LINE__, callback, firstarg, ## __VA_ARGS__)
@@ -72,9 +51,7 @@ extern int real_do_sql(char *statement, int (*callback)(void *, dbi_result), voi
 extern int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)(void *, dbi_result), void *firstarg, ...);
 
 extern int return_string(void *return_string, dbi_result result);
-extern int return_integer(void *return_integer, dbi_result result);
-
-#endif
+extern int tagsistant_return_integer(void *return_integer, dbi_result result);
 
 extern int tagsistant_db_connection();
 
