@@ -12266,60 +12266,14 @@ else
 fi
 
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for sqlite3_open in -lsqlite3" >&5
-$as_echo_n "checking for sqlite3_open in -lsqlite3... " >&6; }
-if test "${ac_cv_lib_sqlite3_sqlite3_open+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lsqlite3  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char sqlite3_open ();
-int
-main ()
-{
-return sqlite3_open ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_sqlite3_sqlite3_open=yes
-else
-  ac_cv_lib_sqlite3_sqlite3_open=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_sqlite3_sqlite3_open" >&5
-$as_echo "$ac_cv_lib_sqlite3_sqlite3_open" >&6; }
-if test "x$ac_cv_lib_sqlite3_sqlite3_open" = x""yes; then :
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_LIBSQLITE3 1
-_ACEOF
-
-  LIBS="-lsqlite3 $LIBS"
-
-else
-
-	echo "SQLite it's an SQL implementation targeted to small and embedded systems."
-	echo "SQL database is kept inside a single file. Memory resources required are"
-	echo "less than normal client/server implementations. tagsistant use SQLite to store"
-	echo "file<->tag relationship. For more informations please visit:"
-	echo "http://www.sqlite.org/"
-	exit 1
-
-fi
-
+### AC_CHECK_LIB([sqlite3],[sqlite3_open],,[
+### 	echo "SQLite it's an SQL implementation targeted to small and embedded systems."
+### 	echo "SQL database is kept inside a single file. Memory resources required are"
+### 	echo "less than normal client/server implementations. tagsistant use SQLite to store"
+### 	echo "file<->tag relationship. For more informations please visit:"
+### 	echo "http://www.sqlite.org/"
+### 	exit 1
+### ])
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for dbi_conn_new in -ldbi" >&5
 $as_echo_n "checking for dbi_conn_new in -ldbi... " >&6; }

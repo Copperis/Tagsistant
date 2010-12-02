@@ -87,7 +87,7 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream)
 gchar *querytree_types[QTYPE_TOTAL];
 int querytree_types_initialized = 0;
 
-gchar *query_type(querytree_t *qtree)
+gchar *tagsistant_query_type(querytree_t *qtree)
 {
 	if (!querytree_types_initialized) {
 		querytree_types[QTYPE_MALFORMED] = g_strdup("QTYPE_MALFORMED");
@@ -101,3 +101,32 @@ gchar *query_type(querytree_t *qtree)
 
 	return querytree_types[qtree->type];
 }
+
+/*
+ * since paths are issued without the tagsistant_id trailing
+ * the filename (as in path/path/filename), while after being
+ * created inside tagsistant, filenames get the additional ID
+ * (as in path/path/3273.filename), an hash table to point
+ * original paths to actual paths is required.
+ *
+ * the aliases hash table gets instantiated inside main() and
+ * must be used with tagsistant_get_alias(), tagsistant_set_alias() and tagsistant_delete_alias().
+ *
+ */
+void tagsistant_set_alias(const char *alias, const char *aliased) {
+	dbg(LOG_INFO, "Setting alias %s for %s", aliased, alias);
+	tagsistant_query("insert into aliases (alias, aliased) values (\"%s\", \"%s\")", NULL, NULL, alias, aliased);
+}
+
+gchar *tagsistant_get_alias(const char *alias) {
+	gchar *aliased = NULL;
+	tagsistant_query("select aliased from aliases where alias = \"%s\"", tagsistant_return_string, &aliased, alias);
+	dbg(LOG_INFO, "Looking for an alias for %s, found %s", alias, aliased);
+	return aliased;
+}
+
+void tagsistant_delete_alias(const char *alias) {
+	dbg(LOG_INFO, "Deleting alias for %s", alias);
+	tagsistant_query("delete from aliases where alias = \"%s\"", NULL, NULL, alias);
+}
+

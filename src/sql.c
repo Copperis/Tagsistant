@@ -203,7 +203,7 @@ int tagsistant_db_connection()
 			tagsistant_query("create index if not exists tags_index on tagging (object_id, tag_id);", NULL, NULL);
 			tagsistant_query("create index if not exists relations_index on relations (tag1_id, tag2_id);", NULL, NULL);
 			tagsistant_query("create index if not exists relations_type_index on relations (relation);", NULL, NULL);
-			tagsistant_query("create table if not exists aliases (id primary key autoincrement not null, alias varchar(1000) unique not null, aliased varchar(1000) not null)", NULL, NULL);
+			tagsistant_query("create table if not exists aliases (id integer primary key autoincrement not null, alias varchar(1000) unique not null, aliased varchar(1000) not null)", NULL, NULL);
 			break;
 
 		case TAGSISTANT_DBI_MYSQL_BACKEND:

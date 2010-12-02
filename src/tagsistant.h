@@ -156,7 +156,7 @@ typedef enum {
 	QTYPE_RELATIONS,	// path that's a relation between two or more tags, begins with /relations/
 	QTYPE_STATS,		// path that's a special query for internal status, begins with /stats/
 	QTYPE_TOTAL
-} query_type_t;
+} tagsistant_query_type_t;
 
 /*
  * to ease coding, there are some macros to check
@@ -442,14 +442,6 @@ char *real_strdup(const char *orig, char *file, int line);
 	qtree->full_archive_path = g_strdup_printf("%s%s%s", tagsistant.archive, G_DIR_SEPARATOR_S, qtree->object_path);\
 }
 
-#if 0
-#define qtree_reset_object_path(qtree, path) {\
-	g_free(qtree->archive_path);\
-	g_free(qtree->full_archive_path);\
-	qtree_set_object_path(qtree, path);\
-}
-#endif
-
 #define qtree_copy_object_path(from_qtree, to_qtree) {\
 	if (to_qtree->archive_path) { g_free(to_qtree->archive_path); }\
 	if (to_qtree->full_archive_path) { g_free(to_qtree->full_archive_path); }\
@@ -464,7 +456,7 @@ extern gchar *tagsistant_get_alias(const char *alias);
 extern void tagsistant_delete_alias(const char *alias);
 
 // returns the type of query reppresented by a querytree_t struct
-extern gchar *query_type(querytree_t *qtree);
+extern gchar *tagsistant_query_type(querytree_t *qtree);
 
 #define TAGSISTANT_START(line,...) {\
 	init_time_profile();\
@@ -482,5 +474,7 @@ extern gchar *query_type(querytree_t *qtree);
 	tagsistant_rollback_transaction();\
 	dbg(LOG_ERR, line, ##__VA_ARGS__);\
 }
+
+#define tagsistant_check_tagging_consistency(qtree) __tagsistant_check_tagging_consistency(qtree, 0)
 
 // vim:ts=4:nocindent:nowrap
