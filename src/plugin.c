@@ -103,15 +103,15 @@ BREAK_MIME_SEARCH:
  * \param filename file to be processed (just the name, will be looked up in /archive)
  * \return zero on fault, one on success
  */
-int process(int file_id)
+int tagsistant_process(int file_id)
 {
 	int res = 0, process_res = 0;
 
 	// load the filename from the database
 	char *filename = NULL;
-	tagsistant_query("select objectname from objects where object_id = %d", return_string, &filename, file_id);
+	tagsistant_query("select objectname from objects where object_id = %d", tagsistant_return_string, &filename, file_id);
 	if (filename == NULL) {
-		dbg(LOG_INFO, "process() unable to locate filename with id %u", file_id);
+		dbg(LOG_INFO, "tagsistant_process() unable to locate filename with id %u", file_id);
 		return 0;
 	}
 
@@ -120,7 +120,7 @@ int process(int file_id)
 	char *mime_type = get_file_mimetype(filename);
 
 	if (mime_type == NULL) {
-		dbg(LOG_ERR, "process() wasn't able to guess mime type for %s", filename);
+		dbg(LOG_ERR, "tagsistant_process() wasn't able to guess mime type for %s", filename);
 		return 0;
 	}
 

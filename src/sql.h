@@ -50,7 +50,7 @@ extern int tagsistant_real_do_sql(char *statement, int (*callback)(void *, dbi_r
 /* the real code behind the previous macro */
 extern int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)(void *, dbi_result), void *firstarg, ...);
 
-extern int return_string(void *return_string, dbi_result result);
+extern int tagsistant_return_string(void *return_string, dbi_result result);
 extern int tagsistant_return_integer(void *return_integer, dbi_result result);
 
 extern int tagsistant_db_connection();
@@ -63,12 +63,12 @@ extern void tagsistant_rollback_transaction();
  * SQL QUERIES *
 \***************/
 
-extern void sql_create_tag(const gchar *tagname);
+extern void tagsistant_sql_create_tag(const gchar *tagname);
 extern tagsistant_id sql_get_tag_id(const gchar *tagname);
-extern void sql_delete_tag(const gchar *tagname);
+extern void tagsistant_sql_delete_tag(const gchar *tagname);
 extern void sql_tag_object(const gchar *tagname, tagsistant_id object_id);
 extern void sql_untag_object(const gchar *tagname, tagsistant_id object_id);
-extern void sql_rename_tag(const gchar *tagname, const gchar *oldtagname);
+extern void tagsistant_sql_rename_tag(const gchar *tagname, const gchar *oldtagname);
 extern tagsistant_id tagsistant_last_insert_id();
 extern tagsistant_id get_exact_tag_id(const gchar *tagname);
 #define sql_tag_exists(tagname) get_exact_tag_id(tagname)

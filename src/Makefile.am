@@ -8,7 +8,8 @@ tagsistant_SOURCES = tagsistant.c path_resolution.c\
 
 #### tagsistant_CFLAGS = -D'PLUGINS_DIR="@libexecdir@/tagsistant"'
 tagsistant_CFLAGS = -D'PLUGINS_DIR="@libdir@/"' $(CFLAGS) `pkg-config --cflags glib-2.0`
-tagsistant_LDFLAGS = -lfuse -lsqlite3 -ldl -rdynamic `pkg-config --libs glib-2.0`
+### tagsistant_LDFLAGS = -lfuse -lsqlite3 -ldl -rdynamic `pkg-config --libs glib-2.0`
+tagsistant_LDFLAGS = -lfuse -ldl -rdynamic `pkg-config --libs glib-2.0`
 
 lib_LTLIBRARIES = libtagsistant_generic-0.1.la libtagsistant_mp3-0.1.la\
 libtagsistant_gif-0.1.la libtagsistant_html-0.1.la libtagsistant_jpeg-0.1.la\

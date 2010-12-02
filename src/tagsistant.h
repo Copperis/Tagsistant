@@ -93,7 +93,6 @@
 #define _FILE_OFFSET_BITS 64
 #endif
 
-#include <sqlite3.h>
 #ifndef TAGMAN
 #include <fuse.h>
 #include <compat/fuse_opt.h>
@@ -366,8 +365,6 @@ struct tagsistant {
 	char    *archive;		/**< a directory holding all the files */
 	char    *tags;			/**< a SQLite database on file */
 	char    *dboptions;		/**< database options for DBI */
-
-	sqlite3 *dbh;			/**< database handle to operate on SQLite thingy, but no longer used? */
 };
 
 extern struct tagsistant tagsistant;
@@ -375,13 +372,13 @@ extern struct tagsistant tagsistant;
 extern int debug;
 extern int log_enabled;
 
-extern querytree_t *build_querytree(const char *path, int do_reasoning);
-extern file_handle_t *build_filetree(ptree_or_node_t *query, const char *path);
+extern querytree_t *tagsistant_build_querytree(const char *path, int do_reasoning);
+extern file_handle_t *tagsistant_build_filetree(ptree_or_node_t *query, const char *path);
 
-extern void destroy_querytree(querytree_t *qtree);
-extern void destroy_filetree(file_handle_t *fh);
+extern void tagsistant_destroy_querytree(querytree_t *qtree);
+extern void tagsistant_destroy_filetree(file_handle_t *fh);
 
-extern int process(int file_id);
+extern int tagsistant_process(int file_id);
 
 extern tagsistant_id tagsistant_get_object_id(const gchar *path, gchar **purename);
 

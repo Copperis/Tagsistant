@@ -47,7 +47,7 @@ void tagsistant_set_alias(const char *alias, const char *aliased) {
 
 gchar *tagsistant_get_alias(const char *alias) {
 	gchar *aliased = NULL;
-	tagsistant_query("select aliased from aliases where alias = \"%s\"", return_string, &aliased, alias);
+	tagsistant_query("select aliased from aliases where alias = \"%s\"", tagsistant_return_string, &aliased, alias);
 	dbg(LOG_INFO, "Looking for an alias for %s, found %s", alias, aliased);
 	return aliased;
 }
@@ -216,7 +216,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 	TAGSISTANT_START("/ GETATTR on %s", path);
 
 	// build querytree
-	querytree_t *qtree = build_querytree(path, 0);
+	querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -313,7 +313,7 @@ GETATTR_EXIT:
 		TAGSISTANT_STOP_OK("\\ GETATTR on %s (%s): OK", path, query_type(qtree));
 	}
 
-	destroy_querytree(qtree);
+	tagsistant_destroy_querytree(qtree);
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
@@ -333,7 +333,7 @@ static int tagsistant_readlink(const char *path, char *buf, size_t size)
 	TAGSISTANT_START("/ READLINK on %s", path);
 
 	// build querytree
-	querytree_t *qtree = build_querytree(path, 0);
+	querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -372,7 +372,7 @@ READLINK_EXIT:
 		TAGSISTANT_STOP_OK("\\ REALINK on %s (%s): OK", path, query_type(qtree));
 	}
 
-	destroy_querytree(qtree);
+	tagsistant_destroy_querytree(qtree);
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
@@ -438,7 +438,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 	TAGSISTANT_START("/ READDIR on %s", path);
 
 	// build querytree
-	querytree_t *qtree = build_querytree(path, 0);
+	querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -508,7 +508,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 		filler(buf, "..", NULL, 0);
 		if (qtree->complete) {
 			// build the filetree
-			file_handle_t *fh = build_filetree(qtree->tree, path);
+			file_handle_t *fh = tagsistant_build_filetree(qtree->tree, path);
 
 			// check filetree is not null
 			if (NULL == fh) {
@@ -530,7 +530,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 			} while ( fh != NULL && fh->name != NULL );
 		
 			// destroy the file tree
-			destroy_filetree(fh_save);
+			tagsistant_destroy_filetree(fh_save);
 		} else {
 			// add operators if path is not "/tags", to avoid
 			// "/tags/+" and "/tags/="
@@ -583,7 +583,7 @@ READDIR_EXIT:
 		TAGSISTANT_STOP_OK("\\ READDIR on %s (%s): OK", path, query_type(qtree));
 	}
 
-	destroy_querytree(qtree);
+	tagsistant_destroy_querytree(qtree);
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
@@ -604,7 +604,7 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 	gchar *stripped_path = tagsistant_strip_id(path);
 
 	// build querytree
-	querytree_t *qtree = build_querytree(stripped_path, 0);
+	querytree_t *qtree = tagsistant_build_querytree(stripped_path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -644,7 +644,7 @@ MKNOD_EXIT:
 	}
 
 	g_free(stripped_path);
-	destroy_querytree(qtree);
+	tagsistant_destroy_querytree(qtree);
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
@@ -665,7 +665,7 @@ static int tagsistant_mkdir(const char *path, mode_t mode)
 	gchar *stripped_path = tagsistant_strip_id(path);
 
 	// build querytree
-	querytree_t *qtree = build_querytree(stripped_path, 0);
+	querytree_t *qtree = tagsistant_build_querytree(stripped_path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -691,7 +691,7 @@ static int tagsistant_mkdir(const char *path, mode_t mode)
 
 	// -- tags but incomplete (means: create a new tag) --
 	if (QTREE_IS_TAGS(qtree)) {
-		sql_create_tag(qtree->last_tag);	
+		tagsistant_sql_create_tag(qtree->last_tag);	
 	} else
 
 	// -- relations --
@@ -701,7 +701,7 @@ static int tagsistant_mkdir(const char *path, mode_t mode)
 		// and second level is all available relations
 		if (qtree->second_tag) {
 			// create a new relation between two tags	
-			sql_create_tag(qtree->second_tag);
+			tagsistant_sql_create_tag(qtree->second_tag);
 			int tag1_id = get_exact_tag_id(qtree->first_tag);
 			int tag2_id = get_exact_tag_id(qtree->second_tag);
 			if (tag1_id && tag2_id && IS_VALID_RELATION(qtree->relation)) {
@@ -735,7 +735,7 @@ MKDIR_EXIT:
 	}
 
 	g_free(stripped_path);
-	destroy_querytree(qtree);
+	tagsistant_destroy_querytree(qtree);
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
@@ -753,7 +753,7 @@ static int tagsistant_unlink(const char *path)
 	TAGSISTANT_START("/ UNLINK on %s", path);
 
 	// build querytree
-	querytree_t *qtree = build_querytree(path, 0);
+	querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -816,7 +816,7 @@ UNLINK_EXIT:
 		TAGSISTANT_STOP_OK("\\ UNLINK on %s (%s): OK", path, query_type(qtree));
 	}
 
-	destroy_querytree(qtree);
+	tagsistant_destroy_querytree(qtree);
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
@@ -833,7 +833,7 @@ static int tagsistant_rmdir(const char *path)
 
 	TAGSISTANT_START("/ RMDIR on %s", path);
 
-	querytree_t *qtree = build_querytree(path, FALSE);
+	querytree_t *qtree = tagsistant_build_querytree(path, FALSE);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -865,7 +865,7 @@ static int tagsistant_rmdir(const char *path)
 
 	// -- tags but incomplete (means: delete a tag) --
 	if (QTREE_IS_TAGS(qtree)) {
-		sql_delete_tag(qtree->last_tag);	
+		tagsistant_sql_delete_tag(qtree->last_tag);	
 	} else
 
 	// -- relations --
@@ -875,7 +875,7 @@ static int tagsistant_rmdir(const char *path)
 		// and second level is all available relations
 		if (qtree->second_tag) {
 			// create a new relation between two tags	
-			sql_create_tag(qtree->second_tag);
+			tagsistant_sql_create_tag(qtree->second_tag);
 			int tag1_id = get_exact_tag_id(qtree->first_tag);
 			int tag2_id = get_exact_tag_id(qtree->second_tag);
 			if (tag1_id && tag2_id && IS_VALID_RELATION(qtree->relation)) {
@@ -906,7 +906,7 @@ static int tagsistant_rmdir(const char *path)
 		TAGSISTANT_STOP_OK("\\ RMDIR on %s (%s): OK", path, query_type(qtree));
 	}
 
-	destroy_querytree(qtree);
+	tagsistant_destroy_querytree(qtree);
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
@@ -925,13 +925,13 @@ static int tagsistant_rename(const char *from, const char *to)
 
 	TAGSISTANT_START("/ RENAME %s as %s", from, to);
 
-	from_qtree = build_querytree(from, FALSE);
+	from_qtree = tagsistant_build_querytree(from, FALSE);
 	if (NULL == from_qtree) {
 		tagsistant_errno = ENOMEM;
 		goto RENAME_EXIT;
 	}
 
-	to_qtree = build_querytree(to, FALSE);
+	to_qtree = tagsistant_build_querytree(to, FALSE);
 	if (NULL == to_qtree) {
 		tagsistant_errno = ENOMEM;
 		goto RENAME_EXIT;
@@ -1017,8 +1017,8 @@ RENAME_EXIT:
 		TAGSISTANT_STOP_OK("\\ RENAME %s (%s) to %s (%s): OK", from, query_type(from_qtree), to, query_type(to_qtree));
 	}
 
-	destroy_querytree(from_qtree);
-	destroy_querytree(to_qtree);
+	tagsistant_destroy_querytree(from_qtree);
+	tagsistant_destroy_querytree(to_qtree);
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
@@ -1066,8 +1066,8 @@ static int tagsistant_symlink(const char *from, const char *to)
 		// dbg(LOG_INFO, "%s is internal to %s, trimmed to %s", from, tagsistant.mountpoint, _from);
 	}
 
-	querytree_t *from_qtree = build_querytree(_from, 0);
-	querytree_t *to_qtree = build_querytree(to, 0);
+	querytree_t *from_qtree = tagsistant_build_querytree(_from, 0);
+	querytree_t *to_qtree = tagsistant_build_querytree(to, 0);
 
 	from_qtree->is_external = (from == _from) ? 1 : 0;
 
@@ -1131,8 +1131,8 @@ SYMLINK_EXIT:
 		TAGSISTANT_STOP_OK("\\ SYMLINK from %s to %s (%s): OK", from, to, query_type(to_qtree));
 	}
 
-	destroy_querytree(from_qtree);
-	destroy_querytree(to_qtree);
+	tagsistant_destroy_querytree(from_qtree);
+	tagsistant_destroy_querytree(to_qtree);
 
 	return (res == -1) ? -tagsistant_errno : 0;
 }
@@ -1163,7 +1163,7 @@ static int tagsistant_chmod(const char *path, mode_t mode)
 
 	TAGSISTANT_START("/ CHMOD on %s [mode: %d]", path, mode);
 
-	querytree_t *qtree = build_querytree(path, 0);
+	querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -1193,7 +1193,7 @@ static int tagsistant_chmod(const char *path, mode_t mode)
 		TAGSISTANT_STOP_OK("\\ CHMOD %s (%s), %d: OK", path, query_type(qtree), mode);
 	}
 
-	destroy_querytree(qtree);
+	tagsistant_destroy_querytree(qtree);
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
@@ -1211,7 +1211,7 @@ static int tagsistant_chown(const char *path, uid_t uid, gid_t gid)
 
 	TAGSISTANT_START("/ CHOWN on %s [uid: %d gid: %d]", path, uid, gid);
 
-	querytree_t *qtree = build_querytree(path, 0);
+	querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -1241,7 +1241,7 @@ static int tagsistant_chown(const char *path, uid_t uid, gid_t gid)
 		TAGSISTANT_STOP_OK("\\ CHMOD %s, %d, %d (%s): OK", path, uid, gid, query_type(qtree));
 	}
 
-	destroy_querytree(qtree);
+	tagsistant_destroy_querytree(qtree);
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
@@ -1258,7 +1258,7 @@ static int tagsistant_truncate(const char *path, off_t size)
 
 	TAGSISTANT_START("/ TRUNCATE on %s [size: %lu]", path, (long unsigned int) size);
 
-	querytree_t *qtree = build_querytree(path, 0);
+	querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -1288,7 +1288,7 @@ static int tagsistant_truncate(const char *path, off_t size)
 		TAGSISTANT_STOP_OK("\\ TRUNCATE %s, %llu (%s): OK", path, (unsigned long long) size, query_type(qtree));
 	}
 
-	destroy_querytree(qtree);
+	tagsistant_destroy_querytree(qtree);
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
@@ -1306,7 +1306,7 @@ static int tagsistant_utime(const char *path, struct utimbuf *buf)
 
 	TAGSISTANT_START("/ UTIME on %s", path);
 
-	querytree_t *qtree = build_querytree(path, 0);
+	querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -1338,7 +1338,7 @@ static int tagsistant_utime(const char *path, struct utimbuf *buf)
 		TAGSISTANT_STOP_OK("\\ UTIME %s (%s): OK", path, query_type(qtree));
 	}
 
-	destroy_querytree(qtree);
+	tagsistant_destroy_querytree(qtree);
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
@@ -1394,7 +1394,7 @@ static int tagsistant_open(const char *path, struct fuse_file_info *fi)
 	gchar *open_path = NULL;
 
 	// build querytree
-	querytree_t *qtree = build_querytree(path, 0);
+	querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -1430,7 +1430,7 @@ static int tagsistant_open(const char *path, struct fuse_file_info *fi)
 		TAGSISTANT_STOP_OK("\\ OPEN on %s (%s): OK", path, query_type(qtree));
 	}
 
-	destroy_querytree(qtree);
+	tagsistant_destroy_querytree(qtree);
 	return (res == -1) ? -tagsistant_errno : 0;
 }
 
@@ -1451,7 +1451,7 @@ static int tagsistant_read(const char *path, char *buf, size_t size, off_t offse
 
 	TAGSISTANT_START("/ READ on %s [size: %lu offset: %lu]", path, (long unsigned int) size, (long unsigned int) offset);
 
-	querytree_t *qtree = build_querytree(path, 0);
+	querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -1492,7 +1492,7 @@ static int tagsistant_read(const char *path, char *buf, size_t size, off_t offse
 		TAGSISTANT_STOP_OK("\\ READ %s (%s): OK", path, query_type(qtree));
 	}
 
-	destroy_querytree(qtree);
+	tagsistant_destroy_querytree(qtree);
 	return (res == -1) ? -tagsistant_errno : res;
 }
 
@@ -1516,7 +1516,7 @@ static int tagsistant_write(const char *path, const char *buf, size_t size,
 
 	TAGSISTANT_START("/ WRITE on %s [size: %d offset: %lu]", path, size, (long unsigned int) offset);
 
-	querytree_t *qtree = build_querytree(path, 0);
+	querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -1553,7 +1553,7 @@ static int tagsistant_write(const char *path, const char *buf, size_t size,
 		TAGSISTANT_STOP_OK("\\ WRITE %s (%s): OK", path, query_type(qtree));
 	}
 
-	destroy_querytree(qtree);
+	tagsistant_destroy_querytree(qtree);
 	return (res == -1) ? -tagsistant_errno : res;
 }
 
@@ -1885,7 +1885,6 @@ static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse
 void cleanup(int s)
 {
 	dbg(LOG_ERR, "Got Signal %d", s);
-	/* sqlite3_close(tagsistant.dbh); */
 	exit(s);
 }
 

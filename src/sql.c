@@ -394,7 +394,7 @@ int tagsistant_return_integer(void *return_integer, dbi_result result)
  * \param result dbi_result pointer
  * \return 0 (always, due to SQLite policy, may change in the future)
  */
-int return_string(void *return_string, dbi_result result)
+int tagsistant_return_string(void *return_string, dbi_result result)
 {
 	gchar **result_string = (gchar **) return_string;
 
@@ -405,7 +405,7 @@ int return_string(void *return_string, dbi_result result)
 	return 0;
 }
 
-void sql_create_tag(const gchar *tagname)
+void tagsistant_sql_create_tag(const gchar *tagname)
 {
 	tagsistant_query("insert into tags(tagname) values(\"%s\");", NULL, NULL, tagname);
 }
@@ -448,7 +448,7 @@ tagsistant_id get_exact_tag_id(const gchar *tagname)
 	return tag_id;
 }
 
-void sql_delete_tag(const gchar *tagname)
+void tagsistant_sql_delete_tag(const gchar *tagname)
 {
 	tagsistant_id tag_id = sql_get_tag_id(tagname);
 
@@ -477,7 +477,7 @@ void sql_untag_object(const gchar *tagname, tagsistant_id object_id)
 	tagsistant_query("delete from tagging where tag_id = \"%d\" and object_id = \"%d\";", NULL, NULL, tag_id, object_id);\
 }
 
-void sql_rename_tag(const gchar *tagname, const gchar *oldtagname)
+void tagsistant_sql_rename_tag(const gchar *tagname, const gchar *oldtagname)
 {
 	tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\";", NULL, NULL, tagname, oldtagname);\
 }

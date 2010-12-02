@@ -75,7 +75,7 @@ static int tagsistant_add_alias_tag(void *vreasoning, dbi_result result)
 
 /**
  * Search and add related tags to a ptree_and_node_t,
- * enabling build_filetree to later add more criteria to SQL
+ * enabling tagsistant_build_filetree to later add more criteria to SQL
  * statements to retrieve files
  *
  * \param reasoning the reasoning structure the reasoner should work on
@@ -129,7 +129,7 @@ querytree_t *new_querytree(const gchar *path)
 /**
  * destroy a querytree_t structure
  */
-void destroy_querytree(querytree_t *qtree)
+void tagsistant_destroy_querytree(querytree_t *qtree)
 {
 	if (NULL == qtree) return;
 
@@ -185,7 +185,7 @@ void destroy_querytree(querytree_t *qtree)
  *
  * \param @path the path to be converted in a logical query
  */
-querytree_t *build_querytree(const char *path, int do_reasoning)
+querytree_t *tagsistant_build_querytree(const char *path, int do_reasoning)
 {
 	unsigned int orcount = 0, andcount = 0;
 
@@ -398,16 +398,15 @@ querytree_t *build_querytree(const char *path, int do_reasoning)
 RETURN:
 	g_strfreev(splitted);
 #if VERBOSE_DEBUG
-	dbg(LOG_INFO, "Returning from build_querytree...");
+	dbg(LOG_INFO, "Returning from tagsistant_build_querytree...");
 #endif
 	return qtree;
 }
 
 /* a struct used by add_to_filetree function */
 struct atft {
-	sqlite_int64 id;
+	uint64_t id;
 	file_handle_t **fh;
-	sqlite3 *dbh;
 };
 
 /**
@@ -429,7 +428,7 @@ static int add_to_filetree(void *atft_struct, dbi_result result)
 	dbg(LOG_INFO, "adding %s to filetree", (*fh)->name);
 	(*fh)->next = g_new0(file_handle_t, 1);
 	if ((*fh)->next == NULL) {
-		dbg(LOG_ERR, "Can't allocate memory in build_filetree");
+		dbg(LOG_ERR, "Can't allocate memory in tagsistant_build_filetree");
 		return 1;
 	}
 	(*fh) = (*fh)->next;
@@ -449,39 +448,34 @@ void drop_views(ptree_or_node_t *query)
 
 /**
  * build a linked list of filenames that apply to querytree
- * query expressed in query. querytree is used as follows:
+ * query expressed in query. querytree translate as follows
+ * while using SQLite:
  * 
- * 1. each ptree_and_node_t list converted in a INTERSECT
- * multi-SELECT query, and is saved as a VIEW. The name of
- * the view is the string tv%.8X where %.8X is the memory
- * location of the ptree_or_node_t to which the list is
- * linked.
+ *   1. each ptree_and_node_t list converted in a INTERSECT
+ *   multi-SELECT query, and is saved as a VIEW. The name of
+ *   the view is the string tv%.8X where %.8X is the memory
+ *   location of the ptree_or_node_t to which the list is
+ *   linked.
+ *   
+ *   2. a global select is built using all the views previously
+ *   created joined by UNION operators. a sqlite3_exec call
+ *   applies it using add_to_filetree() as callback function.
+ *   
+ *   3. all the views are removed with a DROP VIEW query.
  *
- * 2. a global select is built using all the views previously
- * created joined by UNION operators. a sqlite3_exec call
- * applies it using add_to_filetree() as callback function.
- *
- * 3. all the views are removed with a DROP VIEW query.
+ * MySQL does not feature the INTERSECT operator. So each
+ * ptree_and_node_t list is converted to a set of nested
+ * queries. Steps 2 and 3 apply unchanged.
  *
  * @param query the ptree_or_node_t* query structure to
  * be resolved.
  */
-file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
+file_handle_t *tagsistant_build_filetree(ptree_or_node_t *query, const char *path)
 {
 	(void) path;
 
-	/* opening a persistent connection */
-	sqlite3 *dbh = NULL;
-	int res = sqlite3_open(tagsistant.tags, &dbh);
-	if (res != SQLITE_OK) {
-		dbg(LOG_ERR, "Error [%d] opening database %s", res, tagsistant.tags);
-		dbg(LOG_ERR, "%s", sqlite3_errmsg(dbh));
-		return NULL;
-	}
-
 	if (query == NULL) {
-		dbg(LOG_ERR, "NULL path_tree_t object provided to build_filetree");
-		sqlite3_close(dbh);
+		dbg(LOG_ERR, "NULL path_tree_t object provided to tagsistant_build_filetree");
 		return NULL;
 	}
 
@@ -489,8 +483,7 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 
 	file_handle_t *fh = g_new0(file_handle_t, 1);
 	if ( fh == NULL ) {
-		dbg(LOG_ERR, "Can't allocate memory in build_filetree");
-		sqlite3_close(dbh);
+		dbg(LOG_ERR, "Can't allocate memory in tagsistant_build_filetree");
 		return NULL;
 	}
 	fh->next = NULL;
@@ -606,13 +599,12 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	if (atft == NULL) {
 		dbg(LOG_ERR, "Error allocating memory");
 		g_string_free(view_statement, TRUE);
-		destroy_filetree(result);
+		tagsistant_destroy_filetree(result);
 		drop_views(query_dup);
-		sqlite3_close(dbh);
 		return NULL;
 	}
 	atft->fh = &fh;
-	atft->dbh = dbh;
+	// atft->dbh = dbh;
 
 	/* apply view statement */
 	tagsistant_query(view_statement->str, add_to_filetree, atft);
@@ -621,11 +613,10 @@ file_handle_t *build_filetree(ptree_or_node_t *query, const char *path)
 	g_string_free(view_statement, TRUE);
 
 	drop_views(query_dup);
-	sqlite3_close(dbh);
 	return result;
 }
 
-void destroy_filetree(file_handle_t *fh)
+void tagsistant_destroy_filetree(file_handle_t *fh)
 {
 	if (fh == NULL)
 		return;
@@ -634,7 +625,7 @@ void destroy_filetree(file_handle_t *fh)
 		freenull(fh->name);
 	
 	if (fh->next != NULL)
-		destroy_filetree(fh->next);
+		tagsistant_destroy_filetree(fh->next);
 
 	freenull(fh);
 }
