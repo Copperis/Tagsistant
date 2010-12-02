@@ -111,6 +111,17 @@ typedef uint32_t tagsistant_id;
 #define TAGSISTANT_MAX_TAG_LENGTH 255
 #define TAGSISTANT_MAX_PATH_TOKENS 128
 
+/*
+ * if tagsistant_symlink is called with two internal
+ * paths, it should add the tags from the destination
+ * path to the object pointed by source path (1), or
+ * should create a new symlink (0)?
+ *
+ * NOTE: choosing 1 breaks support of Nautilus and
+ * probably other file managers
+ */
+#define TAGSISTANT_RETAG_INTERNAL_SYMLINKS 0
+
 #define dyn_strcat(original, newstring) original = _dyn_strcat(original, newstring)
 extern gchar *_dyn_strcat(gchar *original, const gchar *newstring);
 
