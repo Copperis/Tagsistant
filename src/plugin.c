@@ -174,7 +174,7 @@ STOP_CHAIN_TAGGING:
 	return res;
 }
 
-void plugin_loader()
+void tagsistant_plugin_loader()
 {
 	char *tagsistant_plugins = NULL;
 	if (getenv("TAGSISTANT_PLUGINS") != NULL) {
@@ -281,7 +281,7 @@ void plugin_loader()
 	freenull(tagsistant_plugins);
 }
 
-void plugin_unloader()
+void tagsistant_plugin_unloader()
 {
 	/* unregistering plugins */
 	tagsistant_plugin_t *pp = plugins;

@@ -78,10 +78,10 @@ static int tagsistant_add_alias_tag(void *vreasoning, dbi_result result)
  * enabling tagsistant_build_filetree to later add more criteria to SQL
  * statements to retrieve files
  *
- * \param reasoning the reasoning structure the reasoner should work on
+ * \param reasoning the reasoning structure the tagsistant_reasoner should work on
  * \return number of tags added
  */
-int reasoner(reasoning_t *reasoning)
+int tagsistant_reasoner(reasoning_t *reasoning)
 {
 	assert(reasoning != NULL);
 	assert(reasoning->start_node != NULL);
@@ -102,7 +102,7 @@ int reasoner(reasoning_t *reasoning)
 	
 	if (reasoning->actual_node->related != NULL) {
 		reasoning->actual_node = reasoning->actual_node->related;
-		reasoner(reasoning);
+		tagsistant_reasoner(reasoning);
 	}
 
 	return reasoning->added_tags;
@@ -296,7 +296,7 @@ querytree_t *tagsistant_build_querytree(const char *path, int do_reasoning)
 						reasoning->start_node = and;
 						reasoning->actual_node = and;
 						reasoning->added_tags = 0;
-						int newtags = reasoner(reasoning);
+						int newtags = tagsistant_reasoner(reasoning);
 						dbg(LOG_INFO, "Reasoning added %d tags", newtags);
 					}
 				}
@@ -336,20 +336,27 @@ querytree_t *tagsistant_build_querytree(const char *path, int do_reasoning)
 
 		if (*token_ptr == NULL) {
 			// set a null path
-			qtree_set_object_path(qtree, g_strdup(""));
+			tagsistant_qtree_set_object_path(qtree, "");
 		} else {
 			// set the object path and compute the relative paths
-			qtree_set_object_path(qtree, g_strjoinv(G_DIR_SEPARATOR_S, token_ptr));
+			gchar *joined = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
+			qtree->object_path = tagsistant_ID_strip_from_path(joined); 
+			tagsistant_querytree_rebuild_paths(qtree);
+			g_free(joined);
 
 			// an object_path is_taggable if it does not contains "/"
-			// as in "23892.mydocument.odt" and not in "8346.myfolder/photo.jpg"
+			// as in "23892___mydocument.odt" and not in "8346___myfolder/photo.jpg"
 			if (
 				(strlen(qtree->object_path) > 0) &&
-				(g_strstr_len(qtree->object_path, strlen(qtree->object_path), G_DIR_SEPARATOR_S) == NULL)
+				(g_strstr_len(qtree->object_path, -1, G_DIR_SEPARATOR_S) == NULL)
 			) {
 				qtree->is_taggable = 1;
 			}
 		}
+
+		dbg(LOG_INFO, "object_path = %s", qtree->object_path);
+		dbg(LOG_INFO, "archive_path = %s", qtree->archive_path);
+		dbg(LOG_INFO, "full_archive_path = %s", qtree->full_archive_path);
 	}
 
 	/*
@@ -369,14 +376,14 @@ querytree_t *tagsistant_build_querytree(const char *path, int do_reasoning)
 		/*
 		 * try to guess the object ID
 		 */
-		qtree->object_id = tagsistant_get_object_id(qtree->object_path, NULL);
+		qtree->object_id = tagsistant_ID_extract_from_path(qtree->full_path);
 
 		if (!qtree->object_id) {
-			dbg(LOG_INFO, "Qtree path %s does NOT contain an ID", qtree->object_path);
+			dbg(LOG_INFO, "Qtree path %s does NOT contain an ID", qtree->full_path);
 			char *alias = tagsistant_get_alias(path);
 			if (alias) {
 				dbg(LOG_INFO, "Looking for ID in %s", alias);
-				qtree->object_id = tagsistant_get_object_id(alias, NULL);
+				qtree->object_id = tagsistant_ID_extract_from_path(alias);
 				free(alias);
 
 				if (qtree->object_id) {
@@ -389,11 +396,7 @@ querytree_t *tagsistant_build_querytree(const char *path, int do_reasoning)
 	}
 
 	/* get the id of the object referred by first element */
-	gchar *dot = (NULL == *token_ptr) ? NULL : g_strstr_len(*token_ptr, -1, ".");
-	if (NULL != dot) {
-		qtree->object_id = strtol(*token_ptr, NULL, 10);
-		dot++;
-	}
+	if ((!qtree->object_id) && *token_ptr) qtree->object_id = tagsistant_ID_extract_from_path(*token_ptr);
 
 RETURN:
 	g_strfreev(splitted);
@@ -424,7 +427,7 @@ static int add_to_filetree(void *atft_struct, dbi_result result)
 	if (objectname == NULL || strlen(objectname) == 0)
 		return 0;
 
-	(*fh)->name = g_strdup_printf("%u.%s", object_id, objectname); // strdup(argv[0]);
+	(*fh)->name = g_strdup_printf("%u%s%s", object_id, TAGSISTANT_ID_DELIMITER, objectname);
 	dbg(LOG_INFO, "adding %s to filetree", (*fh)->name);
 	(*fh)->next = g_new0(file_handle_t, 1);
 	if ((*fh)->next == NULL) {
@@ -438,7 +441,7 @@ static int add_to_filetree(void *atft_struct, dbi_result result)
 	return 0;
 }
 
-void drop_views(ptree_or_node_t *query)
+void __tagsistant_drop_views(ptree_or_node_t *query)
 {
 	while (query != NULL) {
 		tagsistant_query("drop view tv%.8X", NULL, NULL, (unsigned int) query);
@@ -600,7 +603,7 @@ file_handle_t *tagsistant_build_filetree(ptree_or_node_t *query, const char *pat
 		dbg(LOG_ERR, "Error allocating memory");
 		g_string_free(view_statement, TRUE);
 		tagsistant_destroy_filetree(result);
-		drop_views(query_dup);
+		__tagsistant_drop_views(query_dup);
 		return NULL;
 	}
 	atft->fh = &fh;
@@ -612,7 +615,7 @@ file_handle_t *tagsistant_build_filetree(ptree_or_node_t *query, const char *pat
 
 	g_string_free(view_statement, TRUE);
 
-	drop_views(query_dup);
+	__tagsistant_drop_views(query_dup);
 	return result;
 }
 
@@ -628,44 +631,6 @@ void tagsistant_destroy_filetree(file_handle_t *fh)
 		tagsistant_destroy_filetree(fh->next);
 
 	freenull(fh);
-}
-
-/**
- * strip the id part of an object name, starting from qtree->object_path field.
- * if you provide a qtree with object_path == "321.document.txt", this function
- * will return "document.txt".
- */
-gchar *tagsistant_strip_object_id(querytree_t *qtree)
-{
-		GRegex *r = g_regex_new("^[0-9]+\\.", 0, 0, NULL);
-		gchar *stripped = g_regex_replace(r, qtree->object_path, -1, 0, "", 0, NULL);
-		g_regex_unref(r);
-
-		return stripped;
-}
-
-/**
- * renumber an object, by changing its object_id and rebuilding its
- * object_path, archive_path and full_archive_path.
- */
-void tagsistant_qtree_renumber(querytree_t *qtree, tagsistant_id object_id)
-{
-	if (qtree && object_id) {
-		// save the object id
-		qtree->object_id = object_id;
-
-		// strip the object id
-		gchar *stripped = tagsistant_strip_object_id(qtree);
-		g_free(qtree->object_path);
-		qtree->object_path = stripped;
-
-		// build the new object name
-		g_free(qtree->archive_path);
-		qtree->archive_path = g_strdup_printf("%d.%s", qtree->object_id, qtree->object_path);
-
-		g_free(qtree->full_archive_path);
-		qtree->full_archive_path = g_strdup_printf("%s%s%s", tagsistant.archive, G_DIR_SEPARATOR_S, qtree->archive_path);\
-	}
 }
 
 /**

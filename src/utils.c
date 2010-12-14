@@ -21,6 +21,25 @@
 
 #include "tagsistant.h"
 
+GRegex *tagsistant_ID_strip_from_querytree_regex = NULL;
+GRegex *tagsistant_ID_extract_from_querytree_regex = NULL;
+
+/**
+ * initialize all the utilities
+ */
+void tagsistant_utils_init()
+{
+	gchar *regex_pattern;
+	
+	regex_pattern = g_strdup_printf("^[0-9]+%s", TAGSISTANT_ID_DELIMITER);
+	tagsistant_ID_strip_from_querytree_regex = g_regex_new(regex_pattern, 0, 0, NULL);
+	g_free(regex_pattern);
+
+	regex_pattern = g_strdup_printf("%s.*", TAGSISTANT_ID_DELIMITER);
+	tagsistant_ID_extract_from_querytree_regex = g_regex_new(regex_pattern, 0, 0, NULL);
+	g_free(regex_pattern);
+}
+
 FILE *debugfd = NULL;
 
 #ifdef DEBUG_TO_LOGFILE
@@ -87,6 +106,10 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream)
 gchar *querytree_types[QTYPE_TOTAL];
 int querytree_types_initialized = 0;
 
+/**
+ * return querytree type as a printable string.
+ * the string MUST NOT be freed
+ */
 gchar *tagsistant_query_type(querytree_t *qtree)
 {
 	if (!querytree_types_initialized) {
@@ -106,7 +129,7 @@ gchar *tagsistant_query_type(querytree_t *qtree)
  * since paths are issued without the tagsistant_id trailing
  * the filename (as in path/path/filename), while after being
  * created inside tagsistant, filenames get the additional ID
- * (as in path/path/3273.filename), an hash table to point
+ * (as in path/path/3273___filename), an hash table to point
  * original paths to actual paths is required.
  *
  * the aliases hash table gets instantiated inside main() and
@@ -130,3 +153,129 @@ void tagsistant_delete_alias(const char *alias) {
 	tagsistant_query("delete from aliases where alias = \"%s\"", NULL, NULL, alias);
 }
 
+gchar *tagsistant_ID_strip_from_path(const char *path)
+{
+	gchar *stripped = NULL;
+
+	// this is a utility copy
+	gchar *path_copy = g_strdup(path);
+
+	// seek last slash
+	gchar *last_slash = NULL;
+	gchar *filename = path_copy;
+
+	// if one is found, filename starts on its right
+	// and last slash ends the directory path with '\0'
+	if ((last_slash = g_strrstr(path_copy, "/")) != NULL) {
+		filename = last_slash + 1;
+		*last_slash = '\0';
+	}
+
+	// if no delimiter is found reset filename on the right of
+	// last slash, otherwise keep the right of the first dot
+	gchar *filename_stripped = NULL;
+	if ((filename_stripped = g_strstr_len(filename, -1, TAGSISTANT_ID_DELIMITER)) == NULL) {
+		filename_stripped = filename;
+	} else {
+		filename_stripped += strlen(TAGSISTANT_ID_DELIMITER);
+	}
+
+	dbg(LOG_INFO, "filename stripped is %s", filename_stripped);
+
+	if (last_slash)
+		stripped = g_strdup_printf("%s/%s", path_copy, filename_stripped);
+	else
+		stripped = g_strdup(filename_stripped);
+
+	dbg(LOG_INFO, "Stripped %s to %s", path, stripped);
+
+	free(path_copy);
+	return stripped;
+}
+
+tagsistant_id tagsistant_ID_extract_from_path(const char *path)
+{
+	tagsistant_id ID = 0;
+
+	// this is a utility copy
+	gchar *path_copy = g_strdup(path);
+
+	// seek last slash
+	gchar *last_slash = NULL;
+	gchar *filename = path_copy;
+
+	// if one is found, filename starts on its right
+	// and last slash ends the directory path with '\0'
+	if ((last_slash = g_strrstr(path_copy, "/")) != NULL) {
+		filename = last_slash + 1;
+		*last_slash = '\0';
+	}
+
+	// if no dot is found reset filename on the right of
+	// last slash, otherwise keep the right of the first
+	// dot
+	gchar *delimiter = NULL;
+	if ((delimiter = g_strstr_len(filename, -1, TAGSISTANT_ID_DELIMITER)) != NULL) {
+		*delimiter = '\0';
+		ID = strtol(filename, NULL, 11);
+	}
+
+	free(path_copy);
+	return ID;
+}
+
+/**
+ * strip the id part of an object name, starting from qtree->object_path field.
+ * if you provide a qtree with object_path == "321___document.txt", this function
+ * will return "document.txt".
+ */
+gchar *tagsistant_ID_strip_from_querytree(querytree_t *qtree)
+{
+	gchar *stripped = g_regex_replace(tagsistant_ID_strip_from_querytree_regex, qtree->object_path, -1, 0, "", 0, NULL);
+
+	return stripped;
+}
+
+/**
+ * extract the ID from a querytree object
+ */
+tagsistant_id tagsistant_ID_extract_from_querytree(querytree_t *qtree)
+{
+	gchar *stripped = g_regex_replace(tagsistant_ID_extract_from_querytree_regex, qtree->object_path, -1, 0, "", 0, NULL);
+
+	tagsistant_id ID = strtol(stripped, NULL, 10);
+
+	g_free(stripped);
+	return ID;
+}
+
+void tagsistant_querytree_rebuild_paths(querytree_t *qtree)
+{
+	if (!qtree->object_id) qtree->object_id = tagsistant_ID_extract_from_path(qtree->full_path);
+
+	if (qtree->archive_path) g_free(qtree->archive_path);
+	if (qtree->full_archive_path) g_free(qtree->full_archive_path);
+
+	qtree->archive_path = g_strdup_printf("%d%s%s", qtree->object_id, TAGSISTANT_ID_DELIMITER, qtree->object_path);
+	qtree->full_archive_path = g_strdup_printf("%s%s", tagsistant.archive, qtree->archive_path);
+}
+
+/**
+ * renumber an object, by changing its object_id and rebuilding its
+ * object_path, archive_path and full_archive_path.
+ */
+void tagsistant_qtree_renumber(querytree_t *qtree, tagsistant_id object_id)
+{
+	if (qtree && object_id) {
+		// save the object id
+		qtree->object_id = object_id;
+
+		// strip the object id
+		gchar *stripped = tagsistant_ID_strip_from_querytree(qtree);
+		g_free(qtree->object_path);
+		qtree->object_path = stripped;
+
+		// build the new object name
+		tagsistant_querytree_rebuild_paths(qtree);
+	}
+}

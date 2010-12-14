@@ -67,8 +67,8 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 	g_free(qtree->archive_path);
 	g_free(qtree->full_archive_path);
 
-	qtree->archive_path = g_strdup_printf("%d.%s", ID, qtree->object_path);
-	qtree->full_archive_path = g_strdup_printf("%s%s%d.%s", tagsistant.archive, G_DIR_SEPARATOR_S, ID, qtree->object_path);
+	qtree->archive_path = g_strdup_printf("%d%s%s", ID, TAGSISTANT_ID_DELIMITER, qtree->object_path);
+	qtree->full_archive_path = g_strdup_printf("%s%d%s%s", tagsistant.archive, ID, TAGSISTANT_ID_DELIMITER, qtree->object_path);
 
 	// 2.bis adjust object_path inside DB
 	tagsistant_query(
@@ -88,48 +88,12 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 #define create_and_tag_object(qtree, errno) __create_and_tag_object(qtree, errno, 0); dbg(LOG_INFO, "Tried creation of object %s", qtree->full_path)
 #define force_create_and_tag_object(qtree, errno) __create_and_tag_object(qtree, errno, 1); dbg(LOG_INFO, "Forced creation of object %s", qtree->full_path)
 
-gchar *tagsistant_strip_id(const char *path)
-{
-	// this is the stripped version
-	gchar *stripped = NULL;
-
-	// this is a utility copy
-	gchar *path_copy = g_strdup(path);
-
-	// seek last slash
-	gchar *last_slash = NULL;
-	gchar *filename = path_copy;
-
-	// if one is found, filename starts on its right
-	// and last slash ends the directory path with '\0'
-	if ((last_slash = g_strrstr(path_copy, "/")) != NULL) {
-		filename = last_slash + 1;
-		*last_slash = '\0';
-	}
-
-	// if no dot is found reset filename on the right of
-	// last slash, otherwise keep the right of the first
-	// dot
-	gchar *filename_stripped = NULL;
-	if ((filename_stripped = g_strstr_len(filename, -1, ".")) == NULL) {
-		filename_stripped = filename;
-	} else {
-		filename_stripped++; // on the right of the dot
-	}
-
-	stripped = g_strdup_printf("%s/%s", path_copy, filename_stripped);
-
-	dbg(LOG_INFO, "Stripped %s to %s", path, stripped);
-
-	free(path_copy);
-	return stripped;
-}
-
 int __tagsistant_check_tagging_consistency(querytree_t *qtree, int recurse)
 {
 	int exists = 0;
 
 	if (!QTREE_IS_TAGS(qtree)) {
+		dbg(LOG_INFO, "%s is not a tag query", qtree->full_path);
 		return 1;
 	}
 
@@ -159,7 +123,7 @@ int __tagsistant_check_tagging_consistency(querytree_t *qtree, int recurse)
 		if (alias) {
 			// swap current object_id with alias object_id
 			tagsistant_id current_id = qtree->object_id;
-			tagsistant_id alias_id = tagsistant_get_object_id(alias, NULL);
+			tagsistant_id alias_id = tagsistant_ID_extract_from_path(alias);
 
 			// check tagging consistency with alias id
 			qtree->object_id = alias_id;
@@ -210,6 +174,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 		}
 
 		lstat_path = qtree->full_archive_path;
+		dbg(LOG_INFO, "lstat_path = %s", lstat_path);
 	} else
 
 	// -- tags --
@@ -236,8 +201,8 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 	// where N is the tagsistant_id assigned to the
 	// file. its path will be:
 	//
-	//   archive/N.filename
-	//   tags/t1/=/N.filename
+	//   archive/N___filename
+	//   tags/t1/=/N___filename
 	//
 	if (-1 == res) {
 		lstat_path = tagsistant_get_alias(path);
@@ -573,7 +538,7 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 
 	TAGSISTANT_START("/ MKNOD on %s [mode: %u rdev: %u]", path, mode, (unsigned int) rdev);
 
-	gchar *stripped_path = tagsistant_strip_id(path);
+	gchar *stripped_path = tagsistant_ID_strip_from_path(path);
 
 	// build querytree
 	querytree_t *qtree = tagsistant_build_querytree(stripped_path, 0);
@@ -634,7 +599,7 @@ static int tagsistant_mkdir(const char *path, mode_t mode)
 
 	TAGSISTANT_START("/ MKDIR on %s [mode: %d]", path, mode);
 
-	gchar *stripped_path = tagsistant_strip_id(path);
+	gchar *stripped_path = tagsistant_ID_strip_from_path(path);
 
 	// build querytree
 	querytree_t *qtree = tagsistant_build_querytree(stripped_path, 0);
@@ -1043,7 +1008,7 @@ static int tagsistant_symlink(const char *from, const char *to)
 
 	from_qtree->is_external = (from == _from) ? 1 : 0;
 
-	if (from_qtree->object_path) qtree_copy_object_path(from_qtree, to_qtree);
+	if (from_qtree->object_path) tagsistant_qtree_copy_object_path(from_qtree, to_qtree);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(to_qtree)) {
@@ -1057,7 +1022,7 @@ static int tagsistant_symlink(const char *from, const char *to)
 		// if object_path is null, borrow it from original path
 		if (strlen(to_qtree->object_path) == 0) {
 			dbg(LOG_INFO, "Getting object path from %s", from);
-			qtree_set_object_path(to_qtree, g_strdup(g_path_get_basename(from)));
+			tagsistant_qtree_set_object_path(to_qtree, g_path_get_basename(from));
 		}
 
 		// if qtree is internal, just re-tag it, taking the tags from to_qtree but
@@ -1862,6 +1827,8 @@ void cleanup(int s)
 	exit(s);
 }
 
+extern void tagsistant_utils_init();
+
 int main(int argc, char *argv[])
 {
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
@@ -1895,22 +1862,6 @@ int main(int argc, char *argv[])
 	freenull(volname);
 #else
 	/* fuse_opt_add_arg(&args, "-odefault_permissions"); */
-#endif
-
-#if 0
-
-	/***
-	 * TODO
-	 * NOTE
-	 *
-	 * SQLite library is often called "out of sequence" like in
-	 * performing a query before having connected to sql database.
-	 * to temporary solve this problem we force here single threaded
-	 * operations. should be really solved by better real_do_sql()
-	 */
-	if (!tagsistant.quiet)
-		fprintf(stderr, " *** forcing single thread mode until our SQLite interface is broken! ***\n");
-	tagsistant.singlethread = 1;
 #endif
 
 	if (tagsistant.singlethread) {
@@ -2067,7 +2018,12 @@ int main(int argc, char *argv[])
 	/*
 	 * loading plugins
 	 */
-	plugin_loader();
+	tagsistant_plugin_loader();
+
+	/*
+	 * initializing utilites
+	 */
+	tagsistant_utils_init();
 
 	dbg(LOG_INFO, "Mounting filesystem");
 
@@ -2089,7 +2045,7 @@ int main(int argc, char *argv[])
 	/*
 	 * unloading plugins
 	 */
-	plugin_unloader();
+	tagsistant_plugin_unloader();
 
 	/* free memory to better perfom memory leak profiling */
 	freenull(tagsistant.dboptions);

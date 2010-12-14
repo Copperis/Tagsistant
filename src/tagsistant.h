@@ -111,6 +111,8 @@ typedef uint32_t tagsistant_id;
 #define TAGSISTANT_MAX_TAG_LENGTH 255
 #define TAGSISTANT_MAX_PATH_TOKENS 128
 
+#define TAGSISTANT_ID_DELIMITER "___"
+
 /*
  * if tagsistant_symlink is called with two internal
  * paths, it should add the tags from the destination
@@ -232,12 +234,12 @@ typedef struct querytree {
 	/** i.e. object/path.txt */
 	gchar *object_path;
 
-	/** the path of the object with the archive placeholder prefix */
-	/** <TAGSISTANT_ARCHIVE>/NNN.object/path.txt */
+	/** the path of the object on disk */
+	/** NNN___object/path.txt */
 	gchar *archive_path;
 
-	/** like the previous one, but with actual archive path prefixed */
-	/** ~/.tagsistant/archive/NNN.object/path.txt */
+	/** like the previous one, but with current archive path prefixed */
+	/** ~/.tagsistant/archive/NNN___object/path.txt */
 	gchar *full_archive_path;
 
 	/** the query points to an object on disk? */
@@ -363,16 +365,16 @@ typedef struct tagsistant_object {
  * defines command line options for tagsistant mount tool
  */
 struct tagsistant {
-	int      debug;			/**< enable debug */
-	int		 foreground;	/**< run in foreground */
-	int		 singlethread;	/**< single thread? */
-	int		 readonly;		/**< mount filesystem readonly */
-	int		 verbose;		/**< do verbose logging on syslog (stderr is always verbose) */
-	int		 quiet;			/**< don't log anything */
+	int     debug;			/**< enable debug */
+	int	foreground;		/**< run in foreground */
+	int	singlethread;		/**< single thread? */
+	int	readonly;		/**< mount filesystem readonly */
+	int	verbose;		/**< do verbose logging on syslog (stderr is always verbose) */
+	int	quiet;			/**< don't log anything */
 
 	char    *progname;		/**< tagsistant */
-	char    *mountpoint;	/**< no clue? */
-	char    *repository;	/**< it's where files and tags are archived, no? */
+	char    *mountpoint;		/**< no clue? */
+	char    *repository;		/**< it's where files and tags are archived, no? */
 	char    *archive;		/**< a directory holding all the files */
 	char    *tags;			/**< a SQLite database on file */
 	char    *dboptions;		/**< database options for DBI */
@@ -394,8 +396,8 @@ extern int tagsistant_process(int file_id);
 extern tagsistant_id tagsistant_get_object_id(const gchar *path, gchar **purename);
 
 extern void init_syslog();
-extern void plugin_loader();
-extern void plugin_unloader();
+extern void tagsistant_plugin_loader();
+extern void tagsistant_plugin_unloader();
 
 /**
  * allows for applying a function to all the ptree_and_node_t nodes of
@@ -447,20 +449,17 @@ char *real_strdup(const char *orig, char *file, int line);
 	}\
 }
 
-#define qtree_set_object_path(qtree, path) {\
-	qtree->object_path = path;\
-	qtree->archive_path = g_strdup(qtree->object_path);\
-	qtree->full_archive_path = g_strdup_printf("%s%s%s", tagsistant.archive, G_DIR_SEPARATOR_S, qtree->object_path);\
+#define tagsistant_qtree_set_object_path(qtree, path) {\
+	qtree->object_path = g_strdup(path);\
+	tagsistant_querytree_rebuild_paths(qtree);\
 }
 
-#define qtree_copy_object_path(from_qtree, to_qtree) {\
-	if (to_qtree->archive_path) { g_free(to_qtree->archive_path); }\
-	if (to_qtree->full_archive_path) { g_free(to_qtree->full_archive_path); }\
-	qtree_set_object_path(to_qtree, g_strdup(from_qtree->object_path));\
-}
+#define tagsistant_qtree_copy_object_path(from_qtree, to_qtree) tagsistant_qtree_set_object_path(to_qtree, from_qtree->object_path)
 
 // change the object ID to a querytree_t structure
 extern void tagsistant_qtree_renumber(querytree_t *qtree, tagsistant_id object_id);
+
+extern void tagsistant_querytree_rebuild_paths(querytree_t *qtree);
 
 extern void tagsistant_set_alias(const char *alias, const char *aliased);
 extern gchar *tagsistant_get_alias(const char *alias);
@@ -487,5 +486,11 @@ extern gchar *tagsistant_query_type(querytree_t *qtree);
 }
 
 #define tagsistant_check_tagging_consistency(qtree) __tagsistant_check_tagging_consistency(qtree, 0)
+
+extern gchar *tagsistant_ID_strip_from_path(const char *path);
+extern gchar *tagsistant_ID_strip_from_querytree(querytree_t *qtree);
+
+extern tagsistant_id tagsistant_ID_extract_from_path(const char *path);
+extern tagsistant_id tagsistant_ID_extract_from_querytree(querytree_t *qtree);
 
 // vim:ts=4:nocindent:nowrap
