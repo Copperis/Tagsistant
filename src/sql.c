@@ -346,6 +346,10 @@ int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)
  */
 tagsistant_id tagsistant_last_insert_id()
 {
+	return dbi_conn_sequence_last(conn, NULL);
+
+	// -------- alternative version -----------------------------------------------
+
 	tagsistant_id ID = 0;
 
 	switch (tagsistant_database_driver) {

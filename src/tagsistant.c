@@ -49,12 +49,16 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 			"insert into objects (objectname, path) values (\"%s\", \"-\")",
 			NULL, NULL,
 			qtree->object_path);
+
+		/*
 		tagsistant_query(
 			"select max(object_id) from objects where objectname = \"%s\" and path = \"-\"",
 			tagsistant_return_integer, &ID,
 			qtree->object_path);
+		*/
 
-		// ID = tagsistant_last_insert_id(); // don't know why it does not work on MySQL
+		// don't know why it does not work on MySQL
+		ID = tagsistant_last_insert_id();
 	}
 
 	if (0 == ID) {

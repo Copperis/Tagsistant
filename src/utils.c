@@ -211,16 +211,16 @@ tagsistant_id tagsistant_ID_extract_from_path(const char *path)
 		*last_slash = '\0';
 	}
 
-	// if no dot is found reset filename on the right of
+	// if no delimiter is found reset filename on the right of
 	// last slash, otherwise keep the right of the first
 	// dot
 	gchar *delimiter = NULL;
 	if ((delimiter = g_strstr_len(filename, -1, TAGSISTANT_ID_DELIMITER)) != NULL) {
 		*delimiter = '\0';
-		ID = strtol(filename, NULL, 11);
+		ID = strtol(filename, NULL, 10);
 	}
 
-	free(path_copy);
+	g_free(path_copy);
 	return ID;
 }
 
@@ -231,7 +231,12 @@ tagsistant_id tagsistant_ID_extract_from_path(const char *path)
  */
 gchar *tagsistant_ID_strip_from_querytree(querytree_t *qtree)
 {
-	gchar *stripped = g_regex_replace(tagsistant_ID_strip_from_querytree_regex, qtree->object_path, -1, 0, "", 0, NULL);
+	GStaticMutex mtx = G_STATIC_MUTEX_INIT;
+	g_static_mutex_lock(&mtx);
+	gchar *stripped = g_regex_replace_literal(tagsistant_ID_strip_from_querytree_regex, qtree->object_path, -1, 0, "", 0, NULL);
+	g_static_mutex_unlock(&mtx);
+
+	dbg(LOG_INFO, "%s stripped to %s", stripped, qtree->object_path);
 
 	return stripped;
 }
@@ -241,7 +246,12 @@ gchar *tagsistant_ID_strip_from_querytree(querytree_t *qtree)
  */
 tagsistant_id tagsistant_ID_extract_from_querytree(querytree_t *qtree)
 {
-	gchar *stripped = g_regex_replace(tagsistant_ID_extract_from_querytree_regex, qtree->object_path, -1, 0, "", 0, NULL);
+	GStaticMutex mtx = G_STATIC_MUTEX_INIT;
+	g_static_mutex_lock(&mtx);
+	gchar *stripped = g_regex_replace_literal(tagsistant_ID_extract_from_querytree_regex, qtree->object_path, -1, 0, "", 0, NULL);
+	g_static_mutex_unlock(&mtx);
+
+	dbg(LOG_INFO, "%s extracted from %s", stripped, qtree->object_path);
 
 	tagsistant_id ID = strtol(stripped, NULL, 10);
 
