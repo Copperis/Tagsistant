@@ -422,12 +422,13 @@ static int add_to_filetree(void *atft_struct, dbi_result result)
 
 	const char *objectname = dbi_result_get_string_idx(result, 1);
 	tagsistant_id object_id = 0;
-	if (TAGSISTANT_DBI_SQLITE_BACKEND == tagsistant_database_driver) {
-		const char *id_as_a_string = dbi_result_get_string_idx(result, 2);
-		object_id = strtol(id_as_a_string, NULL, 10);
-	} else {
-		object_id = dbi_result_get_ulong_idx(result, 2);
-	}
+//	if (TAGSISTANT_DBI_SQLITE_BACKEND == tagsistant_database_driver) {
+//		const char *id_as_a_string = dbi_result_get_string_idx(result, 2);
+//		object_id = strtol(id_as_a_string, NULL, 10);
+//	} else {
+		object_id = dbi_result_get_uint_idx(result, 2);
+	//}
+
 
 	/* no need to add empty files */
 	if (objectname == NULL || strlen(objectname) == 0)
