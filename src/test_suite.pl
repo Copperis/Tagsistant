@@ -126,6 +126,9 @@ test("cp /tmp/clutter $MP/tags/t1/=/");
 test("cp /tmp/clutter $MP/tags/t2/=/");
 test("ln -s /tmp/clutter $MP/tags/t3/=");
 test("readlink $MP/tags/t3/=/*clutter");
+
+# goto OUT;
+
 test("ls -la $MP/archive/");
 test("ls -la $MP/tags/t1/=");
 test("ls -la $MP/tags/t1/+/t2/=");
@@ -195,6 +198,7 @@ test("stat $MP/tags/t2/=/*truncate2");
 out_test('Size: 10');
 
 # ---------[no more test to run]---------------------------------------- <---
+OUT:
 
 print "\n" x 80;
 print "*" x 80;

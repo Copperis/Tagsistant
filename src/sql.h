@@ -32,6 +32,7 @@
 #define TAGSISTANT_DBI_SQLITE_BACKEND	2
 
 extern int tagsistant_sql_backend_have_intersect;
+extern int tagsistant_database_driver;
 
 #ifndef TAGSISTANT_SQL_BACKEND
 #	define TAGSISTANT_SQL_BACKEND TAGSISTANT_DBI_SQLITE_BACKEND
