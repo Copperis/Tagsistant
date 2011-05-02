@@ -1710,14 +1710,15 @@ enum {
 #define TAGSISTANT_OPT(t, p, v) { t, offsetof(struct tagsistant, p), v }
 
 static struct fuse_opt tagsistant_opts[] = {
-	TAGSISTANT_OPT("-d",					debug,			1),
-	TAGSISTANT_OPT("--repository=%s",		repository,		0),
-	TAGSISTANT_OPT("-f",					foreground,		1),
-	TAGSISTANT_OPT("-s",					singlethread,	1),
-	TAGSISTANT_OPT("--db=%s",				dboptions,		0),
-	TAGSISTANT_OPT("-r",					readonly,		1),
-	TAGSISTANT_OPT("-v",					verbose,		1),
-	TAGSISTANT_OPT("-q",					quiet,			1),
+	TAGSISTANT_OPT("-d",			debug,			1),
+	TAGSISTANT_OPT("--repository=%s",	repository,		0),
+	TAGSISTANT_OPT("-f",			foreground,		1),
+	TAGSISTANT_OPT("-s",			singlethread,		1),
+	TAGSISTANT_OPT("--db=%s",		dboptions,		0),
+	TAGSISTANT_OPT("-r",			readonly,		1),
+	TAGSISTANT_OPT("-v",			verbose,		1),
+	TAGSISTANT_OPT("-q",			quiet,			1),
+	TAGSISTANT_OPT("-p",			show_config,		1),
 	
 	FUSE_OPT_KEY("-V",          	KEY_VERSION),
 	FUSE_OPT_KEY("--version",   	KEY_VERSION),
@@ -1741,7 +1742,7 @@ void usage(char *progname)
 	fprintf(stderr, "\n"
 		" Tagsistant (tagfs) v.%s FUSE_USE_VERSION: %d\n"
 		" Semantic File System for Linux kernels\n"
-		" (c) 2006-2009 Tx0 <tx0@strumentiresistenti.org>\n"
+		" (c) 2006-2011 Tx0 <tx0@strumentiresistenti.org>\n"
 		" \n"
 		" This program is free software; you can redistribute it and/or modify\n"
 		" it under the terms of the GNU General Public License as published by\n"
@@ -1852,8 +1853,9 @@ int main(int argc, char *argv[])
 
 	tagsistant.progname = argv[0];
 
-	if (fuse_opt_parse(&args, &tagsistant, tagsistant_opts, tagsistant_opt_proc) == -1)
+	if (fuse_opt_parse(&args, &tagsistant, tagsistant_opts, tagsistant_opt_proc) == -1) {
 		exit(1);
+	}
 
 	fuse_opt_add_arg(&args, "-ofsname=tagsistant");
 	fuse_opt_add_arg(&args, "-ouse_ino,readdir_ino");
@@ -1898,7 +1900,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* checking mountpoint */
-	if (!tagsistant.mountpoint) {
+	if (!(tagsistant.mountpoint||tagsistant.show_config)) {
 		usage(tagsistant.progname);
 		fprintf(stderr, " *** No mountpoint provided *** \n\n");
 		exit(2);
@@ -1911,7 +1913,8 @@ int main(int argc, char *argv[])
 			usage(tagsistant.progname);
 			if (!tagsistant.quiet)
 				fprintf(stderr, "\n    Mountpoint %s does not exists and can't be created!\n\n", tagsistant.mountpoint);
-			exit(1);
+			if (!tagsistant.show_config)
+				exit(1);
 		}
 	}
 
@@ -1934,9 +1937,11 @@ int main(int argc, char *argv[])
 				fprintf(stderr, " Using default repository %s\n", tagsistant.repository);
 		} else {
 			usage(tagsistant.progname);
-			if (!tagsistant.quiet)
-				fprintf(stderr, " *** No repository provided with -r ***\n\n");
-			exit(2);
+			if (!tagsistant.show_config) {
+				if (!tagsistant.quiet)
+					fprintf(stderr, " *** No repository provided with -r ***\n\n");
+				exit(2);
+			}
 		}
 	}
 
@@ -2028,6 +2033,11 @@ int main(int argc, char *argv[])
 	 * initializing utilites
 	 */
 	tagsistant_utils_init();
+
+	/*
+	 * print configuration if requested
+	 */
+	if (tagsistant.show_config) tagsistant_show_config();
 
 	dbg(LOG_INFO, "Mounting filesystem");
 

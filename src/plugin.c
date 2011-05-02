@@ -268,7 +268,7 @@ void tagsistant_plugin_loader()
 							plugin->next = plugins;
 							plugins = plugin;
 							if (!tagsistant.quiet)
-								fprintf(stderr, " Loaded plugin %s \t-> \"%s\"\n", de->d_name, plugin->mime_type);
+								fprintf(stderr, " Loaded plugin: %20s -> %s\n", plugin->mime_type, plugin->filename);
 						}
 					}
 				}

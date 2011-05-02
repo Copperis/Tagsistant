@@ -289,3 +289,37 @@ void tagsistant_qtree_renumber(querytree_t *qtree, tagsistant_id object_id)
 		tagsistant_querytree_rebuild_paths(qtree);
 	}
 }
+
+extern tagsistant_plugin_t *plugins;
+
+void tagsistant_show_config()
+{
+	int c;
+
+	// repo internal data
+	fprintf(stderr, "\n[Repository]\n");
+	c = 1;
+	fprintf(stderr, "repository: %s\n", tagsistant.repository);
+	fprintf(stderr, "archive: %s\n", tagsistant.archive);
+	fprintf(stderr, "mount_point: %s\n", tagsistant.mountpoint);
+
+	// SQL backend
+	fprintf(stderr, "\n[SQL]\n");
+	fprintf(stderr, "db_options: %s\n", tagsistant.dboptions);
+	dbi_driver driver = NULL;
+	c = 1;
+	while ((driver = dbi_driver_list(driver))) {
+		fprintf(stderr, "driver_%02d: %s, %s\n", c++, dbi_driver_get_name(driver), dbi_driver_get_filename(driver));
+	}
+
+	// plugin infrastructure
+	fprintf(stderr, "\n[Plugins]\n");
+	tagsistant_plugin_t *pp = plugins;
+	c = 1;
+	while (pp != NULL) {
+		fprintf(stderr, "%s: %s\n", pp->mime_type, pp->filename);
+		pp = pp->next;
+	}
+
+	exit(0);
+}

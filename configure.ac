@@ -100,7 +100,7 @@ AC_CHECK_LIB([fuse],[fuse_main],,[
 	echo "without playing with complex kernel internals. tagsistant is entirely based"
 	echo "on FUSE. Please install libfuse-dev package (or the one which best"
 	echo "fits your linux distribution) or download and compile sources at:"
-	echo "http://fuse.sourceforge.net/"
+	echo "More info at http://fuse.sourceforge.net/"
 	exit 1
 ])
 
@@ -116,9 +116,37 @@ AC_CHECK_LIB([fuse],[fuse_main],,[
 AC_CHECK_LIB([dbi],[dbi_conn_new],,[
 	echo "DBI is an generic database abstactio layer used to connect to MySQL"
 	echo "and will probably used to connect to SQLite too in future releases"
-	echo "http://libdbi.sourceforge.net/"
+	echo "More info at http://libdbi.sourceforge.net/"
 	exit 1
 ])
+
+AC_CHECK_LIB([exif],[exif_data_new_from_file],[plg_jpeg=true],[
+	echo "Please install libexif development files to compile JPEG plugin"
+	echo "More info at http://libexif.sourceforge.net/"
+	plg_jpeg=false
+])
+AM_CONDITIONAL([PLG_JPEG], [test x$plg_jpeg = xtrue])
+
+AC_CHECK_LIB([implement_me],[implement_me],[plg_doc=true],[
+	echo "Please install lib_implement_me development files to compile DOC plugin"
+	echo "More info at http://www.google.it"
+	plg_doc=false
+])
+AM_CONDITIONAL([PLG_DOC], [test x$plg_doc = xtrue])
+
+AC_CHECK_LIB([implement_me],[implement_me],[plg_rtf=true],[
+	echo "Please install lib_implement_me development files to compile RTF plugin"
+	echo "More info at http://www.google.it"
+	plg_rtf=false
+])
+AM_CONDITIONAL([PLG_RTF], [test x$plg_rtf = xtrue])
+
+AC_CHECK_LIB([tag_c],[taglib_file_new],[plg_audio=true],[
+	echo "Please install libtag development files to compile AUDIO plugin"
+	echo "More info at http://developer.kde.org/~wheeler/taglib.html"
+	plg_audio=false
+])
+AM_CONDITIONAL([PLG_AUDIO], [test x$plg_audio = xtrue])
 
 echo $host .. $target
 case $host in

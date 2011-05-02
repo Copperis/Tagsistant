@@ -371,6 +371,7 @@ struct tagsistant {
 	int	readonly;		/**< mount filesystem readonly */
 	int	verbose;		/**< do verbose logging on syslog (stderr is always verbose) */
 	int	quiet;			/**< don't log anything */
+	int	show_config;		/**< show whole configuration */
 
 	char    *progname;		/**< tagsistant */
 	char    *mountpoint;		/**< no clue? */
@@ -492,5 +493,7 @@ extern gchar *tagsistant_ID_strip_from_querytree(querytree_t *qtree);
 
 extern tagsistant_id tagsistant_ID_extract_from_path(const char *path);
 extern tagsistant_id tagsistant_ID_extract_from_querytree(querytree_t *qtree);
+
+extern void tagsistant_show_config();
 
 // vim:ts=4:nocindent:nowrap
