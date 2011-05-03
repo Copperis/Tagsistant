@@ -71,6 +71,7 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 	g_free(qtree->archive_path);
 	g_free(qtree->full_archive_path);
 
+	qtree->object_id = ID;
 	qtree->archive_path = g_strdup_printf("%d%s%s", ID, TAGSISTANT_ID_DELIMITER, qtree->object_path);
 	qtree->full_archive_path = g_strdup_printf("%s%d%s%s", tagsistant.archive, ID, TAGSISTANT_ID_DELIMITER, qtree->object_path);
 

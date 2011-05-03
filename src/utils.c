@@ -157,39 +157,33 @@ gchar *tagsistant_ID_strip_from_path(const char *path)
 {
 	gchar *stripped = NULL;
 
-	// this is a utility copy
-	gchar *path_copy = g_strdup(path);
+	// split incoming path
+	gchar **elements = g_strsplit_set(path, "/", 256);
 
-	// seek last slash
-	gchar *last_slash = NULL;
-	gchar *filename = path_copy;
+	// get the last element
+	int last_index = g_strv_length(elements) - 1;
 
-	// if one is found, filename starts on its right
-	// and last slash ends the directory path with '\0'
-	if ((last_slash = g_strrstr(path_copy, "/")) != NULL) {
-		filename = last_slash + 1;
-		*last_slash = '\0';
+	// split the last element
+	gchar **last = g_strsplit(elements[last_index], TAGSISTANT_ID_DELIMITER, 2);
+
+	elements[last_index] = NULL; // TODO: memory leaking here?
+	gchar *directories = g_strjoinv("/", elements);
+	g_strfreev(elements);
+
+	// if the last element returned an ID and a filename...
+	if ((last[0] != NULL) && (last[1] != NULL)) {
+		if (strlen(directories))
+			stripped = g_strjoin("/", directories, last[1], NULL);
+		else
+			stripped = g_strdup(last[1]);
+	}
+	// else return the original path
+	else {
+		stripped = g_strdup(path);
 	}
 
-	// if no delimiter is found reset filename on the right of
-	// last slash, otherwise keep the right of the first dot
-	gchar *filename_stripped = NULL;
-	if ((filename_stripped = g_strstr_len(filename, -1, TAGSISTANT_ID_DELIMITER)) == NULL) {
-		filename_stripped = filename;
-	} else {
-		filename_stripped += strlen(TAGSISTANT_ID_DELIMITER);
-	}
-
-	dbg(LOG_INFO, "filename stripped is %s", filename_stripped);
-
-	if (last_slash)
-		stripped = g_strdup_printf("%s/%s", path_copy, filename_stripped);
-	else
-		stripped = g_strdup(filename_stripped);
-
-	dbg(LOG_INFO, "Stripped %s to %s", path, stripped);
-
-	free(path_copy);
+	g_free(directories);
+	dbg(LOG_INFO, "%s stripped to %s", path, stripped);
 	return stripped;
 }
 
@@ -197,30 +191,21 @@ tagsistant_id tagsistant_ID_extract_from_path(const char *path)
 {
 	tagsistant_id ID = 0;
 
-	// this is a utility copy
-	gchar *path_copy = g_strdup(path);
+	// split incoming path
+	gchar **elements = g_strsplit_set(path, "/", 256);
 
-	// seek last slash
-	gchar *last_slash = NULL;
-	gchar *filename = path_copy;
+	// get the last element
+	int last_index = g_strv_length(elements) - 1;
 
-	// if one is found, filename starts on its right
-	// and last slash ends the directory path with '\0'
-	if ((last_slash = g_strrstr(path_copy, "/")) != NULL) {
-		filename = last_slash + 1;
-		*last_slash = '\0';
-	}
+	// split the last element
+	gchar **last = g_strsplit(elements[last_index], TAGSISTANT_ID_DELIMITER, 2);
+	g_strfreev(elements);
 
-	// if no delimiter is found reset filename on the right of
-	// last slash, otherwise keep the right of the first
-	// dot
-	gchar *delimiter = NULL;
-	if ((delimiter = g_strstr_len(filename, -1, TAGSISTANT_ID_DELIMITER)) != NULL) {
-		*delimiter = '\0';
-		ID = strtol(filename, NULL, 10);
-	}
+	// if the last element returned an ID and a filename...
+	if (last[0] != NULL)
+		ID = strtol(last[0], NULL, 10);
 
-	g_free(path_copy);
+	dbg(LOG_INFO, "%s has ID %lu", path, ID);
 	return ID;
 }
 

@@ -48,7 +48,9 @@ char *get_file_mimetype(const char *filename)
 	}
 	ext++;
 
-	char *ext_space = g_strdup_printf("%s ", ext); /* trailing space is used later in matching */
+	char *ext_space_mixed = g_strdup_printf("%s ", ext); /* trailing space is used later in matching */
+	char *ext_space = g_ascii_strdown(ext_space_mixed, -1); /* trailing space is used later in matching */
+	g_free(ext_space_mixed);
 
 	/* open /etc/mime.types */
 	FILE *f = fopen("/etc/mime.types", "r");
@@ -132,6 +134,7 @@ int tagsistant_process(tagsistant_querytree_t *qtree)
 			(strcmp(plugin->mime_type, "*/*") == 0)
 		) {
 			/* call plugin processor */
+			dbg(LOG_INFO, "Applying plugin %s", plugin->filename);
 			process_res = (plugin->processor)(qtree);
 
 			/* report about processing */

@@ -162,3 +162,19 @@ esac
 AC_CONFIG_FILES([Makefile
                  src/Makefile])
 AC_OUTPUT
+
+echo Supported plugins:
+if test "x$plg_png" = "xtrue"; then echo "PNG: OK"; else echo "PNG: not supported"; fi
+if test "x$plg_jpeg" = "xtrue"; then echo "JPEG: OK"; else echo "JPEG: not supported"; fi
+if test "x$plg_rtf" = "xtrue"; then echo "RTF: OK"; else echo "RTF: not supported"; fi
+if test "x$plg_xml" = "xtrue"; then echo "XML: OK"; else echo "XML: not supported"; fi
+if test "x$plg_doc" = "xtrue"; then echo "DOC: OK"; else echo "DOC: not supported"; fi
+if test "x$plg_html" = "xtrue"; then echo "HTML: OK"; else echo "HTML: not supported"; fi
+if test "x$plg_audio" = "xtrue"; then echo "AUDIO (mp3, ogg vorbis): OK"; else echo "AUDIO (mp3, ogg vorbis): not supported"; fi
+
+# echo "Riconfiguro libtool"
+cp libtool libtool.back
+sed -i -e 's/ECHO="echo"/echo="echo"/' libtool
+# echo "Fatto! Differenze:"
+# diff libtool libtool.back
+

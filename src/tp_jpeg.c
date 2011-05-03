@@ -34,11 +34,55 @@ int plugin_init()
 	return 1;
 }
 
+/*
+static void trim_spaces(char *buf) 
+	char *s = buf-1; 
+	for (; *buf; ++buf) {
+		if (*buf != ' ')
+			s = buf;
+	}
+	*++s = 0;
+}
+*/
+
+void add_tag(const tagsistant_querytree_t *qtree, ExifData *ed, unsigned tag)
+{
+	ExifMnoteData *mn = exif_data_get_mnote_data(ed);
+	if (!mn) return;
+
+	int num = exif_mnote_data_count(mn);
+	int i; 
+
+	for (i=0; i < num; ++i) { 
+		const char* tname = exif_tag_get_name_in_ifd (exif_mnote_data_get_id(mn, i), EXIF_SUPPORT_LEVEL_UNKNOWN);
+		dbg(LOG_INFO, "Found tag %s", tname);
+
+		/*
+		char buf[1024]; 
+		if (exif_mnote_data_get_id(mn, i) == tag) {
+			if (exif_mnote_data_get_value(mn, i, buf, sizeof(buf))) { 
+				// trim_spaces(buf);
+				if (*buf) {
+					dbg(LOG_INFO, "%u: Found tag %s", qtree->object_id, buf);
+				}
+			}
+		}
+		*/
+	}
+}
+
 /* exported processor function */
 int processor(const tagsistant_querytree_t *qtree)
 {
-	dbg(LOG_INFO, "Tagging %s as %s", qtree->full_archive_path, DEFAULT_TAG);
+	dbg(LOG_INFO, "Tagging object %u as %s", qtree->object_id, DEFAULT_TAG);
 	sql_tag_object(DEFAULT_TAG, qtree->object_id);
+
+	ExifData *ed = exif_data_new_from_file(qtree->full_archive_path);
+	if (!ed) return TP_STOP;
+
+	add_tag(qtree, ed, EXIF_TAG_ARTIST);
+
+	exif_data_unref(ed); 
 	return TP_STOP;
 }
 
