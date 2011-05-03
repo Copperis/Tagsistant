@@ -278,7 +278,10 @@ typedef struct querytree {
 
 	/** the stats path (used for status query in /stat/ paths */
 	gchar *stats_path;
-} querytree_t;
+} tagsistant_querytree_t;
+
+// definition used to move from querytree_t to tagsistant_querytree_t
+#define querytree_t tagsistant_querytree_t
 
 /**
  * used in linked list of returned results
@@ -330,7 +333,7 @@ typedef struct tagsistant_plugin {
 	 *   by other plugins is allowed) or 2 on successful processing (no further
 	 *   processing required).
 	 */
-	int (*processor)(const char *filename);
+	int (*processor)(const tagsistant_querytree_t *qtree);
 
 	/**
 	 * hook to g_free allocated resources
@@ -392,7 +395,7 @@ extern file_handle_t *tagsistant_build_filetree(ptree_or_node_t *query, const ch
 extern void tagsistant_destroy_querytree(querytree_t *qtree);
 extern void tagsistant_destroy_filetree(file_handle_t *fh);
 
-extern int tagsistant_process(int file_id);
+extern int tagsistant_process(tagsistant_querytree_t *qtree);
 
 extern tagsistant_id tagsistant_get_object_id(const gchar *path, gchar **purename);
 

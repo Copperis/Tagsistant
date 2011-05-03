@@ -103,24 +103,16 @@ BREAK_MIME_SEARCH:
  * \param filename file to be processed (just the name, will be looked up in /archive)
  * \return zero on fault, one on success
  */
-int tagsistant_process(int file_id)
+int tagsistant_process(tagsistant_querytree_t *qtree)
 {
 	int res = 0, process_res = 0;
 
-	// load the filename from the database
-	char *filename = NULL;
-	tagsistant_query("select objectname from objects where object_id = %d", tagsistant_return_string, &filename, file_id);
-	if (filename == NULL) {
-		dbg(LOG_INFO, "tagsistant_process() unable to locate filename with id %u", file_id);
-		return 0;
-	}
+	dbg(LOG_INFO, "Processing file %s", qtree->full_archive_path);
 
-	dbg(LOG_INFO, "Processing file %s", filename);
-
-	char *mime_type = get_file_mimetype(filename);
+	char *mime_type = get_file_mimetype(qtree->full_archive_path);
 
 	if (mime_type == NULL) {
-		dbg(LOG_ERR, "tagsistant_process() wasn't able to guess mime type for %s", filename);
+		dbg(LOG_ERR, "tagsistant_process() wasn't able to guess mime type for %s", qtree->full_archive_path);
 		return 0;
 	}
 
@@ -140,22 +132,22 @@ int tagsistant_process(int file_id)
 			(strcmp(plugin->mime_type, "*/*") == 0)
 		) {
 			/* call plugin processor */
-			process_res = (plugin->processor)(filename);
+			process_res = (plugin->processor)(qtree);
 
 			/* report about processing */
 			switch (process_res) {
 				case TP_ERROR:
-					dbg(LOG_ERR, "Plugin %s was supposed to apply to %s, but failed!", plugin->filename, filename);
+					dbg(LOG_ERR, "Plugin %s was supposed to apply to %s, but failed!", plugin->filename, qtree->full_archive_path);
 					break;
 				case TP_OK:
-					dbg(LOG_INFO, "Plugin %s tagged %s", plugin->filename, filename);
+					dbg(LOG_INFO, "Plugin %s tagged %s", plugin->filename, qtree->full_archive_path);
 					break;
 				case TP_STOP:
-					dbg(LOG_INFO, "Plugin %s stopped chain on %s", plugin->filename, filename);
+					dbg(LOG_INFO, "Plugin %s stopped chain on %s", plugin->filename, qtree->full_archive_path);
 					goto STOP_CHAIN_TAGGING;
 					break;
 				case TP_NULL:
-					dbg(LOG_INFO, "Plugin %s did not tagged %s", plugin->filename, filename);
+					dbg(LOG_INFO, "Plugin %s did not tagged %s", plugin->filename, qtree->full_archive_path);
 					break;
 				default:
 					dbg(LOG_ERR, "Plugin %s returned unknown result %d", plugin->filename, process_res);
@@ -170,7 +162,7 @@ STOP_CHAIN_TAGGING:
 	freenull(mime_type);
 	freenull(mime_generic);
 
-	dbg(LOG_INFO, "Processing of %s ended.", filename);
+	dbg(LOG_INFO, "Processing of %s ended.", qtree->full_archive_path);
 	return res;
 }
 

@@ -83,8 +83,11 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 	// 3. set an alias for getattr
 	tagsistant_set_alias(qtree->full_path, qtree->full_archive_path);
 
-	// 5. tag the object
+	// 4. tag the object
 	traverse_querytree(qtree, sql_tag_object, ID);
+
+	// 5. use autotagging plugin stack
+	tagsistant_process(qtree);
 
 	return ID;
 }
@@ -2034,11 +2037,6 @@ int main(int argc, char *argv[])
 	 */
 	tagsistant_utils_init();
 
-	/*
-	 * print configuration if requested
-	 */
-	if (tagsistant.show_config) tagsistant_show_config();
-
 	dbg(LOG_INFO, "Mounting filesystem");
 
 	dbg(LOG_INFO, "Fuse options:");
@@ -2047,6 +2045,11 @@ int main(int argc, char *argv[])
 		dbg(LOG_INFO, "%.2d: %s", fargc, args.argv[fargc]);
 		fargc--;
 	}
+
+	/*
+	 * print configuration if requested
+	 */
+	if (tagsistant.show_config) tagsistant_show_config();
 
 #if FUSE_VERSION <= 25
 	res = fuse_main(args.argc, args.argv, &tagsistant_oper);

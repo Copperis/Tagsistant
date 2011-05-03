@@ -20,6 +20,9 @@
 */
 
 #include "tagsistant.h"
+#include <stdio.h>
+#include <string.h>
+#include <libexif/exif-data.h>
 #define DEFAULT_TAG "image"
 
 /* declaring mime type */
@@ -32,10 +35,10 @@ int plugin_init()
 }
 
 /* exported processor function */
-int processor(const char *filename)
+int processor(const tagsistant_querytree_t *qtree)
 {
-	dbg(LOG_INFO, "Tagging %s as %s", filename, DEFAULT_TAG);
-	// tag_file(filename, DEFAULT_TAG);
+	dbg(LOG_INFO, "Tagging %s as %s", qtree->full_archive_path, DEFAULT_TAG);
+	sql_tag_object(DEFAULT_TAG, qtree->object_id);
 	return TP_STOP;
 }
 
