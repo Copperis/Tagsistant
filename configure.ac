@@ -1,13 +1,13 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.63)
+AC_PREREQ(2.65)
 AC_INIT([tagsistant],[0.3.20101117],[tx0@strumentiresistenti.org])
+AC_CANONICAL_TARGET
 AM_INIT_AUTOMAKE(tagsistant, 0.2.20101117)
 AC_COPYRIGHT([tagsistant is (C) Tx0 <tx0@strumentiresistenti.org>])
 AC_CONFIG_SRCDIR([src/tagsistant.c])
 AC_CONFIG_HEADER([config.h])
-AC_CANONICAL_TARGET
 
 LT_INIT
 # AC_PROG_RANLIB
@@ -120,33 +120,29 @@ AC_CHECK_LIB([dbi],[dbi_conn_new],,[
 	exit 1
 ])
 
-AC_CHECK_LIB([exif],[exif_data_new_from_file],[plg_jpeg=true],[
-	echo "Please install libexif development files to compile JPEG plugin"
-	echo "More info at http://libexif.sourceforge.net/"
-	plg_jpeg=false
-])
+AC_CHECK_LIB([exif],[exif_data_new_from_file],[plg_jpeg=true],[plg_jpeg=false])
 AM_CONDITIONAL([PLG_JPEG], [test x$plg_jpeg = xtrue])
 
-AC_CHECK_LIB([implement_me],[implement_me],[plg_doc=true],[
-	echo "Please install lib_implement_me development files to compile DOC plugin"
-	echo "More info at http://www.google.it"
-	plg_doc=false
-])
+AC_CHECK_LIB([implement_me],[implement_me],[plg_doc=true],[plg_doc=false])
 AM_CONDITIONAL([PLG_DOC], [test x$plg_doc = xtrue])
 
-AC_CHECK_LIB([implement_me],[implement_me],[plg_rtf=true],[
-	echo "Please install lib_implement_me development files to compile RTF plugin"
-	echo "More info at http://www.google.it"
-	plg_rtf=false
-])
+AC_CHECK_LIB([implement_me],[implement_me],[plg_rtf=true],[plg_rtf=false])
 AM_CONDITIONAL([PLG_RTF], [test x$plg_rtf = xtrue])
 
-AC_CHECK_LIB([tag_c],[taglib_file_new],[plg_audio=true],[
-	echo "Please install libtag development files to compile AUDIO plugin"
-	echo "More info at http://developer.kde.org/~wheeler/taglib.html"
-	plg_audio=false
-])
+AC_CHECK_LIB([tag_c],[taglib_file_new],[plg_audio=true],[plg_audio=false])
 AM_CONDITIONAL([PLG_AUDIO], [test x$plg_audio = xtrue])
+
+AC_CHECK_LIB([implement_me],[implement_me],[plg_html=true],[plg_html=false])
+AM_CONDITIONAL([PLG_HTML], [test x$plg_html = xtrue])
+
+AC_CHECK_LIB([implement_me],[implement_me],[plg_xml=true],[plg_xml=false])
+AM_CONDITIONAL([PLG_XML], [test x$plg_xml = xtrue])
+
+AC_CHECK_LIB([implement_me],[implement_me],[plg_gif=true],[plg_gif=false])
+AM_CONDITIONAL([PLG_GIF], [test x$plg_gif = xtrue])
+
+AC_CHECK_LIB([implement_me],[implement_me],[plg_png=true],[plg_png=false])
+AM_CONDITIONAL([PLG_PNG], [test x$plg_png = xtrue])
 
 echo $host .. $target
 case $host in
@@ -164,13 +160,41 @@ AC_CONFIG_FILES([Makefile
 AC_OUTPUT
 
 echo Supported plugins:
-if test "x$plg_png" = "xtrue"; then echo "PNG: OK"; else echo "PNG: not supported"; fi
-if test "x$plg_jpeg" = "xtrue"; then echo "JPEG: OK"; else echo "JPEG: not supported"; fi
-if test "x$plg_rtf" = "xtrue"; then echo "RTF: OK"; else echo "RTF: not supported"; fi
-if test "x$plg_xml" = "xtrue"; then echo "XML: OK"; else echo "XML: not supported"; fi
-if test "x$plg_doc" = "xtrue"; then echo "DOC: OK"; else echo "DOC: not supported"; fi
-if test "x$plg_html" = "xtrue"; then echo "HTML: OK"; else echo "HTML: not supported"; fi
-if test "x$plg_audio" = "xtrue"; then echo "AUDIO (mp3, ogg vorbis): OK"; else echo "AUDIO (mp3, ogg vorbis): not supported"; fi
+if test "x$plg_audio" = "xtrue"; then
+	echo " AUDIO: OK"
+else
+	echo " AUDIO: not supported (More info at http://developer.kde.org/~wheeler/taglib.html)"
+fi
+if test "x$plg_doc" = "xtrue"; then
+	echo "   DOC: OK"
+else
+	echo "   DOC: not supported (More info at http://www.google.it/)"
+fi
+if test "x$plg_html" = "xtrue"; then
+	echo "  HTML: OK"
+else
+	echo "  HTML: not supported (More info at http://www.google.it/)"
+fi
+if test "x$plg_jpeg" = "xtrue"; then
+	echo "  JPEG: OK"
+else
+	echo "  JPEG: not supported (More info at http://libexif.sourceforge.net/)"
+fi
+if test "x$plg_png" = "xtrue"; then
+	echo "   PNG: OK"
+else
+	echo "   PNG: not supported (More info at http://www.google.it/)"
+fi
+if test "x$plg_rtf" = "xtrue"; then
+	echo "   RTF: OK"
+else
+	echo "   RTF: not supported (More info at http://www.google.it/)"
+fi
+if test "x$plg_xml" = "xtrue"; then
+	echo "   XML: OK"
+else
+	echo "   XML: not supported (More info at http://www.google.it/)"
+fi
 
 # echo "Riconfiguro libtool"
 cp libtool libtool.back
