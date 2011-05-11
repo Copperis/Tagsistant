@@ -132,7 +132,7 @@ AM_CONDITIONAL([PLG_RTF], [test x$plg_rtf = xtrue])
 AC_CHECK_LIB([tag_c],[taglib_file_new],[plg_audio=true],[plg_audio=false])
 AM_CONDITIONAL([PLG_AUDIO], [test x$plg_audio = xtrue])
 
-AC_CHECK_LIB([implement_me],[implement_me],[plg_html=true],[plg_html=false])
+AC_CHECK_LIB([glib-2.0],[g_regex_new],[plg_html=true],[plg_html=false])
 AM_CONDITIONAL([PLG_HTML], [test x$plg_html = xtrue])
 
 AC_CHECK_LIB([implement_me],[implement_me],[plg_xml=true],[plg_xml=false])
@@ -173,7 +173,7 @@ fi
 if test "x$plg_html" = "xtrue"; then
 	echo "  HTML: OK"
 else
-	echo "  HTML: not supported (More info at http://www.google.it/)"
+	echo "  HTML: not supported (More info at http://developer.gnome.org/glib/)"
 fi
 if test "x$plg_jpeg" = "xtrue"; then
 	echo "  JPEG: OK"
