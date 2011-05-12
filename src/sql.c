@@ -197,7 +197,7 @@ int tagsistant_db_connection()
 	switch (tagsistant_database_driver) {
 		case TAGSISTANT_DBI_SQLITE_BACKEND:
 			tagsistant_query("create table if not exists tags (tag_id integer primary key autoincrement not null, tagname varchar(65) unique not null);", NULL, NULL);
-			tagsistant_query("create table if not exists objects (object_id integer not null primary key autoincrement, objectname text(255) not null, path text(1024) unique not null default \"-\");", NULL, NULL);
+			tagsistant_query("create table if not exists objects (object_id integer not null primary key autoincrement, objectname text(255) not null, path text(1024) unique not null default \"-\", last_autotag timestamp not null default 0);", NULL, NULL);
 			tagsistant_query("create table if not exists tagging (object_id integer not null, tag_id integer not null, constraint Tagging_key unique (object_id, tag_id));", NULL, NULL);
 			tagsistant_query("create table if not exists relations(relation_id integer primary key autoincrement not null, tag1_id integer not null, relation varchar not null, tag2_id integer not null);", NULL, NULL);
 			tagsistant_query("create index if not exists tags_index on tagging (object_id, tag_id);", NULL, NULL);
@@ -208,7 +208,7 @@ int tagsistant_db_connection()
 
 		case TAGSISTANT_DBI_MYSQL_BACKEND:
 			tagsistant_query("create table if not exists tags (tag_id integer primary key auto_increment not null, tagname varchar(65) unique not null);", NULL, NULL);
-			tagsistant_query("create table if not exists objects (object_id integer not null primary key auto_increment, objectname varchar(255) not null, path varchar(1000) unique not null default \"-\");", NULL, NULL);
+			tagsistant_query("create table if not exists objects (object_id integer not null primary key auto_increment, objectname varchar(255) not null, path varchar(1000) unique not null default \"-\", last_autotag timestamp not null default 0);", NULL, NULL);
 			tagsistant_query("create table if not exists tagging (object_id integer not null, tag_id integer not null, constraint Tagging_key unique key (object_id, tag_id));", NULL, NULL);
 			tagsistant_query("create table if not exists relations(relation_id integer primary key auto_increment not null, tag1_id integer not null, relation varchar(32) not null, tag2_id integer not null);", NULL, NULL);
 			tagsistant_query("create index tags_index on tagging (object_id, tag_id);", NULL, NULL);

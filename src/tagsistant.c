@@ -1766,9 +1766,9 @@ void usage(char *progname)
 		" \n"
 		"  %s [OPTIONS] [--repository=<PATH>] [--db=<OPTIONS>] /mountpoint\n"
 		"\n"
-		"  -q  be quiet\n"
-		"  -r  mount readonly\n"
-		"  -v  verbose syslogging\n"
+		"    -q                     be quiet\n"
+		"    -r                     mount readonly\n"
+		"    -v                     verbose syslogging\n"
 		"\n" /*fuse options will follow... */
 		, PACKAGE_VERSION, FUSE_USE_VERSION, progname
 	);
