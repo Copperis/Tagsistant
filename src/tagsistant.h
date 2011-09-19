@@ -285,8 +285,12 @@ typedef struct querytree {
 
 /**
  * used in linked list of returned results
+ *
+ * Alessandro AkiRoss Re reported a conflict with the structure
+ * file_handle in /usr/include/bits/fcntl.h on Fedora 15; making
+ * the struct anonymous.
  */
-typedef struct file_handle {
+typedef struct /* file_handle */ {
 	/** filename pointed by this structure */
 	char *name;
 
