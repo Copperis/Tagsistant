@@ -35,16 +35,46 @@ char mime_type[] = "text/html";
 GStaticMutex processor_mutex = G_STATIC_MUTEX_INIT;
 
 GRegex *_rx_title = NULL;
+GRegex *_rx_keywords = NULL;
 
 /* exported init function */
 int plugin_init()
 {
 	/* intialize regular expressions */
 	_rx_title = g_regex_new("<title>([^<]+)</title>", _RX_COMPILE_FLAGS, 0, NULL);
+	_rx_keywords = g_regex_new("<meta name=[\"']keywords['\"] content=['\"]([^'\"]+)[\"']/?>", _RX_COMPILE_FLAGS, 0, NULL);
 
 	return 1;
 }
 
+void tp_html_appy_regex(const tagsistant_querytree_t *qtree, const char *buf, GRegex *rx)
+{
+	GMatchInfo *match_info;
+
+	/* apply the regex */
+	g_static_mutex_lock(&processor_mutex);
+	g_regex_match(rx, buf, 0, &match_info);
+	g_static_mutex_unlock(&processor_mutex);
+
+	/* process the matched entries */
+	while (g_match_info_matches(match_info)) {
+		gchar *raw = g_match_info_fetch(match_info, 1);
+		dbg(LOG_INFO, "Found raw data: %s", raw);
+
+		gchar **tokens = g_strsplit_set(raw, " \t,.!?", 255);
+		g_free(raw);
+
+		int x = 0;
+		while (tokens[x]) {
+			if (strlen(tokens[x]) >= 3) sql_tag_object(tokens[x], qtree->object_id);
+			x++;
+		}
+
+		g_strfreev(tokens);
+
+		g_match_info_next(match_info, NULL);
+	}
+}
 
 /* exported processor function */
 int processor(const tagsistant_querytree_t *qtree)
@@ -64,39 +94,14 @@ int processor(const tagsistant_querytree_t *qtree)
 		return TP_ERROR;
 	}
 
-	/* 2. lock the mutex */
-	g_static_mutex_lock(&processor_mutex);
-
-	/* 3. read 65K of document content */
+	/* 2. read 64K of document content */
 	char buf[65535];
 	int r = read(fd, buf, 65535);
 	(void) r;
 
-	/* 4. look for matching portions */
-	GMatchInfo *match_info;
-	g_regex_match(_rx_title, buf, 0, &match_info);
-
-	/* 5. unlock the mutex */
-	g_static_mutex_unlock(&processor_mutex);
-
-	/* 6. process all the matched portions */
-	while (g_match_info_matches(match_info)) {
-		gchar *title = g_match_info_fetch(match_info, 1);
-		dbg(LOG_INFO, "Found title: %s", title);
-
-		gchar **tokens = g_strsplit_set(title, " \t,.!?", 255);
-		g_free(title);
-
-		int x = 0;
-		while (tokens[x]) {
-			if (strlen(tokens[x]) >= 3) sql_tag_object(tokens[x], qtree->object_id);
-			x++;
-		}
-
-		g_strfreev(tokens);
-
-		g_match_info_next(match_info, NULL);
-	}
+	/* 3. look for matching portions */
+	tp_html_apply_regex(qtree, buf, _rx_title);
+	tp_html_apply_regex(qtree, buf, _rx_keywords);
 
 	return TP_STOP;
 }

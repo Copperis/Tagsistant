@@ -92,10 +92,8 @@ int tagsistant_db_connection()
 
 	// if no database option has been passed, use default SQLite3
 	if (strlen(tagsistant.dboptions) == 0) {
-		tagsistant_database_driver = TAGSISTANT_DBI_SQLITE_BACKEND;
-		if (!tagsistant_driver_is_available("sqlite3")) exit(1);
+		tagsistant.dboptions = g_strdup("sqlite3");
 		dbg(LOG_INFO, "Using default driver: sqlite3");
-		return TAGSISTANT_DBI_SQLITE_BACKEND;
 	}
 
 	dbg(LOG_INFO, "Database options: %s", tagsistant.dboptions);
@@ -116,7 +114,8 @@ int tagsistant_db_connection()
 		tagsistant_sql_backend_have_intersect = 0;
 
 		// create connection
-		if (NULL == (conn = dbi_conn_new("mysql"))) {
+		conn = dbi_conn_new("mysql");
+		if (NULL == conn) {
 			dbg(LOG_ERR, "Error creating MySQL connection");
 			exit(1);
 		}
@@ -158,7 +157,8 @@ int tagsistant_db_connection()
 		dbg(LOG_INFO, "Database driver used: sqlite3");
 
 		// create connection
-		if (NULL == (conn = dbi_conn_new("sqlite3"))) {
+		conn = dbi_conn_new("sqlite3");
+		if (NULL == conn) {
 			dbg(LOG_ERR, "Error connecting to SQLite3");
 			exit(1);
 		}
@@ -277,8 +277,11 @@ int tagistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result),
 
 	// check if connection has been created
 	if (NULL == conn) {
-		dbg(LOG_ERR, "ERROR! DBI connection was not initialized!");
-		return 0;
+		tagsistant_db_connection();
+		if (NULL == conn) {
+			dbg(LOG_ERR, "ERROR! DBI connection was not initialized!");
+			return 0;
+		}
 	}
 
 	int counter = 0;

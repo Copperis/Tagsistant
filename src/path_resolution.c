@@ -436,7 +436,7 @@ static int add_to_filetree(void *atft_struct, dbi_result result)
 
 	(*fh)->name = g_strdup_printf("%u%s%s", object_id, TAGSISTANT_ID_DELIMITER, objectname);
 	dbg(LOG_INFO, "adding %s to filetree", (*fh)->name);
-	(*fh)->next = g_new0(file_handle_t, 1);
+	(*fh)->next = (file_handle_t *) g_new0(file_handle_t, 1);
 	if ((*fh)->next == NULL) {
 		dbg(LOG_ERR, "Can't allocate memory in tagsistant_build_filetree");
 		return 1;
