@@ -308,6 +308,7 @@ static int tagsistant_readlink(const char *path, char *buf, size_t size)
 		}
 	}
 
+	// fix bug #12475
 	if (res > 0) buf[res] = '\0';
 
 READLINK_EXIT:

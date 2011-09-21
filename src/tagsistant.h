@@ -290,12 +290,12 @@ typedef struct querytree {
  * file_handle in /usr/include/bits/fcntl.h on Fedora 15; making
  * the struct anonymous.
  */
-typedef struct /* file_handle */ {
+typedef struct file_handle_struct {
 	/** filename pointed by this structure */
 	char *name;
 
 	/** next element in results */
-	struct file_handle *next;
+	struct file_handle_struct *next;
 } file_handle_t;
 
 /**

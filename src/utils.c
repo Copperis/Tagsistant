@@ -205,7 +205,7 @@ tagsistant_id tagsistant_ID_extract_from_path(const char *path)
 	if (last[0] != NULL)
 		ID = strtol(last[0], NULL, 10);
 
-	dbg(LOG_INFO, "%s has ID %lu", path, ID);
+	dbg(LOG_INFO, "%s has ID %lu", path, (long unsigned int) ID);
 	return ID;
 }
 

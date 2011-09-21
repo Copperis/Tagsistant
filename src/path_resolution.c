@@ -441,9 +441,10 @@ static int add_to_filetree(void *atft_struct, dbi_result result)
 		dbg(LOG_ERR, "Can't allocate memory in tagsistant_build_filetree");
 		return 1;
 	}
-	(*fh) = (*fh)->next;
+	(*fh) = (file_handle_t *) (*fh)->next;
 	(*fh)->next = NULL;
 	(*fh)->name = NULL;
+
 
 	return 0;
 }

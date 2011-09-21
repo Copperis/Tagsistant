@@ -47,7 +47,7 @@ int plugin_init()
 	return 1;
 }
 
-void tp_html_appy_regex(const tagsistant_querytree_t *qtree, const char *buf, GRegex *rx)
+void tp_html_apply_regex(const tagsistant_querytree_t *qtree, const char *buf, GRegex *rx)
 {
 	GMatchInfo *match_info;
 
