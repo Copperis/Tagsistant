@@ -31,6 +31,9 @@
 /* Define to 1 if you have the `fuse' library (-lfuse). */
 #undef HAVE_LIBFUSE
 
+/* Define to 1 if you have the `gthread-2.0' library (-lgthread-2.0). */
+#undef HAVE_LIBGTHREAD_2_0
+
 /* Define to 1 if `lstat' has the bug that it succeeds when given the
    zero-length file name argument. */
 #undef HAVE_LSTAT_EMPTY_STRING_BUG
@@ -173,9 +176,6 @@
 
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
-
-/* Define as the return type of signal handlers ('int' or 'void'). */
-#undef RETSIGTYPE
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS

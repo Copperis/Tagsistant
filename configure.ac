@@ -37,17 +37,6 @@ AC_FUNC_CLOSEDIR_VOID
 AC_FUNC_LSTAT
 AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK
 AC_FUNC_MALLOC
-AC_DIAGNOSE([obsolete],[your code may safely assume C89 semantics that RETSIGTYPE is void.
-Remove this warning and the `AC_CACHE_CHECK` when you adjust the code.])dnl
-AC_CACHE_CHECK([return type of signal handlers],[ac_cv_type_signal],[AC_COMPILE_IFELSE(
-[AC_LANG_PROGRAM([#include <sys/types.h>
-#include <signal.h>
-],
-		 [return *(signal (0, 0)) (0) == 1;])],
-		   [ac_cv_type_signal=int],
-		   [ac_cv_type_signal=void])])
-AC_DEFINE_UNQUOTED([RETSIGTYPE],[$ac_cv_type_signal],[Define as the return type of signal handlers
-		    ('int' or 'void').])
 
 AC_FUNC_STAT
 AC_FUNC_UTIME_NULL
@@ -55,6 +44,8 @@ AC_CHECK_FUNCS([inet_ntoa lchown mempcpy memset mkdir rmdir setenv socket strdup
 
 dnl AC_SUBST([CFLAGS],["${CFLAGS} -g -O0 -D_FILE_OFFSET_BITS=64 -Wall -W"])
 AC_SUBST([CFLAGS],["${CFLAGS} -D_FILE_OFFSET_BITS=64 -Wall -W"])
+
+AC_CONFIG_MACRO_DIR([m4])
 
 # add option for debugging on console instead of through syslog facility
 debug_stderr=no
@@ -79,6 +70,11 @@ AC_ARG_ENABLE(
 if test [ "x$debug_free" == "xyes" ]; then
 	AC_SUBST([CFLAGS],["-D_DEBUG_FREE_CALLS ${CFLAGS}"])
 fi
+
+AC_CHECK_LIB([gthread-2.0], [g_thread_init],,[
+	echo "GThread support not available. Please install libgthread"
+	exit 1
+])
 
 ### # add profiling with cprof --- BROKENNNNN!!!!
 ### # simply compiling with -lcprof -finstrument-functions makes
@@ -197,8 +193,8 @@ else
 fi
 
 # echo "Riconfiguro libtool"
-cp libtool libtool.back
-sed -i -e 's/ECHO="echo"/echo="echo"/' libtool
+# cp libtool libtool.back
+# sed -i -e 's/ECHO="echo"/echo="echo"/' libtool
 # echo "Fatto! Differenze:"
 # diff libtool libtool.back
 

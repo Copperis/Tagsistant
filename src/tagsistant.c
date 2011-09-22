@@ -2033,6 +2033,7 @@ int main(int argc, char *argv[])
 	/*
 	 * loading plugins
 	 */
+	g_thread_init(NULL);
 	tagsistant_plugin_loader();
 
 	/*
