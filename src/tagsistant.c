@@ -1809,7 +1809,7 @@ static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse
 	        exit(1);
 	
 	    case KEY_VERSION:
-	        fprintf(stderr, "Tagsistant for Linux 0.1 (prerelease %s)\n", VERSION);
+	        fprintf(stderr, "Tagsistant for Linux 0.4 (prerelease %s)\n", VERSION);
 #if FUSE_VERSION >= 25
 	        fuse_opt_add_arg(outargs, "--version");
 #endif
