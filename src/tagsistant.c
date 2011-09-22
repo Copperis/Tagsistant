@@ -26,6 +26,8 @@
 #include <mcheck.h>
 #endif
 
+#define BUILD_DATE "/"
+
 /* defines command line options for tagsistant mount tool */
 /* static */ struct tagsistant tagsistant;
 
@@ -1745,7 +1747,7 @@ void usage(char *progname)
 		return;
 
 	fprintf(stderr, "\n"
-		" Tagsistant (tagfs) v.%s FUSE_USE_VERSION: %d\n"
+		" Tagsistant (tagfs) v.%s Build: %s FUSE_USE_VERSION: %d\n"
 		" Semantic File System for Linux kernels\n"
 		" (c) 2006-2011 Tx0 <tx0@strumentiresistenti.org>\n"
 		" \n"
@@ -1771,7 +1773,7 @@ void usage(char *progname)
 		"    -r                     mount readonly\n"
 		"    -v                     verbose syslogging\n"
 		"\n" /*fuse options will follow... */
-		, PACKAGE_VERSION, FUSE_USE_VERSION, progname
+		, PACKAGE_VERSION, BUILD_DATE, FUSE_USE_VERSION, progname
 	);
 }
 
@@ -1927,10 +1929,10 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "\n");
 	if (!tagsistant.quiet)
 		fprintf(stderr,
-		" Tagsistant (tagfs) v.%s FUSE_USE_VERSION: %d\n"
+		" Tagsistant (tagfs) v.%s Build: %s FUSE_USE_VERSION: %d\n"
 		" (c) 2006-2009 Tx0 <tx0@strumentiresistenti.org>\n"
 		" For license informations, see %s -h\n\n"
-		, PACKAGE_VERSION, FUSE_USE_VERSION, tagsistant.progname
+		, PACKAGE_VERSION, BUILD_DATE, FUSE_USE_VERSION, tagsistant.progname
 	);
 	
 	/* checking repository */
@@ -2011,7 +2013,6 @@ int main(int argc, char *argv[])
 		}
 	}
 	chmod(tagsistant.archive, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
-
 	if (tagsistant.debug) debug = tagsistant.debug;
 
 	if (debug)

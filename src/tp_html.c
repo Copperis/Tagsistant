@@ -31,49 +31,24 @@ char mime_type[] = "text/html";
 /* flags used by regex compiler */
 #define _RX_COMPILE_FLAGS G_REGEX_CASELESS|G_REGEX_MULTILINE|G_REGEX_DOTALL|G_REGEX_EXTENDED|G_REGEX_OPTIMIZE
 
-/* static mutex used by processor */
-GStaticMutex processor_mutex = G_STATIC_MUTEX_INIT;
+/* mutex used by processor */
+GMutex *processor_mutex = NULL;
 
+/* regex collection */
 GRegex *_rx_title = NULL;
 GRegex *_rx_keywords = NULL;
 
 /* exported init function */
 int plugin_init()
 {
+	/* initialize mutex */
+	g_mutex_new();
+
 	/* intialize regular expressions */
 	_rx_title = g_regex_new("<title>([^<]+)</title>", _RX_COMPILE_FLAGS, 0, NULL);
 	_rx_keywords = g_regex_new("<meta name=[\"']keywords['\"] content=['\"]([^'\"]+)[\"']/?>", _RX_COMPILE_FLAGS, 0, NULL);
 
 	return 1;
-}
-
-void tp_html_apply_regex(const tagsistant_querytree_t *qtree, const char *buf, GRegex *rx)
-{
-	GMatchInfo *match_info;
-
-	/* apply the regex */
-	g_static_mutex_lock(&processor_mutex);
-	g_regex_match(rx, buf, 0, &match_info);
-	g_static_mutex_unlock(&processor_mutex);
-
-	/* process the matched entries */
-	while (g_match_info_matches(match_info)) {
-		gchar *raw = g_match_info_fetch(match_info, 1);
-		dbg(LOG_INFO, "Found raw data: %s", raw);
-
-		gchar **tokens = g_strsplit_set(raw, " \t,.!?", 255);
-		g_free(raw);
-
-		int x = 0;
-		while (tokens[x]) {
-			if (strlen(tokens[x]) >= 3) sql_tag_object(tokens[x], qtree->object_id);
-			x++;
-		}
-
-		g_strfreev(tokens);
-
-		g_match_info_next(match_info, NULL);
-	}
 }
 
 /* exported processor function */
@@ -100,8 +75,8 @@ int processor(const tagsistant_querytree_t *qtree)
 	(void) r;
 
 	/* 3. look for matching portions */
-	tp_html_apply_regex(qtree, buf, _rx_title);
-	tp_html_apply_regex(qtree, buf, _rx_keywords);
+	tagsistant_plugin_apply_regex(qtree, buf, processor_mutex, _rx_title);
+	tagsistant_plugin_apply_regex(qtree, buf, processor_mutex, _rx_keywords);
 
 	return TP_STOP;
 }

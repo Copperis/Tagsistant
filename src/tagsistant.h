@@ -503,4 +503,6 @@ extern tagsistant_id tagsistant_ID_extract_from_querytree(querytree_t *qtree);
 
 extern void tagsistant_show_config();
 
+extern void tagsistant_plugin_apply_regex(const tagsistant_querytree_t *qtree, const char *buf, GMutex *m, GRegex *rx);
+
 // vim:ts=4:nocindent:nowrap

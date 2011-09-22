@@ -47,7 +47,7 @@ AC_CACHE_CHECK([return type of signal handlers],[ac_cv_type_signal],[AC_COMPILE_
 		   [ac_cv_type_signal=int],
 		   [ac_cv_type_signal=void])])
 AC_DEFINE_UNQUOTED([RETSIGTYPE],[$ac_cv_type_signal],[Define as the return type of signal handlers
-		    (`int' or `void').])
+		    ('int' or 'void').])
 
 AC_FUNC_STAT
 AC_FUNC_UTIME_NULL
