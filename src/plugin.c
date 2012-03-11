@@ -34,7 +34,7 @@ tagsistant_plugin_t *plugins = NULL;
  * guess the MIME type of passed filename
  *
  * \param filename file to be processed (just the name, will be looked up in /archive)
- * \return the string rappresenting MIME type (like "audio/mpeg"); the string is dynamically
+ * \return(the string rappresenting MIME type (like "audio/mpeg")); the string is dynamically
  *   allocated and need to be freenull()ed by outside code
  */
 char *tagsistant_get_file_mimetype(const char *filename)
@@ -44,7 +44,7 @@ char *tagsistant_get_file_mimetype(const char *filename)
 	/* get file extension */
 	char *ext = rindex(filename, '.');
 	if (ext == NULL) {
-		return NULL;
+		return(NULL);
 	}
 	ext++;
 
@@ -56,7 +56,7 @@ char *tagsistant_get_file_mimetype(const char *filename)
 	FILE *f = fopen("/etc/mime.types", "r");
 	if (f == NULL) {
 		dbg(LOG_ERR, "Can't open /etc/mime.types");
-		return type;
+		return(type);
 	}
 
 	/* parse /etc/mime.types */
@@ -96,14 +96,14 @@ char *tagsistant_get_file_mimetype(const char *filename)
 BREAK_MIME_SEARCH:
 	freenull(ext_space);
 	fclose(f);
-	return type;
+	return(type);
 }
 
 /**
  * process a file using plugin chain
  *
  * \param filename file to be processed (just the name, will be looked up in /archive)
- * \return zero on fault, one on success
+ * \return(zero on fault, one on success)
  */
 int tagsistant_process(tagsistant_querytree_t *qtree)
 {
@@ -115,7 +115,7 @@ int tagsistant_process(tagsistant_querytree_t *qtree)
 
 	if (mime_type == NULL) {
 		dbg(LOG_ERR, "tagsistant_process() wasn't able to guess mime type for %s", qtree->full_archive_path);
-		return 0;
+		return(0);
 	}
 
 	char *mime_generic = g_strdup(mime_type);
@@ -166,7 +166,7 @@ STOP_CHAIN_TAGGING:
 	freenull(mime_generic);
 
 	dbg(LOG_INFO, "Processing of %s ended.", qtree->full_archive_path);
-	return res;
+	return(res);
 }
 
 void tagsistant_plugin_loader()

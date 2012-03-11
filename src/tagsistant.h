@@ -61,7 +61,7 @@
 
 #include <pthread.h>
 #ifndef TAGMAN
-#include <debug.h>
+#include "debug.h"
 #else
 #include "../../debug.h"
 #endif
@@ -103,17 +103,17 @@
 
 #ifndef TAGMAN
 #include <fuse.h>
-#include <compat/fuse_opt.h>
+#include "compat/fuse_opt.h"
 #endif
 
-/*
+/**
  * each object is identified by a unique number of type tagsistant_id
  */
 typedef uint32_t tagsistant_id;
 
 #include "sql.h"
 
-/*
+/**
  * some limits mainly taken from POSIX standard
  */
 #define TAGSISTANT_MAX_TAG_LENGTH 255
@@ -416,6 +416,7 @@ extern void init_syslog();
 extern void tagsistant_plugin_loader();
 extern void tagsistant_plugin_unloader();
 
+// TODO change this macro into a function
 /**
  * allows for applying a function to all the ptree_and_node_t nodes of
  * a tagstistant_querytree_t structure. the function applied must be declared as:
@@ -502,7 +503,8 @@ extern gchar *tagsistant_query_type(tagsistant_querytree_t *qtree);
 	dbg(LOG_ERR, line, ##__VA_ARGS__);\
 }
 
-#define tagsistant_check_tagging_consistency(qtree) __tagsistant_check_tagging_consistency(qtree, 0)
+#define tagsistant_check_tagging_consistency(qtree) tagsistant_inner_check_tagging_consistency(qtree, 0)
+extern int tagsistant_inner_check_tagging_consistency(tagsistant_querytree_t *qtree, int recurse);
 
 extern gchar *tagsistant_ID_strip_from_path(const char *path);
 extern gchar *tagsistant_ID_strip_from_querytree(tagsistant_querytree_t *qtree);
@@ -513,5 +515,14 @@ extern tagsistant_id tagsistant_ID_extract_from_querytree(tagsistant_querytree_t
 extern void tagsistant_show_config();
 
 extern void tagsistant_plugin_apply_regex(const tagsistant_querytree_t *qtree, const char *buf, GMutex *m, GRegex *rx);
+
+extern int tagsistant_getattr(const char *path, struct stat *stbuf);
+
+#define tagsistant_create_and_tag_object(qtree, errno) tagsistant_inner_create_and_tag_object(qtree, errno, 0); dbg(LOG_INFO, "Tried creation of object %s", qtree->full_path)
+#define tagsistant_force_create_and_tag_object(qtree, errno) tagsistant_inner_create_and_tag_object(qtree, errno, 1); dbg(LOG_INFO, "Forced creation of object %s", qtree->full_path)
+extern int tagsistant_inner_create_and_tag_object(tagsistant_querytree_t *qtree, int *tagsistant_errno, int force_create);
+extern int tagsistant_inner_check_tagging_consistency(tagsistant_querytree_t *qtree, int recurse);
+
+#include "fuse_operations/operations.h"
 
 // vim:ts=4:nocindent:nowrap

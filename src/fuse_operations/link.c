@@ -1,8 +1,6 @@
 /*
-   Tagsistant (tagfs) -- tp_generic.c
+   Tagsistant (tagfs) -- fuse_operations/link.c
    Copyright (C) 2006-2009 Tx0 <tx0@strumentiresistenti.org>
-
-   Tagsistant generic plugin which makes decisions on file MIME types.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -16,32 +14,20 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software Foundation,
-   Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
+   Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
-#include "tagsistant.h"
+#include "../tagsistant.h"
 
-/* declaring mime type */
-char mime_type[] = "*/*";
-
-/* exported init function */
-int tagsistant_plugin_init()
+/**
+ * link equivalent
+ *
+ * @param from existing file name
+ * @param to new file name
+ * @return(0 on success, -errno otherwise)
+ * @todo why tagsistant_link() calls tagsistant_symlink()? We should be able to perform proper linking!
+ */
+int tagsistant_link(const char *from, const char *to)
 {
-	/* dbg(LOG_INFO, "Plugin generic loaded, nice to meet you!"); */
-	return(1);
+	return(tagsistant_symlink(from, to));
 }
-
-/* exported processor function */
-int tagsistant_processor(const char *filename)
-{
-	(void) filename;
-	return(TP_NULL);
-}
-
-/* exported finalize function */
-void tagsistant_plugin_free()
-{
-	/* dbg(LOG_INFO, "Plugin generic gets unloaded, see you!"); */
-}
-
-// vim:ts=4:autoindent:nocindent:syntax=c

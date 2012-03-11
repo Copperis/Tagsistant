@@ -31,13 +31,13 @@ char mime_type[] = "image/jpeg";
 /* exported init function */
 int tagsistant_plugin_init()
 {
-	return 1;
+	return(1);
 }
 
 #define leave_processor() {\
 	exif_mnote_data_unref(mn);\
 	exif_data_unref(ed);\
-	return TP_STOP;\
+	return(TP_STOP);\
 }
 
 /* exported processor function */
@@ -78,7 +78,7 @@ int tagsistant_processor(const tagsistant_querytree_t *qtree)
 	// ok
 	leave_processor();
 
-	return  TP_STOP;
+	return( TP_STOP);
 }
 
 /* exported finalize function */

@@ -60,12 +60,12 @@ void open_debug_file()
 #ifdef DEBUG_STRDUP
 char *real_strdup(const char *orig, char *file, int line)
 {
-	if (orig == NULL) return NULL;
+	if (orig == NULL) return(NULL);
 	/* dbg(LOG_INFO, "strdup(%s) @%s:%d", orig, file, line); */
 	char *res = g_malloc0(sizeof(char) * (strlen(orig) + 1));
 	memcpy(res, orig, strlen(orig));
 	if (tagsistant_debugfd != NULL) fprintf(tagsistant_debugfd, "0x%.8x: strdup(%s) @%s:%d\n", (unsigned int) res, orig, file, line);
-	return res;
+	return(res);
 }
 #endif
 
@@ -93,14 +93,14 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream)
 		*lineptr = g_malloc0(sizeof(char) * (*n + 1));
 
 	if (*lineptr == NULL)
-		return 0;
+		return(0);
 
 	if (fgets(*lineptr, *n, stream) == NULL)
 		*n = 0;
 	else
 		*n = strlen(*lineptr);
 
-	return *n;
+	return(*n);
 }
 #endif
 
@@ -108,7 +108,7 @@ gchar *tagsistant_querytree_types[QTYPE_TOTAL];
 int tagsistant_querytree_types_initialized = 0;
 
 /**
- * return querytree type as a printable string.
+ * return(querytree type as a printable string.)
  * the string MUST NOT be freed
  */
 gchar *tagsistant_query_type(tagsistant_querytree_t *qtree)
@@ -145,7 +145,7 @@ void tagsistant_set_alias(const char *alias, const char *aliased) {
 }
 
 /**
- * look for a matching alias and return aliased object
+ * look for a matching alias and return(aliased object)
  *
  * @param alias the alias to fetch and translate into aliased object
  */
@@ -172,7 +172,7 @@ void tagsistant_delete_alias(const char *alias) {
  * remove tagsistant id from a path
  *
  * @param path the path to be purged of the ID
- * @return the purged path
+ * @return(the purged path)
  */
 gchar *tagsistant_ID_strip_from_path(const char *path)
 {
@@ -198,7 +198,7 @@ gchar *tagsistant_ID_strip_from_path(const char *path)
 		else
 			stripped = g_strdup(last[1]);
 	}
-	// else return the original path
+	// else return(the original path)
 	else {
 		stripped = g_strdup(path);
 	}
@@ -209,10 +209,10 @@ gchar *tagsistant_ID_strip_from_path(const char *path)
 }
 
 /**
- * return the tagsistant ID contained into a path
+ * return(the tagsistant ID contained into a path)
  *
  * @param path the path supposed to contain an ID
- * @return the ID, if found
+ * @return(the ID, if found)
  */
 tagsistant_id tagsistant_ID_extract_from_path(const char *path)
 {
@@ -240,10 +240,10 @@ tagsistant_id tagsistant_ID_extract_from_path(const char *path)
 /**
  * strip the id part of an object name, starting from qtree->object_path field.
  * if you provide a qtree with object_path == "321___document.txt", this function
- * will return "document.txt".
+ * will return("document.txt".)
  *
  * @param qtree the tagsistant_querytree_t
- * @return the purged qtree->object_path
+ * @return(the purged qtree->object_path)
  */
 gchar *tagsistant_ID_strip_from_querytree(tagsistant_querytree_t *qtree)
 {
@@ -262,7 +262,7 @@ gchar *tagsistant_ID_strip_from_querytree(tagsistant_querytree_t *qtree)
  * extract the ID from a querytree object
  *
  * @param qtree the tagsistant_querytree_t holding the ID
- * @return the ID, if found
+ * @return(the ID, if found)
  */
 tagsistant_id tagsistant_ID_extract_from_querytree(tagsistant_querytree_t *qtree)
 {
@@ -276,7 +276,7 @@ tagsistant_id tagsistant_ID_extract_from_querytree(tagsistant_querytree_t *qtree
 	tagsistant_id ID = strtol(stripped, NULL, 10);
 
 	g_free(stripped);
-	return ID;
+	return(ID);
 }
 #endif
 

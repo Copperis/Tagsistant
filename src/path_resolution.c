@@ -27,7 +27,7 @@
  *
  * \param _reasoning pointer to be casted to reasoning_t* structure
  * \param result dbi_result pointer
- * \return 0 (always, due to SQLite policy, may change in the future)
+ * \return(0 (always, due to SQLite policy, may change in the future))
  */
 static int tagsistant_add_alias_tag(void *_reasoning, dbi_result result)
 {
@@ -70,7 +70,7 @@ static int tagsistant_add_alias_tag(void *_reasoning, dbi_result result)
 	reasoning->added_tags += 1;
 
 	dbg(LOG_INFO, "Adding related tag %s (because %s %s)", and->related->tag, rel, t2);
-	return 0;
+	return(0);
 }
 
 /**
@@ -79,7 +79,7 @@ static int tagsistant_add_alias_tag(void *_reasoning, dbi_result result)
  * statements to retrieve files
  *
  * \param reasoning the reasoning structure the tagsistant_reasoner should work on
- * \return number of tags added
+ * \return(number of tags added)
  */
 int tagsistant_reasoner(reasoning_t *reasoning)
 {
@@ -105,7 +105,7 @@ int tagsistant_reasoner(reasoning_t *reasoning)
 		tagsistant_reasoner(reasoning);
 	}
 
-	return reasoning->added_tags;
+	return(reasoning->added_tags);
 }
 
 /**
@@ -119,13 +119,13 @@ tagsistant_querytree_t *tagsistant_new_querytree(const gchar *path)
 	tagsistant_querytree_t *qtree = g_new0(tagsistant_querytree_t, 1);
 	if (qtree == NULL) {
 		dbg(LOG_ERR, "Error allocating memory");
-		return NULL;
+		return(NULL);
 	}
 
 	// duplicate the path inside the struct
 	qtree->full_path = g_strdup(path);
 
-	return qtree;
+	return(qtree);
 }
 
 /**
@@ -198,14 +198,14 @@ tagsistant_querytree_t *tagsistant_build_querytree(const char *path, int do_reas
 
 	// allocate the querytree structure
 	tagsistant_querytree_t *qtree = tagsistant_new_querytree(path);
-	if (qtree == NULL) return NULL;
+	if (qtree == NULL) return(NULL);
 
 	// initialize iterator variables on query tree nodes
 	ptree_or_node_t *last_or = qtree->tree = g_new0(ptree_or_node_t, 1);
 	if (qtree->tree == NULL) {
 		freenull(qtree);
 		dbg(LOG_ERR, "Error allocating memory");
-		return NULL;
+		return(NULL);
 	}
 	ptree_and_node_t *last_and = NULL;
 
@@ -408,7 +408,7 @@ RETURN:
 #if VERBOSE_DEBUG
 	dbg(LOG_INFO, "Returning from tagsistant_build_querytree...");
 #endif
-	return qtree;
+	return(qtree);
 }
 
 /* a struct used by add_to_filetree function */
@@ -437,21 +437,21 @@ static int tagsistant_add_to_filetree(void *atft_struct, dbi_result result)
 
 	/* no need to add empty files */
 	if (objectname == NULL || strlen(objectname) == 0)
-		return 0;
+		return(0);
 
 	(*fh)->name = g_strdup_printf("%u%s%s", object_id, TAGSISTANT_ID_DELIMITER, objectname);
 	dbg(LOG_INFO, "adding %s to filetree", (*fh)->name);
 	(*fh)->next = (file_handle_t *) g_new0(file_handle_t, 1);
 	if ((*fh)->next == NULL) {
 		dbg(LOG_ERR, "Can't allocate memory in tagsistant_build_filetree");
-		return 1;
+		return(1);
 	}
 	(*fh) = (file_handle_t *) (*fh)->next;
 	(*fh)->next = NULL;
 	(*fh)->name = NULL;
 
 
-	return 0;
+	return(0);
 }
 
 /**
@@ -497,7 +497,7 @@ file_handle_t *tagsistant_build_filetree(ptree_or_node_t *query, const char *pat
 
 	if (query == NULL) {
 		dbg(LOG_ERR, "NULL path_tree_t object provided to tagsistant_build_filetree");
-		return NULL;
+		return(NULL);
 	}
 
 	ptree_or_node_t *query_dup = query;
@@ -505,7 +505,7 @@ file_handle_t *tagsistant_build_filetree(ptree_or_node_t *query, const char *pat
 	file_handle_t *fh = g_new0(file_handle_t, 1);
 	if ( fh == NULL ) {
 		dbg(LOG_ERR, "Can't allocate memory in tagsistant_build_filetree");
-		return NULL;
+		return(NULL);
 	}
 	fh->next = NULL;
 	fh->name = NULL;
@@ -622,7 +622,7 @@ file_handle_t *tagsistant_build_filetree(ptree_or_node_t *query, const char *pat
 		g_string_free(view_statement, TRUE);
 		tagsistant_destroy_filetree(result);
 		tagsistant_drop_views(query_dup);
-		return NULL;
+		return(NULL);
 	}
 	atft->fh = &fh;
 	// atft->dbh = dbh;
@@ -634,7 +634,7 @@ file_handle_t *tagsistant_build_filetree(ptree_or_node_t *query, const char *pat
 	g_string_free(view_statement, TRUE);
 
 	tagsistant_drop_views(query_dup);
-	return result;
+	return(result);
 }
 
 /**

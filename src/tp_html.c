@@ -48,7 +48,7 @@ int tagsistant_plugin_init()
 	_rx_title = g_regex_new("<title>([^<]+)</title>", _RX_COMPILE_FLAGS, 0, NULL);
 	_rx_keywords = g_regex_new("<meta name=[\"']keywords['\"] content=['\"]([^'\"]+)[\"']/?>", _RX_COMPILE_FLAGS, 0, NULL);
 
-	return 1;
+	return(1);
 }
 
 /* exported processor function */
@@ -66,7 +66,7 @@ int tagsistant_processor(const tagsistant_querytree_t *qtree)
 	if (-1 == fd) {
 		int error = errno;
 		dbg(LOG_ERROR, "Unable to open %s: %s", qtree->full_archive_path, strerror(error));
-		return TP_ERROR;
+		return(TP_ERROR);
 	}
 
 	/* 2. read 64K of document content */
@@ -78,7 +78,7 @@ int tagsistant_processor(const tagsistant_querytree_t *qtree)
 	tagsistant_plugin_apply_regex(qtree, buf, processor_mutex, _rx_title);
 	tagsistant_plugin_apply_regex(qtree, buf, processor_mutex, _rx_keywords);
 
-	return TP_STOP;
+	return(TP_STOP);
 }
 
 /* exported finalize function */

@@ -35,7 +35,7 @@ int tagsistant_database_driver = TAGSISTANT_NULL_BACKEND;
  * check if requested driver is provided by local DBI installation
  * 
  * @param driver_name string with the name of the driver
- * @return 1 if exists, 0 otherwise
+ * @return(1 if exists, 0 otherwise)
  */
 int tagsistant_driver_is_available(const char *driver_name)
 {
@@ -56,15 +56,15 @@ int tagsistant_driver_is_available(const char *driver_name)
 
 	if (!counter) {
 		dbg(LOG_ERR, "No SQL driver found! Exiting now.");
-		return 0;
+		return(0);
 	}
 
 	if (!driver_found) {
 		dbg(LOG_ERR, "No %s driver found!", driver_name);
-		return 0;
+		return(0);
 	}
 
-	return 1;
+	return(1);
 }
 
 /**
@@ -221,7 +221,7 @@ int tagsistant_db_connection()
 			break;
 	}
 
-	return tagsistant_database_driver;
+	return(tagsistant_database_driver);
 }
 
 // start a transaction
@@ -264,7 +264,7 @@ void tagsistant_rollback_transaction()
  * @param firstarg pointer to buffer for callback retured data
  * @param file __FILE__ passed by calling function
  * @param line __LINE__ passed by calling function
- * @return 0 (always, due to SQLite policy)
+ * @return(0 (always, due to SQLite policy))
  */
 int tagistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result),
 	void *firstarg, char *file, unsigned int line)
@@ -272,7 +272,7 @@ int tagistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result),
 	// check if statement is not null
 	if (NULL == statement) {
 		dbg(LOG_ERR, "Null SQL statement");
-		return 0;
+		return(0);
 	}
 
 	// check if connection has been created
@@ -280,7 +280,7 @@ int tagistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result),
 		tagsistant_db_connection();
 		if (NULL == tagsistant_dbi_conn) {
 			dbg(LOG_ERR, "ERROR! DBI connection was not initialized!");
-			return 0;
+			return(0);
 		}
 	}
 
@@ -293,7 +293,7 @@ int tagistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result),
 
 	if (!dbi_conn_ping(tagsistant_dbi_conn)) {
 		dbg(LOG_ERR, "ERROR! DBI Connection has gone!");
-		return 0;
+		return(0);
 	}
 
 	dbg(LOG_INFO, "SQL: [%s] @%s:%d", statement, file, line);
@@ -316,13 +316,13 @@ int tagistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result),
 		}
 		dbi_result_free(result);
 		if (rows) dbg(LOG_INFO, "Retrieved %d rows", rows);
-		return rows;
+		return(rows);
 	}
 
 	const char *errmsg;
 	(void) dbi_conn_error(tagsistant_dbi_conn, &errmsg);
 	dbg(LOG_ERR, "SQL Error: %s.", errmsg);
-	return -1;
+	return(-1);
 }
 
 /**
@@ -331,7 +331,7 @@ int tagistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result),
  * @param format printf-like string of SQL query
  * @param callback pointer to function to be called on results of SQL query
  * @param firstarg pointer to buffer for callback retured data
- * @return 0 (always, due to SQLite policy)
+ * @return(0 (always, due to SQLite policy))
  */
 int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)(void *, dbi_result), void *firstarg, ...)
 {
@@ -342,15 +342,15 @@ int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)
 	int res = tagistant_real_do_sql(statement, callback, firstarg, file, line);
 	g_free(statement);
 
-	return res;
+	return(res);
 }
 
 /**
- * return last insert row ID
+ * return(last insert row ID)
  */
 tagsistant_id tagsistant_last_insert_id()
 {
-	return dbi_conn_sequence_last(tagsistant_dbi_conn, NULL);
+	return(dbi_conn_sequence_last(tagsistant_dbi_conn, NULL));
 
 	// -------- alternative version -----------------------------------------------
 
@@ -366,7 +366,7 @@ tagsistant_id tagsistant_last_insert_id()
 			break;
 	}
 
-	return ID;
+	return(ID);
 }
 
 /**
@@ -374,7 +374,7 @@ tagsistant_id tagsistant_last_insert_id()
  *
  * @param return_integer integer pointer cast to void* which holds the integer to be returned
  * @param result dbi_result pointer
- * @return 0 (always, due to SQLite policy, may change in the future)
+ * @return(0 (always, due to SQLite policy, may change in the future))
  */
 int tagsistant_return_integer(void *return_integer, dbi_result result)
 {
@@ -388,7 +388,7 @@ int tagsistant_return_integer(void *return_integer, dbi_result result)
 
 	dbg(LOG_INFO, "Returning integer: %d", *buffer);
 
-	return 0;
+	return(0);
 }
 
 /**
@@ -400,7 +400,7 @@ int tagsistant_return_integer(void *return_integer, dbi_result result)
  * 
  * @param return_string string pointer cast to void* which holds the string to be returned
  * @param result dbi_result pointer
- * @return 0 (always, due to SQLite policy, may change in the future)
+ * @return(0 (always, due to SQLite policy, may change in the future))
  */
 int tagsistant_return_string(void *return_string, dbi_result result)
 {
@@ -410,7 +410,7 @@ int tagsistant_return_string(void *return_string, dbi_result result)
 
 	dbg(LOG_INFO, "Returning string: %s", *result_string);
 
-	return 0;
+	return(0);
 }
 
 void tagsistant_sql_create_tag(const gchar *tagname)
@@ -426,7 +426,7 @@ int tagsistant_object_is_tagged(tagsistant_id object_id)
 		"select object_id from tagging where object_id = %d limit 1", 
 		tagsistant_return_integer, &still_exists, object_id);
 	
-	return (still_exists) ? 1 : 0;
+	return((still_exists) ? 1 : 0);
 }
 
 int tagsistant_object_is_tagged_as(tagsistant_id object_id, tagsistant_id tag_id)
@@ -437,7 +437,7 @@ int tagsistant_object_is_tagged_as(tagsistant_id object_id, tagsistant_id tag_id
 		"select object_id from tagging where object_id = %d and tag_id = %d limit 1", 
 		tagsistant_return_integer, &is_tagged, object_id, tag_id);
 	
-	return (is_tagged) ? 1 : 0;
+	return((is_tagged) ? 1 : 0);
 }
 
 void tagsistant_full_untag_object(tagsistant_id object_id)
@@ -453,7 +453,7 @@ tagsistant_id tagsistant_get_exact_tag_id(const gchar *tagname)
 		"select tag_id from tags where tagname = \"%s\" limit 1",
 		tagsistant_return_integer, &tag_id, tagname);
 
-	return tag_id;
+	return(tag_id);
 }
 
 void tagsistant_sql_delete_tag(const gchar *tagname)
