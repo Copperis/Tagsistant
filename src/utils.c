@@ -69,20 +69,17 @@ char *real_strdup(const char *orig, char *file, int line)
 }
 #endif
 
-int tagsistant_debug = 0;
-int tagsistant_log_enabled = 0;
-
 #ifdef _DEBUG_SYSLOG
 /**
  * initialize syslog stream
  */
 void init_syslog()
 {
-	if (tagsistant_log_enabled)
-		return;
-
-	openlog("tagsistant", LOG_PID, LOG_DAEMON);
-	tagsistant_log_enabled = 1;
+	static enabled = 0;
+	if (!enabled) {
+		openlog("tagsistant", LOG_PID, LOG_DAEMON);
+		enabled = 1;
+	}
 }
 #endif
 
@@ -341,7 +338,7 @@ void tagsistant_show_config()
 
 	// plugin infrastructure
 	fprintf(stderr, "\n[Plugins]\n");
-	tagsistant_plugin_t *pp = plugins;
+	tagsistant_plugin_t *pp = tagsistant.plugins;
 	c = 1;
 	while (pp != NULL) {
 		fprintf(stderr, "%s: %s\n", pp->mime_type, pp->filename);

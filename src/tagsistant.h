@@ -391,15 +391,15 @@ struct tagsistant {
 	char *archive;		/**< a directory holding all the files */
 	char *tags;			/**< a SQLite database on file */
 	char *dboptions;	/**< database options for DBI */
+
+	/** the list of available plugins */
+	tagsistant_plugin_t *plugins;
 };
 
+/** where global values are stored */
 extern struct tagsistant tagsistant;
 
-extern int tagsistant_debug;
-extern int tagsistant_log_enabled;
-
-/* the loaded plugins library */
-extern tagsistant_plugin_t *plugins;
+/*** *** *** *** *** *** *** continue cleaning this file from here  *** *** *** *** ***/
 
 extern tagsistant_querytree_t *tagsistant_build_querytree(const char *path, int do_reasoning);
 extern file_handle_t *tagsistant_build_filetree(ptree_or_node_t *query, const char *path);

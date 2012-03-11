@@ -567,9 +567,8 @@ int main(int argc, char *argv[])
 		}
 	}
 	chmod(tagsistant.archive, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
-	if (tagsistant.debug) tagsistant_debug = tagsistant.debug;
 
-	if (tagsistant_debug)
+	if (tagsistant.debug)
 		dbg(LOG_INFO, "Debug is enabled");
 
 	umask(0);

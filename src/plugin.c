@@ -26,11 +26,6 @@
 \******************/
 
 /**
- * the head of plugin list
- */
-tagsistant_plugin_t *plugins = NULL;
-
-/**
  * guess the MIME type of passed filename
  *
  * \param filename file to be processed (just the name, will be looked up in /archive)
@@ -126,7 +121,7 @@ int tagsistant_process(tagsistant_querytree_t *qtree)
 	*slash = '\0';
 
 	/* apply plugins in order */
-	tagsistant_plugin_t *plugin = plugins;
+	tagsistant_plugin_t *plugin = tagsistant.plugins;
 	while (plugin != NULL) {
 		if (
 			(strcmp(plugin->mime_type, mime_type) == 0) ||
@@ -260,8 +255,8 @@ void tagsistant_plugin_loader()
 
 							/* add this plugin on queue head */
 							plugin->filename = g_strdup(de->d_name);
-							plugin->next = plugins;
-							plugins = plugin;
+							plugin->next = tagsistant.plugins;
+							tagsistant.plugins = plugin;
 							if (!tagsistant.quiet)
 								fprintf(stderr, " Loaded plugin: %20s -> %s\n", plugin->mime_type, plugin->filename);
 						}
@@ -279,7 +274,7 @@ void tagsistant_plugin_loader()
 void tagsistant_plugin_unloader()
 {
 	/* unregistering plugins */
-	tagsistant_plugin_t *pp = plugins;
+	tagsistant_plugin_t *pp = tagsistant.plugins;
 	tagsistant_plugin_t *ppnext = pp;
 	while (pp != NULL) {
 		/* call plugin free method to let it free allocated resources */
