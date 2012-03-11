@@ -24,19 +24,19 @@
 #define VERBOSE_DEBUG 0
 /* #define DEBUG_STRDUP */
 
+#define TAGSISTANT_PLUGIN_PREFIX "libtagsistant_"
+#define TAGSISTANT_ARCHIVE_PLACEHOLDER "<<<tagsistant>>>"
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #ifndef VERSION
 #define VERSION 0
 #endif
 
 #ifndef PLUGINS_DIR
 #define PLUGINS_DIR "/usr/local/lib/tagsistant/"
-#endif
-
-#define TAGSISTANT_PLUGIN_PREFIX "libtagsistant_"
-#define TAGSISTANT_ARCHIVE_PLACEHOLDER "<<<tagsistant>>>"
-
-#ifdef HAVE_CONFIG_H
-#include <config.h>
 #endif
 
 /* used to import mempcpy */
@@ -288,9 +288,6 @@ typedef struct querytree {
 	gchar *stats_path;
 } tagsistant_querytree_t;
 
-// definition used to move from querytree_t to tagsistant_querytree_t
-#define querytree_t tagsistant_querytree_t
-
 /**
  * used in linked list of returned results
  *
@@ -323,7 +320,7 @@ typedef struct reasoning {
 #define TP_NULL		3	/**< no tagging has been done, but that's not an error */
 
 /**
- * holds a pointer to a processing funtion
+ * holds a pointer to a processing function
  * exported by a plugin
  */
 typedef struct tagsistant_plugin {
@@ -339,8 +336,8 @@ typedef struct tagsistant_plugin {
 	/**
 	 * hook to processing function
 	 *
-	 * \param filename the file to be processed
-	 * \return 0 on failure (the plugin wasn't unable to process the file), 1 on
+	 * @param filename the file to be processed
+	 * @return 0 on failure (the plugin wasn't unable to process the file), 1 on
 	 *   partial success (the plugin did processed the file, but later processing
 	 *   by other plugins is allowed) or 2 on successful processing (no further
 	 *   processing required).
@@ -360,7 +357,7 @@ typedef struct tagsistant_plugin {
  * A structure to manage object inside the database
  */
 typedef struct tagsistant_object {
-	/** the objet ID from the database */
+	/** the object ID from the database */
 	tagsistant_id ID;
 
 	/** the basename from the database */
@@ -380,20 +377,20 @@ typedef struct tagsistant_object {
  * defines command line options for tagsistant mount tool
  */
 struct tagsistant {
-	int     debug;			/**< enable debug */
+	int debug;			/**< enable debug */
 	int	foreground;		/**< run in foreground */
-	int	singlethread;		/**< single thread? */
+	int	singlethread;	/**< single thread? */
 	int	readonly;		/**< mount filesystem readonly */
 	int	verbose;		/**< do verbose logging on syslog (stderr is always verbose) */
 	int	quiet;			/**< don't log anything */
-	int	show_config;		/**< show whole configuration */
+	int	show_config;	/**< show whole configuration */
 
-	char    *progname;		/**< tagsistant */
-	char    *mountpoint;		/**< no clue? */
-	char    *repository;		/**< it's where files and tags are archived, no? */
-	char    *archive;		/**< a directory holding all the files */
-	char    *tags;			/**< a SQLite database on file */
-	char    *dboptions;		/**< database options for DBI */
+	char *progname;		/**< tagsistant */
+	char *mountpoint;	/**< no clue? */
+	char *repository;	/**< it's where files and tags are archived, no? */
+	char *archive;		/**< a directory holding all the files */
+	char *tags;			/**< a SQLite database on file */
+	char *dboptions;	/**< database options for DBI */
 };
 
 extern struct tagsistant tagsistant;
@@ -401,30 +398,34 @@ extern struct tagsistant tagsistant;
 extern int tagsistant_debug;
 extern int tagsistant_log_enabled;
 
-extern querytree_t *tagsistant_build_querytree(const char *path, int do_reasoning);
+/* the loaded plugins library */
+extern tagsistant_plugin_t *plugins;
+
+extern tagsistant_querytree_t *tagsistant_build_querytree(const char *path, int do_reasoning);
 extern file_handle_t *tagsistant_build_filetree(ptree_or_node_t *query, const char *path);
 
-extern void tagsistant_destroy_querytree(querytree_t *qtree);
+extern void tagsistant_destroy_querytree(tagsistant_querytree_t *qtree);
 extern void tagsistant_destroy_filetree(file_handle_t *fh);
 
 extern int tagsistant_process(tagsistant_querytree_t *qtree);
 
 extern tagsistant_id tagsistant_get_object_id(const gchar *path, gchar **purename);
 
+extern void tagsistant_utils_init();
 extern void init_syslog();
 extern void tagsistant_plugin_loader();
 extern void tagsistant_plugin_unloader();
 
 /**
  * allows for applying a function to all the ptree_and_node_t nodes of
- * a querytree_t structure. the function applied must be declared as:
+ * a tagstistant_querytree_t structure. the function applied must be declared as:
  *   void function(ptree_and_node_t *node, ...)
  * while can be of course provided with fixed length argument list
  *
- * @param qtree the querytree_t structure to traverse
+ * @param qtree the tagsistant_querytree_t structure to traverse
  * @param funcpointer the pointer to the function (barely the function name)
  */
-#define traverse_querytree(qtree, funcpointer, ...) {\
+#define tagsistant_traverse_querytree(qtree, funcpointer, ...) {\
 	dbg(LOG_INFO, "Traversing querytree...");\
 	if (NULL != qtree) {\
 		ptree_or_node_t *ptx = qtree->tree;\
@@ -472,17 +473,17 @@ char *real_strdup(const char *orig, char *file, int line);
 
 #define tagsistant_qtree_copy_object_path(from_qtree, to_qtree) tagsistant_qtree_set_object_path(to_qtree, from_qtree->object_path)
 
-// change the object ID to a querytree_t structure
-extern void tagsistant_qtree_renumber(querytree_t *qtree, tagsistant_id object_id);
+// change the object ID to a tagsistant_querytree_t structure
+extern void tagsistant_querytree_renumber(tagsistant_querytree_t *qtree, tagsistant_id object_id);
 
-extern void tagsistant_querytree_rebuild_paths(querytree_t *qtree);
+extern void tagsistant_querytree_rebuild_paths(tagsistant_querytree_t *qtree);
 
 extern void tagsistant_set_alias(const char *alias, const char *aliased);
 extern gchar *tagsistant_get_alias(const char *alias);
 extern void tagsistant_delete_alias(const char *alias);
 
-// returns the type of query reppresented by a querytree_t struct
-extern gchar *tagsistant_query_type(querytree_t *qtree);
+// returns the type of query described by a tagsistant_querytree_t struct
+extern gchar *tagsistant_query_type(tagsistant_querytree_t *qtree);
 
 #define TAGSISTANT_START(line,...) {\
 	init_time_profile();\
@@ -504,10 +505,10 @@ extern gchar *tagsistant_query_type(querytree_t *qtree);
 #define tagsistant_check_tagging_consistency(qtree) __tagsistant_check_tagging_consistency(qtree, 0)
 
 extern gchar *tagsistant_ID_strip_from_path(const char *path);
-extern gchar *tagsistant_ID_strip_from_querytree(querytree_t *qtree);
+extern gchar *tagsistant_ID_strip_from_querytree(tagsistant_querytree_t *qtree);
 
 extern tagsistant_id tagsistant_ID_extract_from_path(const char *path);
-extern tagsistant_id tagsistant_ID_extract_from_querytree(querytree_t *qtree);
+extern tagsistant_id tagsistant_ID_extract_from_querytree(tagsistant_querytree_t *qtree);
 
 extern void tagsistant_show_config();
 

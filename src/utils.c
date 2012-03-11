@@ -104,29 +104,29 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream)
 }
 #endif
 
-gchar *querytree_types[QTYPE_TOTAL];
-int querytree_types_initialized = 0;
+gchar *tagsistant_querytree_types[QTYPE_TOTAL];
+int tagsistant_querytree_types_initialized = 0;
 
 /**
  * return querytree type as a printable string.
  * the string MUST NOT be freed
  */
-gchar *tagsistant_query_type(querytree_t *qtree)
+gchar *tagsistant_query_type(tagsistant_querytree_t *qtree)
 {
-	if (!querytree_types_initialized) {
-		querytree_types[QTYPE_MALFORMED] = g_strdup("QTYPE_MALFORMED");
-		querytree_types[QTYPE_ROOT] = g_strdup("QTYPE_ROOT");
-		querytree_types[QTYPE_ARCHIVE] = g_strdup("QTYPE_ARCHIVE");
-		querytree_types[QTYPE_TAGS] = g_strdup("QTYPE_TAGS");
-		querytree_types[QTYPE_RELATIONS] = g_strdup("QTYPE_RELATIONS");
-		querytree_types[QTYPE_STATS] = g_strdup("QTYPE_STATS");
-		querytree_types_initialized++;
+	if (!tagsistant_querytree_types_initialized) {
+		tagsistant_querytree_types[QTYPE_MALFORMED] = g_strdup("QTYPE_MALFORMED");
+		tagsistant_querytree_types[QTYPE_ROOT] = g_strdup("QTYPE_ROOT");
+		tagsistant_querytree_types[QTYPE_ARCHIVE] = g_strdup("QTYPE_ARCHIVE");
+		tagsistant_querytree_types[QTYPE_TAGS] = g_strdup("QTYPE_TAGS");
+		tagsistant_querytree_types[QTYPE_RELATIONS] = g_strdup("QTYPE_RELATIONS");
+		tagsistant_querytree_types[QTYPE_STATS] = g_strdup("QTYPE_STATS");
+		tagsistant_querytree_types_initialized++;
 	}
 
-	return querytree_types[qtree->type];
+	return(tagsistant_querytree_types[qtree->type]);
 }
 
-/*
+/**
  * since paths are issued without the tagsistant_id trailing
  * the filename (as in path/path/filename), while after being
  * created inside tagsistant, filenames get the additional ID
@@ -136,24 +136,44 @@ gchar *tagsistant_query_type(querytree_t *qtree)
  * the aliases hash table gets instantiated inside main() and
  * must be used with tagsistant_get_alias(), tagsistant_set_alias() and tagsistant_delete_alias().
  *
+ * @param alias the alias to be set
+ * @param aliased the path aliased by alias
  */
 void tagsistant_set_alias(const char *alias, const char *aliased) {
 	dbg(LOG_INFO, "Setting alias %s for %s", aliased, alias);
 	tagsistant_query("insert into aliases (alias, aliased) values (\"%s\", \"%s\")", NULL, NULL, alias, aliased);
 }
 
+/**
+ * look for a matching alias and return aliased object
+ *
+ * @param alias the alias to fetch and translate into aliased object
+ */
 gchar *tagsistant_get_alias(const char *alias) {
 	gchar *aliased = NULL;
 	tagsistant_query("select aliased from aliases where alias = \"%s\"", tagsistant_return_string, &aliased, alias);
 	dbg(LOG_INFO, "Looking for an alias for %s, found %s", alias, aliased);
-	return aliased;
+	return(aliased);
 }
 
+#if 0
+/**
+ * delete an existing alias
+ *
+ * @param alias the alias to be deleted
+ */
 void tagsistant_delete_alias(const char *alias) {
 	dbg(LOG_INFO, "Deleting alias for %s", alias);
 	tagsistant_query("delete from aliases where alias = \"%s\"", NULL, NULL, alias);
 }
+#endif
 
+/**
+ * remove tagsistant id from a path
+ *
+ * @param path the path to be purged of the ID
+ * @return the purged path
+ */
 gchar *tagsistant_ID_strip_from_path(const char *path)
 {
 	gchar *stripped = NULL;
@@ -185,9 +205,15 @@ gchar *tagsistant_ID_strip_from_path(const char *path)
 
 	g_free(directories);
 	dbg(LOG_INFO, "%s stripped to %s", path, stripped);
-	return stripped;
+	return(stripped);
 }
 
+/**
+ * return the tagsistant ID contained into a path
+ *
+ * @param path the path supposed to contain an ID
+ * @return the ID, if found
+ */
 tagsistant_id tagsistant_ID_extract_from_path(const char *path)
 {
 	tagsistant_id ID = 0;
@@ -207,15 +233,19 @@ tagsistant_id tagsistant_ID_extract_from_path(const char *path)
 		ID = strtol(last[0], NULL, 10);
 
 	dbg(LOG_INFO, "%s has ID %lu", path, (long unsigned int) ID);
-	return ID;
+
+	return(ID);
 }
 
 /**
  * strip the id part of an object name, starting from qtree->object_path field.
  * if you provide a qtree with object_path == "321___document.txt", this function
  * will return "document.txt".
+ *
+ * @param qtree the tagsistant_querytree_t
+ * @return the purged qtree->object_path
  */
-gchar *tagsistant_ID_strip_from_querytree(querytree_t *qtree)
+gchar *tagsistant_ID_strip_from_querytree(tagsistant_querytree_t *qtree)
 {
 	GStaticMutex mtx = G_STATIC_MUTEX_INIT;
 	g_static_mutex_lock(&mtx);
@@ -224,13 +254,17 @@ gchar *tagsistant_ID_strip_from_querytree(querytree_t *qtree)
 
 	dbg(LOG_INFO, "%s stripped to %s", stripped, qtree->object_path);
 
-	return stripped;
+	return(stripped);
 }
 
+#if 0
 /**
  * extract the ID from a querytree object
+ *
+ * @param qtree the tagsistant_querytree_t holding the ID
+ * @return the ID, if found
  */
-tagsistant_id tagsistant_ID_extract_from_querytree(querytree_t *qtree)
+tagsistant_id tagsistant_ID_extract_from_querytree(tagsistant_querytree_t *qtree)
 {
 	GStaticMutex mtx = G_STATIC_MUTEX_INIT;
 	g_static_mutex_lock(&mtx);
@@ -244,14 +278,23 @@ tagsistant_id tagsistant_ID_extract_from_querytree(querytree_t *qtree)
 	g_free(stripped);
 	return ID;
 }
+#endif
 
-void tagsistant_querytree_rebuild_paths(querytree_t *qtree)
+/**
+ * Service routine that rebuilds tagsistant_querytree_t paths after
+ * some internal field has changed
+ *
+ * @param qtree the tagsistant_querytree_t to be rebuilt
+ */
+void tagsistant_querytree_rebuild_paths(tagsistant_querytree_t *qtree)
 {
 	if (!qtree->object_id) qtree->object_id = tagsistant_ID_extract_from_path(qtree->full_path);
 
+	// free the paths
 	if (qtree->archive_path) g_free(qtree->archive_path);
 	if (qtree->full_archive_path) g_free(qtree->full_archive_path);
 
+	// prepare new paths
 	qtree->archive_path = g_strdup_printf("%d%s%s", qtree->object_id, TAGSISTANT_ID_DELIMITER, qtree->object_path);
 	qtree->full_archive_path = g_strdup_printf("%s%s", tagsistant.archive, qtree->archive_path);
 }
@@ -260,7 +303,7 @@ void tagsistant_querytree_rebuild_paths(querytree_t *qtree)
  * renumber an object, by changing its object_id and rebuilding its
  * object_path, archive_path and full_archive_path.
  */
-void tagsistant_qtree_renumber(querytree_t *qtree, tagsistant_id object_id)
+void tagsistant_querytree_renumber(tagsistant_querytree_t *qtree, tagsistant_id object_id)
 {
 	if (qtree && object_id) {
 		// save the object id
@@ -275,8 +318,6 @@ void tagsistant_qtree_renumber(querytree_t *qtree, tagsistant_id object_id)
 		tagsistant_querytree_rebuild_paths(qtree);
 	}
 }
-
-extern tagsistant_plugin_t *plugins;
 
 void tagsistant_show_config()
 {
@@ -338,19 +379,3 @@ void tagsistant_plugin_apply_regex(const tagsistant_querytree_t *qtree, const ch
 		g_match_info_next(match_info, NULL);
 	}
 }
-
-/*
-void tagsistant_get_build_date()
-{
-	struct tm mytm = { 0 };
-	time_t result;
-	mytm.tm_year = year - 1900;
-	mytm.tm_mon = month - 1;
-	mytm.tm_mday = day;
-	result = mktime(&mytm);
-	if (result == (time_t) -1) {
-		return g_strdup_printf("N/A");
-	}
-	return g_strdup_printf("%lld\n", (long long) result);
-}
-*/

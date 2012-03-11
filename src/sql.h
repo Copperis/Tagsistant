@@ -38,7 +38,7 @@ extern int tagsistant_database_driver;
 #	define TAGSISTANT_SQL_BACKEND TAGSISTANT_DBI_SQLITE_BACKEND
 #endif
 
-/* execute SQL query adding file:line coords */
+/* execute SQL query adding file:line coordinates */
 #define tagsistant_do_sql(statement, callback, firstarg)\
 	tagsistant_real_do_sql(statement, callback, firstarg, __FILE__, (unsigned int) __LINE__)
 

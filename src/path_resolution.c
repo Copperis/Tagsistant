@@ -25,14 +25,14 @@
 /**
  * SQL callback. Add new tag derived from reasoning to a ptree_and_node_t structure.
  *
- * \param vreasoning pointer to be casted to reasoning_t* structure
+ * \param _reasoning pointer to be casted to reasoning_t* structure
  * \param result dbi_result pointer
  * \return 0 (always, due to SQLite policy, may change in the future)
  */
-static int tagsistant_add_alias_tag(void *vreasoning, dbi_result result)
+static int tagsistant_add_alias_tag(void *_reasoning, dbi_result result)
 {
 	/* point to a reasoning_t structure */
-	reasoning_t *reasoning = (reasoning_t *) vreasoning;
+	reasoning_t *reasoning = (reasoning_t *) _reasoning;
 	assert(reasoning != NULL);
 	assert(reasoning->start_node != NULL);
 	assert(reasoning->actual_node != NULL);
@@ -47,7 +47,7 @@ static int tagsistant_add_alias_tag(void *vreasoning, dbi_result result)
 		assert(and->tag != NULL);
 		if (strcmp(and->tag, t1) == 0) {
 			/* tag is already present, avoid looping */
-			return 0;
+			return(0);
 		}
 		and = and->related;
 	}
@@ -56,7 +56,7 @@ static int tagsistant_add_alias_tag(void *vreasoning, dbi_result result)
 	and->related = g_malloc(sizeof(ptree_and_node_t));
 	if (and->related == NULL) {
 		dbg(LOG_ERR, "Error allocating memory");
-		return 1;
+		return(1);
 	}
 
 	and->related->next = NULL;
@@ -109,12 +109,14 @@ int tagsistant_reasoner(reasoning_t *reasoning)
 }
 
 /**
- * allocate a new querytree_t structure
+ * allocate a new tagsistant_querytree_t structure
+ *
+ * @param path the path generating the tagsistant_querytree_t structure
  */
-querytree_t *tagsistant_new_querytree(const gchar *path)
+tagsistant_querytree_t *tagsistant_new_querytree(const gchar *path)
 {
 	// allocate the struct
-	querytree_t *qtree = g_new0(querytree_t, 1);
+	tagsistant_querytree_t *qtree = g_new0(tagsistant_querytree_t, 1);
 	if (qtree == NULL) {
 		dbg(LOG_ERR, "Error allocating memory");
 		return NULL;
@@ -127,9 +129,11 @@ querytree_t *tagsistant_new_querytree(const gchar *path)
 }
 
 /**
- * destroy a querytree_t structure
+ * destroy a tagsistant_querytree_t structure
+ *
+ * @param qtree the tagsistant_querytree_t to be destroyed
  */
-void tagsistant_destroy_querytree(querytree_t *qtree)
+void tagsistant_destroy_querytree(tagsistant_querytree_t *qtree)
 {
 	if (NULL == qtree) return;
 
@@ -183,16 +187,17 @@ void tagsistant_destroy_querytree(querytree_t *qtree)
  * resolved using SQLite INTERSECT compound operator. All results
  * should be then merged in a unique list of filenames.
  *
- * \param @path the path to be converted in a logical query
+ * @param path the path to be converted in a logical query
+ * @param do_reasoning if true, use the reasoner
  */
-querytree_t *tagsistant_build_querytree(const char *path, int do_reasoning)
+tagsistant_querytree_t *tagsistant_build_querytree(const char *path, int do_reasoning)
 {
 	unsigned int orcount = 0, andcount = 0;
 
 	dbg(LOG_INFO, "Building querytree for %s", path);
 
 	// allocate the querytree structure
-	querytree_t *qtree = tagsistant_new_querytree(path);
+	tagsistant_querytree_t *qtree = tagsistant_new_querytree(path);
 	if (qtree == NULL) return NULL;
 
 	// initialize iterator variables on query tree nodes
@@ -387,7 +392,7 @@ querytree_t *tagsistant_build_querytree(const char *path, int do_reasoning)
 				free(alias);
 
 				if (qtree->object_id) {
-					tagsistant_qtree_renumber(qtree, qtree->object_id);
+					tagsistant_querytree_renumber(qtree, qtree->object_id);
 				}
 			}
 		}
@@ -407,7 +412,7 @@ RETURN:
 }
 
 /* a struct used by add_to_filetree function */
-struct atft {
+struct tagsistant_atft {
 	uint64_t id;
 	file_handle_t **fh;
 };
@@ -417,7 +422,7 @@ struct atft {
  */
 static int tagsistant_add_to_filetree(void *atft_struct, dbi_result result)
 {
-	struct atft *atft = (struct atft*) atft_struct;
+	struct tagsistant_atft *atft = (struct tagsistant_atft*) atft_struct;
 	file_handle_t **fh = atft->fh;
 
 	const char *objectname = dbi_result_get_string_idx(result, 1);
@@ -449,7 +454,12 @@ static int tagsistant_add_to_filetree(void *atft_struct, dbi_result result)
 	return 0;
 }
 
-void __tagsistant_drop_views(ptree_or_node_t *query)
+/**
+ * drop all the views related to a ptree_or_node_t structure
+ *
+ * @param query the ptree_or_node_t structure that originated the views to be dropped
+ */
+void tagsistant_drop_views(ptree_or_node_t *query)
 {
 	while (query != NULL) {
 		tagsistant_query("drop view tv%.8X", NULL, NULL, (unsigned int) query);
@@ -606,12 +616,12 @@ file_handle_t *tagsistant_build_filetree(ptree_or_node_t *query, const char *pat
 	g_string_append(view_statement, ";");
 	// dbg(LOG_INFO, "SQL view statement: %s", view_statement->str);
 
-	struct atft *atft = g_new0(struct atft, 1);
+	struct tagsistant_atft *atft = g_new0(struct tagsistant_atft, 1);
 	if (atft == NULL) {
 		dbg(LOG_ERR, "Error allocating memory");
 		g_string_free(view_statement, TRUE);
 		tagsistant_destroy_filetree(result);
-		__tagsistant_drop_views(query_dup);
+		tagsistant_drop_views(query_dup);
 		return NULL;
 	}
 	atft->fh = &fh;
@@ -623,10 +633,13 @@ file_handle_t *tagsistant_build_filetree(ptree_or_node_t *query, const char *pat
 
 	g_string_free(view_statement, TRUE);
 
-	__tagsistant_drop_views(query_dup);
+	tagsistant_drop_views(query_dup);
 	return result;
 }
 
+/**
+ * Destroy a filetree
+ */
 void tagsistant_destroy_filetree(file_handle_t *fh)
 {
 	if (fh == NULL)
@@ -639,35 +652,6 @@ void tagsistant_destroy_filetree(file_handle_t *fh)
 		tagsistant_destroy_filetree(fh->next);
 
 	freenull(fh);
-}
-
-/**
- * Return the ID of an object from its filename name
- * If second parameter purename is not null, the name of
- * the file without the leading number is copied
- */
-tagsistant_id tagsistant_get_object_id(const gchar *filename, gchar **purename)
-{
-	tagsistant_id id = 0;
-
-	const gchar *proper_name = g_strrstr(filename, "/");
-
-	if (!proper_name)
-		proper_name = filename;
-	else
-		proper_name++;
-
-	dbg(LOG_INFO, "Searching for an ID in %s", proper_name);
-
-	if (purename != NULL) {
-		sscanf(proper_name, "%lu.%s", (long unsigned *) &id, *purename);
-	} else {
-		sscanf(proper_name, "%lu.", (long unsigned *) &id);
-	}
-
-	dbg(LOG_INFO, "Returning ID %lu", (long unsigned) id);
-
-	return id;
 }
 
 // vim:ts=4:nowrap:nocindent

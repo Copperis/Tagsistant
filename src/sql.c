@@ -26,7 +26,7 @@ extern struct tagsistant tagsistant;
 int tagsistant_sql_backend_have_intersect = 1;
 
 /* DBI connection handler used by subsequent calls to dbi_* functions */
-dbi_conn conn;
+dbi_conn tagsistant_dbi_conn;
 
 /* DBI driver family */
 int tagsistant_database_driver = TAGSISTANT_NULL_BACKEND;
@@ -75,9 +75,9 @@ void tagsistant_log_connection_options()
 	const char *option = NULL;
 	int counter = 0;
 	dbg(LOG_INFO, "Connection settings: ");
-	while ((option = dbi_conn_get_option_list(conn, option)) != NULL) {
+	while ((option = dbi_conn_get_option_list(tagsistant_dbi_conn, option)) != NULL) {
 		counter++;
-		dbg(LOG_INFO, "  Option #%d: %s = %s", counter, option, dbi_conn_get_option(conn, option));
+		dbg(LOG_INFO, "  Option #%d: %s = %s", counter, option, dbi_conn_get_option(tagsistant_dbi_conn, option));
 	}
 }
 
@@ -114,41 +114,41 @@ int tagsistant_db_connection()
 		tagsistant_sql_backend_have_intersect = 0;
 
 		// create connection
-		conn = dbi_conn_new("mysql");
-		if (NULL == conn) {
+		tagsistant_dbi_conn = dbi_conn_new("mysql");
+		if (NULL == tagsistant_dbi_conn) {
 			dbg(LOG_ERR, "Error creating MySQL connection");
 			exit(1);
 		}
 
 		// set connection options
 		if (strlen(splitted[1])) {
-			dbi_conn_set_option(conn, "host", g_strdup(splitted[1]));
+			dbi_conn_set_option(tagsistant_dbi_conn, "host", g_strdup(splitted[1]));
 			if (strlen(splitted[2])) {
-				dbi_conn_set_option(conn, "dbname", g_strdup(splitted[2]));
+				dbi_conn_set_option(tagsistant_dbi_conn, "dbname", g_strdup(splitted[2]));
 				if (strlen(splitted[3])) {
-					dbi_conn_set_option(conn, "username", g_strdup(splitted[3]));
+					dbi_conn_set_option(tagsistant_dbi_conn, "username", g_strdup(splitted[3]));
 					if (strlen(splitted[4])) {
-						dbi_conn_set_option(conn, "password", g_strdup(splitted[4]));
+						dbi_conn_set_option(tagsistant_dbi_conn, "password", g_strdup(splitted[4]));
 					} else {
-						dbi_conn_set_option(conn, "password", "tagsistant");
+						dbi_conn_set_option(tagsistant_dbi_conn, "password", "tagsistant");
 					}
 				} else {
-					dbi_conn_set_option(conn, "username", "tagsistant");
-					dbi_conn_set_option(conn, "password", "tagsistant");
+					dbi_conn_set_option(tagsistant_dbi_conn, "username", "tagsistant");
+					dbi_conn_set_option(tagsistant_dbi_conn, "password", "tagsistant");
 				}
 			} else {
-				dbi_conn_set_option(conn, "dbname", "tagsistant");
-				dbi_conn_set_option(conn, "username", "tagsistant");
-				dbi_conn_set_option(conn, "password", "tagsistant");
+				dbi_conn_set_option(tagsistant_dbi_conn, "dbname", "tagsistant");
+				dbi_conn_set_option(tagsistant_dbi_conn, "username", "tagsistant");
+				dbi_conn_set_option(tagsistant_dbi_conn, "password", "tagsistant");
 			}
 		} else {
-			dbi_conn_set_option(conn, "host", "localhost");
-			dbi_conn_set_option(conn, "dbname", "tagsistant");
-			dbi_conn_set_option(conn, "username", "tagsistant");
-			dbi_conn_set_option(conn, "password", "tagsistant");
+			dbi_conn_set_option(tagsistant_dbi_conn, "host", "localhost");
+			dbi_conn_set_option(tagsistant_dbi_conn, "dbname", "tagsistant");
+			dbi_conn_set_option(tagsistant_dbi_conn, "username", "tagsistant");
+			dbi_conn_set_option(tagsistant_dbi_conn, "password", "tagsistant");
 		}
 
-		dbi_conn_set_option(conn, "encoding",	"UTF-8");
+		dbi_conn_set_option(tagsistant_dbi_conn, "encoding",	"UTF-8");
 
 	} else if ((g_strcmp0(splitted[0], "sqlite3") == 0) || (g_strcmp0(splitted[0], "sqlite"))) {
 		tagsistant_database_driver = TAGSISTANT_DBI_SQLITE_BACKEND;
@@ -157,15 +157,15 @@ int tagsistant_db_connection()
 		dbg(LOG_INFO, "Database driver used: sqlite3");
 
 		// create connection
-		conn = dbi_conn_new("sqlite3");
-		if (NULL == conn) {
+		tagsistant_dbi_conn = dbi_conn_new("sqlite3");
+		if (NULL == tagsistant_dbi_conn) {
 			dbg(LOG_ERR, "Error connecting to SQLite3");
 			exit(1);
 		}
 
 		// set connection options
-		dbi_conn_set_option(conn, "dbname",			"tags.sql");
-		dbi_conn_set_option(conn, "sqlite3_dbdir",	tagsistant.repository);
+		dbi_conn_set_option(tagsistant_dbi_conn, "dbname",			"tags.sql");
+		dbi_conn_set_option(tagsistant_dbi_conn, "sqlite3_dbdir",	tagsistant.repository);
 
 	} else {
 		dbg(LOG_ERR, "No or wrong database family specified!");
@@ -184,9 +184,9 @@ int tagsistant_db_connection()
 	}
 
 	// try to connect
-	if (dbi_conn_connect(conn) < 0) {
+	if (dbi_conn_connect(tagsistant_dbi_conn) < 0) {
 		// const char **errmsg = NULL;
-		int error = dbi_conn_error(conn, NULL);
+		int error = dbi_conn_error(tagsistant_dbi_conn, NULL);
 		dbg(LOG_ERR, "Could not connect to DB (error %d). Please check the --db settings", error);
 		exit(1);
 	}
@@ -259,12 +259,12 @@ void tagsistant_rollback_transaction()
  * NEVER use tagistant_real_do_sql() directly. Always use do_sql() macro which adds
  * __FILE__ and __LINE__ transparently for you. Code will be cleaner.
  *
- * \param statement SQL query to be performed
- * \param callback pointer to function to be called on results of SQL query
- * \param firstarg pointer to buffer for callback retured data
- * \param file __FILE__ passed by calling function
- * \param line __LINE__ passed by calling function
- * \return 0 (always, due to SQLite policy)
+ * @param statement SQL query to be performed
+ * @param callback pointer to function to be called on results of SQL query
+ * @param firstarg pointer to buffer for callback retured data
+ * @param file __FILE__ passed by calling function
+ * @param line __LINE__ passed by calling function
+ * @return 0 (always, due to SQLite policy)
  */
 int tagistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result),
 	void *firstarg, char *file, unsigned int line)
@@ -276,9 +276,9 @@ int tagistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result),
 	}
 
 	// check if connection has been created
-	if (NULL == conn) {
+	if (NULL == tagsistant_dbi_conn) {
 		tagsistant_db_connection();
-		if (NULL == conn) {
+		if (NULL == tagsistant_dbi_conn) {
 			dbg(LOG_ERR, "ERROR! DBI connection was not initialized!");
 			return 0;
 		}
@@ -286,12 +286,12 @@ int tagistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result),
 
 	int counter = 0;
 	while (counter < 3) {
-		if (dbi_conn_ping(conn)) break;
-		dbi_conn_connect(conn);
+		if (dbi_conn_ping(tagsistant_dbi_conn)) break;
+		dbi_conn_connect(tagsistant_dbi_conn);
 		counter++;
 	}
 
-	if (!dbi_conn_ping(conn)) {
+	if (!dbi_conn_ping(tagsistant_dbi_conn)) {
 		dbg(LOG_ERR, "ERROR! DBI Connection has gone!");
 		return 0;
 	}
@@ -303,7 +303,7 @@ int tagistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result),
 
 	// do the real query
 	g_static_mutex_lock(&mtx);
-	dbi_result result = dbi_conn_queryf(conn, statement);
+	dbi_result result = dbi_conn_queryf(tagsistant_dbi_conn, statement);
 	g_static_mutex_unlock(&mtx);
 
 	int rows = 0;
@@ -320,7 +320,7 @@ int tagistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result),
 	}
 
 	const char *errmsg;
-	(void) dbi_conn_error(conn, &errmsg);
+	(void) dbi_conn_error(tagsistant_dbi_conn, &errmsg);
 	dbg(LOG_ERR, "SQL Error: %s.", errmsg);
 	return -1;
 }
@@ -328,10 +328,10 @@ int tagistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result),
 /**
  * Prepare SQL queries and perform them.
  *
- * \param format printf-like string of SQL query
- * \param callback pointer to function to be called on results of SQL query
- * \param firstarg pointer to buffer for callback retured data
- * \return 0 (always, due to SQLite policy)
+ * @param format printf-like string of SQL query
+ * @param callback pointer to function to be called on results of SQL query
+ * @param firstarg pointer to buffer for callback retured data
+ * @return 0 (always, due to SQLite policy)
  */
 int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)(void *, dbi_result), void *firstarg, ...)
 {
@@ -350,7 +350,7 @@ int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)
  */
 tagsistant_id tagsistant_last_insert_id()
 {
-	return dbi_conn_sequence_last(conn, NULL);
+	return dbi_conn_sequence_last(tagsistant_dbi_conn, NULL);
 
 	// -------- alternative version -----------------------------------------------
 
@@ -372,9 +372,9 @@ tagsistant_id tagsistant_last_insert_id()
 /**
  * SQL callback. Return an integer from a query
  *
- * \param return_integer integer pointer cast to void* which holds the integer to be returned
- * \param result dbi_result pointer
- * \return 0 (always, due to SQLite policy, may change in the future)
+ * @param return_integer integer pointer cast to void* which holds the integer to be returned
+ * @param result dbi_result pointer
+ * @return 0 (always, due to SQLite policy, may change in the future)
  */
 int tagsistant_return_integer(void *return_integer, dbi_result result)
 {
@@ -398,9 +398,9 @@ int tagsistant_return_integer(void *return_integer, dbi_result result)
  *   gchar *string;
  *   tagsistant_query("SQL statement;", return_string, &string); // note the &
  * 
- * \param return_string string pointer cast to void* which holds the string to be returned
- * \param result dbi_result pointer
- * \return 0 (always, due to SQLite policy, may change in the future)
+ * @param return_string string pointer cast to void* which holds the string to be returned
+ * @param result dbi_result pointer
+ * @return 0 (always, due to SQLite policy, may change in the future)
  */
 int tagsistant_return_string(void *return_string, dbi_result result)
 {

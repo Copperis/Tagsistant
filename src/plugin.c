@@ -227,7 +227,7 @@ void tagsistant_plugin_loader()
 				} else {
 					/* search for init function and call it */
 					int (*init_function)() = NULL;
-					init_function = dlsym(plugin->handle, "plugin_init");
+					init_function = dlsym(plugin->handle, "tagsistant_plugin_init");
 					if (init_function != NULL) {
 						int init_res = init_function();
 						if (!init_res) {
@@ -246,13 +246,13 @@ void tagsistant_plugin_loader()
 						freenull(plugin);
 					} else {
 						/* search for processor function */
-						plugin->processor = dlsym(plugin->handle, "processor");	
+						plugin->processor = dlsym(plugin->handle, "tagsistant_processor");
 						if (plugin->processor == NULL) {
 							if (!tagsistant.quiet)
 								fprintf(stderr, " *** error finding %s processor function: %s ***\n", de->d_name, dlerror());
 							freenull(plugin);
 						} else {
-							plugin->free = dlsym(plugin->handle, "plugin_free");
+							plugin->free = dlsym(plugin->handle, "tagsistant_plugin_free");
 							if (plugin->free == NULL) {
 								if (!tagsistant.quiet)
 									fprintf(stderr, " *** error finding %s free function: %s (still registering the plugin) ***", de->d_name, dlerror());

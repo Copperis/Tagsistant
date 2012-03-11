@@ -31,7 +31,14 @@
 /* defines command line options for tagsistant mount tool */
 /* static */ struct tagsistant tagsistant;
 
-int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force_create)
+/**
+ * Create an object and tag it
+ *
+ * @param qtree the querytree asking object creation
+ * @param tagsistant_errno error_reporting variable
+ * @param force_create boolean: if true, creation is forced
+ */
+int __create_and_tag_object(tagsistant_querytree_t *qtree, int *tagsistant_errno, int force_create)
 {
 	tagsistant_id ID = 0;
 
@@ -87,7 +94,7 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 	tagsistant_set_alias(qtree->full_path, qtree->full_archive_path);
 
 	// 4. tag the object
-	traverse_querytree(qtree, tagsistant_sql_tag_object, ID);
+	tagsistant_traverse_querytree(qtree, tagsistant_sql_tag_object, ID);
 
 	// 5. use autotagging plugin stack
 	tagsistant_process(qtree);
@@ -98,7 +105,7 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 #define tagsistant_create_and_tag_object(qtree, errno) __create_and_tag_object(qtree, errno, 0); dbg(LOG_INFO, "Tried creation of object %s", qtree->full_path)
 #define tagsistant_force_create_and_tag_object(qtree, errno) __create_and_tag_object(qtree, errno, 1); dbg(LOG_INFO, "Forced creation of object %s", qtree->full_path)
 
-int __tagsistant_check_tagging_consistency(querytree_t *qtree, int recurse)
+int __tagsistant_check_tagging_consistency(tagsistant_querytree_t *qtree, int recurse)
 {
 	int exists = 0;
 
@@ -150,9 +157,9 @@ int __tagsistant_check_tagging_consistency(querytree_t *qtree, int recurse)
 /**
  * lstat equivalent
  *
- * \param path the path to be lstat()ed
- * \param stbuf pointer to struct stat buffer holding data about file
- * \return 0 on success, -errno otherwise
+ * @param path the path to be lstat()ed
+ * @param stbuf pointer to struct stat buffer holding data about file
+ * @return 0 on success, -errno otherwise
  */
 static int tagsistant_getattr(const char *path, struct stat *stbuf)
 {
@@ -162,7 +169,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 	TAGSISTANT_START("/ GETATTR on %s", path);
 
 	// build querytree
-	querytree_t *qtree = tagsistant_build_querytree(path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -267,10 +274,10 @@ GETATTR_EXIT:
 /**
  * readlink equivalent
  *
- * \param path the path of the symlink to be read
- * \param buf the path the symlink is pointing to
- * \param size length of pointed path
- * \return 0 on success, -errno otherwise
+ * @param path the path of the symlink to be read
+ * @param buf the path the symlink is pointing to
+ * @param size length of pointed path
+ * @return 0 on success, -errno otherwise
  */
 static int tagsistant_readlink(const char *path, char *buf, size_t size)
 {
@@ -280,7 +287,7 @@ static int tagsistant_readlink(const char *path, char *buf, size_t size)
 	TAGSISTANT_START("/ READLINK on %s", path);
 
 	// build querytree
-	querytree_t *qtree = tagsistant_build_querytree(path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -327,23 +334,23 @@ READLINK_EXIT:
 /**
  * used by add_entry_to_dir() SQL callback to perform readdir() operations
  */
-struct use_filler_struct {
+struct tagsistant_use_filler_struct {
 	fuse_fill_dir_t filler;	/**< libfuse filler hook to return dir entries */
 	void *buf;				/**< libfuse buffer to hold readdir results */
 	const char *path;		/**< the path that generates the query */
-	querytree_t *qtree;		/**< the querytree that originated the readdir() */
+	tagsistant_querytree_t *qtree;		/**< the querytree that originated the readdir() */
 };
 
 /**
  * SQL callback. Add dir entries to libfuse buffer.
  *
- * \param filler_ptr struct use_filler_struct pointer (cast to void*)
- * \param result dbi_result pointer
- * \return 0 (always, see SQLite policy, may change in the future)
+ * @param filler_ptr struct tagsistant_use_filler_struct pointer (cast to void*)
+ * @param result dbi_result pointer
+ * @return 0 (always, see SQLite policy, may change in the future)
  */
 static int tagsistant_add_entry_to_dir(void *filler_ptr, dbi_result result)
 {
-	struct use_filler_struct *ufs = (struct use_filler_struct *) filler_ptr;
+	struct tagsistant_use_filler_struct *ufs = (struct tagsistant_use_filler_struct *) filler_ptr;
 	const char *dir = dbi_result_get_string_idx(result, 1);
 
 	if (dir == NULL || strlen(dir) == 0)
@@ -367,12 +374,12 @@ static int tagsistant_add_entry_to_dir(void *filler_ptr, dbi_result result)
 /**
  * readdir equivalent (in FUSE paradigm)
  *
- * \param path the path of the directory to be read
- * \param buf buffer holding directory entries
- * \param filler libfuse fuse_fill_dir_t function to save entries in *buf
- * \param offset offset of next read
- * \param fi struct fuse_file_info passed by libfuse; unused.
- * \return 0 on success, -errno otherwise
+ * @param path the path of the directory to be read
+ * @param buf buffer holding directory entries
+ * @param filler libfuse fuse_fill_dir_t function to save entries in *buf
+ * @param offset offset of next read
+ * @param fi struct fuse_file_info passed by libfuse; unused.
+ * @return 0 on success, -errno otherwise
  */
 static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
 {
@@ -386,7 +393,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 	TAGSISTANT_START("/ READDIR on %s", path);
 
 	// build querytree
-	querytree_t *qtree = tagsistant_build_querytree(path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -491,7 +498,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 		 	* if path does not terminate by =,
 		 	* directory should be filled with tagsdir registered tags
 		 	*/
-			struct use_filler_struct *ufs = g_new0(struct use_filler_struct, 1);
+			struct tagsistant_use_filler_struct *ufs = g_new0(struct tagsistant_use_filler_struct, 1);
 			if (ufs == NULL) {
 				dbg(LOG_ERR, "Error allocating memory");
 				goto READDIR_EXIT;
@@ -538,10 +545,10 @@ READDIR_EXIT:
 /**
  * mknod equivalent (used to create even regular files)
  *
- * \param path the path of the file (block, char, fifo) to be created
- * \param mode file type and permissions
- * \param rdev major and minor numbers, if applies
- * \return 0 on success, -errno otherwise
+ * @param path the path of the file (block, char, fifo) to be created
+ * @param mode file type and permissions
+ * @param rdev major and minor numbers, if applies
+ * @return 0 on success, -errno otherwise
  */
 static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 {
@@ -552,7 +559,7 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 	gchar *stripped_path = tagsistant_ID_strip_from_path(path);
 
 	// build querytree
-	querytree_t *qtree = tagsistant_build_querytree(stripped_path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_build_querytree(stripped_path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -599,9 +606,9 @@ MKNOD_EXIT:
 /**
  * mkdir equivalent
  *
- * \param path the path of the directory to be created
- * \param mode directory permissions (unused, since directories are tags saved in SQL backend)
- * \return 0 on success, -errno otherwise
+ * @param path the path of the directory to be created
+ * @param mode directory permissions (unused, since directories are tags saved in SQL backend)
+ * @return 0 on success, -errno otherwise
  */
 static int tagsistant_mkdir(const char *path, mode_t mode)
 {
@@ -613,7 +620,7 @@ static int tagsistant_mkdir(const char *path, mode_t mode)
 	gchar *stripped_path = tagsistant_ID_strip_from_path(path);
 
 	// build querytree
-	querytree_t *qtree = tagsistant_build_querytree(stripped_path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_build_querytree(stripped_path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -690,8 +697,8 @@ MKDIR_EXIT:
 /**
  * unlink equivalent
  *
- * \param path the path to be unlinked (deleted)
- * \return 0 on success, -errno otherwise
+ * @param path the path to be unlinked (deleted)
+ * @return 0 on success, -errno otherwise
  */
 static int tagsistant_unlink(const char *path)
 {
@@ -701,7 +708,7 @@ static int tagsistant_unlink(const char *path)
 	TAGSISTANT_START("/ UNLINK on %s", path);
 
 	// build querytree
-	querytree_t *qtree = tagsistant_build_querytree(path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -715,7 +722,7 @@ static int tagsistant_unlink(const char *path)
 
 			// if object is pointed by a tags/ query, then untag it
 			// from the tags included in the query path...
-			traverse_querytree(qtree, tagsistant_sql_untag_object, qtree->object_id);
+			tagsistant_traverse_querytree(qtree, tagsistant_sql_untag_object, qtree->object_id);
 
 			// ...then check if it's tagged elsewhere...
 			// ...if still tagged, then avoid real unlink(): the object must survive!
@@ -771,8 +778,8 @@ UNLINK_EXIT:
 /**
  * rmdir equivalent
  *
- * \param path the tag (directory) to be removed
- * \return 0 on success, -errno otherwise
+ * @param path the tag (directory) to be removed
+ * @return 0 on success, -errno otherwise
  */
 static int tagsistant_rmdir(const char *path)
 {
@@ -781,7 +788,7 @@ static int tagsistant_rmdir(const char *path)
 
 	TAGSISTANT_START("/ RMDIR on %s", path);
 
-	querytree_t *qtree = tagsistant_build_querytree(path, FALSE);
+	tagsistant_querytree_t *qtree = tagsistant_build_querytree(path, FALSE);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -794,7 +801,7 @@ static int tagsistant_rmdir(const char *path)
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		if (QTREE_IS_TAGGABLE(qtree)) {
 			// remove all the tags associated to the object
-			traverse_querytree(qtree, tagsistant_sql_untag_object, qtree->object_id);
+			tagsistant_traverse_querytree(qtree, tagsistant_sql_untag_object, qtree->object_id);
 		} else {
 
 			// do a real mkdir
@@ -861,15 +868,15 @@ static int tagsistant_rmdir(const char *path)
 /**
  * rename equivalent
  *
- * \param from old file name
- * \param to new file name
- * \return 0 on success, -errno otherwise
+ * @param from old file name
+ * @param to new file name
+ * @return 0 on success, -errno otherwise
  */
 static int tagsistant_rename(const char *from, const char *to)
 {
     int res = 0, tagsistant_errno = 0;
 	gchar *rename_path = NULL;
-	querytree_t *from_qtree = NULL, *to_qtree = NULL;
+	tagsistant_querytree_t *from_qtree = NULL, *to_qtree = NULL;
 
 	TAGSISTANT_START("/ RENAME %s as %s", from, to);
 
@@ -916,17 +923,17 @@ static int tagsistant_rename(const char *from, const char *to)
 	if (QTREE_POINTS_TO_OBJECT(from_qtree)) {
 		if (QTREE_IS_TAGGABLE(from_qtree)) {
 			// 0. strip trailing number (i.e. 283.filename -> filename)
-			tagsistant_qtree_renumber(to_qtree, from_qtree->object_id);
+			tagsistant_querytree_renumber(to_qtree, from_qtree->object_id);
 
 			// 1. rename the object
 			tagsistant_query("update objects set objectname = \"%s\" where object_id = %d", NULL, NULL, to_qtree->object_path, from_qtree->object_id);
 			tagsistant_query("update objects set path = \"%s\" where object_id = %d", NULL, NULL, to_qtree->full_archive_path, from_qtree->object_id);
 
 			// 2. deletes all the tagging between "from" file and all AND nodes in "from" path
-			traverse_querytree(from_qtree, tagsistant_sql_untag_object, from_qtree->object_id);
+			tagsistant_traverse_querytree(from_qtree, tagsistant_sql_untag_object, from_qtree->object_id);
 
 			// 3. adds all the tags from "to" path
-			traverse_querytree(to_qtree, tagsistant_sql_tag_object, from_qtree->object_id);
+			tagsistant_traverse_querytree(to_qtree, tagsistant_sql_tag_object, from_qtree->object_id);
 		}
 
 		rename_path = from_qtree->full_archive_path;
@@ -973,9 +980,9 @@ RENAME_EXIT:
 /**
  * symlink equivalent
  *
- * \param from existing file name
- * \param to new file name
- * \return 0 on success, -errno otherwise
+ * @param from existing file name
+ * @param to new file name
+ * @return 0 on success, -errno otherwise
  *
  * TODO :: Huston, we have a problem with Nautilus:
  *
@@ -1014,8 +1021,8 @@ static int tagsistant_symlink(const char *from, const char *to)
 		// dbg(LOG_INFO, "%s is internal to %s, trimmed to %s", from, tagsistant.mountpoint, _from);
 	}
 
-	querytree_t *from_qtree = tagsistant_build_querytree(_from, 0);
-	querytree_t *to_qtree = tagsistant_build_querytree(to, 0);
+	tagsistant_querytree_t *from_qtree = tagsistant_build_querytree(_from, 0);
+	tagsistant_querytree_t *to_qtree = tagsistant_build_querytree(to, 0);
 
 	from_qtree->is_external = (from == _from) ? 1 : 0;
 
@@ -1041,7 +1048,7 @@ static int tagsistant_symlink(const char *from, const char *to)
 #if TAGSISTANT_RETAG_INTERNAL_SYMLINKS
 		if (0 && QTREE_IS_INTERNAL(from_qtree) && from_qtree->object_id) {
 			dbg(LOG_INFO, "Retagging %s as internal to %s", from, tagsistant.mountpoint);
-			traverse_querytree(to_qtree, tagsistant_sql_tag_object, from_qtree->object_id);
+			tagsistant_traverse_querytree(to_qtree, tagsistant_sql_tag_object, from_qtree->object_id);
 			goto SYMLINK_EXIT;
 		} else
 #endif
@@ -1090,10 +1097,10 @@ SYMLINK_EXIT:
 /**
  * link equivalent
  *
- * \param from existing file name
- * \param to new file name
- * \return 0 on success, -errno otherwise
- * \todo why tagsistant_link() calls tagsistant_symlink()? We should be able to perform proper linking!
+ * @param from existing file name
+ * @param to new file name
+ * @return 0 on success, -errno otherwise
+ * @todo why tagsistant_link() calls tagsistant_symlink()? We should be able to perform proper linking!
  */
 static int tagsistant_link(const char *from, const char *to)
 {
@@ -1103,9 +1110,9 @@ static int tagsistant_link(const char *from, const char *to)
 /**
  * chmod equivalent
  *
- * \param path the path to be chmod()ed
- * \param mode new mode for path
- * \return 0 on success, -errno otherwise
+ * @param path the path to be chmod()ed
+ * @param mode new mode for path
+ * @return 0 on success, -errno otherwise
  */
 static int tagsistant_chmod(const char *path, mode_t mode)
 {
@@ -1113,7 +1120,7 @@ static int tagsistant_chmod(const char *path, mode_t mode)
 
 	TAGSISTANT_START("/ CHMOD on %s [mode: %d]", path, mode);
 
-	querytree_t *qtree = tagsistant_build_querytree(path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -1150,10 +1157,10 @@ static int tagsistant_chmod(const char *path, mode_t mode)
 /**
  * chown equivalent
  *
- * \param path the path to be chown()ed
- * \param uid new UID for path
- * \param gid new GID for path
- * \return 0 on success, -errno otherwise
+ * @param path the path to be chown()ed
+ * @param uid new UID for path
+ * @param gid new GID for path
+ * @return 0 on success, -errno otherwise
  */
 static int tagsistant_chown(const char *path, uid_t uid, gid_t gid)
 {
@@ -1161,7 +1168,7 @@ static int tagsistant_chown(const char *path, uid_t uid, gid_t gid)
 
 	TAGSISTANT_START("/ CHOWN on %s [uid: %d gid: %d]", path, uid, gid);
 
-	querytree_t *qtree = tagsistant_build_querytree(path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -1198,9 +1205,9 @@ static int tagsistant_chown(const char *path, uid_t uid, gid_t gid)
 /**
  * truncate equivalent
  *
- * \param path the path to be truncate()ed
- * \param size truncation offset
- * \return 0 on success, -errno otherwise
+ * @param path the path to be truncate()ed
+ * @param size truncation offset
+ * @return 0 on success, -errno otherwise
  */
 static int tagsistant_truncate(const char *path, off_t size)
 {
@@ -1208,7 +1215,7 @@ static int tagsistant_truncate(const char *path, off_t size)
 
 	TAGSISTANT_START("/ TRUNCATE on %s [size: %lu]", path, (long unsigned int) size);
 
-	querytree_t *qtree = tagsistant_build_querytree(path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -1245,9 +1252,9 @@ static int tagsistant_truncate(const char *path, off_t size)
 /**
  * utime equivalent
  *
- * \param path the path to utime()ed
- * \param buf struct utimbuf pointer holding new access and modification times
- * \return 0 on success, -errno otherwise
+ * @param path the path to utime()ed
+ * @param buf struct utimbuf pointer holding new access and modification times
+ * @return 0 on success, -errno otherwise
  */
 static int tagsistant_utime(const char *path, struct utimbuf *buf)
 {
@@ -1256,7 +1263,7 @@ static int tagsistant_utime(const char *path, struct utimbuf *buf)
 
 	TAGSISTANT_START("/ UTIME on %s", path);
 
-	querytree_t *qtree = tagsistant_build_querytree(path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -1296,13 +1303,13 @@ static int tagsistant_utime(const char *path, struct utimbuf *buf)
  * performs real open() on a file. Used by tagsistant_open(),
  * tagsistant_read() and tagsistant_write().
  *
- * \param filepath the path to be open()ed
- * \param flags how to open file (see open(2) for more informations)
- * \param _errno returns open() errno
- * \return open() return value
- * \todo Should it perform permissions checking???
+ * @param filepath the path to be open()ed
+ * @param flags how to open file (see open(2) for more informations)
+ * @param _errno returns open() errno
+ * @return open() return value
+ * @todo Should it perform permissions checking???
  */
-int internal_open(querytree_t *qtree, int flags, int *_errno)
+int internal_open(tagsistant_querytree_t *qtree, int flags, int *_errno)
 {
 	// first check on plain path
 	int res = open(qtree->full_archive_path, flags);
@@ -1331,9 +1338,9 @@ int internal_open(querytree_t *qtree, int flags, int *_errno)
 /**
  * open() equivalent
  *
- * \param path the path to be open()ed
- * \param fi struct fuse_file_info holding open() flags
- * \return 0 on success, -errno otherwise
+ * @param path the path to be open()ed
+ * @param fi struct fuse_file_info holding open() flags
+ * @return 0 on success, -errno otherwise
  */
 static int tagsistant_open(const char *path, struct fuse_file_info *fi)
 {
@@ -1344,7 +1351,7 @@ static int tagsistant_open(const char *path, struct fuse_file_info *fi)
 	gchar *open_path = NULL;
 
 	// build querytree
-	querytree_t *qtree = tagsistant_build_querytree(path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -1387,12 +1394,12 @@ static int tagsistant_open(const char *path, struct fuse_file_info *fi)
 /**
  * read() equivalent
  *
- * \param path the path of the file to be read
- * \param buf buffer holding read() result
- * \param size how many bytes should/can be read
- * \param offset starting of the read
- * \param fi struct fuse_file_info used for open() flags
- * \return 0 on success, -errno otherwise
+ * @param path the path of the file to be read
+ * @param buf buffer holding read() result
+ * @param size how many bytes should/can be read
+ * @param offset starting of the read
+ * @param fi struct fuse_file_info used for open() flags
+ * @return 0 on success, -errno otherwise
  */
 static int tagsistant_read(const char *path, char *buf, size_t size, off_t offset,
                     struct fuse_file_info *fi)
@@ -1401,7 +1408,7 @@ static int tagsistant_read(const char *path, char *buf, size_t size, off_t offse
 
 	TAGSISTANT_START("/ READ on %s [size: %lu offset: %lu]", path, (long unsigned int) size, (long unsigned int) offset);
 
-	querytree_t *qtree = tagsistant_build_querytree(path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -1449,12 +1456,12 @@ static int tagsistant_read(const char *path, char *buf, size_t size, off_t offse
 /**
  * write() equivalent
  *
- * \param path the path of the file to be written
- * \param buf buffer holding write() data
- * \param size how many bytes should be written (size of *buf)
- * \param offset starting of the write
- * \param fi struct fuse_file_info used for open() flags
- * \return 0 on success, -errno otherwise
+ * @param path the path of the file to be written
+ * @param buf buffer holding write() data
+ * @param size how many bytes should be written (size of *buf)
+ * @param offset starting of the write
+ * @param fi struct fuse_file_info used for open() flags
+ * @return 0 on success, -errno otherwise
  */
 static int tagsistant_write(const char *path, const char *buf, size_t size,
 	off_t offset, struct fuse_file_info *fi)
@@ -1466,7 +1473,7 @@ static int tagsistant_write(const char *path, const char *buf, size_t size,
 
 	TAGSISTANT_START("/ WRITE on %s [size: %d offset: %lu]", path, size, (long unsigned int) offset);
 
-	querytree_t *qtree = tagsistant_build_querytree(path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_build_querytree(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -1512,9 +1519,9 @@ static int tagsistant_write(const char *path, const char *buf, size_t size,
 /**
  * statvfs equivalent (used on fuse >= 25)
  *
- * \param path the path to be statvfs()ed
- * \param stbuf pointer to struct statvfs holding filesystem informations
- * \return 0 on success, -errno otherwise
+ * @param path the path to be statvfs()ed
+ * @param stbuf pointer to struct statvfs holding filesystem informations
+ * @return 0 on success, -errno otherwise
  */
 static int tagsistant_statvfs(const char *path, struct statvfs *stbuf)
 {
@@ -1542,9 +1549,9 @@ static int tagsistant_statvfs(const char *path, struct statvfs *stbuf)
 /**
  * statfs equivalent (used on fuse < 25)
  *
- * \param path the path to be statfs()ed
- * \param stbuf pointer to struct statfs holding filesystem informations
- * \return 0 on success, -errno otherwise
+ * @param path the path to be statfs()ed
+ * @param stbuf pointer to struct statfs holding filesystem informations
+ * @return 0 on success, -errno otherwise
  */
 static int tagsistant_statfs(const char *path, struct statfs *stbuf)
 {
@@ -1628,9 +1635,9 @@ static int tagsistant_removexattr(const char *path, const char *name)
 /**
  * access() equivalent.
  *
- * \param path the path of the filename to be access()ed
+ * @param path the path of the filename to be access()ed
  * \int mode the mode which is F_OK|R_OK|W_OK|X_OK
- * \return 0 on success, -errno on error
+ * @return 0 on success, -errno on error
  */
 static int tagsistant_access(const char *path, int mode)
 {
@@ -1739,7 +1746,7 @@ int usage_already_printed = 0;
 /**
  * print usage message on STDOUT
  *
- * \param progname the name tagsistant was invoked as
+ * @param progname the name tagsistant was invoked as
  */
 void tagsistant_usage(char *progname)
 {
@@ -1780,11 +1787,11 @@ void tagsistant_usage(char *progname)
 /**
  * process command line options
  * 
- * \param data pointer (unused)
- * \param arg argument pointer (if key has one)
- * \param key command line option to be processed
- * \param outargs structure holding libfuse options
- * \return 1 on success, 0 otherwise
+ * @param data pointer (unused)
+ * @param arg argument pointer (if key has one)
+ * @param key command line option to be processed
+ * @param outargs structure holding libfuse options
+ * @return 1 on success, 0 otherwise
  */
 static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse_args *outargs)
 {
@@ -1832,15 +1839,13 @@ static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse
 /**
  * cleanup hook used by signal()
  *
- * \param s the signal number passed by signal()
+ * @param s the signal number passed by signal()
  */
 void cleanup(int s)
 {
 	dbg(LOG_ERR, "Got Signal %d", s);
 	exit(s);
 }
-
-extern void tagsistant_utils_init();
 
 int main(int argc, char *argv[])
 {
