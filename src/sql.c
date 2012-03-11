@@ -445,7 +445,7 @@ void tagsistant_full_untag_object(tagsistant_id object_id)
 	tagsistant_query("delete from tagging where object_id = %d", NULL, NULL, object_id);
 }
 
-tagsistant_id get_exact_tag_id(const gchar *tagname)
+tagsistant_id tagsistant_get_exact_tag_id(const gchar *tagname)
 {
 	tagsistant_id tag_id = 0;
 
@@ -465,7 +465,7 @@ void tagsistant_sql_delete_tag(const gchar *tagname)
 	tagsistant_query("delete from relations where tag1_id = \"%d\" or tag2_id = \"%d\";", NULL, NULL, tag_id, tag_id);
 }
 
-void sql_tag_object(const gchar *tagname, tagsistant_id object_id)
+void tagsistant_sql_tag_object(const gchar *tagname, tagsistant_id object_id)
 {
 	tagsistant_query("insert into tags(tagname) values(\"%s\");", NULL, NULL, tagname);
 
@@ -476,7 +476,7 @@ void sql_tag_object(const gchar *tagname, tagsistant_id object_id)
 	tagsistant_query("insert into tagging(tag_id, object_id) values(\"%d\", \"%d\");", NULL, NULL, tag_id, object_id);
 }
 
-void sql_untag_object(const gchar *tagname, tagsistant_id object_id)
+void tagsistant_sql_untag_object(const gchar *tagname, tagsistant_id object_id)
 {
 	int tag_id = sql_get_tag_id(tagname);
 

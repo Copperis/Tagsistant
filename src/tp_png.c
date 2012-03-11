@@ -26,13 +26,13 @@
 char mime_type[] = "image/png";
 
 /* exported init function */
-int plugin_init()
+int tagsistant_plugin_init()
 {
 	return 1;
 }
 
 /* exported processor function */
-int processor(const tagsistant_querytree_t *qtree)
+int tagsistant_processor(const tagsistant_querytree_t *qtree)
 {
 	dbg(LOG_INFO, "Tagging %s as %s", qtree->full_archive_path, DEFAULT_TAG);
 	// sql_tag_object(DEFAULT_TAG, qtree->object_id)
@@ -40,7 +40,7 @@ int processor(const tagsistant_querytree_t *qtree)
 }
 
 /* exported finalize function */
-void plugin_free()
+void tagsistant_plugin_free()
 {
 }
 

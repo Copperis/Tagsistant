@@ -76,7 +76,7 @@
 #define stop_labeled_time_profile(label) {}
 #endif
 
-extern int debug;
+extern int tagsistant_debug;
 
 #define oldfree(symbol) assert(symbol != NULL); dbg(LOG_INFO, "g_free(%s)", __STRING(symbol)); g_free(symbol);
 #define befree(symbol) {\

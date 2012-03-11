@@ -29,7 +29,7 @@
 char mime_type[] = "image/jpeg";
 
 /* exported init function */
-int plugin_init()
+int tagsistant_plugin_init()
 {
 	return 1;
 }
@@ -41,13 +41,13 @@ int plugin_init()
 }
 
 /* exported processor function */
-int processor(const tagsistant_querytree_t *qtree)
+int tagsistant_processor(const tagsistant_querytree_t *qtree)
 {
 	ExifData *ed = NULL;
 	ExifMnoteData *mn = NULL;
 
 	// doing basic tagging
-	sql_tag_object(DEFAULT_TAG, qtree->object_id);
+	tagsistant_sql_tag_object(DEFAULT_TAG, qtree->object_id);
 
 	// doing extended tagging using libexif
 	ed = exif_data_new_from_file(qtree->full_archive_path);
@@ -71,16 +71,18 @@ int processor(const tagsistant_querytree_t *qtree)
 			c++;
 		}
 
-		sql_tag_object(exiftag, qtree->object_id);
+		tagsistant_sql_tag_object(exiftag, qtree->object_id);
 		g_free(exiftag);
 	}
 
 	// ok
 	leave_processor();
+
+	return  TP_STOP;
 }
 
 /* exported finalize function */
-void plugin_free()
+void tagsistant_plugin_free()
 {
 }
 

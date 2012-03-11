@@ -25,21 +25,21 @@
 char mime_type[] = "*/*";
 
 /* exported init function */
-int plugin_init()
+int tagsistant_plugin_init()
 {
 	/* dbg(LOG_INFO, "Plugin generic loaded, nice to meet you!"); */
 	return 1;
 }
 
 /* exported processor function */
-int processor(const char *filename)
+int tagsistant_processor(const char *filename)
 {
 	(void) filename;
 	return TP_NULL;
 }
 
 /* exported finalize function */
-void plugin_free()
+void tagsistant_plugin_free()
 {
 	/* dbg(LOG_INFO, "Plugin generic gets unloaded, see you!"); */
 }

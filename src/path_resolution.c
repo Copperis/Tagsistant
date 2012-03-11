@@ -111,7 +111,7 @@ int tagsistant_reasoner(reasoning_t *reasoning)
 /**
  * allocate a new querytree_t structure
  */
-querytree_t *new_querytree(const gchar *path)
+querytree_t *tagsistant_new_querytree(const gchar *path)
 {
 	// allocate the struct
 	querytree_t *qtree = g_new0(querytree_t, 1);
@@ -192,7 +192,7 @@ querytree_t *tagsistant_build_querytree(const char *path, int do_reasoning)
 	dbg(LOG_INFO, "Building querytree for %s", path);
 
 	// allocate the querytree structure
-	querytree_t *qtree = new_querytree(path);
+	querytree_t *qtree = tagsistant_new_querytree(path);
 	if (qtree == NULL) return NULL;
 
 	// initialize iterator variables on query tree nodes
@@ -415,7 +415,7 @@ struct atft {
 /**
  * add a file to the file tree (callback function)
  */
-static int add_to_filetree(void *atft_struct, dbi_result result)
+static int tagsistant_add_to_filetree(void *atft_struct, dbi_result result)
 {
 	struct atft *atft = (struct atft*) atft_struct;
 	file_handle_t **fh = atft->fh;
@@ -618,7 +618,7 @@ file_handle_t *tagsistant_build_filetree(ptree_or_node_t *query, const char *pat
 	// atft->dbh = dbh;
 
 	/* apply view statement */
-	tagsistant_query(view_statement->str, add_to_filetree, atft);
+	tagsistant_query(view_statement->str, tagsistant_add_to_filetree, atft);
 	freenull(atft);
 
 	g_string_free(view_statement, TRUE);

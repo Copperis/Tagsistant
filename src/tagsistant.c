@@ -87,7 +87,7 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 	tagsistant_set_alias(qtree->full_path, qtree->full_archive_path);
 
 	// 4. tag the object
-	traverse_querytree(qtree, sql_tag_object, ID);
+	traverse_querytree(qtree, tagsistant_sql_tag_object, ID);
 
 	// 5. use autotagging plugin stack
 	tagsistant_process(qtree);
@@ -95,8 +95,8 @@ int __create_and_tag_object(querytree_t *qtree, int *tagsistant_errno, int force
 	return ID;
 }
 
-#define create_and_tag_object(qtree, errno) __create_and_tag_object(qtree, errno, 0); dbg(LOG_INFO, "Tried creation of object %s", qtree->full_path)
-#define force_create_and_tag_object(qtree, errno) __create_and_tag_object(qtree, errno, 1); dbg(LOG_INFO, "Forced creation of object %s", qtree->full_path)
+#define tagsistant_create_and_tag_object(qtree, errno) __create_and_tag_object(qtree, errno, 0); dbg(LOG_INFO, "Tried creation of object %s", qtree->full_path)
+#define tagsistant_force_create_and_tag_object(qtree, errno) __create_and_tag_object(qtree, errno, 1); dbg(LOG_INFO, "Forced creation of object %s", qtree->full_path)
 
 int __tagsistant_check_tagging_consistency(querytree_t *qtree, int recurse)
 {
@@ -238,7 +238,7 @@ static int tagsistant_getattr(const char *path, struct stat *stbuf)
 			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
 			stbuf->st_nlink = 1;
 		} else {
-			tagsistant_id tag_id = get_exact_tag_id(qtree->last_tag);
+			tagsistant_id tag_id = tagsistant_get_exact_tag_id(qtree->last_tag);
 			if (tag_id) {
 				// each directory holds 3 inodes: itself/, itself/+, itself/=
 				stbuf->st_ino = tag_id * 3;
@@ -341,7 +341,7 @@ struct use_filler_struct {
  * \param result dbi_result pointer
  * \return 0 (always, see SQLite policy, may change in the future)
  */
-static int add_entry_to_dir(void *filler_ptr, dbi_result result)
+static int tagsistant_add_entry_to_dir(void *filler_ptr, dbi_result result)
 {
 	struct use_filler_struct *ufs = (struct use_filler_struct *) filler_ptr;
 	const char *dir = dbi_result_get_string_idx(result, 1);
@@ -503,7 +503,7 @@ static int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t fille
 			ufs->qtree = qtree;
 	
 			/* parse tagsdir list */
-			tagsistant_query("select tagname from tags;", add_entry_to_dir, ufs);
+			tagsistant_query("select tagname from tags;", tagsistant_add_entry_to_dir, ufs);
 			freenull(ufs);
 		}
 	} else if (QTREE_IS_STATS(qtree)) {
@@ -565,7 +565,7 @@ static int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 	// -- archive --
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		if (QTREE_IS_TAGGABLE(qtree)) {
-			res = force_create_and_tag_object(qtree, &tagsistant_errno);
+			res = tagsistant_force_create_and_tag_object(qtree, &tagsistant_errno);
 			if (-1 == res) goto MKNOD_EXIT;
 		}
 
@@ -627,7 +627,7 @@ static int tagsistant_mkdir(const char *path, mode_t mode)
 		if (QTREE_IS_TAGGABLE(qtree)) {
 			// create a new directory inside tagsistant.archive directory
 			// and tag it with all the tags in the qtree
-			res = create_and_tag_object(qtree, &tagsistant_errno);
+			res = tagsistant_create_and_tag_object(qtree, &tagsistant_errno);
 
 			if (-1 == res) goto MKDIR_EXIT;
 		}
@@ -650,8 +650,8 @@ static int tagsistant_mkdir(const char *path, mode_t mode)
 		if (qtree->second_tag) {
 			// create a new relation between two tags	
 			tagsistant_sql_create_tag(qtree->second_tag);
-			int tag1_id = get_exact_tag_id(qtree->first_tag);
-			int tag2_id = get_exact_tag_id(qtree->second_tag);
+			int tag1_id = tagsistant_get_exact_tag_id(qtree->first_tag);
+			int tag2_id = tagsistant_get_exact_tag_id(qtree->second_tag);
 			if (tag1_id && tag2_id && IS_VALID_RELATION(qtree->relation)) {
 				tagsistant_query(
 					"insert into relations (tag1_id, tag2_id, relation) values (%d, %d, \"%s\")",
@@ -715,7 +715,7 @@ static int tagsistant_unlink(const char *path)
 
 			// if object is pointed by a tags/ query, then untag it
 			// from the tags included in the query path...
-			traverse_querytree(qtree, sql_untag_object, qtree->object_id);
+			traverse_querytree(qtree, tagsistant_sql_untag_object, qtree->object_id);
 
 			// ...then check if it's tagged elsewhere...
 			// ...if still tagged, then avoid real unlink(): the object must survive!
@@ -794,7 +794,7 @@ static int tagsistant_rmdir(const char *path)
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		if (QTREE_IS_TAGGABLE(qtree)) {
 			// remove all the tags associated to the object
-			traverse_querytree(qtree, sql_untag_object, qtree->object_id);
+			traverse_querytree(qtree, tagsistant_sql_untag_object, qtree->object_id);
 		} else {
 
 			// do a real mkdir
@@ -824,8 +824,8 @@ static int tagsistant_rmdir(const char *path)
 		if (qtree->second_tag) {
 			// create a new relation between two tags	
 			tagsistant_sql_create_tag(qtree->second_tag);
-			int tag1_id = get_exact_tag_id(qtree->first_tag);
-			int tag2_id = get_exact_tag_id(qtree->second_tag);
+			int tag1_id = tagsistant_get_exact_tag_id(qtree->first_tag);
+			int tag2_id = tagsistant_get_exact_tag_id(qtree->second_tag);
 			if (tag1_id && tag2_id && IS_VALID_RELATION(qtree->relation)) {
 				tagsistant_query(
 					"delete from relations where tag1_id = \"%d\" and tag2_id = \"%d\" and relation = \"%s\"",
@@ -923,10 +923,10 @@ static int tagsistant_rename(const char *from, const char *to)
 			tagsistant_query("update objects set path = \"%s\" where object_id = %d", NULL, NULL, to_qtree->full_archive_path, from_qtree->object_id);
 
 			// 2. deletes all the tagging between "from" file and all AND nodes in "from" path
-			traverse_querytree(from_qtree, sql_untag_object, from_qtree->object_id);
+			traverse_querytree(from_qtree, tagsistant_sql_untag_object, from_qtree->object_id);
 
 			// 3. adds all the tags from "to" path
-			traverse_querytree(to_qtree, sql_tag_object, from_qtree->object_id);
+			traverse_querytree(to_qtree, tagsistant_sql_tag_object, from_qtree->object_id);
 		}
 
 		rename_path = from_qtree->full_archive_path;
@@ -1041,7 +1041,7 @@ static int tagsistant_symlink(const char *from, const char *to)
 #if TAGSISTANT_RETAG_INTERNAL_SYMLINKS
 		if (0 && QTREE_IS_INTERNAL(from_qtree) && from_qtree->object_id) {
 			dbg(LOG_INFO, "Retagging %s as internal to %s", from, tagsistant.mountpoint);
-			traverse_querytree(to_qtree, sql_tag_object, from_qtree->object_id);
+			traverse_querytree(to_qtree, tagsistant_sql_tag_object, from_qtree->object_id);
 			goto SYMLINK_EXIT;
 		} else
 #endif
@@ -1049,7 +1049,7 @@ static int tagsistant_symlink(const char *from, const char *to)
 		// if qtree is taggable, do it
 		if (QTREE_IS_TAGGABLE(to_qtree)) {
 			dbg(LOG_INFO, "SYMLINK : Creating %s", to_qtree->object_path);
-			res = force_create_and_tag_object(to_qtree, &tagsistant_errno);
+			res = tagsistant_force_create_and_tag_object(to_qtree, &tagsistant_errno);
 			if (-1 == res) goto SYMLINK_EXIT;
 		} else
 
@@ -1741,7 +1741,7 @@ int usage_already_printed = 0;
  *
  * \param progname the name tagsistant was invoked as
  */
-void usage(char *progname)
+void tagsistant_usage(char *progname)
 {
 	if (usage_already_printed++)
 		return;
@@ -1799,7 +1799,7 @@ static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse
 			return 0;
 
 	    case KEY_HELP:
-	        usage(outargs->argv[0]);
+	        tagsistant_usage(outargs->argv[0]);
 	        fuse_opt_add_arg(outargs, "-ho");
 #if FUSE_VERSION <= 25
 	        fuse_main(outargs->argc, outargs->argv, &tagsistant_oper);
@@ -1822,7 +1822,8 @@ static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse
 	
 	    default:
 	        fprintf(stderr, "Extra parameter provided\n");
-	        usage(outargs->argv[0]);
+	        tagsistant_usage(outargs->argv[0]);
+	        break;
     }
 
 	return 0;
@@ -1908,7 +1909,7 @@ int main(int argc, char *argv[])
 
 	/* checking mountpoint */
 	if (!(tagsistant.mountpoint||tagsistant.show_config)) {
-		usage(tagsistant.progname);
+		tagsistant_usage(tagsistant.progname);
 		fprintf(stderr, " *** No mountpoint provided *** \n\n");
 		exit(2);
 	}
@@ -1917,7 +1918,7 @@ int main(int argc, char *argv[])
 	struct stat mst;
 	if ((lstat(tagsistant.mountpoint, &mst) == -1) && (errno == ENOENT)) {
 		if (mkdir(tagsistant.mountpoint, S_IRWXU|S_IRGRP|S_IXGRP) != 0) {
-			usage(tagsistant.progname);
+			tagsistant_usage(tagsistant.progname);
 			if (!tagsistant.quiet)
 				fprintf(stderr, "\n    Mountpoint %s does not exists and can't be created!\n\n", tagsistant.mountpoint);
 			if (!tagsistant.show_config)
@@ -1943,7 +1944,7 @@ int main(int argc, char *argv[])
 			if (!tagsistant.quiet)
 				fprintf(stderr, " Using default repository %s\n", tagsistant.repository);
 		} else {
-			usage(tagsistant.progname);
+			tagsistant_usage(tagsistant.progname);
 			if (!tagsistant.show_config) {
 				if (!tagsistant.quiet)
 					fprintf(stderr, " *** No repository provided with -r ***\n\n");
@@ -2013,9 +2014,9 @@ int main(int argc, char *argv[])
 		}
 	}
 	chmod(tagsistant.archive, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
-	if (tagsistant.debug) debug = tagsistant.debug;
+	if (tagsistant.debug) tagsistant_debug = tagsistant.debug;
 
-	if (debug)
+	if (tagsistant_debug)
 		dbg(LOG_INFO, "Debug is enabled");
 
 	umask(0);

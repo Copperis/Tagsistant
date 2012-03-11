@@ -24,6 +24,14 @@
 #define VERBOSE_DEBUG 0
 /* #define DEBUG_STRDUP */
 
+#ifndef VERSION
+#define VERSION 0
+#endif
+
+#ifndef PLUGINS_DIR
+#define PLUGINS_DIR "/usr/local/lib/tagsistant/"
+#endif
+
 #define TAGSISTANT_PLUGIN_PREFIX "libtagsistant_"
 #define TAGSISTANT_ARCHIVE_PLACEHOLDER "<<<tagsistant>>>"
 
@@ -390,8 +398,8 @@ struct tagsistant {
 
 extern struct tagsistant tagsistant;
 
-extern int debug;
-extern int log_enabled;
+extern int tagsistant_debug;
+extern int tagsistant_log_enabled;
 
 extern querytree_t *tagsistant_build_querytree(const char *path, int do_reasoning);
 extern file_handle_t *tagsistant_build_filetree(ptree_or_node_t *query, const char *path);
@@ -432,7 +440,7 @@ extern void tagsistant_plugin_unloader();
 	}\
 }
 
-extern FILE *debugfd;
+extern FILE *tagsistant_debugfd;
 
 #ifdef DEBUG_STRDUP
 #	ifndef DEBUG_TO_LOGFILE
@@ -447,8 +455,8 @@ char *real_strdup(const char *orig, char *file, int line);
 
 #define freenull(symbol) {\
 	if (symbol != NULL) {\
-		if (debugfd != NULL) {\
-			fprintf(debugfd, "0x%.8x: g_free()\n", (unsigned int) symbol);\
+		if (tagsistant_debugfd != NULL) {\
+			fprintf(tagsistant_debugfd, "0x%.8x: g_free()\n", (unsigned int) symbol);\
 		}\
 		g_free(symbol);\
 		symbol = NULL;\

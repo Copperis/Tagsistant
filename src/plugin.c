@@ -37,7 +37,7 @@ tagsistant_plugin_t *plugins = NULL;
  * \return the string rappresenting MIME type (like "audio/mpeg"); the string is dynamically
  *   allocated and need to be freenull()ed by outside code
  */
-char *get_file_mimetype(const char *filename)
+char *tagsistant_get_file_mimetype(const char *filename)
 {
 	char *type = NULL;
 
@@ -111,7 +111,7 @@ int tagsistant_process(tagsistant_querytree_t *qtree)
 
 	dbg(LOG_INFO, "Processing file %s", qtree->full_archive_path);
 
-	char *mime_type = get_file_mimetype(qtree->full_archive_path);
+	char *mime_type = tagsistant_get_file_mimetype(qtree->full_archive_path);
 
 	if (mime_type == NULL) {
 		dbg(LOG_ERR, "tagsistant_process() wasn't able to guess mime type for %s", qtree->full_archive_path);

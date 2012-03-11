@@ -39,7 +39,7 @@ GRegex *_rx_title = NULL;
 GRegex *_rx_keywords = NULL;
 
 /* exported init function */
-int plugin_init()
+int tagsistant_plugin_init()
 {
 	/* initialize mutex */
 	g_mutex_new();
@@ -52,12 +52,12 @@ int plugin_init()
 }
 
 /* exported processor function */
-int processor(const tagsistant_querytree_t *qtree)
+int tagsistant_processor(const tagsistant_querytree_t *qtree)
 {
 	/* default tagging */
-	sql_tag_object("document", qtree->object_id);
-	sql_tag_object("webpage", qtree->object_id);
-	sql_tag_object("html", qtree->object_id);
+	tagsistant_sql_tag_object("document", qtree->object_id);
+	tagsistant_sql_tag_object("webpage", qtree->object_id);
+	tagsistant_sql_tag_object("html", qtree->object_id);
 
 	/* apply regular expressions to document content */
 
@@ -82,7 +82,7 @@ int processor(const tagsistant_querytree_t *qtree)
 }
 
 /* exported finalize function */
-void plugin_free()
+void tagsistant_plugin_free()
 {
 	/* unreference regular expressions */
 	g_regex_unref(_rx_title);

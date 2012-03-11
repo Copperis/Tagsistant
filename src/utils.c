@@ -41,15 +41,15 @@ void tagsistant_utils_init()
 	g_free(regex_pattern);
 }
 
-FILE *debugfd = NULL;
+FILE *tagsistant_debugfd = NULL;
 
 #ifdef DEBUG_TO_LOGFILE
 void open_debug_file()
 {
 	char debug_file[1024];
 	sprintf(debug_file, "/tmp/tagsistant.debug.%d", getpid());
-	debugfd = fopen(debug_file, "w");
-	if (debugfd != NULL) {
+	tagsistant_debugfd = fopen(debug_file, "w");
+	if (tagsistant_debugfd != NULL) {
 		dbg(LOG_INFO, "Logfile %s open!", debug_file);
 	} else {
 		dbg(LOG_ERR, "Can't open logfile %s: %s!", debug_file, strerror(errno));
@@ -64,13 +64,13 @@ char *real_strdup(const char *orig, char *file, int line)
 	/* dbg(LOG_INFO, "strdup(%s) @%s:%d", orig, file, line); */
 	char *res = g_malloc0(sizeof(char) * (strlen(orig) + 1));
 	memcpy(res, orig, strlen(orig));
-	if (debugfd != NULL) fprintf(debugfd, "0x%.8x: strdup(%s) @%s:%d\n", (unsigned int) res, orig, file, line);
+	if (tagsistant_debugfd != NULL) fprintf(tagsistant_debugfd, "0x%.8x: strdup(%s) @%s:%d\n", (unsigned int) res, orig, file, line);
 	return res;
 }
 #endif
 
-int debug = 0;
-int log_enabled = 0;
+int tagsistant_debug = 0;
+int tagsistant_log_enabled = 0;
 
 #ifdef _DEBUG_SYSLOG
 /**
@@ -78,11 +78,11 @@ int log_enabled = 0;
  */
 void init_syslog()
 {
-	if (log_enabled)
+	if (tagsistant_log_enabled)
 		return;
 
 	openlog("tagsistant", LOG_PID, LOG_DAEMON);
-	log_enabled = 1;
+	tagsistant_log_enabled = 1;
 }
 #endif
 
@@ -329,7 +329,7 @@ void tagsistant_plugin_apply_regex(const tagsistant_querytree_t *qtree, const ch
 
 		int x = 0;
 		while (tokens[x]) {
-			if (strlen(tokens[x]) >= 3) sql_tag_object(tokens[x], qtree->object_id);
+			if (strlen(tokens[x]) >= 3) tagsistant_sql_tag_object(tokens[x], qtree->object_id);
 			x++;
 		}
 
