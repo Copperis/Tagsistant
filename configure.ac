@@ -152,7 +152,8 @@ case $host in
 esac
 
 AC_CONFIG_FILES([Makefile
-                 src/Makefile])
+                 src/Makefile
+				 src/plugins/Makefile])
 AC_OUTPUT
 
 echo Supported plugins:

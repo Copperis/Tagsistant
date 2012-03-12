@@ -1,8 +1,8 @@
 /*
-   Tagsistant (tagfs) -- tp_png.c
+   Tagsistant (tagfs) -- tp_gif.c
    Copyright (C) 2006-2009 Tx0 <tx0@strumentiresistenti.org>
 
-   Tagsistant png plugin which makes decisions on file MIME types.
+   Tagsistant gif plugin which makes decisions on file MIME types.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -19,11 +19,11 @@
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
 */
 
-#include "tagsistant.h"
+#include "../tagsistant.h"
 #define DEFAULT_TAG "image"
 
 /* declaring mime type */
-char mime_type[] = "image/png";
+char mime_type[] = "image/gif";
 
 /* exported init function */
 int tagsistant_plugin_init()

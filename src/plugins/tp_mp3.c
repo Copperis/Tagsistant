@@ -1,8 +1,8 @@
 /*
-   Tagsistant (tagfs) -- tp_xml.c
+   Tagsistant (tagfs) -- tp_mp3.c
    Copyright (C) 2006-2009 Tx0 <tx0@strumentiresistenti.org>
 
-   Tagsistant xml plugin which makes decisions on file MIME types.
+   Tagsistant mp3 plugin which makes decisions on file MIME types.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -19,11 +19,11 @@
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
 */
 
-#include "tagsistant.h"
-#define DEFAULT_TAG "document"
+#include "../tagsistant.h"
+#define DEFAULT_TAG "audio"
 
 /* declaring mime type */
-char mime_type[] = "application/xml";
+char mime_type[] = "audio/mpeg";
 
 /* exported init function */
 int tagsistant_plugin_init()

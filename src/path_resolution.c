@@ -233,7 +233,7 @@ tagsistant_querytree_t *tagsistant_build_querytree(const char *path, int do_reas
 		qtree->type = QTYPE_ROOT;
 	} else {
 		qtree->type = QTYPE_MALFORMED;
-		dbg(LOG_ERR, "Non existant path (%s)", path);
+		dbg(LOG_ERR, "Non existent path (%s)", path);
 		goto RETURN;
 	}
 
