@@ -68,7 +68,8 @@ int tagsistant_symlink(const char *from, const char *to)
 
 	from_qtree->is_external = (from == _from) ? 1 : 0;
 
-	if (from_qtree->object_path) tagsistant_qtree_copy_object_path(from_qtree, to_qtree);
+	if (from_qtree->object_path)
+		tagsistant_qtree_set_object_path(to_qtree, from_qtree->object_path);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(to_qtree)) {

@@ -169,7 +169,7 @@ void tagsistant_delete_alias(const char *alias) {
  * remove tagsistant id from a path
  *
  * @param path the path to be purged of the ID
- * @return(the purged path)
+ * @return the purged path
  */
 gchar *tagsistant_ID_strip_from_path(const char *path)
 {
@@ -209,7 +209,7 @@ gchar *tagsistant_ID_strip_from_path(const char *path)
  * return(the tagsistant ID contained into a path)
  *
  * @param path the path supposed to contain an ID
- * @return(the ID, if found)
+ * @return the ID, if found
  */
 tagsistant_id tagsistant_ID_extract_from_path(const char *path)
 {
@@ -240,7 +240,7 @@ tagsistant_id tagsistant_ID_extract_from_path(const char *path)
  * will return("document.txt".)
  *
  * @param qtree the tagsistant_querytree_t
- * @return(the purged qtree->object_path)
+ * @return the purged qtree->object_path
  */
 gchar *tagsistant_ID_strip_from_querytree(tagsistant_querytree_t *qtree)
 {
@@ -259,7 +259,7 @@ gchar *tagsistant_ID_strip_from_querytree(tagsistant_querytree_t *qtree)
  * extract the ID from a querytree object
  *
  * @param qtree the tagsistant_querytree_t holding the ID
- * @return(the ID, if found)
+ * @return the ID, if found
  */
 tagsistant_id tagsistant_ID_extract_from_querytree(tagsistant_querytree_t *qtree)
 {

@@ -5,6 +5,7 @@ bin_PROGRAMS = tagsistant
 tagsistant_SOURCES = tagsistant.c\
 	tagsistant.h\
 	path_resolution.c\
+	path_resolution.h\
 	compat/fuse_opt.c\
 	debug.h\
 	debug_free_calls.h\
@@ -12,6 +13,7 @@ tagsistant_SOURCES = tagsistant.c\
 	sql.h\
 	utils.c\
 	plugin.c\
+	plugin.h\
 	fuse_operations/operations.h\
 	fuse_operations/access.c\
 	fuse_operations/chmod.c\

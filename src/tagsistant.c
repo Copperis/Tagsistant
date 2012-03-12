@@ -339,7 +339,7 @@ void tagsistant_usage(char *progname)
  * @param arg argument pointer (if key has one)
  * @param key command line option to be processed
  * @param outargs structure holding libfuse options
- * @return(1 on success, 0 otherwise)
+ * @return 1 on success, 0 otherwise
  */
 static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse_args *outargs)
 {

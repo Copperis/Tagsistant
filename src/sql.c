@@ -35,7 +35,7 @@ int tagsistant_database_driver = TAGSISTANT_NULL_BACKEND;
  * check if requested driver is provided by local DBI installation
  * 
  * @param driver_name string with the name of the driver
- * @return(1 if exists, 0 otherwise)
+ * @return 1 if exists, 0 otherwise
  */
 int tagsistant_driver_is_available(const char *driver_name)
 {
@@ -264,7 +264,7 @@ void tagsistant_rollback_transaction()
  * @param firstarg pointer to buffer for callback retured data
  * @param file __FILE__ passed by calling function
  * @param line __LINE__ passed by calling function
- * @return(0 (always, due to SQLite policy))
+ * @return 0 (always, due to SQLite policy)
  */
 int tagistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result),
 	void *firstarg, char *file, unsigned int line)
@@ -331,7 +331,7 @@ int tagistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result),
  * @param format printf-like string of SQL query
  * @param callback pointer to function to be called on results of SQL query
  * @param firstarg pointer to buffer for callback retured data
- * @return(0 (always, due to SQLite policy))
+ * @return 0 (always, due to SQLite policy)
  */
 int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)(void *, dbi_result), void *firstarg, ...)
 {
@@ -374,7 +374,7 @@ tagsistant_id tagsistant_last_insert_id()
  *
  * @param return_integer integer pointer cast to void* which holds the integer to be returned
  * @param result dbi_result pointer
- * @return(0 (always, due to SQLite policy, may change in the future))
+ * @return 0 (always, due to SQLite policy, may change in the future)
  */
 int tagsistant_return_integer(void *return_integer, dbi_result result)
 {
@@ -400,7 +400,7 @@ int tagsistant_return_integer(void *return_integer, dbi_result result)
  * 
  * @param return_string string pointer cast to void* which holds the string to be returned
  * @param result dbi_result pointer
- * @return(0 (always, due to SQLite policy, may change in the future))
+ * @return 0 (always, due to SQLite policy, may change in the future)
  */
 int tagsistant_return_string(void *return_string, dbi_result result)
 {

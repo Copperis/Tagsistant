@@ -25,9 +25,9 @@
 /**
  * SQL callback. Add new tag derived from reasoning to a ptree_and_node_t structure.
  *
- * \param _reasoning pointer to be casted to reasoning_t* structure
- * \param result dbi_result pointer
- * \return(0 (always, due to SQLite policy, may change in the future))
+ * @param _reasoning pointer to be casted to reasoning_t* structure
+ * @param result dbi_result pointer
+ * @return 0 always, due to SQLite policy, may change in the future
  */
 static int tagsistant_add_alias_tag(void *_reasoning, dbi_result result)
 {
@@ -78,8 +78,8 @@ static int tagsistant_add_alias_tag(void *_reasoning, dbi_result result)
  * enabling tagsistant_build_filetree to later add more criteria to SQL
  * statements to retrieve files
  *
- * \param reasoning the reasoning structure the tagsistant_reasoner should work on
- * \return(number of tags added)
+ * @param reasoning the reasoning structure the tagsistant_reasoner should work on
+ * @return number of tags added
  */
 int tagsistant_reasoner(reasoning_t *reasoning)
 {
@@ -176,7 +176,6 @@ void tagsistant_destroy_querytree(tagsistant_querytree_t *qtree)
 	// free the structure
 	freenull(qtree);
 }
-
 
 /**
  * Build query tree from path. A querytree is composed of a linked
