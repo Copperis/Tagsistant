@@ -27,16 +27,15 @@
 //
 // CFLAGS="-D TAGSISTANT_SQL_BACKEND=TAGSISTANT_DBI_MYSQL_BACKEND"
 //
-#define TAGSISTANT_NULL_BACKEND		0
+#define TAGSISTANT_NULL_BACKEND			0
 #define TAGSISTANT_DBI_MYSQL_BACKEND	1
 #define TAGSISTANT_DBI_SQLITE_BACKEND	2
-
-extern int tagsistant_sql_backend_have_intersect;
-extern int tagsistant_database_driver;
 
 #ifndef TAGSISTANT_SQL_BACKEND
 #	define TAGSISTANT_SQL_BACKEND TAGSISTANT_DBI_SQLITE_BACKEND
 #endif
+
+extern int tagsistant_db_connection();
 
 /* execute SQL query adding file:line coordinates */
 #define tagsistant_do_sql(statement, callback, firstarg)\
@@ -46,16 +45,19 @@ extern int tagsistant_database_driver;
 extern int tagsistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result), void *firstarg, char *file, unsigned int line);
 
 /* execute SQL statements autoformatting the SQL string and adding file:line coords */
-#define tagsistant_query(format, callback, firstarg, ...) _tagsistant_query(format, __FILE__, __LINE__, callback, firstarg, ## __VA_ARGS__)
+#define tagsistant_query(format, callback, firstarg, ...) \
+	tagsistant_real_query(format, __FILE__, __LINE__, callback, firstarg, ## __VA_ARGS__)
 
 /* the real code behind the previous macro */
-extern int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)(void *, dbi_result), void *firstarg, ...);
+extern int tagsistant_real_query(const char *format, gchar *file, int line, int (*callback)(void *, dbi_result), void *firstarg, ...);
 
+/** callback to return a string */
 extern int tagsistant_return_string(void *return_string, dbi_result result);
+
+/** callback to return an integer */
 extern int tagsistant_return_integer(void *return_integer, dbi_result result);
 
-extern int tagsistant_db_connection();
-
+/* transactions */
 extern void tagsistant_start_transaction();
 extern void tagsistant_commit_transaction();
 extern void tagsistant_rollback_transaction();
@@ -64,17 +66,13 @@ extern void tagsistant_rollback_transaction();
  * SQL QUERIES *
 \***************/
 
-extern void tagsistant_sql_create_tag(const gchar *tagname);
-extern tagsistant_id tagsistant_sql_get_tag_id(const gchar *tagname);
-extern void tagsistant_sql_delete_tag(const gchar *tagname);
-extern void tagsistant_sql_tag_object(const gchar *tagname, tagsistant_id object_id);
-extern void tagsistant_sql_untag_object(const gchar *tagname, tagsistant_id object_id);
-extern void tagsistant_sql_rename_tag(const gchar *tagname, const gchar *oldtagname);
-extern tagsistant_id tagsistant_last_insert_id();
-extern tagsistant_id tagsistant_get_exact_tag_id(const gchar *tagname);
-#define sql_tag_exists(tagname) tagsistant_get_exact_tag_id(tagname)
-#define sql_get_tag_id(tagname) tagsistant_get_exact_tag_id(tagname)
-#define tagsistant_get_tag_id(tagname) tagsistant_get_exact_tag_id(tagname)
-extern int tagsistant_object_is_tagged(tagsistant_id object_id);
-extern int tagsistant_object_is_tagged_as(tagsistant_id object_id, tagsistant_id tag_id);
-extern void tagsistant_full_untag_object(tagsistant_id object_id);
+extern void				tagsistant_sql_create_tag(const gchar *tagname);
+extern tagsistant_id	tagsistant_sql_get_tag_id(const gchar *tagname);
+extern void				tagsistant_sql_delete_tag(const gchar *tagname);
+extern void				tagsistant_sql_tag_object(const gchar *tagname, tagsistant_id object_id);
+extern void				tagsistant_sql_untag_object(const gchar *tagname, tagsistant_id object_id);
+extern void				tagsistant_sql_rename_tag(const gchar *tagname, const gchar *oldtagname);
+extern tagsistant_id	tagsistant_last_insert_id();
+extern int				tagsistant_object_is_tagged(tagsistant_id object_id);
+extern int				tagsistant_object_is_tagged_as(tagsistant_id object_id, tagsistant_id tag_id);
+extern void				tagsistant_full_untag_object(tagsistant_id object_id);

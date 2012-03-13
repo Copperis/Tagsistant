@@ -41,31 +41,17 @@ void tagsistant_utils_init()
 	g_free(regex_pattern);
 }
 
-FILE *tagsistant_debugfd = NULL;
-
 #ifdef DEBUG_TO_LOGFILE
 void open_debug_file()
 {
 	char debug_file[1024];
 	sprintf(debug_file, "/tmp/tagsistant.debug.%d", getpid());
-	tagsistant_debugfd = fopen(debug_file, "w");
-	if (tagsistant_debugfd != NULL) {
+	tagsistant.debugfd = fopen(debug_file, "w");
+	if (tagsistant.debugfd != NULL) {
 		dbg(LOG_INFO, "Logfile %s open!", debug_file);
 	} else {
 		dbg(LOG_ERR, "Can't open logfile %s: %s!", debug_file, strerror(errno));
 	}
-}
-#endif
-
-#ifdef DEBUG_STRDUP
-char *real_strdup(const char *orig, char *file, int line)
-{
-	if (orig == NULL) return(NULL);
-	/* dbg(LOG_INFO, "strdup(%s) @%s:%d", orig, file, line); */
-	char *res = g_malloc0(sizeof(char) * (strlen(orig) + 1));
-	memcpy(res, orig, strlen(orig));
-	if (tagsistant_debugfd != NULL) fprintf(tagsistant_debugfd, "0x%.8x: strdup(%s) @%s:%d\n", (unsigned int) res, orig, file, line);
-	return(res);
 }
 #endif
 
@@ -101,27 +87,6 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream)
 }
 #endif
 
-gchar *tagsistant_querytree_types[QTYPE_TOTAL];
-int tagsistant_querytree_types_initialized = 0;
-
-/**
- * return(querytree type as a printable string.)
- * the string MUST NOT be freed
- */
-gchar *tagsistant_query_type(tagsistant_querytree_t *qtree)
-{
-	if (!tagsistant_querytree_types_initialized) {
-		tagsistant_querytree_types[QTYPE_MALFORMED] = g_strdup("QTYPE_MALFORMED");
-		tagsistant_querytree_types[QTYPE_ROOT] = g_strdup("QTYPE_ROOT");
-		tagsistant_querytree_types[QTYPE_ARCHIVE] = g_strdup("QTYPE_ARCHIVE");
-		tagsistant_querytree_types[QTYPE_TAGS] = g_strdup("QTYPE_TAGS");
-		tagsistant_querytree_types[QTYPE_RELATIONS] = g_strdup("QTYPE_RELATIONS");
-		tagsistant_querytree_types[QTYPE_STATS] = g_strdup("QTYPE_STATS");
-		tagsistant_querytree_types_initialized++;
-	}
-
-	return(tagsistant_querytree_types[qtree->type]);
-}
 
 /**
  * since paths are issued without the tagsistant_id trailing
@@ -152,18 +117,6 @@ gchar *tagsistant_get_alias(const char *alias) {
 	dbg(LOG_INFO, "Looking for an alias for %s, found %s", alias, aliased);
 	return(aliased);
 }
-
-#if 0
-/**
- * delete an existing alias
- *
- * @param alias the alias to be deleted
- */
-void tagsistant_delete_alias(const char *alias) {
-	dbg(LOG_INFO, "Deleting alias for %s", alias);
-	tagsistant_query("delete from aliases where alias = \"%s\"", NULL, NULL, alias);
-}
-#endif
 
 /**
  * remove tagsistant id from a path
@@ -254,7 +207,6 @@ gchar *tagsistant_ID_strip_from_querytree(tagsistant_querytree_t *qtree)
 	return(stripped);
 }
 
-#if 0
 /**
  * extract the ID from a querytree object
  *
@@ -275,47 +227,10 @@ tagsistant_id tagsistant_ID_extract_from_querytree(tagsistant_querytree_t *qtree
 	g_free(stripped);
 	return(ID);
 }
-#endif
 
 /**
- * Service routine that rebuilds tagsistant_querytree_t paths after
- * some internal field has changed
- *
- * @param qtree the tagsistant_querytree_t to be rebuilt
+ * Print configuration lines on STDERR
  */
-void tagsistant_querytree_rebuild_paths(tagsistant_querytree_t *qtree)
-{
-	if (!qtree->object_id) qtree->object_id = tagsistant_ID_extract_from_path(qtree->full_path);
-
-	// free the paths
-	if (qtree->archive_path) g_free(qtree->archive_path);
-	if (qtree->full_archive_path) g_free(qtree->full_archive_path);
-
-	// prepare new paths
-	qtree->archive_path = g_strdup_printf("%d%s%s", qtree->object_id, TAGSISTANT_ID_DELIMITER, qtree->object_path);
-	qtree->full_archive_path = g_strdup_printf("%s%s", tagsistant.archive, qtree->archive_path);
-}
-
-/**
- * renumber an object, by changing its object_id and rebuilding its
- * object_path, archive_path and full_archive_path.
- */
-void tagsistant_querytree_renumber(tagsistant_querytree_t *qtree, tagsistant_id object_id)
-{
-	if (qtree && object_id) {
-		// save the object id
-		qtree->object_id = object_id;
-
-		// strip the object id
-		gchar *stripped = tagsistant_ID_strip_from_querytree(qtree);
-		g_free(qtree->object_path);
-		qtree->object_path = stripped;
-
-		// build the new object name
-		tagsistant_querytree_rebuild_paths(qtree);
-	}
-}
-
 void tagsistant_show_config()
 {
 	int c;
@@ -346,33 +261,4 @@ void tagsistant_show_config()
 	}
 
 	exit(0);
-}
-
-void tagsistant_plugin_apply_regex(const tagsistant_querytree_t *qtree, const char *buf, GMutex *m, GRegex *rx)
-{
-	GMatchInfo *match_info;
-
-	/* apply the regex, locking the mutex if provided */
-	if (NULL != m) g_mutex_lock(m);
-	g_regex_match(rx, buf, 0, &match_info);
-	if (NULL != m) g_mutex_unlock(m);
-
-	/* process the matched entries */
-	while (g_match_info_matches(match_info)) {
-		gchar *raw = g_match_info_fetch(match_info, 1);
-		dbg(LOG_INFO, "Found raw data: %s", raw);
-
-		gchar **tokens = g_strsplit_set(raw, " \t,.!?", 255);
-		g_free(raw);
-
-		int x = 0;
-		while (tokens[x]) {
-			if (strlen(tokens[x]) >= 3) tagsistant_sql_tag_object(tokens[x], qtree->object_id);
-			x++;
-		}
-
-		g_strfreev(tokens);
-
-		g_match_info_next(match_info, NULL);
-	}
 }

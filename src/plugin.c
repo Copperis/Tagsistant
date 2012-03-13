@@ -288,3 +288,33 @@ void tagsistant_plugin_unloader()
 		pp = ppnext;			/* point to next plugin in tagsistant chain */
 	}
 }
+
+void tagsistant_plugin_apply_regex(const tagsistant_querytree_t *qtree, const char *buf, GMutex *m, GRegex *rx)
+{
+	GMatchInfo *match_info;
+
+	/* apply the regex, locking the mutex if provided */
+	if (NULL != m) g_mutex_lock(m);
+	g_regex_match(rx, buf, 0, &match_info);
+	if (NULL != m) g_mutex_unlock(m);
+
+	/* process the matched entries */
+	while (g_match_info_matches(match_info)) {
+		gchar *raw = g_match_info_fetch(match_info, 1);
+		dbg(LOG_INFO, "Found raw data: %s", raw);
+
+		gchar **tokens = g_strsplit_set(raw, " \t,.!?", 255);
+		g_free(raw);
+
+		int x = 0;
+		while (tokens[x]) {
+			if (strlen(tokens[x]) >= 3) tagsistant_sql_tag_object(tokens[x], qtree->object_id);
+			x++;
+		}
+
+		g_strfreev(tokens);
+
+		g_match_info_next(match_info, NULL);
+	}
+}
+

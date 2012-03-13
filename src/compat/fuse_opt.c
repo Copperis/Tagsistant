@@ -40,7 +40,7 @@ void fuse_opt_free_args(struct fuse_args *args)
 static int alloc_failed(void)
 {
     fprintf(stderr, "fuse: memory allocation failed\n");
-    return -1;
+    return (-1);
 }
 
 int fuse_opt_add_arg(struct fuse_args *args, const char *arg)
@@ -53,7 +53,7 @@ int fuse_opt_add_arg(struct fuse_args *args, const char *arg)
     newargv = realloc(args->argv, (args->argc + 2) * sizeof(char *));
     newarg = newargv ? strdup(arg) : NULL;
     if (!newargv || !newarg)
-        return alloc_failed();
+        return(alloc_failed());
 
     args->argv = newargv;
     args->allocated = 1;

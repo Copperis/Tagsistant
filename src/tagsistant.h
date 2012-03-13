@@ -178,6 +178,15 @@ struct tagsistant {
 
 	/** the list of available plugins */
 	tagsistant_plugin_t *plugins;
+
+	/** debug file descriptor */
+	FILE *debugfd;
+
+	/** SQL backend provides intersect keyword */
+	int sql_backend_have_intersect;
+
+	/** SQL database driver */
+	int sql_database_driver;
 };
 
 /** where global values are stored */
@@ -194,9 +203,6 @@ extern void init_syslog();
 extern void tagsistant_plugin_loader();
 extern void tagsistant_plugin_unloader();
 
-
-extern FILE *tagsistant_debugfd;
-
 #ifdef DEBUG_STRDUP
 #	ifndef DEBUG_TO_LOGFILE
 #		define DEBUG_TO_LOGFILE
@@ -205,13 +211,13 @@ extern FILE *tagsistant_debugfd;
 #		undef strdup
 #		define strdup(string) real_strdup(string, __FILE__, __LINE__)
 #	endif
-char *real_strdup(const char *orig, char *file, int line);
+char *tagsistant_real_strdup(const char *orig, char *file, int line);
 #endif
 
 #define freenull(symbol) {\
 	if (symbol != NULL) {\
-		if (tagsistant_debugfd != NULL) {\
-			fprintf(tagsistant_debugfd, "0x%.8x: g_free()\n", (unsigned int) symbol);\
+		if (tagsistant.debugfd != NULL) {\
+			fprintf(tagsistant.debugfd, "0x%.8x: g_free()\n", (unsigned int) symbol);\
 		}\
 		g_free(symbol);\
 		symbol = NULL;\
@@ -219,14 +225,6 @@ char *real_strdup(const char *orig, char *file, int line);
 		dbg(LOG_INFO, "free(%s) but symbol is NULL!", __STRING(symbol));\
 	}\
 }
-
-
-extern void tagsistant_set_alias(const char *alias, const char *aliased);
-extern gchar *tagsistant_get_alias(const char *alias);
-extern void tagsistant_delete_alias(const char *alias);
-
-// returns the type of query described by a tagsistant_querytree_t struct
-extern gchar *tagsistant_query_type(tagsistant_querytree_t *qtree);
 
 #define TAGSISTANT_START(line,...) {\
 	init_time_profile();\
@@ -245,20 +243,27 @@ extern gchar *tagsistant_query_type(tagsistant_querytree_t *qtree);
 	dbg(LOG_ERR, line, ##__VA_ARGS__);\
 }
 
-#define tagsistant_check_tagging_consistency(qtree) tagsistant_inner_check_tagging_consistency(qtree, 0)
-extern int tagsistant_inner_check_tagging_consistency(tagsistant_querytree_t *qtree, int recurse);
+extern void		tagsistant_set_alias(const char *alias, const char *aliased);
+extern gchar *	tagsistant_get_alias(const char *alias);
+extern void		tagsistant_delete_alias(const char *alias);
 
+// returns the type of query described by a tagsistant_querytree_t struct
+extern gchar *	tagsistant_query_type(tagsistant_querytree_t *qtree);
 
-extern void tagsistant_show_config();
+extern void		tagsistant_show_config();
+extern void		tagsistant_plugin_apply_regex(const tagsistant_querytree_t *qtree, const char *buf, GMutex *m, GRegex *rx);
+extern int		tagsistant_getattr(const char *path, struct stat *stbuf);
 
-extern void tagsistant_plugin_apply_regex(const tagsistant_querytree_t *qtree, const char *buf, GMutex *m, GRegex *rx);
+extern int		tagsistant_inner_create_and_tag_object(tagsistant_querytree_t *qtree, int *tagsistant_errno, int force_create);
 
-extern int tagsistant_getattr(const char *path, struct stat *stbuf);
+#define tagsistant_create_and_tag_object(qtree, errno) \
+	tagsistant_inner_create_and_tag_object(qtree, errno, 0); \
+	dbg(LOG_INFO, "Tried creation of object %s", qtree->full_path)
 
-#define tagsistant_create_and_tag_object(qtree, errno) tagsistant_inner_create_and_tag_object(qtree, errno, 0); dbg(LOG_INFO, "Tried creation of object %s", qtree->full_path)
-#define tagsistant_force_create_and_tag_object(qtree, errno) tagsistant_inner_create_and_tag_object(qtree, errno, 1); dbg(LOG_INFO, "Forced creation of object %s", qtree->full_path)
-extern int tagsistant_inner_create_and_tag_object(tagsistant_querytree_t *qtree, int *tagsistant_errno, int force_create);
-extern int tagsistant_inner_check_tagging_consistency(tagsistant_querytree_t *qtree, int recurse);
+#define tagsistant_force_create_and_tag_object(qtree, errno) \
+	tagsistant_inner_create_and_tag_object(qtree, errno, 1); \
+	dbg(LOG_INFO, "Forced creation of object %s", qtree->full_path)
+
 
 #include "fuse_operations/operations.h"
 

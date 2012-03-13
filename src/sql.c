@@ -19,17 +19,10 @@
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
 */
 
-extern struct tagsistant tagsistant;
 #include "tagsistant.h"
 
-/* set to 1 if sql dialect support intersect operator */
-int tagsistant_sql_backend_have_intersect = 1;
-
 /* DBI connection handler used by subsequent calls to dbi_* functions */
-dbi_conn tagsistant_dbi_conn;
-
-/* DBI driver family */
-int tagsistant_database_driver = TAGSISTANT_NULL_BACKEND;
+static dbi_conn tagsistant_dbi_conn;
 
 /**
  * check if requested driver is provided by local DBI installation
@@ -90,6 +83,11 @@ int tagsistant_db_connection()
 	// init DBI library
 	dbi_initialize(NULL);
 
+	// by default, DBI backend provides intersect
+	tagsistant.sql_backend_have_intersect = 1;
+
+	tagsistant.sql_database_driver = TAGSISTANT_NULL_BACKEND;
+
 	// if no database option has been passed, use default SQLite3
 	if (strlen(tagsistant.dboptions) == 0) {
 		tagsistant.dboptions = g_strdup("sqlite3");
@@ -105,13 +103,13 @@ int tagsistant_db_connection()
 
 	// initialize different drivers
 	if (g_strcmp0(splitted[0], "mysql") == 0) {
-		tagsistant_database_driver = TAGSISTANT_DBI_MYSQL_BACKEND;
+		tagsistant.sql_database_driver = TAGSISTANT_DBI_MYSQL_BACKEND;
 		if (!tagsistant_driver_is_available("mysql")) exit(1);
 
 		dbg(LOG_INFO, "Database driver used: mysql");
 
 		// unlucky, MySQL does not provide INTERSECT operator
-		tagsistant_sql_backend_have_intersect = 0;
+		tagsistant.sql_backend_have_intersect = 0;
 
 		// create connection
 		tagsistant_dbi_conn = dbi_conn_new("mysql");
@@ -151,7 +149,7 @@ int tagsistant_db_connection()
 		dbi_conn_set_option(tagsistant_dbi_conn, "encoding",	"UTF-8");
 
 	} else if ((g_strcmp0(splitted[0], "sqlite3") == 0) || (g_strcmp0(splitted[0], "sqlite"))) {
-		tagsistant_database_driver = TAGSISTANT_DBI_SQLITE_BACKEND;
+		tagsistant.sql_database_driver = TAGSISTANT_DBI_SQLITE_BACKEND;
 		if (!tagsistant_driver_is_available("sqlite3")) exit(1);
 
 		dbg(LOG_INFO, "Database driver used: sqlite3");
@@ -177,7 +175,7 @@ int tagsistant_db_connection()
 	// list configured options
 	tagsistant_log_connection_options();
 
-	if (tagsistant_sql_backend_have_intersect) {
+	if (tagsistant.sql_backend_have_intersect) {
 		dbg(LOG_INFO, "Database supports INTERSECT operator");
 	} else {
 		dbg(LOG_INFO, "Database does not support INTERSECT operator");
@@ -194,7 +192,7 @@ int tagsistant_db_connection()
 	dbg(LOG_INFO, "SQL connection established, initializing database");
 
 	// create database schema
-	switch (tagsistant_database_driver) {
+	switch (tagsistant.sql_database_driver) {
 		case TAGSISTANT_DBI_SQLITE_BACKEND:
 			tagsistant_query("create table if not exists tags (tag_id integer primary key autoincrement not null, tagname varchar(65) unique not null);", NULL, NULL);
 			tagsistant_query("create table if not exists objects (object_id integer not null primary key autoincrement, objectname text(255) not null, path text(1024) unique not null default \"-\", last_autotag timestamp not null default 0);", NULL, NULL);
@@ -221,13 +219,13 @@ int tagsistant_db_connection()
 			break;
 	}
 
-	return(tagsistant_database_driver);
+	return(tagsistant.sql_database_driver);
 }
 
 // start a transaction
 void tagsistant_start_transaction()
 {
-	switch (tagsistant_database_driver) {
+	switch (tagsistant.sql_database_driver) {
 		case TAGSISTANT_DBI_SQLITE_BACKEND:
 			tagsistant_query("begin transaction", NULL, NULL);
 			break;
@@ -333,7 +331,7 @@ int tagistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result),
  * @param firstarg pointer to buffer for callback retured data
  * @return 0 (always, due to SQLite policy)
  */
-int _tagsistant_query(const char *format, gchar *file, int line, int (*callback)(void *, dbi_result), void *firstarg, ...)
+int tagsistant_real_query(const char *format, gchar *file, int line, int (*callback)(void *, dbi_result), void *firstarg, ...)
 {
 	va_list ap;
 	va_start(ap, firstarg);
@@ -356,7 +354,7 @@ tagsistant_id tagsistant_last_insert_id()
 
 	tagsistant_id ID = 0;
 
-	switch (tagsistant_database_driver) {
+	switch (tagsistant.sql_database_driver) {
 		case TAGSISTANT_DBI_SQLITE_BACKEND:
 			tagsistant_query("SELECT last_insert_rowid() ", tagsistant_return_integer, &ID);
 			break;
@@ -381,7 +379,7 @@ int tagsistant_return_integer(void *return_integer, dbi_result result)
 	uint32_t *buffer = (uint32_t *) return_integer;
 	*buffer = 0;
 
-	if (tagsistant_database_driver == TAGSISTANT_DBI_SQLITE_BACKEND)
+	if (tagsistant.sql_database_driver == TAGSISTANT_DBI_SQLITE_BACKEND)
 		*buffer = dbi_result_get_ulonglong_idx(result, 1);
 	else
 		*buffer = dbi_result_get_uint_idx(result, 1);
@@ -445,7 +443,7 @@ void tagsistant_full_untag_object(tagsistant_id object_id)
 	tagsistant_query("delete from tagging where object_id = %d", NULL, NULL, object_id);
 }
 
-tagsistant_id tagsistant_get_exact_tag_id(const gchar *tagname)
+tagsistant_id tagsistant_sql_get_tag_id(const gchar *tagname)
 {
 	tagsistant_id tag_id = 0;
 
@@ -458,7 +456,7 @@ tagsistant_id tagsistant_get_exact_tag_id(const gchar *tagname)
 
 void tagsistant_sql_delete_tag(const gchar *tagname)
 {
-	tagsistant_id tag_id = sql_get_tag_id(tagname);
+	tagsistant_id tag_id = tagsistant_sql_get_tag_id(tagname);
 
 	tagsistant_query("delete from tags where tagname = \"%s\";", NULL, NULL, tagname);
 	tagsistant_query("delete from tagging where tag_id = \"%d\";", NULL, NULL, tag_id);
@@ -469,7 +467,7 @@ void tagsistant_sql_tag_object(const gchar *tagname, tagsistant_id object_id)
 {
 	tagsistant_query("insert into tags(tagname) values(\"%s\");", NULL, NULL, tagname);
 
-	tagsistant_id tag_id = sql_get_tag_id(tagname);
+	tagsistant_id tag_id = tagsistant_sql_get_tag_id(tagname);
 
 	dbg(LOG_INFO, "Tagging object %d as %s (%d)", object_id, tagname, tag_id);
 
@@ -478,7 +476,7 @@ void tagsistant_sql_tag_object(const gchar *tagname, tagsistant_id object_id)
 
 void tagsistant_sql_untag_object(const gchar *tagname, tagsistant_id object_id)
 {
-	int tag_id = sql_get_tag_id(tagname);
+	tagsistant_id tag_id = tagsistant_sql_get_tag_id(tagname);
 
 	dbg(LOG_INFO, "Untagging object %d from tag %s (%d)", object_id, tagname, tag_id);
 

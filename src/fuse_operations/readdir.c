@@ -23,10 +23,10 @@
  * used by add_entry_to_dir() SQL callback to perform readdir() operations
  */
 struct tagsistant_use_filler_struct {
-	fuse_fill_dir_t filler;	/**< libfuse filler hook to return dir entries */
-	void *buf;				/**< libfuse buffer to hold readdir results */
-	const char *path;		/**< the path that generates the query */
-	tagsistant_querytree_t *qtree;		/**< the querytree that originated the readdir() */
+	fuse_fill_dir_t filler;			/**< libfuse filler hook to return dir entries */
+	void *buf;						/**< libfuse buffer to hold readdir results */
+	const char *path;				/**< the path that generates the query */
+	tagsistant_querytree_t *qtree;	/**< the querytree that originated the readdir() */
 };
 
 /**
@@ -59,6 +59,7 @@ static int tagsistant_add_entry_to_dir(void *filler_ptr, dbi_result result)
 	return(ufs->filler(ufs->buf, dir, NULL, 0));
 }
 
+// TODO split readdir in smaller functions
 /**
  * readdir equivalent (in FUSE paradigm)
  *
@@ -85,6 +86,7 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
+		dbg(LOG_INFO, "readdir on malformed path %s", path);
 		res = -1;
 		tagsistant_errno = ENOENT;
 		goto READDIR_EXIT;
@@ -129,6 +131,7 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 		filler(buf, "stats", NULL, 0);
 		filler(buf, "tags", NULL, 0);
 	} else if (QTREE_IS_ARCHIVE(qtree)) {
+		dbg(LOG_INFO, "readdir on archive");
 		/*
 		 * already served by QTREE_POINTS_TO_OBJECT()?
 		 */
@@ -147,6 +150,7 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 				break;
 		}
 	} else if (QTREE_IS_TAGS(qtree)) {
+		dbg(LOG_INFO, "readdir on tags");
 		filler(buf, ".", NULL, 0);
 		filler(buf, "..", NULL, 0);
 		if (qtree->complete) {
@@ -201,22 +205,47 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 			tagsistant_query("select tagname from tags;", tagsistant_add_entry_to_dir, ufs);
 			freenull(ufs);
 		}
+	} else if (QTREE_IS_RELATIONS(qtree)) {
+		filler(buf, ".", NULL, 0);
+		filler(buf, "..", NULL, 0);
+
+		struct tagsistant_use_filler_struct *ufs = g_new0(struct tagsistant_use_filler_struct, 1);
+		if (ufs == NULL) {
+			dbg(LOG_ERR, "Error allocating memory");
+			goto READDIR_EXIT;
+		}
+
+		ufs->filler = filler;
+		ufs->buf = buf;
+		ufs->path = path;
+		ufs->qtree = qtree;
+
+		if (qtree->second_tag) {
+			// nothin'
+			dbg(LOG_INFO, "readdir on /relations/somethins/relations/somethingelse");
+		} else if (qtree->relation) {
+			// list all tags related to first_tag with this relation
+			dbg(LOG_INFO, "readdir on /relations/somethind/relation/");
+			tagsistant_query("select tags.tagname from tags join relations on relations.tag2_id = tags.tag_id join tags as firsttags on firsttags.tag_id = relations.tag1_id where firsttags.tagname = '%s' and relation = '%s';",
+				tagsistant_add_entry_to_dir, ufs, qtree->first_tag, qtree->relation);
+
+		} else if (qtree->first_tag) {
+			// list all relations
+			dbg(LOG_INFO, "readdir on /relations/something/");
+			tagsistant_query("select relation from relations join tags on tags.tag_id = relations.tag1_id where tagname = '%s';",
+				tagsistant_add_entry_to_dir, ufs, qtree->first_tag);
+		} else {
+			// list all tags
+			dbg(LOG_INFO, "readdir on /relations");
+			tagsistant_query("select tagname from tags;", tagsistant_add_entry_to_dir, ufs);
+		}
+
+		freenull(ufs);
+
 	} else if (QTREE_IS_STATS(qtree)) {
 		filler(buf, ".", NULL, 0);
 		filler(buf, "..", NULL, 0);
 		// fill with available statistics
-	} else if (QTREE_IS_RELATIONS(qtree)) {
-		filler(buf, ".", NULL, 0);
-		filler(buf, "..", NULL, 0);
-		if (qtree->second_tag) {
-			// nothin'
-		} else if (qtree->relation) {
-			// list all tags related to first_tag with this relation
-		} else if (qtree->first_tag) {
-			// list all relations
-		} else {
-			// list all tags
-		}
 	}
 
 READDIR_EXIT:

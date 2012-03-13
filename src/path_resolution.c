@@ -61,7 +61,7 @@ static int tagsistant_add_alias_tag(void *_reasoning, dbi_result result)
 
 	and->related->next = NULL;
 	and->related->related = NULL;
-	and->related->tag = strdup(t1);
+	and->related->tag = g_strdup(t1);
 
 	assert(and != NULL);
 	assert(and->related != NULL);
@@ -410,6 +410,67 @@ RETURN:
 	return(qtree);
 }
 
+/**
+ * Service routine that rebuilds tagsistant_querytree_t paths after
+ * some internal field has changed
+ *
+ * @param qtree the tagsistant_querytree_t to be rebuilt
+ */
+void tagsistant_querytree_rebuild_paths(tagsistant_querytree_t *qtree)
+{
+	if (!qtree->object_id) qtree->object_id = tagsistant_ID_extract_from_path(qtree->full_path);
+
+	// free the paths
+	if (qtree->archive_path) g_free(qtree->archive_path);
+	if (qtree->full_archive_path) g_free(qtree->full_archive_path);
+
+	// prepare new paths
+	qtree->archive_path = g_strdup_printf("%d%s%s", qtree->object_id, TAGSISTANT_ID_DELIMITER, qtree->object_path);
+	qtree->full_archive_path = g_strdup_printf("%s%s", tagsistant.archive, qtree->archive_path);
+}
+
+/**
+ * renumber an object, by changing its object_id and rebuilding its
+ * object_path, archive_path and full_archive_path.
+ */
+void tagsistant_querytree_renumber(tagsistant_querytree_t *qtree, tagsistant_id object_id)
+{
+	if (qtree && object_id) {
+		// save the object id
+		qtree->object_id = object_id;
+
+		// strip the object id
+		gchar *stripped = tagsistant_ID_strip_from_querytree(qtree);
+		g_free(qtree->object_path);
+		qtree->object_path = stripped;
+
+		// build the new object name
+		tagsistant_querytree_rebuild_paths(qtree);
+	}
+}
+
+/**
+ * return(querytree type as a printable string.)
+ * the string MUST NOT be freed
+ */
+gchar *tagsistant_query_type(tagsistant_querytree_t *qtree)
+{
+	static int initialized = 0;
+	static gchar *tagsistant_querytree_types[QTYPE_TOTAL];
+
+	if (!initialized) {
+		tagsistant_querytree_types[QTYPE_MALFORMED] = g_strdup("QTYPE_MALFORMED");
+		tagsistant_querytree_types[QTYPE_ROOT] = g_strdup("QTYPE_ROOT");
+		tagsistant_querytree_types[QTYPE_ARCHIVE] = g_strdup("QTYPE_ARCHIVE");
+		tagsistant_querytree_types[QTYPE_TAGS] = g_strdup("QTYPE_TAGS");
+		tagsistant_querytree_types[QTYPE_RELATIONS] = g_strdup("QTYPE_RELATIONS");
+		tagsistant_querytree_types[QTYPE_STATS] = g_strdup("QTYPE_STATS");
+		initialized = 1;
+	}
+
+	return(tagsistant_querytree_types[qtree->type]);
+}
+
 /* a struct used by add_to_filetree function */
 struct tagsistant_atft {
 	uint64_t id;
@@ -552,7 +613,7 @@ file_handle_t *tagsistant_build_filetree(ptree_or_node_t *query, const char *pat
 		g_string_printf(statement, "create view tv%.8X as ", (unsigned int) query);
 		
 		while (tag != NULL) {
-			if (tagsistant_sql_backend_have_intersect) {
+			if (tagsistant.sql_backend_have_intersect) {
 				g_string_append(statement, "select objectname, objects.object_id as object_id from objects join tagging on tagging.object_id = objects.object_id join tags on tags.tag_id = tagging.tag_id where tagname = \"");
 				g_string_append(statement, tag->tag);
 				g_string_append(statement, "\"");
@@ -578,13 +639,13 @@ file_handle_t *tagsistant_build_filetree(ptree_or_node_t *query, const char *pat
 				}
 			}
 
-			if (tagsistant_sql_backend_have_intersect && (tag->next != NULL))
+			if (tagsistant.sql_backend_have_intersect && (tag->next != NULL))
 				g_string_append(statement, " intersect ");
 
 			tag = tag->next;
 		}
 
-		if (!tagsistant_sql_backend_have_intersect) {
+		if (!tagsistant.sql_backend_have_intersect) {
 			nesting--; // we need one closed parenthesis less than nested subquery
 			while (nesting) {
 				g_string_append(statement, ")");

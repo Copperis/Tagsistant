@@ -73,8 +73,8 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 		if (qtree->second_tag) {
 			// create a new relation between two tags
 			tagsistant_sql_create_tag(qtree->second_tag);
-			int tag1_id = tagsistant_get_exact_tag_id(qtree->first_tag);
-			int tag2_id = tagsistant_get_exact_tag_id(qtree->second_tag);
+			int tag1_id = tagsistant_sql_get_tag_id(qtree->first_tag);
+			int tag2_id = tagsistant_sql_get_tag_id(qtree->second_tag);
 			if (tag1_id && tag2_id && IS_VALID_RELATION(qtree->relation)) {
 				tagsistant_query(
 					"insert into relations (tag1_id, tag2_id, relation) values (%d, %d, \"%s\")",

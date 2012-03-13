@@ -19,6 +19,58 @@
 
 #include "../tagsistant.h"
 
+#define tagsistant_check_tagging_consistency(qtree) \
+	tagsistant_inner_check_tagging_consistency(qtree, 0)
+
+static int tagsistant_inner_check_tagging_consistency(tagsistant_querytree_t *qtree, int recurse)
+{
+	int exists = 0;
+
+	if (!QTREE_IS_TAGS(qtree)) {
+		dbg(LOG_INFO, "%s is not a tag query", qtree->full_path);
+		return(1);
+	}
+
+	ptree_or_node_t *or_ptr = qtree->tree;
+
+	while (NULL != or_ptr) {
+		ptree_and_node_t *and_ptr = or_ptr->and_set;
+
+		while (NULL != and_ptr) {
+			tagsistant_id tag_id = tagsistant_sql_get_tag_id(and_ptr->tag);
+			if (tag_id && tagsistant_object_is_tagged_as(qtree->object_id, tag_id)) {
+				dbg(LOG_INFO, "Object %d is tagged as %d", qtree->object_id, tag_id);
+				exists = 1;
+			} else {
+				dbg(LOG_INFO, "Object %d is NOT tagged as %d", qtree->object_id, tag_id);
+			}
+			and_ptr = and_ptr->next;
+		}
+
+		or_ptr = or_ptr->next;
+	}
+
+	// an object could be tagged with an alias so we must
+	// check if that alias can pass the check
+	if (!exists && recurse) {
+		gchar *alias = tagsistant_get_alias(qtree->full_path);
+		if (alias) {
+			// swap current object_id with alias object_id
+			tagsistant_id current_id = qtree->object_id;
+			tagsistant_id alias_id = tagsistant_ID_extract_from_path(alias);
+
+			// check tagging consistency with alias id
+			qtree->object_id = alias_id;
+			exists = tagsistant_inner_check_tagging_consistency(qtree, 0);
+
+			// reset current id
+			qtree->object_id = current_id;
+		}
+	}
+
+	return(exists);
+}
+
 /**
  * lstat equivalent
  *
@@ -110,7 +162,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
 			stbuf->st_nlink = 1;
 		} else {
-			tagsistant_id tag_id = tagsistant_get_exact_tag_id(qtree->last_tag);
+			tagsistant_id tag_id = tagsistant_sql_get_tag_id(qtree->last_tag);
 			if (tag_id) {
 				// each directory holds 3 inodes: itself/, itself/+, itself/=
 				stbuf->st_ino = tag_id * 3;
