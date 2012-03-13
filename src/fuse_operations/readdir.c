@@ -232,8 +232,13 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 		} else if (qtree->first_tag) {
 			// list all relations
 			dbg(LOG_INFO, "readdir on /relations/something/");
+			filler(buf, "includes", NULL, 0);
+			filler(buf, "is_equivalent", NULL, 0);
+
+			/*
 			tagsistant_query("select relation from relations join tags on tags.tag_id = relations.tag1_id where tagname = '%s';",
 				tagsistant_add_entry_to_dir, ufs, qtree->first_tag);
+			*/
 		} else {
 			// list all tags
 			dbg(LOG_INFO, "readdir on /relations");

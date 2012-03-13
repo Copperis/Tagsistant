@@ -89,11 +89,11 @@ int tagsistant_reasoner(reasoning_t *reasoning)
 	assert(reasoning->actual_node->tag != NULL);
 
 	tagsistant_query(
-		"select tag1, tag2, relation from relations where tag2 = \"%s\" and relation = \"is equivalent\";",
+		"select tag1, tag2, relation from relations where tag2 = \"%s\" and relation = \"is_equivalent\";",
 		tagsistant_add_alias_tag, reasoning, reasoning->actual_node->tag);
 	
 	tagsistant_query(
-		"select tag2, tag1, relation from relations where tag1 = \"%s\" and relation = \"is equivalent\";",
+		"select tag2, tag1, relation from relations where tag1 = \"%s\" and relation = \"is_equivalent\";",
 		tagsistant_add_alias_tag, reasoning, reasoning->actual_node->tag);
 	
 	tagsistant_query(
