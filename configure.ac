@@ -1,19 +1,23 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.65)
-AC_INIT([tagsistant],[0.3.20101117],[tx0@strumentiresistenti.org])
-AC_CANONICAL_TARGET
-AM_INIT_AUTOMAKE(tagsistant, 0.2.20101117)
+# AC_PREREQ(2.65)
+AC_INIT([tagsistant],[0.4.0],[tx0@strumentiresistenti.org])
+# AC_CANONICAL_TARGET
+AM_INIT_AUTOMAKE([foreign])
 AC_COPYRIGHT([tagsistant is (C) Tx0 <tx0@strumentiresistenti.org>])
 AC_CONFIG_SRCDIR([src/tagsistant.c])
+AC_CONFIG_FILES([Makefile src/Makefile src/plugins/Makefile])
 AC_CONFIG_HEADER([config.h])
 
-LT_INIT
 # AC_PROG_RANLIB
 
 # Checks for programs.
 AC_PROG_CC
+
+AC_PROG_CC_C_O
+
+LT_INIT
 
 # Checks for libraries.
 
@@ -72,23 +76,8 @@ if test [ "x$debug_free" == "xyes" ]; then
 fi
 
 AC_CHECK_LIB([gthread-2.0], [g_thread_init],,[
-	echo "GThread support not available. Please install libgthread"
-	exit 1
+	AC_MSG_FAILURE(["GThread support not available. Please install libgthread"])
 ])
-
-### # add profiling with cprof --- BROKENNNNN!!!!
-### # simply compiling with -lcprof -finstrument-functions makes
-### # programs segv before executing main!
-###
-### cprofiler=no
-### AC_ARG_ENABLE(
-### 	[cprofiler],
-### 	[AS_HELP_STRING([--enable-cprofiler], [enable profiling using cprof @<:@default=no@:>@])],
-### 	[cprofiler=yes]
-### )
-### if test [ "x$cprofiler" == "xyes" ]; then
-### 	AC_SUBST([CFLAGS],["-D_FILE_OFFSET_BITS=64 -lcprof -finstrument-functions"])
-### fi
 
 AC_CHECK_LIB([fuse],[fuse_main],,[
 	echo "FUSE (Filesystem in USErspace) it's a great user space library"
@@ -97,23 +86,14 @@ AC_CHECK_LIB([fuse],[fuse_main],,[
 	echo "on FUSE. Please install libfuse-dev package (or the one which best"
 	echo "fits your linux distribution) or download and compile sources at:"
 	echo "More info at http://fuse.sourceforge.net/"
-	exit 1
+	AC_MSG_FAILURE(["fuse not found"])
 ])
-
-### AC_CHECK_LIB([sqlite3],[sqlite3_open],,[
-### 	echo "SQLite it's an SQL implementation targeted to small and embedded systems."
-### 	echo "SQL database is kept inside a single file. Memory resources required are"
-### 	echo "less than normal client/server implementations. tagsistant use SQLite to store"
-### 	echo "file<->tag relationship. For more informations please visit:"
-### 	echo "http://www.sqlite.org/"
-### 	exit 1
-### ])
 
 AC_CHECK_LIB([dbi],[dbi_conn_new],,[
 	echo "DBI is an generic database abstactio layer used to connect to MySQL"
 	echo "and will probably used to connect to SQLite too in future releases"
 	echo "More info at http://libdbi.sourceforge.net/"
-	exit 1
+	AC_MSG_FAILURE(["libdbi not found"])
 ])
 
 AC_CHECK_LIB([exif],[exif_data_new_from_file],[plg_jpeg=true],[plg_jpeg=false])
@@ -150,11 +130,6 @@ case $host in
 		AC_SUBST([LDFLAGS],["${LDFLAGS} -flat_namespace -force_flat_namespace"])
 		;;
 esac
-
-AC_CONFIG_FILES([Makefile
-                 src/Makefile
-				 src/plugins/Makefile])
-AC_OUTPUT
 
 echo Supported plugins:
 if test "x$plg_audio" = "xtrue"; then
@@ -193,9 +168,5 @@ else
 	echo "   XML: not supported (More info at http://www.google.it/)"
 fi
 
-# echo "Riconfiguro libtool"
-# cp libtool libtool.back
-# sed -i -e 's/ECHO="echo"/echo="echo"/' libtool
-# echo "Fatto! Differenze:"
-# diff libtool libtool.back
+AC_OUTPUT
 
