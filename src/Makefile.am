@@ -7,6 +7,7 @@ tagsistant_SOURCES = tagsistant.c\
 	path_resolution.c\
 	path_resolution.h\
 	compat/fuse_opt.c\
+	compat/fuse_opt.h\
 	debug.h\
 	debug_free_calls.h\
 	sql.c\

@@ -1,8 +1,19 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
+#
+# Initial revision:
+#
+# Tx0 <tx0@strumentiresistenti.org> http://www.tagsistant.net
+#
+# Modified by:
+#
+# 2012-05-03:
+# Christopher Howard <christopher.howard@frigidcode.com> http://frigidcode.com
+#
+
 # AC_PREREQ(2.65)
-AC_INIT([tagsistant],[0.4.0],[tx0@strumentiresistenti.org])
+AC_INIT([tagsistant],[0.4.1],[tx0@strumentiresistenti.org])
 # AC_CANONICAL_TARGET
 AM_INIT_AUTOMAKE([foreign])
 AC_COPYRIGHT([tagsistant is (C) Tx0 <tx0@strumentiresistenti.org>])
