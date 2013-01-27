@@ -36,9 +36,9 @@ int tagsistant_write(const char *path, const char *buf, size_t size, off_t offse
 	init_time_profile();
 	start_time_profile();
 
-	TAGSISTANT_START("/ WRITE on %s [size: %d offset: %lu]", path, size, (long unsigned int) offset);
+	TAGSISTANT_START("/ WRITE on %s [size: %lu offset: %lu]", path, (unsigned long) size, (long unsigned int) offset);
 
-	tagsistant_querytree_t *qtree = tagsistant_build_querytree(path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_querytree_new(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -70,11 +70,11 @@ int tagsistant_write(const char *path, const char *buf, size_t size, off_t offse
 	stop_labeled_time_profile("write");
 
 	if ( res == -1 ) {
-		TAGSISTANT_STOP_ERROR("\\ WRITE %s (%s) (%s): %d %d: %s", path, qtree->full_archive_path, tagsistant_query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
+		TAGSISTANT_STOP_ERROR("\\ WRITE %s (%s) (%s): %d %d: %s", path, qtree->full_archive_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		TAGSISTANT_STOP_OK("\\ WRITE %s (%s): OK", path, tagsistant_query_type(qtree));
+		TAGSISTANT_STOP_OK("\\ WRITE %s (%s): OK", path, tagsistant_querytree_type(qtree));
 	}
 
-	tagsistant_destroy_querytree(qtree);
+	tagsistant_querytree_destroy(qtree);
 	return((res == -1) ? -tagsistant_errno : res);
 }

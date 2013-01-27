@@ -74,7 +74,6 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 {
 	int res = 0, tagsistant_errno = 0;
 	struct dirent *de;
-	gchar *readdir_path = NULL;
 
 	(void) fi;
 	(void) offset;
@@ -82,7 +81,7 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 	TAGSISTANT_START("/ READDIR on %s", path);
 
 	// build querytree
-	tagsistant_querytree_t *qtree = tagsistant_build_querytree(path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_querytree_new(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -96,17 +95,8 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 		dbg(LOG_INFO, "readdir on object %s", path);
 		DIR *dp = opendir(qtree->full_archive_path);
 		if (NULL == dp) {
-
-			readdir_path = tagsistant_get_alias(path);
-			if (NULL != readdir_path) {
-				dp = opendir(readdir_path);
-				tagsistant_errno = errno;
-
-				if (NULL == dp) {
-					tagsistant_errno = errno;
-					goto READDIR_EXIT;
-				}
-			}
+			tagsistant_errno = errno;
+			goto READDIR_EXIT;
 		}
 
 		while ((de = readdir(dp)) != NULL) {
@@ -155,7 +145,7 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 		filler(buf, "..", NULL, 0);
 		if (qtree->complete) {
 			// build the filetree
-			file_handle_t *fh = tagsistant_build_filetree(qtree->tree, path);
+			file_handle_t *fh = tagsistant_filetree_new(qtree->tree, path);
 
 			// check filetree is not null
 			if (NULL == fh) {
@@ -177,7 +167,7 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 			} while ( fh != NULL && fh->name != NULL );
 
 			// destroy the file tree
-			tagsistant_destroy_filetree(fh_save);
+			tagsistant_filetree_destroy(fh_save);
 		} else {
 			// add operators if path is not "/tags", to avoid
 			// "/tags/+" and "/tags/="
@@ -255,11 +245,11 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 
 READDIR_EXIT:
 	if ( res == -1 ) {
-		TAGSISTANT_STOP_ERROR("\\ READDIR on %s (%s): %d %d: %s", path, tagsistant_query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
+		TAGSISTANT_STOP_ERROR("\\ READDIR on %s (%s): %d %d: %s", path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		TAGSISTANT_STOP_OK("\\ READDIR on %s (%s): OK", path, tagsistant_query_type(qtree));
+		TAGSISTANT_STOP_OK("\\ READDIR on %s (%s): OK", path, tagsistant_querytree_type(qtree));
 	}
 
-	tagsistant_destroy_querytree(qtree);
+	tagsistant_querytree_destroy(qtree);
 	return((res == -1) ? -tagsistant_errno : 0);
 }

@@ -21,16 +21,16 @@ use POSIX;
 my $driver = undef;
 
 #
-# get C MACRO TAGSISTANT_ID_DELIMITER
+# get C MACRO TAGSISTANT_INODE_DELIMITER
 #
-my $tagsistant_id_delimiter = qx(grep TAGSISTANT_ID_DELIMITER tagsistant.h | cut -f3 -d ' ');
+my $tagsistant_id_delimiter = qx(grep TAGSISTANT_INODE_DELIMITER tagsistant.h | cut -f3 -d ' ');
 chomp $tagsistant_id_delimiter;
 $tagsistant_id_delimiter =~ s/"//g;
 
 if (defined $ARGV[0]) {
 	if ($ARGV[0] eq "--mysql") {
 		$driver = "mysql";
-		system("echo 'drop table objects; drop table tags; drop table tagging; drop table relations; drop table aliases;' | mysql -u tagsistant --password='tagsistant' tagsistant");
+		system("echo 'drop table objects; drop table tags; drop table tagging; drop table relations;' | mysql -u tagsistant --password='tagsistant' tagsistant");
 	} elsif (($ARGV[0] eq "--sqlite") || ($ARGV[0] eq "--sqlite3")) {
 		$driver = "sqlite3";
 	} else {

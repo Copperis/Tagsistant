@@ -139,7 +139,7 @@ typedef struct querytree {
 	int is_external;
 
 	/** the ID of the object, if directly managed by tagsistant */
-	tagsistant_id object_id;
+	tagsistant_inode inode;
 
 	/** last tag found while parsing a /tags query */
 	gchar *last_tag;
@@ -231,16 +231,16 @@ typedef struct reasoning {
 }
 
 // querytree functions
-extern void 					tagsistant_querytree_renumber(tagsistant_querytree_t *qtree, tagsistant_id object_id);
+extern void 					tagsistant_querytree_renumber(tagsistant_querytree_t *qtree, tagsistant_inode object_id);
 extern void 					tagsistant_querytree_rebuild_paths(tagsistant_querytree_t *qtree);
-extern gchar *					tagsistant_ID_strip_from_path(const char *path);
-extern gchar *					tagsistant_ID_strip_from_querytree(tagsistant_querytree_t *qtree);
-extern tagsistant_id			tagsistant_ID_extract_from_path(const char *path);
-extern tagsistant_id			tagsistant_ID_extract_from_querytree(tagsistant_querytree_t *qtree);
-extern tagsistant_querytree_t *	tagsistant_build_querytree(const char *path, int do_reasoning);
-extern void 					tagsistant_destroy_querytree(tagsistant_querytree_t *qtree);
+extern gchar *					tagsistant_inode_strip_from_path(const char *path);
+extern gchar *					tagsistant_inode_strip_from_querytree(tagsistant_querytree_t *qtree);
+extern tagsistant_inode			tagsistant_inode_extract_from_path(const char *path);
+extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_querytree_t *qtree);
+extern tagsistant_querytree_t *	tagsistant_querytree_new(const char *path, int do_reasoning);
+extern void 					tagsistant_querytree_destroy(tagsistant_querytree_t *qtree);
 
 // filetree functions
-extern file_handle_t *			tagsistant_build_filetree(ptree_or_node_t *query, const char *path);
-extern void 					tagsistant_destroy_filetree(file_handle_t *fh);
+extern file_handle_t *			tagsistant_filetree_new(ptree_or_node_t *query, const char *path);
+extern void 					tagsistant_filetree_destroy(file_handle_t *fh);
 

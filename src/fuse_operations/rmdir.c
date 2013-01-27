@@ -32,7 +32,7 @@ int tagsistant_rmdir(const char *path)
 
 	TAGSISTANT_START("/ RMDIR on %s", path);
 
-	tagsistant_querytree_t *qtree = tagsistant_build_querytree(path, FALSE);
+	tagsistant_querytree_t *qtree = tagsistant_querytree_new(path, FALSE);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -45,20 +45,13 @@ int tagsistant_rmdir(const char *path)
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		if (QTREE_IS_TAGGABLE(qtree)) {
 			// remove all the tags associated to the object
-			tagsistant_traverse_querytree(qtree, tagsistant_sql_untag_object, qtree->object_id);
+			tagsistant_traverse_querytree(qtree, tagsistant_sql_untag_object, qtree->inode);
 		} else {
 
 			// do a real mkdir
 			rmdir_path = qtree->full_archive_path;
 			res = rmdir(rmdir_path);
 			tagsistant_errno = errno;
-			if (-1 == res) {
-				rmdir_path = tagsistant_get_alias(path);
-				if (NULL != rmdir_path) {
-					res = rmdir(rmdir_path);
-					tagsistant_errno = errno;
-				}
-			}
 		}
 	} else
 
@@ -100,11 +93,11 @@ int tagsistant_rmdir(const char *path)
 	stop_labeled_time_profile("rmdir");
 
 	if ( res == -1 ) {
-		TAGSISTANT_STOP_ERROR("\\ RMDIR on %s (%s): %d %d: %s", path, tagsistant_query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
+		TAGSISTANT_STOP_ERROR("\\ RMDIR on %s (%s): %d %d: %s", path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		TAGSISTANT_STOP_OK("\\ RMDIR on %s (%s): OK", path, tagsistant_query_type(qtree));
+		TAGSISTANT_STOP_OK("\\ RMDIR on %s (%s): OK", path, tagsistant_querytree_type(qtree));
 	}
 
-	tagsistant_destroy_querytree(qtree);
+	tagsistant_querytree_destroy(qtree);
 	return((res == -1) ? -tagsistant_errno : 0);
 }

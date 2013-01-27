@@ -63,8 +63,8 @@ int tagsistant_symlink(const char *from, const char *to)
 		// dbg(LOG_INFO, "%s is internal to %s, trimmed to %s", from, tagsistant.mountpoint, _from);
 	}
 
-	tagsistant_querytree_t *from_qtree = tagsistant_build_querytree(_from, 0);
-	tagsistant_querytree_t *to_qtree = tagsistant_build_querytree(to, 0);
+	tagsistant_querytree_t *from_qtree = tagsistant_querytree_new(_from, 0);
+	tagsistant_querytree_t *to_qtree = tagsistant_querytree_new(to, 0);
 
 	from_qtree->is_external = (from == _from) ? 1 : 0;
 
@@ -126,13 +126,13 @@ SYMLINK_EXIT:
 	stop_labeled_time_profile("symlink");
 
 	if ( res == -1 ) {
-		TAGSISTANT_STOP_ERROR("\\ SYMLINK from %s to %s (%s) (%s): %d %d: %s", from, to, to_qtree->full_archive_path, tagsistant_query_type(to_qtree), res, tagsistant_errno, strerror(tagsistant_errno));
+		TAGSISTANT_STOP_ERROR("\\ SYMLINK from %s to %s (%s) (%s): %d %d: %s", from, to, to_qtree->full_archive_path, tagsistant_querytree_type(to_qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		TAGSISTANT_STOP_OK("\\ SYMLINK from %s to %s (%s): OK", from, to, tagsistant_query_type(to_qtree));
+		TAGSISTANT_STOP_OK("\\ SYMLINK from %s to %s (%s): OK", from, to, tagsistant_querytree_type(to_qtree));
 	}
 
-	tagsistant_destroy_querytree(from_qtree);
-	tagsistant_destroy_querytree(to_qtree);
+	tagsistant_querytree_destroy(from_qtree);
+	tagsistant_querytree_destroy(to_qtree);
 
 	return((res == -1) ? -tagsistant_errno : 0);
 }

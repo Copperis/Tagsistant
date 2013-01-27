@@ -1,8 +1,3 @@
-0.4.1
-  - moved plugins to a separate directory
-  - moved fuse operations in separate files inside fuse_operations/ directory
-  - autotools configuration renewed thanks to Christopher Howard
-  <christopher.howard@frigidcode.com> http://frigidcode.com
 0.0.20080219
   - added reasoning to query management
   - created tagsistant manager, a Gtk+ interface to tagsistant SQL db to

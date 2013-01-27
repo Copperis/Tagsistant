@@ -32,7 +32,7 @@ int tagsistant_chmod(const char *path, mode_t mode)
 
 	TAGSISTANT_START("/ CHMOD on %s [mode: %d]", path, mode);
 
-	tagsistant_querytree_t *qtree = tagsistant_build_querytree(path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_querytree_new(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -57,11 +57,11 @@ int tagsistant_chmod(const char *path, mode_t mode)
 	stop_labeled_time_profile("chmod");
 
 	if ( res == -1 ) {
-		TAGSISTANT_STOP_ERROR("\\ CHMOD %s (%s) as %d: %d %d: %s", qtree->full_archive_path, tagsistant_query_type(qtree), mode, res, tagsistant_errno, strerror(tagsistant_errno));
+		TAGSISTANT_STOP_ERROR("\\ CHMOD %s (%s) as %d: %d %d: %s", qtree->full_archive_path, tagsistant_querytree_type(qtree), mode, res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		TAGSISTANT_STOP_OK("\\ CHMOD %s (%s), %d: OK", path, tagsistant_query_type(qtree), mode);
+		TAGSISTANT_STOP_OK("\\ CHMOD %s (%s), %d: OK", path, tagsistant_querytree_type(qtree), mode);
 	}
 
-	tagsistant_destroy_querytree(qtree);
+	tagsistant_querytree_destroy(qtree);
 	return((res == -1) ? -tagsistant_errno : 0);
 }

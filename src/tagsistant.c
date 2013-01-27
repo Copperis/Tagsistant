@@ -21,6 +21,8 @@
 
 #define REGISTER_CLEANUP 0
 #include "tagsistant.h"
+#include "../config.h" // this is just to suppress eclipse warnings
+#include "buildnumber.h"
 
 #ifndef MACOSX
 #include <mcheck.h>
@@ -30,79 +32,6 @@
 
 /* defines command line options for tagsistant mount tool */
 /* static */ struct tagsistant tagsistant;
-
-/**
- * Create an object and tag it
- *
- * @param qtree the querytree asking object creation
- * @param tagsistant_errno error_reporting variable
- * @param force_create boolean: if true, creation is forced
- */
-// TODO move to utils.c?
-int tagsistant_inner_create_and_tag_object(tagsistant_querytree_t *qtree, int *tagsistant_errno, int force_create)
-{
-	tagsistant_id ID = 0;
-
-	// 1. create the object on db or get its ID if exists
-	//    if force_create is true, create a new object and fetch its ID
-	//    if force_create is false, try to find an object with name and path matching
-	//    and use its ID, otherwise create a new one
-	if (!force_create) {
-		tagsistant_query(
-			"select object_id from objects where objectname = \"%s\" and path = \"%s\" limit 1",
-			tagsistant_return_integer, &ID,
-			qtree->object_path, qtree->archive_path);
-	}
-
-	if (force_create || (0 == ID)) {
-		tagsistant_query(
-			"insert into objects (objectname, path) values (\"%s\", \"-\")",
-			NULL, NULL,
-			qtree->object_path);
-
-		/*
-		tagsistant_query(
-			"select max(object_id) from objects where objectname = \"%s\" and path = \"-\"",
-			tagsistant_return_integer, &ID,
-			qtree->object_path);
-		*/
-
-		// don't know why it does not work on MySQL
-		ID = tagsistant_last_insert_id();
-	}
-
-	if (0 == ID) {
-		dbg(LOG_ERR, "Object %s recorded as ID 0!", qtree->object_path);
-		*tagsistant_errno = EIO;
-		return(-1);
-	}
-
-	// 2. adjust archive_path and full_archive_path with leading object_id
-	g_free(qtree->archive_path);
-	g_free(qtree->full_archive_path);
-
-	qtree->object_id = ID;
-	qtree->archive_path = g_strdup_printf("%d%s%s", ID, TAGSISTANT_ID_DELIMITER, qtree->object_path);
-	qtree->full_archive_path = g_strdup_printf("%s%d%s%s", tagsistant.archive, ID, TAGSISTANT_ID_DELIMITER, qtree->object_path);
-
-	// 2.bis adjust object_path inside DB
-	tagsistant_query(
-		"update objects set path = \"%s\" where object_id = %d",
-		NULL, NULL,
-		qtree->archive_path, ID);
-
-	// 3. set an alias for getattr
-	tagsistant_set_alias(qtree->full_path, qtree->full_archive_path);
-
-	// 4. tag the object
-	tagsistant_traverse_querytree(qtree, tagsistant_sql_tag_object, ID);
-
-	// 5. use autotagging plugin stack
-	tagsistant_process(qtree);
-
-	return(ID);
-}
-
 
 static int tagsistant_release(const char *path, struct fuse_file_info *fi)
 {
@@ -275,9 +204,9 @@ void tagsistant_usage(char *progname)
 		"\n"
 		"    -q                     be quiet\n"
 		"    -r                     mount readonly\n"
-		"    -v                     verbose syslogging\n"
+		"    -v                     verbose syslogging\n   "
 		"\n" /*fuse options will follow... */
-		, PACKAGE_VERSION, BUILD_DATE, FUSE_USE_VERSION, progname
+		, PACKAGE_VERSION, TAGSISTANT_BUILDNUMBER, FUSE_USE_VERSION, progname
 	);
 }
 
@@ -292,6 +221,7 @@ void tagsistant_usage(char *progname)
  */
 static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse_args *outargs)
 {
+    (void) data;
     (void) data;
 
     switch (key) {
@@ -435,9 +365,9 @@ int main(int argc, char *argv[])
 		" Tagsistant (tagfs) v.%s Build: %s FUSE_USE_VERSION: %d\n"
 		" (c) 2006-2009 Tx0 <tx0@strumentiresistenti.org>\n"
 		" For license informations, see %s -h\n\n"
-		, PACKAGE_VERSION, BUILD_DATE, FUSE_USE_VERSION, tagsistant.progname
+		, PACKAGE_VERSION, TAGSISTANT_BUILDNUMBER, FUSE_USE_VERSION, tagsistant.progname
 	);
-	
+
 	/* checking repository */
 	if (!tagsistant.repository || (strcmp(tagsistant.repository, "") == 0)) {
 		if (strlen(getenv("HOME"))) {

@@ -201,7 +201,6 @@ int tagsistant_db_connection()
 			tagsistant_query("create index if not exists tags_index on tagging (object_id, tag_id);", NULL, NULL);
 			tagsistant_query("create index if not exists relations_index on relations (tag1_id, tag2_id);", NULL, NULL);
 			tagsistant_query("create index if not exists relations_type_index on relations (relation);", NULL, NULL);
-			tagsistant_query("create table if not exists aliases (id integer primary key autoincrement not null, alias varchar(1000) unique not null, aliased varchar(1000) not null)", NULL, NULL);
 			break;
 
 		case TAGSISTANT_DBI_MYSQL_BACKEND:
@@ -212,7 +211,6 @@ int tagsistant_db_connection()
 			tagsistant_query("create index tags_index on tagging (object_id, tag_id);", NULL, NULL);
 			tagsistant_query("create index relations_index on relations (tag1_id, tag2_id);", NULL, NULL);
 			tagsistant_query("create index relations_type_index on relations (relation);", NULL, NULL);
-			tagsistant_query("create table if not exists aliases (id integer primary key auto_increment not null, alias varchar(1000) unique not null, aliased varchar(1000) not null)", NULL, NULL);
 			break;
 
 		default:
@@ -250,7 +248,7 @@ void tagsistant_rollback_transaction()
 
 /**
  * Perform SQL queries. This function was added to avoid database opening
- * duplication and better handle SQLite interfacement. If dbh is passed
+ * duplication and better handle SQLite interfacing. If dbh is passed
  * NULL, a new SQLite connection will be opened. Otherwise, existing
  * connection will be used.
  *
@@ -259,7 +257,7 @@ void tagsistant_rollback_transaction()
  *
  * @param statement SQL query to be performed
  * @param callback pointer to function to be called on results of SQL query
- * @param firstarg pointer to buffer for callback retured data
+ * @param firstarg pointer to buffer for callback returned data
  * @param file __FILE__ passed by calling function
  * @param line __LINE__ passed by calling function
  * @return 0 (always, due to SQLite policy)
@@ -297,12 +295,12 @@ int tagistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result),
 	dbg(LOG_INFO, "SQL: [%s] @%s:%d", statement, file, line);
 
 	// declare static mutex
-	GStaticMutex mtx = G_STATIC_MUTEX_INIT;
+//	GStaticMutex mtx = G_STATIC_MUTEX_INIT;
 
 	// do the real query
-	g_static_mutex_lock(&mtx);
+//	g_static_mutex_lock(&mtx);
 	dbi_result result = dbi_conn_queryf(tagsistant_dbi_conn, statement);
-	g_static_mutex_unlock(&mtx);
+//	g_static_mutex_unlock(&mtx);
 
 	int rows = 0;
 
@@ -328,7 +326,7 @@ int tagistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result),
  *
  * @param format printf-like string of SQL query
  * @param callback pointer to function to be called on results of SQL query
- * @param firstarg pointer to buffer for callback retured data
+ * @param firstarg pointer to buffer for callback returned data
  * @return 0 (always, due to SQLite policy)
  */
 int tagsistant_real_query(const char *format, gchar *file, int line, int (*callback)(void *, dbi_result), void *firstarg, ...)
@@ -344,27 +342,27 @@ int tagsistant_real_query(const char *format, gchar *file, int line, int (*callb
 }
 
 /**
- * return(last insert row ID)
+ * return(last insert row inode)
  */
-tagsistant_id tagsistant_last_insert_id()
+tagsistant_inode tagsistant_last_insert_id()
 {
 	return(dbi_conn_sequence_last(tagsistant_dbi_conn, NULL));
 
 	// -------- alternative version -----------------------------------------------
 
-	tagsistant_id ID = 0;
+	tagsistant_inode inode = 0;
 
 	switch (tagsistant.sql_database_driver) {
 		case TAGSISTANT_DBI_SQLITE_BACKEND:
-			tagsistant_query("SELECT last_insert_rowid() ", tagsistant_return_integer, &ID);
+			tagsistant_query("SELECT last_insert_rowid() ", tagsistant_return_integer, &inode);
 			break;
 
 		case TAGSISTANT_DBI_MYSQL_BACKEND:
-			tagsistant_query("SELECT last_insert_id() ", tagsistant_return_integer, &ID);
+			tagsistant_query("SELECT last_insert_id() ", tagsistant_return_integer, &inode);
 			break;
 	}
 
-	return(ID);
+	return(inode);
 }
 
 /**
@@ -416,9 +414,9 @@ void tagsistant_sql_create_tag(const gchar *tagname)
 	tagsistant_query("insert into tags(tagname) values(\"%s\");", NULL, NULL, tagname);
 }
 
-int tagsistant_object_is_tagged(tagsistant_id object_id)
+int tagsistant_object_is_tagged(tagsistant_inode object_id)
 {
-	tagsistant_id still_exists = 0;
+	tagsistant_inode still_exists = 0;
 
 	tagsistant_query(
 		"select object_id from tagging where object_id = %d limit 1", 
@@ -427,9 +425,9 @@ int tagsistant_object_is_tagged(tagsistant_id object_id)
 	return((still_exists) ? 1 : 0);
 }
 
-int tagsistant_object_is_tagged_as(tagsistant_id object_id, tagsistant_id tag_id)
+int tagsistant_object_is_tagged_as(tagsistant_inode object_id, tagsistant_inode tag_id)
 {
-	tagsistant_id is_tagged = 0;
+	tagsistant_inode is_tagged = 0;
 
 	tagsistant_query(
 		"select object_id from tagging where object_id = %d and tag_id = %d limit 1", 
@@ -438,14 +436,14 @@ int tagsistant_object_is_tagged_as(tagsistant_id object_id, tagsistant_id tag_id
 	return((is_tagged) ? 1 : 0);
 }
 
-void tagsistant_full_untag_object(tagsistant_id object_id)
+void tagsistant_full_untag_object(tagsistant_inode object_id)
 {
 	tagsistant_query("delete from tagging where object_id = %d", NULL, NULL, object_id);
 }
 
-tagsistant_id tagsistant_sql_get_tag_id(const gchar *tagname)
+tagsistant_inode tagsistant_sql_get_tag_id(const gchar *tagname)
 {
-	tagsistant_id tag_id = 0;
+	tagsistant_inode tag_id = 0;
 
 	tagsistant_query(
 		"select tag_id from tags where tagname = \"%s\" limit 1",
@@ -456,27 +454,27 @@ tagsistant_id tagsistant_sql_get_tag_id(const gchar *tagname)
 
 void tagsistant_sql_delete_tag(const gchar *tagname)
 {
-	tagsistant_id tag_id = tagsistant_sql_get_tag_id(tagname);
+	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(tagname);
 
 	tagsistant_query("delete from tags where tagname = \"%s\";", NULL, NULL, tagname);
 	tagsistant_query("delete from tagging where tag_id = \"%d\";", NULL, NULL, tag_id);
 	tagsistant_query("delete from relations where tag1_id = \"%d\" or tag2_id = \"%d\";", NULL, NULL, tag_id, tag_id);
 }
 
-void tagsistant_sql_tag_object(const gchar *tagname, tagsistant_id object_id)
+void tagsistant_sql_tag_object(const gchar *tagname, tagsistant_inode object_id)
 {
 	tagsistant_query("insert into tags(tagname) values(\"%s\");", NULL, NULL, tagname);
 
-	tagsistant_id tag_id = tagsistant_sql_get_tag_id(tagname);
+	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(tagname);
 
 	dbg(LOG_INFO, "Tagging object %d as %s (%d)", object_id, tagname, tag_id);
 
 	tagsistant_query("insert into tagging(tag_id, object_id) values(\"%d\", \"%d\");", NULL, NULL, tag_id, object_id);
 }
 
-void tagsistant_sql_untag_object(const gchar *tagname, tagsistant_id object_id)
+void tagsistant_sql_untag_object(const gchar *tagname, tagsistant_inode object_id)
 {
-	tagsistant_id tag_id = tagsistant_sql_get_tag_id(tagname);
+	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(tagname);
 
 	dbg(LOG_INFO, "Untagging object %d from tag %s (%d)", object_id, tagname, tag_id);
 

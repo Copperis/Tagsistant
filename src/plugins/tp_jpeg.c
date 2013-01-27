@@ -47,7 +47,7 @@ int tagsistant_processor(const tagsistant_querytree_t *qtree)
 	ExifMnoteData *mn = NULL;
 
 	// doing basic tagging
-	tagsistant_sql_tag_object(DEFAULT_TAG, qtree->object_id);
+	tagsistant_sql_tag_object(DEFAULT_TAG, qtree->inode);
 
 	// doing extended tagging using libexif
 	ed = exif_data_new_from_file(qtree->full_archive_path);
@@ -71,7 +71,7 @@ int tagsistant_processor(const tagsistant_querytree_t *qtree)
 			c++;
 		}
 
-		tagsistant_sql_tag_object(exiftag, qtree->object_id);
+		tagsistant_sql_tag_object(exiftag, qtree->inode);
 		g_free(exiftag);
 	}
 

@@ -33,7 +33,7 @@ int tagsistant_chown(const char *path, uid_t uid, gid_t gid)
 
 	TAGSISTANT_START("/ CHOWN on %s [uid: %d gid: %d]", path, uid, gid);
 
-	tagsistant_querytree_t *qtree = tagsistant_build_querytree(path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_querytree_new(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -58,11 +58,11 @@ int tagsistant_chown(const char *path, uid_t uid, gid_t gid)
 	stop_labeled_time_profile("chown");
 
 	if ( res == -1 ) {
-		TAGSISTANT_STOP_ERROR("\\ CHMOD %s to %d,%d (%s): %d %d: %s", qtree->full_archive_path, uid, gid, tagsistant_query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
+		TAGSISTANT_STOP_ERROR("\\ CHMOD %s to %d,%d (%s): %d %d: %s", qtree->full_archive_path, uid, gid, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		TAGSISTANT_STOP_OK("\\ CHMOD %s, %d, %d (%s): OK", path, uid, gid, tagsistant_query_type(qtree));
+		TAGSISTANT_STOP_OK("\\ CHMOD %s, %d, %d (%s): OK", path, uid, gid, tagsistant_querytree_type(qtree));
 	}
 
-	tagsistant_destroy_querytree(qtree);
+	tagsistant_querytree_destroy(qtree);
 	return((res == -1) ? -tagsistant_errno : 0);
 }

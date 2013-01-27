@@ -33,10 +33,10 @@ int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 
 	TAGSISTANT_START("/ MKNOD on %s [mode: %u rdev: %u]", path, mode, (unsigned int) rdev);
 
-	gchar *stripped_path = tagsistant_ID_strip_from_path(path);
+	gchar *stripped_path = tagsistant_inode_strip_from_path(path);
 
 	// build querytree
-	tagsistant_querytree_t *qtree = tagsistant_build_querytree(stripped_path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_querytree_new(stripped_path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -69,13 +69,12 @@ MKNOD_EXIT:
 	stop_labeled_time_profile("mknod");
 
 	if ( res == -1 ) {
-		TAGSISTANT_STOP_ERROR("\\ MKNOD on %s (%s) (%s): %d %d: %s", path, qtree->full_archive_path, tagsistant_query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
+		TAGSISTANT_STOP_ERROR("\\ MKNOD on %s (%s) (%s): %d %d: %s", path, qtree->full_archive_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		tagsistant_set_alias(path, qtree->full_archive_path);
-		TAGSISTANT_STOP_OK("\\ MKNOD on %s (%s): OK", path, tagsistant_query_type(qtree));
+		TAGSISTANT_STOP_OK("\\ MKNOD on %s (%s): OK", path, tagsistant_querytree_type(qtree));
 	}
 
 	g_free(stripped_path);
-	tagsistant_destroy_querytree(qtree);
+	tagsistant_querytree_destroy(qtree);
 	return((res == -1) ? -tagsistant_errno : 0);
 }

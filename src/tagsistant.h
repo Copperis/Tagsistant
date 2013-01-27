@@ -90,6 +90,8 @@
 #include <signal.h>
 #include <dlfcn.h> /* for dlopen() and friends */
 #include <glib.h>
+#include <inttypes.h>
+#include <stdint.h>
 
 #ifdef HAVE_SETXATTR
 #include <sys/xattr.h>
@@ -107,7 +109,7 @@
 /**
  * each object is identified by a unique number of type tagsistant_id
  */
-typedef uint32_t tagsistant_id;
+typedef uint32_t tagsistant_inode;
 
 /**
  * some limits mainly taken from POSIX standard
@@ -115,7 +117,7 @@ typedef uint32_t tagsistant_id;
 #define TAGSISTANT_MAX_TAG_LENGTH 255
 #define TAGSISTANT_MAX_PATH_TOKENS 128
 
-#define TAGSISTANT_ID_DELIMITER "___"
+#define TAGSISTANT_INODE_DELIMITER "___"
 
 /*
  * if tagsistant_symlink is called with two internal
@@ -140,7 +142,7 @@ extern gchar *_dyn_strcat(gchar *original, const gchar *newstring);
  */
 typedef struct tagsistant_object {
 	/** the object ID from the database */
-	tagsistant_id ID;
+	tagsistant_inode ID;
 
 	/** the basename from the database */
 	gchar *basename;
@@ -194,7 +196,7 @@ extern struct tagsistant tagsistant;
 
 extern int tagsistant_process(tagsistant_querytree_t *qtree);
 
-extern tagsistant_id tagsistant_get_object_id(const gchar *path, gchar **purename);
+extern tagsistant_inode tagsistant_get_object_id(const gchar *path, gchar **purename);
 
 extern void tagsistant_utils_init();
 extern void init_syslog();
@@ -214,9 +216,6 @@ char *tagsistant_real_strdup(const char *orig, char *file, int line);
 
 #define freenull(symbol) {\
 	if (symbol != NULL) {\
-		if (tagsistant.debugfd != NULL) {\
-			fprintf(tagsistant.debugfd, "0x%.8x: g_free()\n", (unsigned int) symbol);\
-		}\
 		g_free(symbol);\
 		symbol = NULL;\
 	} else if (VERBOSE_DEBUG) {\
@@ -241,12 +240,8 @@ char *tagsistant_real_strdup(const char *orig, char *file, int line);
 	dbg(LOG_ERR, line, ##__VA_ARGS__);\
 }
 
-extern void		tagsistant_set_alias(const char *alias, const char *aliased);
-extern gchar *	tagsistant_get_alias(const char *alias);
-extern void		tagsistant_delete_alias(const char *alias);
-
 // returns the type of query described by a tagsistant_querytree_t struct
-extern gchar *	tagsistant_query_type(tagsistant_querytree_t *qtree);
+extern gchar *	tagsistant_querytree_type(tagsistant_querytree_t *qtree);
 
 extern void		tagsistant_show_config();
 extern void		tagsistant_plugin_apply_regex(const tagsistant_querytree_t *qtree, const char *buf, GMutex *m, GRegex *rx);

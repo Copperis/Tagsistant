@@ -33,7 +33,7 @@ int tagsistant_unlink(const char *path)
 	TAGSISTANT_START("/ UNLINK on %s", path);
 
 	// build querytree
-	tagsistant_querytree_t *qtree = tagsistant_build_querytree(path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_querytree_new(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -47,11 +47,11 @@ int tagsistant_unlink(const char *path)
 
 			// if object is pointed by a tags/ query, then untag it
 			// from the tags included in the query path...
-			tagsistant_traverse_querytree(qtree, tagsistant_sql_untag_object, qtree->object_id);
+			tagsistant_traverse_querytree(qtree, tagsistant_sql_untag_object, qtree->inode);
 
 			// ...then check if it's tagged elsewhere...
 			// ...if still tagged, then avoid real unlink(): the object must survive!
-			if (tagsistant_object_is_tagged(qtree->object_id))
+			if (tagsistant_object_is_tagged(qtree->inode))
 				goto UNLINK_EXIT;
 
 			// otherwise just delete if from the objects table and go on.
@@ -59,24 +59,17 @@ int tagsistant_unlink(const char *path)
 			// if the query path points to archive/, it's clear that the
 			// object is required to disappear from the filesystem, so
 			// must be erased from the tagging table.
-			tagsistant_full_untag_object(qtree->object_id);
+			tagsistant_full_untag_object(qtree->inode);
 		}
 
 		// wipe the object from objects table...
-		tagsistant_query("delete from objects where object_id = %d", NULL, NULL, qtree->object_id);
+		tagsistant_query("delete from objects where object_id = %d", NULL, NULL, qtree->inode);
 
 		// ... and do the real unlink()
 		unlink_path = qtree->full_archive_path;
 		res = unlink(unlink_path);
 		tagsistant_errno = errno;
 
-		if (-1 == res) {
-			unlink_path = tagsistant_get_alias(qtree->full_path);
-			if (NULL != unlink_path) {
-				res = unlink(unlink_path);
-				tagsistant_errno = errno;
-			}
-		}
 	} else
 
 	// -- tags --
@@ -91,11 +84,11 @@ UNLINK_EXIT:
 	stop_labeled_time_profile("unlink");
 
 	if ( res == -1 ) {
-		TAGSISTANT_STOP_ERROR("\\ UNLINK on %s (%s) (%s): %d %d: %s", path, unlink_path, tagsistant_query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
+		TAGSISTANT_STOP_ERROR("\\ UNLINK on %s (%s) (%s): %d %d: %s", path, unlink_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		TAGSISTANT_STOP_OK("\\ UNLINK on %s (%s): OK", path, tagsistant_query_type(qtree));
+		TAGSISTANT_STOP_OK("\\ UNLINK on %s (%s): OK", path, tagsistant_querytree_type(qtree));
 	}
 
-	tagsistant_destroy_querytree(qtree);
+	tagsistant_querytree_destroy(qtree);
 	return((res == -1) ? -tagsistant_errno : 0);
 }

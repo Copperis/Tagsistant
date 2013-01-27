@@ -55,9 +55,9 @@ int tagsistant_plugin_init()
 int tagsistant_processor(const tagsistant_querytree_t *qtree)
 {
 	/* default tagging */
-	tagsistant_sql_tag_object("document", qtree->object_id);
-	tagsistant_sql_tag_object("webpage", qtree->object_id);
-	tagsistant_sql_tag_object("html", qtree->object_id);
+	tagsistant_sql_tag_object("document", qtree->inode);
+	tagsistant_sql_tag_object("webpage", qtree->inode);
+	tagsistant_sql_tag_object("html", qtree->inode);
 
 	/* apply regular expressions to document content */
 

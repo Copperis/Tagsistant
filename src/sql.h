@@ -67,12 +67,12 @@ extern void tagsistant_rollback_transaction();
 \***************/
 
 extern void				tagsistant_sql_create_tag(const gchar *tagname);
-extern tagsistant_id	tagsistant_sql_get_tag_id(const gchar *tagname);
+extern tagsistant_inode	tagsistant_sql_get_tag_id(const gchar *tagname);
 extern void				tagsistant_sql_delete_tag(const gchar *tagname);
-extern void				tagsistant_sql_tag_object(const gchar *tagname, tagsistant_id object_id);
-extern void				tagsistant_sql_untag_object(const gchar *tagname, tagsistant_id object_id);
+extern void				tagsistant_sql_tag_object(const gchar *tagname, tagsistant_inode object_id);
+extern void				tagsistant_sql_untag_object(const gchar *tagname, tagsistant_inode object_id);
 extern void				tagsistant_sql_rename_tag(const gchar *tagname, const gchar *oldtagname);
-extern tagsistant_id	tagsistant_last_insert_id();
-extern int				tagsistant_object_is_tagged(tagsistant_id object_id);
-extern int				tagsistant_object_is_tagged_as(tagsistant_id object_id, tagsistant_id tag_id);
-extern void				tagsistant_full_untag_object(tagsistant_id object_id);
+extern tagsistant_inode	tagsistant_last_insert_id();
+extern int				tagsistant_object_is_tagged(tagsistant_inode object_id);
+extern int				tagsistant_object_is_tagged_as(tagsistant_inode object_id, tagsistant_inode tag_id);
+extern void				tagsistant_full_untag_object(tagsistant_inode object_id);

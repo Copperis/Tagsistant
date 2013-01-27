@@ -35,7 +35,7 @@ int tagsistant_readlink(const char *path, char *buf, size_t size)
 	TAGSISTANT_START("/ READLINK on %s", path);
 
 	// build querytree
-	tagsistant_querytree_t *qtree = tagsistant_build_querytree(path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_querytree_new(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -57,24 +57,16 @@ int tagsistant_readlink(const char *path, char *buf, size_t size)
 	res = readlink(readlink_path, buf, size);
 	tagsistant_errno = errno;
 
-	if (-1 == res) {
-		readlink_path = tagsistant_get_alias(qtree->full_path);
-		if (NULL != readlink_path) {
-			res = readlink(readlink_path, buf, size);
-			tagsistant_errno = errno;
-		}
-	}
-
 	// fix bug #12475
 	if (res > 0) buf[res] = '\0';
 
 READLINK_EXIT:
 	if ( res == -1 ) {
-		TAGSISTANT_STOP_ERROR("\\ READLINK on %s (%s) (%s): %d %d: %s", path, readlink_path, tagsistant_query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
+		TAGSISTANT_STOP_ERROR("\\ READLINK on %s (%s) (%s): %d %d: %s", path, readlink_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		TAGSISTANT_STOP_OK("\\ REALINK on %s (%s): OK", path, tagsistant_query_type(qtree));
+		TAGSISTANT_STOP_OK("\\ REALINK on %s (%s): OK", path, tagsistant_querytree_type(qtree));
 	}
 
-	tagsistant_destroy_querytree(qtree);
+	tagsistant_querytree_destroy(qtree);
 	return((res == -1) ? -tagsistant_errno : 0);
 }

@@ -34,13 +34,13 @@ int tagsistant_rename(const char *from, const char *to)
 
 	TAGSISTANT_START("/ RENAME %s as %s", from, to);
 
-	from_qtree = tagsistant_build_querytree(from, FALSE);
+	from_qtree = tagsistant_querytree_new(from, FALSE);
 	if (NULL == from_qtree) {
 		tagsistant_errno = ENOMEM;
 		goto RENAME_EXIT;
 	}
 
-	to_qtree = tagsistant_build_querytree(to, FALSE);
+	to_qtree = tagsistant_querytree_new(to, FALSE);
 	if (NULL == to_qtree) {
 		tagsistant_errno = ENOMEM;
 		goto RENAME_EXIT;
@@ -77,32 +77,24 @@ int tagsistant_rename(const char *from, const char *to)
 	if (QTREE_POINTS_TO_OBJECT(from_qtree)) {
 		if (QTREE_IS_TAGGABLE(from_qtree)) {
 			// 0. strip trailing number (i.e. 283.filename -> filename)
-			tagsistant_querytree_renumber(to_qtree, from_qtree->object_id);
+			tagsistant_querytree_renumber(to_qtree, from_qtree->inode);
 
 			// 1. rename the object
-			tagsistant_query("update objects set objectname = \"%s\" where object_id = %d", NULL, NULL, to_qtree->object_path, from_qtree->object_id);
-			tagsistant_query("update objects set path = \"%s\" where object_id = %d", NULL, NULL, to_qtree->full_archive_path, from_qtree->object_id);
+			tagsistant_query("update objects set objectname = \"%s\" where object_id = %d", NULL, NULL, to_qtree->object_path, from_qtree->inode);
+			tagsistant_query("update objects set path = \"%s\" where object_id = %d", NULL, NULL, to_qtree->full_archive_path, from_qtree->inode);
 
 			// 2. deletes all the tagging between "from" file and all AND nodes in "from" path
-			tagsistant_traverse_querytree(from_qtree, tagsistant_sql_untag_object, from_qtree->object_id);
+			tagsistant_traverse_querytree(from_qtree, tagsistant_sql_untag_object, from_qtree->inode);
 
 			// 3. adds all the tags from "to" path
-			tagsistant_traverse_querytree(to_qtree, tagsistant_sql_tag_object, from_qtree->object_id);
+			tagsistant_traverse_querytree(to_qtree, tagsistant_sql_tag_object, from_qtree->inode);
 		}
 
 		rename_path = from_qtree->full_archive_path;
 		res = rename(rename_path, to_qtree->full_archive_path);
 		tagsistant_errno = errno;
 
-		if (-1 == res) {
-			rename_path = tagsistant_get_alias(rename_path);
-			if (NULL != rename_path) {
-				res = rename(rename_path, to_qtree->full_archive_path);
-				tagsistant_errno = errno;
-
-				if (-1 == res) goto RENAME_EXIT;
-			}
-		}
+		if (-1 == res) goto RENAME_EXIT;
 
 	} else if (QTREE_IS_ROOT(from_qtree)) {
 		res = -1;
@@ -121,12 +113,12 @@ RENAME_EXIT:
 	stop_labeled_time_profile("rename");
 
 	if ( res == -1 ) {
-		TAGSISTANT_STOP_ERROR("\\ RENAME %s (%s) to %s (%s): %d %d: %s", from, tagsistant_query_type(from_qtree), to, tagsistant_query_type(to_qtree), res, tagsistant_errno, strerror(tagsistant_errno));
+		TAGSISTANT_STOP_ERROR("\\ RENAME %s (%s) to %s (%s): %d %d: %s", from, tagsistant_querytree_type(from_qtree), to, tagsistant_querytree_type(to_qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		TAGSISTANT_STOP_OK("\\ RENAME %s (%s) to %s (%s): OK", from, tagsistant_query_type(from_qtree), to, tagsistant_query_type(to_qtree));
+		TAGSISTANT_STOP_OK("\\ RENAME %s (%s) to %s (%s): OK", from, tagsistant_querytree_type(from_qtree), to, tagsistant_querytree_type(to_qtree));
 	}
 
-	tagsistant_destroy_querytree(from_qtree);
-	tagsistant_destroy_querytree(to_qtree);
+	tagsistant_querytree_destroy(from_qtree);
+	tagsistant_querytree_destroy(to_qtree);
 	return((res == -1) ? -tagsistant_errno : 0);
 }

@@ -22,8 +22,8 @@
 #include "tagsistant.h"
 #include <time.h>
 
-GRegex *tagsistant_ID_strip_from_querytree_regex = NULL;
-GRegex *tagsistant_ID_extract_from_querytree_regex = NULL;
+GRegex *tagsistant_inode_strip_from_querytree_regex = NULL;
+GRegex *tagsistant_inode_extract_from_querytree_regex = NULL;
 
 /**
  * initialize all the utilities
@@ -32,12 +32,12 @@ void tagsistant_utils_init()
 {
 	gchar *regex_pattern;
 	
-	regex_pattern = g_strdup_printf("^[0-9]+%s", TAGSISTANT_ID_DELIMITER);
-	tagsistant_ID_strip_from_querytree_regex = g_regex_new(regex_pattern, 0, 0, NULL);
+	regex_pattern = g_strdup_printf("^[0-9]+%s", TAGSISTANT_INODE_DELIMITER);
+	tagsistant_inode_strip_from_querytree_regex = g_regex_new(regex_pattern, 0, 0, NULL);
 	g_free(regex_pattern);
 
-	regex_pattern = g_strdup_printf("%s.*", TAGSISTANT_ID_DELIMITER);
-	tagsistant_ID_extract_from_querytree_regex = g_regex_new(regex_pattern, 0, 0, NULL);
+	regex_pattern = g_strdup_printf("%s.*", TAGSISTANT_INODE_DELIMITER);
+	tagsistant_inode_extract_from_querytree_regex = g_regex_new(regex_pattern, 0, 0, NULL);
 	g_free(regex_pattern);
 }
 
@@ -89,42 +89,12 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream)
 
 
 /**
- * since paths are issued without the tagsistant_id trailing
- * the filename (as in path/path/filename), while after being
- * created inside tagsistant, filenames get the additional ID
- * (as in path/path/3273___filename), an hash table to point
- * original paths to actual paths is required.
- *
- * the aliases hash table gets instantiated inside main() and
- * must be used with tagsistant_get_alias(), tagsistant_set_alias() and tagsistant_delete_alias().
- *
- * @param alias the alias to be set
- * @param aliased the path aliased by alias
- */
-void tagsistant_set_alias(const char *alias, const char *aliased) {
-	dbg(LOG_INFO, "Setting alias %s for %s", aliased, alias);
-	tagsistant_query("insert into aliases (alias, aliased) values (\"%s\", \"%s\")", NULL, NULL, alias, aliased);
-}
-
-/**
- * look for a matching alias and return(aliased object)
- *
- * @param alias the alias to fetch and translate into aliased object
- */
-gchar *tagsistant_get_alias(const char *alias) {
-	gchar *aliased = NULL;
-	tagsistant_query("select aliased from aliases where alias = \"%s\"", tagsistant_return_string, &aliased, alias);
-	dbg(LOG_INFO, "Looking for an alias for %s, found %s", alias, aliased);
-	return(aliased);
-}
-
-/**
  * remove tagsistant id from a path
  *
- * @param path the path to be purged of the ID
+ * @param path the path to be purged of the inode
  * @return the purged path
  */
-gchar *tagsistant_ID_strip_from_path(const char *path)
+gchar *tagsistant_inode_strip_from_path(const char *path)
 {
 	gchar *stripped = NULL;
 
@@ -135,13 +105,13 @@ gchar *tagsistant_ID_strip_from_path(const char *path)
 	int last_index = g_strv_length(elements) - 1;
 
 	// split the last element
-	gchar **last = g_strsplit(elements[last_index], TAGSISTANT_ID_DELIMITER, 2);
+	gchar **last = g_strsplit(elements[last_index], TAGSISTANT_INODE_DELIMITER, 2);
 
 	elements[last_index] = NULL; // TODO: memory leaking here?
 	gchar *directories = g_strjoinv("/", elements);
 	g_strfreev(elements);
 
-	// if the last element returned an ID and a filename...
+	// if the last element returned an inode and a filename...
 	if ((last[0] != NULL) && (last[1] != NULL)) {
 		if (strlen(directories))
 			stripped = g_strjoin("/", directories, last[1], NULL);
@@ -159,14 +129,14 @@ gchar *tagsistant_ID_strip_from_path(const char *path)
 }
 
 /**
- * return(the tagsistant ID contained into a path)
+ * return(the tagsistant inode contained into a path)
  *
- * @param path the path supposed to contain an ID
- * @return the ID, if found
+ * @param path the path supposed to contain an inode
+ * @return the inode, if found
  */
-tagsistant_id tagsistant_ID_extract_from_path(const char *path)
+tagsistant_inode tagsistant_inode_extract_from_path(const char *path)
 {
-	tagsistant_id ID = 0;
+	tagsistant_inode inode = 0;
 
 	// split incoming path
 	gchar **elements = g_strsplit_set(path, "/", 256);
@@ -175,16 +145,16 @@ tagsistant_id tagsistant_ID_extract_from_path(const char *path)
 	int last_index = g_strv_length(elements) - 1;
 
 	// split the last element
-	gchar **last = g_strsplit(elements[last_index], TAGSISTANT_ID_DELIMITER, 2);
+	gchar **last = g_strsplit(elements[last_index], TAGSISTANT_INODE_DELIMITER, 2);
 	g_strfreev(elements);
 
-	// if the last element returned an ID and a filename...
+	// if the last element returned an inode and a filename...
 	if (last[0] != NULL)
-		ID = strtol(last[0], NULL, 10);
+		inode = strtol(last[0], NULL, 10);
 
-	dbg(LOG_INFO, "%s has ID %lu", path, (long unsigned int) ID);
+	dbg(LOG_INFO, "%s has inode %lu", path, (long unsigned int) inode);
 
-	return(ID);
+	return(inode);
 }
 
 /**
@@ -195,12 +165,12 @@ tagsistant_id tagsistant_ID_extract_from_path(const char *path)
  * @param qtree the tagsistant_querytree_t
  * @return the purged qtree->object_path
  */
-gchar *tagsistant_ID_strip_from_querytree(tagsistant_querytree_t *qtree)
+gchar *tagsistant_inode_strip_from_querytree(tagsistant_querytree_t *qtree)
 {
-	GStaticMutex mtx = G_STATIC_MUTEX_INIT;
-	g_static_mutex_lock(&mtx);
-	gchar *stripped = g_regex_replace_literal(tagsistant_ID_strip_from_querytree_regex, qtree->object_path, -1, 0, "", 0, NULL);
-	g_static_mutex_unlock(&mtx);
+//	GStaticMutex mtx = G_STATIC_MUTEX_INIT;
+//	g_static_mutex_lock(&mtx);
+	gchar *stripped = g_regex_replace_literal(tagsistant_inode_strip_from_querytree_regex, qtree->object_path, -1, 0, "", 0, NULL);
+//	g_static_mutex_unlock(&mtx);
 
 	dbg(LOG_INFO, "%s stripped to %s", stripped, qtree->object_path);
 
@@ -208,24 +178,24 @@ gchar *tagsistant_ID_strip_from_querytree(tagsistant_querytree_t *qtree)
 }
 
 /**
- * extract the ID from a querytree object
+ * extract the inode from a querytree object
  *
- * @param qtree the tagsistant_querytree_t holding the ID
- * @return the ID, if found
+ * @param qtree the tagsistant_querytree_t holding the inode
+ * @return the inode, if found
  */
-tagsistant_id tagsistant_ID_extract_from_querytree(tagsistant_querytree_t *qtree)
+tagsistant_inode tagsistant_inode_extract_from_querytree(tagsistant_querytree_t *qtree)
 {
-	GStaticMutex mtx = G_STATIC_MUTEX_INIT;
-	g_static_mutex_lock(&mtx);
-	gchar *stripped = g_regex_replace_literal(tagsistant_ID_extract_from_querytree_regex, qtree->object_path, -1, 0, "", 0, NULL);
-	g_static_mutex_unlock(&mtx);
+//	GStaticMutex mtx = G_STATIC_MUTEX_INIT;
+//	g_static_mutex_lock(&mtx);
+	gchar *stripped = g_regex_replace_literal(tagsistant_inode_extract_from_querytree_regex, qtree->object_path, -1, 0, "", 0, NULL);
+//	g_static_mutex_unlock(&mtx);
 
 	dbg(LOG_INFO, "%s extracted from %s", stripped, qtree->object_path);
 
-	tagsistant_id ID = strtol(stripped, NULL, 10);
+	tagsistant_inode inode = strtol(stripped, NULL, 10);
 
 	g_free(stripped);
-	return(ID);
+	return(inode);
 }
 
 /**
@@ -261,4 +231,72 @@ void tagsistant_show_config()
 	}
 
 	exit(0);
+}
+
+/**
+ * Create an object and tag it
+ *
+ * @param qtree the querytree asking object creation
+ * @param tagsistant_errno error_reporting variable
+ * @param force_create boolean: if true, creation is forced
+ */
+int tagsistant_inner_create_and_tag_object(tagsistant_querytree_t *qtree, int *tagsistant_errno, int force_create)
+{
+	tagsistant_inode inode = 0;
+
+	// 1. create the object on db or get its inode if exists
+	//    if force_create is true, create a new object and fetch its inode
+	//    if force_create is false, try to find an object with name and path matching
+	//    and use its inode, otherwise create a new one
+	if (!force_create) {
+		tagsistant_query(
+			"select object_id from objects where objectname = \"%s\" and path = \"%s\" limit 1",
+			tagsistant_return_integer, &inode,
+			qtree->object_path, qtree->archive_path);
+	}
+
+	if (force_create || (0 == inode)) {
+		tagsistant_query(
+			"insert into objects (objectname, path) values (\"%s\", \"-\")",
+			NULL, NULL,
+			qtree->object_path);
+
+		/*
+		tagsistant_query(
+			"select max(object_id) from objects where objectname = \"%s\" and path = \"-\"",
+			tagsistant_return_integer, &inode,
+			qtree->object_path);
+		*/
+
+		// don't know why it does not work on MySQL
+		inode = tagsistant_last_insert_id();
+	}
+
+	if (0 == inode) {
+		dbg(LOG_ERR, "Object %s recorded as inode 0!", qtree->object_path);
+		*tagsistant_errno = EIO;
+		return(-1);
+	}
+
+	// 2. adjust archive_path and full_archive_path with leading object_id
+	g_free(qtree->archive_path);
+	g_free(qtree->full_archive_path);
+
+	qtree->inode = inode;
+	qtree->archive_path = g_strdup_printf("%d%s%s", inode, TAGSISTANT_INODE_DELIMITER, qtree->object_path);
+	qtree->full_archive_path = g_strdup_printf("%s%d%s%s", tagsistant.archive, inode, TAGSISTANT_INODE_DELIMITER, qtree->object_path);
+
+	// 2.bis adjust object_path inside DB
+	tagsistant_query(
+		"update objects set path = \"%s\" where object_id = %d",
+		NULL, NULL,
+		qtree->archive_path, inode);
+
+	// 4. tag the object
+	tagsistant_traverse_querytree(qtree, tagsistant_sql_tag_object, inode);
+
+	// 5. use autotagging plugin stack
+	tagsistant_process(qtree);
+
+	return(inode);
 }

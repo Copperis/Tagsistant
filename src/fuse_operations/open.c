@@ -33,15 +33,6 @@ int tagsistant_internal_open(tagsistant_querytree_t *qtree, int flags, int *_err
 {
 	// first check on plain path
 	int res = open(qtree->full_archive_path, flags);
-
-	// later look for an alias and try it
-	if (-1 == res) {
-		gchar *alias = tagsistant_get_alias(qtree->full_path);
-		if (NULL != alias) {
-			res = open(alias, flags);
-		}
-	}
-
 	*_errno = errno;
 
 #if VERBOSE_DEBUG
@@ -71,7 +62,7 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 	gchar *open_path = NULL;
 
 	// build querytree
-	tagsistant_querytree_t *qtree = tagsistant_build_querytree(path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_querytree_new(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -102,11 +93,11 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 	stop_labeled_time_profile("open");
 
 	if ( res == -1 ) {
-		TAGSISTANT_STOP_ERROR("\\ OPEN on %s (%s) (%s): %d %d: %s", path, open_path, tagsistant_query_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
+		TAGSISTANT_STOP_ERROR("\\ OPEN on %s (%s) (%s): %d %d: %s", path, open_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
-		TAGSISTANT_STOP_OK("\\ OPEN on %s (%s): OK", path, tagsistant_query_type(qtree));
+		TAGSISTANT_STOP_OK("\\ OPEN on %s (%s): OK", path, tagsistant_querytree_type(qtree));
 	}
 
-	tagsistant_destroy_querytree(qtree);
+	tagsistant_querytree_destroy(qtree);
 	return((res == -1) ? -tagsistant_errno : 0);
 }

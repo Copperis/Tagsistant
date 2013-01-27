@@ -308,7 +308,7 @@ void tagsistant_plugin_apply_regex(const tagsistant_querytree_t *qtree, const ch
 
 		int x = 0;
 		while (tokens[x]) {
-			if (strlen(tokens[x]) >= 3) tagsistant_sql_tag_object(tokens[x], qtree->object_id);
+			if (strlen(tokens[x]) >= 3) tagsistant_sql_tag_object(tokens[x], qtree->inode);
 			x++;
 		}
 
