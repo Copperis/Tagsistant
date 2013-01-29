@@ -35,7 +35,7 @@ int tagsistant_plugin_init()
 int tagsistant_processor(const tagsistant_querytree_t *qtree)
 {
 	dbg(LOG_INFO, "Tagging %s as %s", qtree->full_archive_path, DEFAULT_TAG);
-	// sql_tag_object(DEFAULT_TAG, qtree->object_id)
+	// sql_tag_object(DEFAULT_TAG, qtree->inode)
 	return(TP_STOP);
 }
 

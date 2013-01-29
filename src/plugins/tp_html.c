@@ -65,7 +65,7 @@ int tagsistant_processor(const tagsistant_querytree_t *qtree)
 	int fd = open(qtree->full_archive_path, 0);
 	if (-1 == fd) {
 		int error = errno;
-		dbg(LOG_ERROR, "Unable to open %s: %s", qtree->full_archive_path, strerror(error));
+		dbg(LOG_ERR, "Unable to open %s: %s", qtree->full_archive_path, strerror(error));
 		return(TP_ERROR);
 	}
 
@@ -78,6 +78,7 @@ int tagsistant_processor(const tagsistant_querytree_t *qtree)
 	tagsistant_plugin_apply_regex(qtree, buf, processor_mutex, _rx_title);
 	tagsistant_plugin_apply_regex(qtree, buf, processor_mutex, _rx_keywords);
 
+	close(fd);
 	return(TP_STOP);
 }
 

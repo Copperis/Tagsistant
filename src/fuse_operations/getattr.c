@@ -74,7 +74,6 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	if (QTREE_IS_MALFORMED(qtree)) {
 		res = -1;
 		tagsistant_errno = ENOENT;
-		goto GETATTR_EXIT;
 	} else
 	
 	// -- object on disk --

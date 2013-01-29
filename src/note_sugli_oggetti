@@ -22,9 +22,9 @@
 		tagname varchar(64) unique not null)
 
 	create table tagging (
-		object_id integer not null primary key autoincrement,
+		inode integer not null primary key autoincrement,
 		tag_id text(64) not null,
-		constraint Tagging_key unique (object_id, tag_id));
+		constraint Tagging_key unique (inode, tag_id));
 
 	Ad esempio la tabella tagging associa tag e oggetti per ID
 

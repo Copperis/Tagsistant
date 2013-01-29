@@ -53,6 +53,7 @@ typedef enum {
 	QTYPE_ROOT,			// no path, that's a special case for root directory
 	QTYPE_ARCHIVE,		// path pointing to objects on disk, begins with /archive/
 	QTYPE_TAGS,			// path that's a query, begins with /tags/
+	QTYPE_RETAG,		// experimental path used for object retagging
 	QTYPE_RELATIONS,	// path that's a relation between two or more tags, begins with /relations/
 	QTYPE_STATS,		// path that's a special query for internal status, begins with /stats/
 	QTYPE_TOTAL
@@ -231,16 +232,14 @@ typedef struct reasoning {
 }
 
 // querytree functions
-extern void 					tagsistant_querytree_renumber(tagsistant_querytree_t *qtree, tagsistant_inode object_id);
+extern void 					tagsistant_querytree_renumber(tagsistant_querytree_t *qtree, tagsistant_inode inode);
 extern void 					tagsistant_querytree_rebuild_paths(tagsistant_querytree_t *qtree);
-extern gchar *					tagsistant_inode_strip_from_path(const char *path);
-extern gchar *					tagsistant_inode_strip_from_querytree(tagsistant_querytree_t *qtree);
 extern tagsistant_inode			tagsistant_inode_extract_from_path(const char *path);
 extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_querytree_t *qtree);
 extern tagsistant_querytree_t *	tagsistant_querytree_new(const char *path, int do_reasoning);
 extern void 					tagsistant_querytree_destroy(tagsistant_querytree_t *qtree);
 
 // filetree functions
-extern file_handle_t *			tagsistant_filetree_new(ptree_or_node_t *query, const char *path);
+extern file_handle_t *			tagsistant_filetree_new(ptree_or_node_t *query);
 extern void 					tagsistant_filetree_destroy(file_handle_t *fh);
 

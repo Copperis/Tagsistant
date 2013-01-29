@@ -33,10 +33,8 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 
 	TAGSISTANT_START("/ MKDIR on %s [mode: %d]", path, mode);
 
-	gchar *stripped_path = tagsistant_inode_strip_from_path(path);
-
 	// build querytree
-	tagsistant_querytree_t *qtree = tagsistant_querytree_new(stripped_path, 0);
+	tagsistant_querytree_t *qtree = tagsistant_querytree_new(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -104,7 +102,6 @@ MKDIR_EXIT:
 		TAGSISTANT_STOP_OK("\\ MKDIR on %s (%s): OK", path, tagsistant_querytree_type(qtree));
 	}
 
-	g_free(stripped_path);
 	tagsistant_querytree_destroy(qtree);
 	return((res == -1) ? -tagsistant_errno : 0);
 }

@@ -211,6 +211,11 @@ void tagsistant_plugin_loader()
 				/* allocate new plugin object */
 				tagsistant_plugin_t *plugin = g_new0(tagsistant_plugin_t, 1);
 
+				if (NULL == plugin) {
+					dbg(LOG_ERR, "Error allocating plugin object");
+					continue;
+				}
+
 				char *pname = g_strdup_printf("%s/%s", tagsistant_plugins, de->d_name);
 
 				/* load the plugin */

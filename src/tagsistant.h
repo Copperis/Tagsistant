@@ -196,7 +196,7 @@ extern struct tagsistant tagsistant;
 
 extern int tagsistant_process(tagsistant_querytree_t *qtree);
 
-extern tagsistant_inode tagsistant_get_object_id(const gchar *path, gchar **purename);
+extern tagsistant_inode tagsistant_get_inode(const gchar *path, gchar **purename);
 
 extern void tagsistant_utils_init();
 extern void init_syslog();

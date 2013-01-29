@@ -164,26 +164,28 @@ tagsistant_querytree_t* tagsistant_querytree_parse_tags (
 		int do_reasoning)
 {
 	unsigned int orcount = 0, andcount = 0;
+
 	// initialize iterator variables on query tree nodes
 	ptree_or_node_t *last_or = qtree->tree = g_new0(ptree_or_node_t, 1);
-	if (qtree->tree == NULL ) {
-		freenull(qtree);
+	if (qtree->tree == NULL) {
+		tagsistant_querytree_destroy(qtree);
 		dbg(LOG_ERR, "Error allocating memory");
 		return(NULL);
 	}
+
 	ptree_and_node_t *last_and = NULL;
+
 	// state if the query is complete or not
 	qtree->complete = (NULL == g_strstr_len(path, strlen(path), "=")) ? 0 : 1;
 	// dbg(LOG_INFO, "Path %s is %scomplete", path, qtree->complete ? "" : "not ");
-	// by default a query is valid until somethig wrong happens while parsing it
+
+	// by default a query is valid until something wrong happens while parsing it
 	qtree->valid = 1;
+
 	// begin parsing
 	while ((NULL != *token_ptr) && ('=' != **token_ptr)) {
 		if (strlen(*token_ptr) == 0) {
 			/* ignore zero length tokens */
-		} else if (strcmp(*token_ptr, "=") == 0) {
-			/* query end reached, jump out */
-			return NULL;
 		} else if (strcmp(*token_ptr, "+") == 0) {
 			/* open new entry in OR level */
 			orcount++;
@@ -285,6 +287,8 @@ tagsistant_query_type_t tagsistant_querytree_guess_type(gchar **token_ptr)
 		return QTYPE_RELATIONS;
 	} else if (g_strcmp0(*token_ptr, "stats") == 0) {
 		return QTYPE_STATS;
+	} else if (g_strcmp0(*token_ptr, "retag") == 0) {
+		return QTYPE_RETAG;
 	} else if ((NULL == *token_ptr) || (g_strcmp0(*token_ptr, "") == 0 || (g_strcmp0(*token_ptr, "/") == 0))) {
 		return QTYPE_ROOT;
 	} else {
@@ -369,10 +373,8 @@ tagsistant_querytree_t *tagsistant_querytree_new(const char *path, int do_reason
 			tagsistant_qtree_set_object_path(qtree, "");
 		} else {
 			// set the object path and compute the relative paths
-			gchar *joined = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
-			qtree->object_path = tagsistant_inode_strip_from_path(joined); 
+			qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
 			tagsistant_querytree_rebuild_paths(qtree);
-			g_free(joined);
 
 			// an object_path is_taggable if it does not contains "/"
 			// as in "23892___mydocument.odt" and not in "8346___myfolder/photo.jpg"
@@ -444,26 +446,6 @@ void tagsistant_querytree_rebuild_paths(tagsistant_querytree_t *qtree)
 }
 
 /**
- * renumber an object, by changing its tagsistant_inode and rebuilding its
- * object_path, archive_path and full_archive_path.
- */
-void tagsistant_querytree_renumber(tagsistant_querytree_t *qtree, tagsistant_inode object_id)
-{
-    if (qtree && object_id) {
-        // save the object id
-        qtree->inode = object_id;
-
-        // strip the object id
-        gchar *stripped = tagsistant_inode_strip_from_querytree(qtree);
-        g_free(qtree->object_path);
-        qtree->object_path = stripped;
-
-        // build the new object name
-        tagsistant_querytree_rebuild_paths(qtree);
-    }
-}
-
-/**
  * return(querytree type as a printable string.)
  * the string MUST NOT be freed
  */
@@ -500,12 +482,12 @@ static int tagsistant_add_to_filetree(void *atft_struct, dbi_result result)
 	file_handle_t **fh = atft->fh;
 
 	const char *objectname = dbi_result_get_string_idx(result, 1);
-	tagsistant_inode object_id = 0;
+	tagsistant_inode inode = 0;
 //	if (TAGSISTANT_DBI_SQLITE_BACKEND == tagsistant_database_driver) {
 //		const char *id_as_a_string = dbi_result_get_string_idx(result, 2);
-//		object_id = strtol(id_as_a_string, NULL, 10);
+//		inode = strtol(id_as_a_string, NULL, 10);
 //	} else {
-		object_id = dbi_result_get_uint_idx(result, 2);
+		inode = dbi_result_get_uint_idx(result, 2);
 	//}
 
 
@@ -513,11 +495,11 @@ static int tagsistant_add_to_filetree(void *atft_struct, dbi_result result)
 	if (objectname == NULL || strlen(objectname) == 0)
 		return(0);
 
-	(*fh)->name = g_strdup_printf("%u%s%s", object_id, TAGSISTANT_INODE_DELIMITER, objectname);
+	(*fh)->name = g_strdup_printf("%u%s%s", inode, TAGSISTANT_INODE_DELIMITER, objectname);
 	dbg(LOG_INFO, "adding %s to filetree", (*fh)->name);
 	(*fh)->next = (file_handle_t *) g_new0(file_handle_t, 1);
 	if ((*fh)->next == NULL) {
-		dbg(LOG_ERR, "Can't allocate memory in tagsistant_build_filetree");
+		dbg(LOG_ERR, "Can't allocate memory in tagsistant_filetree_new");
 		return(1);
 	}
 	(*fh) = (file_handle_t *) (*fh)->next;
@@ -565,25 +547,32 @@ void tagsistant_drop_views(ptree_or_node_t *query)
  * @param query the ptree_or_node_t* query structure to
  * be resolved.
  */
-file_handle_t *tagsistant_filetree_new(ptree_or_node_t *query, const char *path)
+file_handle_t *tagsistant_filetree_new(ptree_or_node_t *query)
 {
-	(void) path;
-
 	if (query == NULL) {
-		dbg(LOG_ERR, "NULL path_tree_t object provided to tagsistant_build_filetree");
+		dbg(LOG_ERR, "NULL path_tree_t object provided to %s", __func__);
 		return(NULL);
 	}
 
+	//
+	// save a working pointer to the query
+	//
 	ptree_or_node_t *query_dup = query;
 
+	//
+	// allocate a new structure to return the file tree
+	//
 	file_handle_t *fh = g_new0(file_handle_t, 1);
 	if ( fh == NULL ) {
-		dbg(LOG_ERR, "Can't allocate memory in tagsistant_build_filetree");
+		dbg(LOG_ERR, "Can't allocate memory in %s", __func__);
 		return(NULL);
 	}
 	fh->next = NULL;
 	fh->name = NULL;
 
+	//
+	// save a pointer to the first node
+	//
 	file_handle_t *result = fh;
 
 	dbg(LOG_INFO, "building filetree...");
@@ -593,8 +582,8 @@ file_handle_t *tagsistant_filetree_new(ptree_or_node_t *query, const char *path)
 	// So we must find an alternative way.
 	// Some hints:
 	//
-	// 1. select distinct objectname, objects.object_id as object_id from objects
-	//    join tagging on tagging.object_id = objects.object_id
+	// 1. select distinct objectname, objects.inode as inode from objects
+	//    join tagging on tagging.inode = objects.inode
 	//    join tags on tagging.tag_id = tags.tag_id
 	//    where tags.tagname in ("t1", "t2", "t3");
 	//
@@ -602,16 +591,16 @@ file_handle_t *tagsistant_filetree_new(ptree_or_node_t *query, const char *path)
 	// at least with one of the tags listed, not what the AND-set
 	// means
 	//
-	// 2. select distinct objects.object_id from objects
-	//    inner join tagging on tagging.object_id = objects.object_id
+	// 2. select distinct objects.inode from objects
+	//    inner join tagging on tagging.inode = objects.inode
 	//    inner join tags on tagging.tag_id = tags.tag_id
-	//    where tagname = 't1' and objects.object_id in (
-	//      select distinct objects.object_id from objects
-	//      inner join tagging on tagging.object_id = objects.object_id
+	//    where tagname = 't1' and objects.inode in (
+	//      select distinct objects.inode from objects
+	//      inner join tagging on tagging.inode = objects.inode
 	//      inner join tags on tagging.tag_id = tags.tag_id
-	//      where tagname = 't2' and objects.object_id in (
-	//        select distinct objects.object_id from objects
-	//        inner join tagging on tagging.object_id = objects.object_id
+	//      where tagname = 't2' and objects.inode in (
+	//        select distinct objects.inode from objects
+	//        inner join tagging on tagging.inode = objects.inode
 	//        inner join tags on tagging.tag_id = tags.tag_id
 	//        where tagname = 't3'
 	//      )
@@ -628,14 +617,14 @@ file_handle_t *tagsistant_filetree_new(ptree_or_node_t *query, const char *path)
 		
 		while (tag != NULL) {
 			if (tagsistant.sql_backend_have_intersect) {
-				g_string_append(statement, "select objectname, objects.object_id as object_id from objects join tagging on tagging.object_id = objects.object_id join tags on tags.tag_id = tagging.tag_id where tagname = \"");
+				g_string_append(statement, "select objectname, objects.inode as inode from objects join tagging on tagging.inode = objects.inode join tags on tags.tag_id = tagging.tag_id where tagname = \"");
 				g_string_append(statement, tag->tag);
 				g_string_append(statement, "\"");
 			} else {
 				if (nesting) {
-					g_string_append(statement, " and objects.object_id in (select distinct objects.object_id from objects inner join tagging on tagging.object_id = objects.object_id inner join tags on tagging.tag_id = tags.tag_id where tagname = '");
+					g_string_append(statement, " and objects.inode in (select distinct objects.inode from objects inner join tagging on tagging.inode = objects.inode inner join tags on tagging.tag_id = tags.tag_id where tagname = '");
 				} else {
-					g_string_append(statement, " select distinct objectname, objects.object_id as object_id from objects inner join tagging on tagging.object_id = objects.object_id inner join tags on tagging.tag_id = tags.tag_id where tagname = '");
+					g_string_append(statement, " select distinct objectname, objects.inode as inode from objects inner join tagging on tagging.inode = objects.inode inner join tags on tagging.tag_id = tags.tag_id where tagname = '");
 				}
 				g_string_append(statement, tag->tag);
 				g_string_append(statement, "'");	
@@ -680,7 +669,7 @@ file_handle_t *tagsistant_filetree_new(ptree_or_node_t *query, const char *path)
 	GString *view_statement = g_string_new("");
 	query = query_dup;
 	while (query != NULL) {
-		g_string_append_printf(view_statement, "select objectname, object_id from tv%.16" PRIxPTR, (uintptr_t) query);
+		g_string_append_printf(view_statement, "select objectname, inode from tv%.16" PRIxPTR, (uintptr_t) query);
 		
 		if (query->next != NULL) g_string_append(view_statement, " union ");
 		

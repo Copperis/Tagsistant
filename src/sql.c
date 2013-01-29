@@ -195,20 +195,20 @@ int tagsistant_db_connection()
 	switch (tagsistant.sql_database_driver) {
 		case TAGSISTANT_DBI_SQLITE_BACKEND:
 			tagsistant_query("create table if not exists tags (tag_id integer primary key autoincrement not null, tagname varchar(65) unique not null);", NULL, NULL);
-			tagsistant_query("create table if not exists objects (object_id integer not null primary key autoincrement, objectname text(255) not null, path text(1024) unique not null default \"-\", last_autotag timestamp not null default 0);", NULL, NULL);
-			tagsistant_query("create table if not exists tagging (object_id integer not null, tag_id integer not null, constraint Tagging_key unique (object_id, tag_id));", NULL, NULL);
+			tagsistant_query("create table if not exists objects (inode integer not null primary key autoincrement, objectname text(255) not null, path text(1024) unique not null default \"-\", last_autotag timestamp not null default 0);", NULL, NULL);
+			tagsistant_query("create table if not exists tagging (inode integer not null, tag_id integer not null, constraint Tagging_key unique (inode, tag_id));", NULL, NULL);
 			tagsistant_query("create table if not exists relations(relation_id integer primary key autoincrement not null, tag1_id integer not null, relation varchar not null, tag2_id integer not null);", NULL, NULL);
-			tagsistant_query("create index if not exists tags_index on tagging (object_id, tag_id);", NULL, NULL);
+			tagsistant_query("create index if not exists tags_index on tagging (inode, tag_id);", NULL, NULL);
 			tagsistant_query("create index if not exists relations_index on relations (tag1_id, tag2_id);", NULL, NULL);
 			tagsistant_query("create index if not exists relations_type_index on relations (relation);", NULL, NULL);
 			break;
 
 		case TAGSISTANT_DBI_MYSQL_BACKEND:
 			tagsistant_query("create table if not exists tags (tag_id integer primary key auto_increment not null, tagname varchar(65) unique not null);", NULL, NULL);
-			tagsistant_query("create table if not exists objects (object_id integer not null primary key auto_increment, objectname varchar(255) not null, path varchar(1000) unique not null default \"-\", last_autotag timestamp not null default 0);", NULL, NULL);
-			tagsistant_query("create table if not exists tagging (object_id integer not null, tag_id integer not null, constraint Tagging_key unique key (object_id, tag_id));", NULL, NULL);
+			tagsistant_query("create table if not exists objects (inode integer not null primary key auto_increment, objectname varchar(255) not null, path varchar(1000) unique not null default \"-\", last_autotag timestamp not null default 0);", NULL, NULL);
+			tagsistant_query("create table if not exists tagging (inode integer not null, tag_id integer not null, constraint Tagging_key unique key (inode, tag_id));", NULL, NULL);
 			tagsistant_query("create table if not exists relations(relation_id integer primary key auto_increment not null, tag1_id integer not null, relation varchar(32) not null, tag2_id integer not null);", NULL, NULL);
-			tagsistant_query("create index tags_index on tagging (object_id, tag_id);", NULL, NULL);
+			tagsistant_query("create index tags_index on tagging (inode, tag_id);", NULL, NULL);
 			tagsistant_query("create index relations_index on relations (tag1_id, tag2_id);", NULL, NULL);
 			tagsistant_query("create index relations_type_index on relations (relation);", NULL, NULL);
 			break;
@@ -414,31 +414,31 @@ void tagsistant_sql_create_tag(const gchar *tagname)
 	tagsistant_query("insert into tags(tagname) values(\"%s\");", NULL, NULL, tagname);
 }
 
-int tagsistant_object_is_tagged(tagsistant_inode object_id)
+int tagsistant_object_is_tagged(tagsistant_inode inode)
 {
 	tagsistant_inode still_exists = 0;
 
 	tagsistant_query(
-		"select object_id from tagging where object_id = %d limit 1", 
-		tagsistant_return_integer, &still_exists, object_id);
+		"select inode from tagging where inode = %d limit 1",
+		tagsistant_return_integer, &still_exists, inode);
 	
 	return((still_exists) ? 1 : 0);
 }
 
-int tagsistant_object_is_tagged_as(tagsistant_inode object_id, tagsistant_inode tag_id)
+int tagsistant_object_is_tagged_as(tagsistant_inode inode, tagsistant_inode tag_id)
 {
 	tagsistant_inode is_tagged = 0;
 
 	tagsistant_query(
-		"select object_id from tagging where object_id = %d and tag_id = %d limit 1", 
-		tagsistant_return_integer, &is_tagged, object_id, tag_id);
+		"select inode from tagging where inode = %d and tag_id = %d limit 1",
+		tagsistant_return_integer, &is_tagged, inode, tag_id);
 	
 	return((is_tagged) ? 1 : 0);
 }
 
-void tagsistant_full_untag_object(tagsistant_inode object_id)
+void tagsistant_full_untag_object(tagsistant_inode inode)
 {
-	tagsistant_query("delete from tagging where object_id = %d", NULL, NULL, object_id);
+	tagsistant_query("delete from tagging where inode = %d", NULL, NULL, inode);
 }
 
 tagsistant_inode tagsistant_sql_get_tag_id(const gchar *tagname)
@@ -461,24 +461,24 @@ void tagsistant_sql_delete_tag(const gchar *tagname)
 	tagsistant_query("delete from relations where tag1_id = \"%d\" or tag2_id = \"%d\";", NULL, NULL, tag_id, tag_id);
 }
 
-void tagsistant_sql_tag_object(const gchar *tagname, tagsistant_inode object_id)
+void tagsistant_sql_tag_object(const gchar *tagname, tagsistant_inode inode)
 {
 	tagsistant_query("insert into tags(tagname) values(\"%s\");", NULL, NULL, tagname);
 
 	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(tagname);
 
-	dbg(LOG_INFO, "Tagging object %d as %s (%d)", object_id, tagname, tag_id);
+	dbg(LOG_INFO, "Tagging object %d as %s (%d)", inode, tagname, tag_id);
 
-	tagsistant_query("insert into tagging(tag_id, object_id) values(\"%d\", \"%d\");", NULL, NULL, tag_id, object_id);
+	tagsistant_query("insert into tagging(tag_id, inode) values(\"%d\", \"%d\");", NULL, NULL, tag_id, inode);
 }
 
-void tagsistant_sql_untag_object(const gchar *tagname, tagsistant_inode object_id)
+void tagsistant_sql_untag_object(const gchar *tagname, tagsistant_inode inode)
 {
 	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(tagname);
 
-	dbg(LOG_INFO, "Untagging object %d from tag %s (%d)", object_id, tagname, tag_id);
+	dbg(LOG_INFO, "Untagging object %d from tag %s (%d)", inode, tagname, tag_id);
 
-	tagsistant_query("delete from tagging where tag_id = \"%d\" and object_id = \"%d\";", NULL, NULL, tag_id, object_id);\
+	tagsistant_query("delete from tagging where tag_id = \"%d\" and inode = \"%d\";", NULL, NULL, tag_id, inode);\
 }
 
 void tagsistant_sql_rename_tag(const gchar *tagname, const gchar *oldtagname)

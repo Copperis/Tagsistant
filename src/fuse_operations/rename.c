@@ -76,9 +76,6 @@ int tagsistant_rename(const char *from, const char *to)
 	// -- object on disk (/archive and complete /tags) --
 	if (QTREE_POINTS_TO_OBJECT(from_qtree)) {
 		if (QTREE_IS_TAGGABLE(from_qtree)) {
-			// 0. strip trailing number (i.e. 283.filename -> filename)
-			tagsistant_querytree_renumber(to_qtree, from_qtree->inode);
-
 			// 1. rename the object
 			tagsistant_query("update objects set objectname = \"%s\" where object_id = %d", NULL, NULL, to_qtree->object_path, from_qtree->inode);
 			tagsistant_query("update objects set path = \"%s\" where object_id = %d", NULL, NULL, to_qtree->full_archive_path, from_qtree->inode);

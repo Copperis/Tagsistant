@@ -23,20 +23,17 @@
 #include <errno.h>
 #include <string.h>
 
-#define _DEBUG_STDERR
-#undef	_DEBUG_SYSLOG
+#undef _DEBUG_STDERR
 
 #ifdef _DEBUG_SYSLOG
 #include <syslog.h>
-#define dbg(facility,string,...) {\
-	if (!tagsistant.quiet) {\
-		if ((strstr(string, ("SQL")) == NULL) || tagsistant.verbose) {\
-			gchar *line = g_strdup_printf(string, ##__VA_ARGS__);\
-			gchar *complete = g_strdup_printf("%s (@%s:%d)", line, __FILE__, __LINE__);\
-			syslog(facility,complete);\
-			g_free(complete);\
-			g_free(line);\
-		}\
+#define dbg(facility, string, ...) {\
+	if (!tagsistant.quiet && (!strstr(string, "SQL") || tagsistant.verbose)) {\
+		gchar *line = g_strdup_printf(string, ##__VA_ARGS__);\
+		gchar *complete = g_strdup_printf("%s (@%s:%d)", line, __FILE__, __LINE__);\
+		syslog(facility, complete);\
+		g_free(complete);\
+		g_free(line);\
 	}\
 }
 #endif
@@ -46,7 +43,7 @@
 #define dbg(facility,string,...) {\
 	fprintf(stderr,"TS> ");\
 	if ((*string != '/') && (*string != '\\')) fprintf(stderr,"| ");\
-	fprintf(stderr,string,## __VA_ARGS__);\
+	fprintf(stderr,string, ##__VA_ARGS__);\
 	fprintf(stderr," (@%s:%d)\n", __FILE__, __LINE__);\
 	if (*string == '\\') fprintf(stderr,"TS> \n");\
 }

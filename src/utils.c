@@ -87,47 +87,6 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream)
 }
 #endif
 
-
-/**
- * remove tagsistant id from a path
- *
- * @param path the path to be purged of the inode
- * @return the purged path
- */
-gchar *tagsistant_inode_strip_from_path(const char *path)
-{
-	gchar *stripped = NULL;
-
-	// split incoming path
-	gchar **elements = g_strsplit_set(path, "/", 256);
-
-	// get the last element
-	int last_index = g_strv_length(elements) - 1;
-
-	// split the last element
-	gchar **last = g_strsplit(elements[last_index], TAGSISTANT_INODE_DELIMITER, 2);
-
-	elements[last_index] = NULL; // TODO: memory leaking here?
-	gchar *directories = g_strjoinv("/", elements);
-	g_strfreev(elements);
-
-	// if the last element returned an inode and a filename...
-	if ((last[0] != NULL) && (last[1] != NULL)) {
-		if (strlen(directories))
-			stripped = g_strjoin("/", directories, last[1], NULL);
-		else
-			stripped = g_strdup(last[1]);
-	}
-	// else return(the original path)
-	else {
-		stripped = g_strdup(path);
-	}
-
-	g_free(directories);
-	dbg(LOG_INFO, "%s stripped to %s", path, stripped);
-	return(stripped);
-}
-
 /**
  * return(the tagsistant inode contained into a path)
  *
@@ -155,26 +114,6 @@ tagsistant_inode tagsistant_inode_extract_from_path(const char *path)
 	dbg(LOG_INFO, "%s has inode %lu", path, (long unsigned int) inode);
 
 	return(inode);
-}
-
-/**
- * strip the id part of an object name, starting from qtree->object_path field.
- * if you provide a qtree with object_path == "321___document.txt", this function
- * will return("document.txt".)
- *
- * @param qtree the tagsistant_querytree_t
- * @return the purged qtree->object_path
- */
-gchar *tagsistant_inode_strip_from_querytree(tagsistant_querytree_t *qtree)
-{
-//	GStaticMutex mtx = G_STATIC_MUTEX_INIT;
-//	g_static_mutex_lock(&mtx);
-	gchar *stripped = g_regex_replace_literal(tagsistant_inode_strip_from_querytree_regex, qtree->object_path, -1, 0, "", 0, NULL);
-//	g_static_mutex_unlock(&mtx);
-
-	dbg(LOG_INFO, "%s stripped to %s", stripped, qtree->object_path);
-
-	return(stripped);
 }
 
 /**
@@ -250,7 +189,7 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree_t *qtree, int *t
 	//    and use its inode, otherwise create a new one
 	if (!force_create) {
 		tagsistant_query(
-			"select object_id from objects where objectname = \"%s\" and path = \"%s\" limit 1",
+			"select inode from objects where objectname = \"%s\" and path = \"%s\" limit 1",
 			tagsistant_return_integer, &inode,
 			qtree->object_path, qtree->archive_path);
 	}
@@ -263,7 +202,7 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree_t *qtree, int *t
 
 		/*
 		tagsistant_query(
-			"select max(object_id) from objects where objectname = \"%s\" and path = \"-\"",
+			"select max(inode) from objects where objectname = \"%s\" and path = \"-\"",
 			tagsistant_return_integer, &inode,
 			qtree->object_path);
 		*/
@@ -278,7 +217,7 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree_t *qtree, int *t
 		return(-1);
 	}
 
-	// 2. adjust archive_path and full_archive_path with leading object_id
+	// 2. adjust archive_path and full_archive_path with leading inode
 	g_free(qtree->archive_path);
 	g_free(qtree->full_archive_path);
 
@@ -288,7 +227,7 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree_t *qtree, int *t
 
 	// 2.bis adjust object_path inside DB
 	tagsistant_query(
-		"update objects set path = \"%s\" where object_id = %d",
+		"update objects set path = \"%s\" where inode = %d",
 		NULL, NULL,
 		qtree->archive_path, inode);
 
