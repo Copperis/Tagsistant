@@ -25,6 +25,8 @@
 GRegex *tagsistant_inode_strip_from_querytree_regex = NULL;
 GRegex *tagsistant_inode_extract_from_querytree_regex = NULL;
 
+GRegex *tagsistant_inode_extract_from_path_regex = NULL;
+
 /**
  * initialize all the utilities
  */
@@ -88,39 +90,36 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream)
 #endif
 
 /**
- * return(the tagsistant inode contained into a path)
+ * return the tagsistant inode contained into a path
  *
  * @param path the path supposed to contain an inode
  * @return the inode, if found
  */
 tagsistant_inode tagsistant_inode_extract_from_path(const char *path)
 {
+	if (!path) return 0;
+
 	tagsistant_inode inode = 0;
+	static gchar pattern[] = "^/(tags/.*/=|archive)/([0-9]+)" TAGSISTANT_INODE_DELIMITER;
 
-	// TODO: get the inode using two regular expressions
-	// the first for the archive/<inode>___objectpath case
-	// the second for the tasg/..../=/<inode>___objectpath case
-	// or just one combining regex
-	//
-	// the following code just sucks!
+	if (!tagsistant_inode_extract_from_path_regex)
+		tagsistant_inode_extract_from_path_regex = g_regex_new(pattern, 0, 0, NULL);
 
-	// split incoming path
-	gchar **elements = g_strsplit_set(path, "/", 256);
+	GMatchInfo *match_info;
+	if (g_regex_match(tagsistant_inode_extract_from_path_regex, path, 0, &match_info)) {
+		gchar *inode_text = g_match_info_fetch(match_info, 2);
+		inode = strtol(inode_text, NULL, 10);
+		g_free(inode_text);
+	}
+	g_match_info_free(match_info);
 
-	// get the last element
-	int last_index = g_strv_length(elements) - 1;
+	if (inode) {
+		dbg(LOG_INFO, "%s has inode %lu", path, (long unsigned int) inode);
+	} else {
+		dbg(LOG_INFO, "%s does not contain and inode", path);
+	}
 
-	// split the last element
-	gchar **last = g_strsplit(elements[last_index], TAGSISTANT_INODE_DELIMITER, 2);
-	g_strfreev(elements);
-
-	// if the last element returned an inode and a filename...
-	if (last[0] != NULL)
-		inode = strtol(last[0], NULL, 10);
-
-	dbg(LOG_INFO, "%s has inode %lu", path, (long unsigned int) inode);
-
-	return(inode);
+	return inode;
 }
 
 /**

@@ -450,7 +450,7 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 	}
 
 	/* get the id of the object referred by first element */
-	if ((!qtree->inode) && *token_ptr) qtree->inode = tagsistant_inode_extract_from_path(*token_ptr);
+	if (!qtree->inode) qtree->inode = tagsistant_inode_extract_from_path(path);
 
 RETURN:
 	g_strfreev(splitted);
