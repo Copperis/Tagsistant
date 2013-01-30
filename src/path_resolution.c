@@ -157,10 +157,10 @@ void tagsistant_querytree_destroy(tagsistant_querytree_t *qtree)
 	freenull(qtree);
 }
 
-tagsistant_querytree_t* tagsistant_querytree_parse_tags (
+int tagsistant_querytree_parse_tags (
 		tagsistant_querytree_t* qtree,
 		const char *path,
-		gchar **token_ptr,
+		gchar ***token_ptr,
 		int do_reasoning)
 {
 	unsigned int orcount = 0, andcount = 0;
@@ -170,30 +170,30 @@ tagsistant_querytree_t* tagsistant_querytree_parse_tags (
 	if (qtree->tree == NULL) {
 		tagsistant_querytree_destroy(qtree);
 		dbg(LOG_ERR, "Error allocating memory");
-		return(NULL);
+		return 0;
 	}
 
 	ptree_and_node_t *last_and = NULL;
 
 	// state if the query is complete or not
 	qtree->complete = (NULL == g_strstr_len(path, strlen(path), "=")) ? 0 : 1;
-	// dbg(LOG_INFO, "Path %s is %scomplete", path, qtree->complete ? "" : "not ");
+	dbg(LOG_INFO, "Path %s is %scomplete", path, qtree->complete ? "" : "not ");
 
 	// by default a query is valid until something wrong happens while parsing it
 	qtree->valid = 1;
 
 	// begin parsing
-	while ((NULL != *token_ptr) && ('=' != **token_ptr)) {
-		if (strlen(*token_ptr) == 0) {
+	while ((NULL != **token_ptr) && ('=' != ***token_ptr)) {
+		if (strlen(**token_ptr) == 0) {
 			/* ignore zero length tokens */
-		} else if (strcmp(*token_ptr, "+") == 0) {
+		} else if (strcmp(**token_ptr, "+") == 0) {
 			/* open new entry in OR level */
 			orcount++;
 			andcount = 0;
 			ptree_or_node_t *new_or = g_new0(ptree_or_node_t, 1);
 			if (new_or == NULL) {
 				dbg(LOG_ERR, "Error allocating memory");
-				return NULL;
+				return 0;
 			}
 			last_or->next = new_or;
 			last_or = new_or;
@@ -204,9 +204,9 @@ tagsistant_querytree_t* tagsistant_querytree_parse_tags (
 			ptree_and_node_t *and = g_new0(ptree_and_node_t, 1);
 			if (and == NULL) {
 				dbg(LOG_ERR, "Error allocating memory");
-				return NULL;
+				return 0;
 			}
-			and->tag = g_strdup(*token_ptr);
+			and->tag = g_strdup(**token_ptr);
 			// dbg(LOG_INFO, "New AND node allocated on tag %s...", and->tag);
 			and->next = NULL;
 			and->related = NULL;
@@ -217,14 +217,13 @@ tagsistant_querytree_t* tagsistant_querytree_parse_tags (
 			}
 			last_and = and;
 
-			// dbg(LOG_INFO, "Query tree: %.2d.%.2d %s", orcount, andcount, *token_ptr);
+			dbg(LOG_INFO, "Query tree: %.2d.%.2d %s", orcount, andcount, **token_ptr);
 			andcount++;
 
 			/* search related tags */
 			if (do_reasoning) {
-	#if VERBOSE_DEBUG
 				dbg(LOG_INFO, "Searching for other tags related to %s", and->tag);
-	#endif
+
 				reasoning_t *reasoning = g_malloc(sizeof(reasoning_t));
 				if (reasoning != NULL) {
 					reasoning->start_node = and;
@@ -238,43 +237,46 @@ tagsistant_querytree_t* tagsistant_querytree_parse_tags (
 
 		// save last tag found
 		freenull(qtree->last_tag);
-		qtree->last_tag = g_strdup(*token_ptr);
+		qtree->last_tag = g_strdup(**token_ptr);
 
-		token_ptr++;
+		(*token_ptr)++;
 	}
-	return qtree;
+
+	(*token_ptr)++;
+	return 1;
 }
 
-tagsistant_querytree_t* tagsistant_querytree_parse_relations (
+int tagsistant_querytree_parse_relations (
 	tagsistant_querytree_t* qtree,
-	gchar** token_ptr)
+	gchar ***token_ptr)
 {
 	/* parse a relations query */
-	if (NULL != *token_ptr) {
-		qtree->first_tag = g_strdup(*token_ptr);
+	if (NULL != **token_ptr) {
+		qtree->first_tag = g_strdup(**token_ptr);
 		token_ptr++;
-		if (NULL != *token_ptr) {
-			qtree->relation = g_strdup(*token_ptr);
+		if (NULL != **token_ptr) {
+			qtree->relation = g_strdup(**token_ptr);
 			token_ptr++;
-			if (NULL != *token_ptr) {
-				qtree->second_tag = g_strdup(*token_ptr);
+			if (NULL != **token_ptr) {
+				qtree->second_tag = g_strdup(**token_ptr);
 				qtree->complete = 1;
 			}
 		}
 	}
 
-	return qtree;
+	return 1;
 }
 
-tagsistant_querytree_t* tagsistant_querytree_parse_stats (
+int tagsistant_querytree_parse_stats (
 		tagsistant_querytree_t* qtree,
-		gchar** token_ptr)
+		gchar ***token_ptr)
 {
-	if (NULL != *token_ptr) {
-		qtree->stats_path = g_strdup(*token_ptr);
+	if (NULL != **token_ptr) {
+		qtree->stats_path = g_strdup(**token_ptr);
 		qtree->complete = 1;
 	}
-	return qtree;
+
+	return 1;
 }
 
 tagsistant_query_type_t tagsistant_querytree_guess_type(gchar **token_ptr)
@@ -310,86 +312,85 @@ tagsistant_query_type_t tagsistant_querytree_guess_type(gchar **token_ptr)
  */
 tagsistant_querytree_t *tagsistant_querytree_new(const char *path, int do_reasoning)
 {
-	dbg(LOG_INFO, "Building querytree for %s", path);
-
-	//
-	// allocate the querytree structure
-	//
+	/* allocate the querytree structure */
 	tagsistant_querytree_t *qtree = g_new0(tagsistant_querytree_t, 1);
 	if (qtree == NULL) {
 		dbg(LOG_ERR, "Error allocating memory");
 		return(NULL);
 	}
 
-	// duplicate the path inside the struct
+	/* duplicate the path inside the struct */
 	qtree->full_path = g_strdup(path);
 
-	//
-	// split the path
-	//
+	dbg(LOG_INFO, "Building querytree for %s", qtree->full_path);
+
+	/* split the path */
 	gchar **splitted = g_strsplit(path, "/", 512); /* split up to 512 tokens */
 	gchar **token_ptr = splitted + 1; /* first element is always "" since path begins with '/' */
 
-#if VERBOSE_DEBUG
-	gchar **tkp = splitted + 1;
-	while (*tkp != NULL) {
-		dbg(LOG_INFO, " Token: [%s]", *tkp);
-		tkp++;
-	}
-#endif
-
-	//
-	// guess the type of the query by first token
-	//
+	/* guess the type of the query by first token */
 	qtree->type = tagsistant_querytree_guess_type(token_ptr);
 	if (QTYPE_MALFORMED == qtree->type) {
 		dbg(LOG_ERR, "Non existent path (%s)", path);
 		goto RETURN;
 	}
 
-	//
-	// then skip first token (used for guessing query type
-	//
+	/* then skip first token (used for guessing query type) */
 	token_ptr++;
 
-	//
-	// do selective parsing of the query
-	//
+	/* do selective parsing of the query */
 	if (QTREE_IS_TAGS(qtree)) {
-		qtree = tagsistant_querytree_parse_tags(qtree, path, token_ptr, do_reasoning);
-		if (NULL == qtree) goto RETURN;
+		if (!tagsistant_querytree_parse_tags(qtree, path, &token_ptr, do_reasoning))
+			goto RETURN;
 	} else if (QTREE_IS_RELATIONS(qtree)) {
-		qtree = tagsistant_querytree_parse_relations(qtree, token_ptr);
+		tagsistant_querytree_parse_relations(qtree, &token_ptr);
 	} else if (QTREE_IS_STATS(qtree)) {
-		qtree = tagsistant_querytree_parse_stats(qtree, token_ptr);
+		tagsistant_querytree_parse_stats(qtree, &token_ptr);
 	}
 
 	/* remaining part is the object pathname */
-	if (QTREE_IS_ARCHIVE(qtree) || (QTREE_IS_TAGS(qtree) && qtree->complete)) {
-		if (QTREE_IS_TAGS(qtree) && qtree->complete) token_ptr++; // skip '='
+	if (QTREE_IS_ARCHIVE(qtree)) {
+		qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
+		qtree->archive_path = g_strdup(qtree->object_path);
+		qtree->full_archive_path = g_strdup_printf("%s%s", tagsistant.archive, qtree->archive_path);
 
-		if (*token_ptr == NULL) {
-			// set a null path
-			tagsistant_qtree_set_object_path(qtree, "");
-		} else {
-			// set the object path and compute the relative paths
-			qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
-			tagsistant_querytree_rebuild_paths(qtree);
+	} else if (QTREE_IS_TAGS(qtree) && qtree->complete) {
+		// get the object path name joining the remaining part of tokens
+		qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
 
-			// an object_path is_taggable if it does not contains "/"
-			// as in "23892___mydocument.odt" and not in "8346___myfolder/photo.jpg"
-			if (
-				(strlen(qtree->object_path) > 0) &&
-				(g_strstr_len(qtree->object_path, -1, G_DIR_SEPARATOR_S) == NULL)
-			) {
-				qtree->is_taggable = 1;
+		// look for an inode in full path
+		qtree->inode = tagsistant_inode_extract_from_path(qtree->full_path);
+
+		// if no inode is found, try to guess it resolving the querytree
+		if (!qtree->inode) {
+			ptree_or_node_t *or_tmp = qtree->tree;
+			while (or_tmp && !qtree->inode) {
+				tagsistant_query(
+					"select objects.inode from objects "
+						"join tagging on objects.inode = tagging.inode "
+						"join tags on tagging.tag_id = tags.tag_id "
+						"where tags.tagname = \"%s\" and objects.objectname = \"%s\"",
+					tagsistant_return_integer,
+					qtree->inode,
+					or_tmp->and_set->tag,
+					*token_ptr
+				);
+
+				or_tmp = or_tmp->next;
 			}
 		}
 
-		dbg(LOG_INFO, "object_path = %s", qtree->object_path);
-		dbg(LOG_INFO, "archive_path = %s", qtree->archive_path);
-		dbg(LOG_INFO, "full_archive_path = %s", qtree->full_archive_path);
+		// if an inode has been found, form the archive_path and full_archive_path
+		if (qtree->inode) {
+			qtree->archive_path = g_strdup_printf("%d%s%s", qtree->inode, TAGSISTANT_INODE_DELIMITER, qtree->object_path);
+			qtree->full_archive_path = g_strdup_printf("%s%s", tagsistant.archive, qtree->archive_path);
+		}
 	}
+
+	dbg(LOG_INFO, "inode = %d", qtree->inode);
+	dbg(LOG_INFO, "object_path = \"%s\"", qtree->object_path);
+	dbg(LOG_INFO, "archive_path = \"%s\"", qtree->archive_path);
+	dbg(LOG_INFO, "full_archive_path = \"%s\"", qtree->full_archive_path);
 
 	/*
 	 * guess if query points to an object on disk or not
@@ -397,7 +398,7 @@ tagsistant_querytree_t *tagsistant_querytree_new(const char *path, int do_reason
 	 * and both query is /archive or query is a complete /tags (including = sign)
 	 */
 	if (
-		(QTREE_IS_ARCHIVE(qtree) || (QTREE_IS_TAGS(qtree) && qtree->complete))
+		(QTREE_IS_ARCHIVE(qtree) || (QTREE_IS_TAGS(qtree) && qtree->complete && qtree->object_path))
 		&&
 		(strlen(qtree->object_path) > 0)
 	) {
@@ -420,29 +421,7 @@ tagsistant_querytree_t *tagsistant_querytree_new(const char *path, int do_reason
 
 RETURN:
 	g_strfreev(splitted);
-#if VERBOSE_DEBUG
-	dbg(LOG_INFO, "Returning from tagsistant_build_querytree...");
-#endif
 	return(qtree);
-}
-
-/**
- * Service routine that rebuilds tagsistant_querytree_t paths after
- * some internal field has changed
- *
- * @param qtree the tagsistant_querytree_t to be rebuilt
- */
-void tagsistant_querytree_rebuild_paths(tagsistant_querytree_t *qtree)
-{
-	if (!qtree->inode) qtree->inode = tagsistant_inode_extract_from_path(qtree->full_path);
-
-	// free the paths
-	if (qtree->archive_path) g_free(qtree->archive_path);
-	if (qtree->full_archive_path) g_free(qtree->full_archive_path);
-
-	// prepare new paths
-	qtree->archive_path = g_strdup_printf("%d%s%s", qtree->inode, TAGSISTANT_INODE_DELIMITER, qtree->object_path);
-	qtree->full_archive_path = g_strdup_printf("%s%s", tagsistant.archive, qtree->archive_path);
 }
 
 /**
@@ -465,6 +444,31 @@ gchar *tagsistant_querytree_type(tagsistant_querytree_t *qtree)
 	}
 
 	return(tagsistant_querytree_types[qtree->type]);
+}
+
+void tagsistant_querytree_set_object_path(tagsistant_querytree_t *qtree, char *path)
+{
+	/* free previous object path */
+	if (qtree->object_path) g_free(qtree->object_path);
+
+	/* set new object path */
+	qtree->object_path = g_strdup(path);
+
+	/* look for an inode */
+	if (!qtree->inode)
+		qtree->inode = tagsistant_inode_extract_from_path(qtree->full_path);
+
+	/* free other paths */
+	if (qtree->archive_path) g_free(qtree->archive_path);
+	if (qtree->full_archive_path) g_free(qtree->full_archive_path);
+
+	/* prepare new paths */
+	if (qtree->inode)
+		qtree->archive_path = g_strdup_printf("%d%s%s", qtree->inode, TAGSISTANT_INODE_DELIMITER, qtree->object_path);
+	else
+		qtree->archive_path = g_strdup("");
+
+	qtree->full_archive_path = g_strdup_printf("%s%s", tagsistant.archive, qtree->archive_path);
 }
 
 /* a struct used by add_to_filetree function */

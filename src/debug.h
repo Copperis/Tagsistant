@@ -29,10 +29,8 @@
 #include <syslog.h>
 #define dbg(facility, string, ...) {\
 	if (!tagsistant.quiet && (!strstr(string, "SQL") || tagsistant.verbose)) {\
-		gchar *line = g_strdup_printf(string, ##__VA_ARGS__);\
-		gchar *complete = g_strdup_printf("%s (@%s:%d)", line, __FILE__, __LINE__);\
-		syslog(facility, complete);\
-		g_free(complete);\
+		gchar *line = g_strdup_printf(string " [@%s:%d]", ##__VA_ARGS__, __FILE__, __LINE__);\
+		syslog(facility, line);\
 		g_free(line);\
 	}\
 }
@@ -44,7 +42,7 @@
 	fprintf(stderr,"TS> ");\
 	if ((*string != '/') && (*string != '\\')) fprintf(stderr,"| ");\
 	fprintf(stderr,string, ##__VA_ARGS__);\
-	fprintf(stderr," (@%s:%d)\n", __FILE__, __LINE__);\
+	fprintf(stderr," [@%s:%d]\n", __FILE__, __LINE__);\
 	if (*string == '\\') fprintf(stderr,"TS> \n");\
 }
 #endif

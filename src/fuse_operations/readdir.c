@@ -71,11 +71,13 @@ int tagsistant_readdir_on_object(
 	DIR *dp = opendir(qtree->full_archive_path);
 	if (NULL == dp) {
 		*tagsistant_errno = errno;
+		dbg(LOG_ERR, "Unable to readdir(%s)", qtree->full_archive_path);
 		return -1;
 	}
 
 	struct dirent *de;
 	while ((de = readdir(dp)) != NULL) {
+		// dbg(LOG_INFO, "Adding entry %s", de->d_name);
 		struct stat st;
 		memset(&st, 0, sizeof(st));
 		st.st_ino = de->d_ino;
@@ -252,7 +254,7 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 		res = -1;
 		tagsistant_errno = ENOENT;
 
-	} else if (QTREE_POINTS_TO_OBJECT(qtree) || QTREE_IS_ARCHIVE(qtree)) {
+	} else if ((QTREE_POINTS_TO_OBJECT(qtree) && qtree->full_archive_path) || QTREE_IS_ARCHIVE(qtree)) {
 		dbg(LOG_INFO, "readdir on object %s", path);
 		res = tagsistant_readdir_on_object(qtree, path, buf, filler, &tagsistant_errno);
 
@@ -276,7 +278,7 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 		dbg(LOG_INFO, "readdir on relations");
 		res = tagsistant_readdir_on_relations(qtree, path, buf, filler, &tagsistant_errno);
 
-	} else if (QTREE_IS_STATS(qtree)) {
+	} else if (QTREE_IS_STATS(qtree) || QTREE_IS_RETAG(qtree)) {
 		dbg(LOG_INFO, "readdir on relations");
 		res = tagsistant_readdir_on_stats(qtree, path, buf, filler, &tagsistant_errno);
 

@@ -69,6 +69,7 @@ typedef enum {
 #define QTREE_IS_ARCHIVE(qtree) (QTYPE_ARCHIVE == qtree->type)
 #define QTREE_IS_RELATIONS(qtree) (QTYPE_RELATIONS == qtree->type)
 #define QTREE_IS_STATS(qtree) (QTYPE_STATS == qtree->type)
+#define QTREE_IS_RETAG(qtree) (QTYPE_RETAG == qtree->type)
 
 /*
  * if a query points to an object on disk this returns true;
@@ -224,20 +225,14 @@ typedef struct reasoning {
 	}\
 }
 
-//
-#define tagsistant_qtree_set_object_path(qtree, path) {\
-	if (qtree->object_path) g_free(qtree->object_path);\
-	qtree->object_path = g_strdup(path);\
-	tagsistant_querytree_rebuild_paths(qtree);\
-}
-
 // querytree functions
-extern void 					tagsistant_querytree_renumber(tagsistant_querytree_t *qtree, tagsistant_inode inode);
-extern void 					tagsistant_querytree_rebuild_paths(tagsistant_querytree_t *qtree);
-extern tagsistant_inode			tagsistant_inode_extract_from_path(const char *path);
-extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_querytree_t *qtree);
 extern tagsistant_querytree_t *	tagsistant_querytree_new(const char *path, int do_reasoning);
 extern void 					tagsistant_querytree_destroy(tagsistant_querytree_t *qtree);
+
+extern void						tagsistant_querytree_set_object_path(tagsistant_querytree_t *qtree, char *path);
+
+extern tagsistant_inode			tagsistant_inode_extract_from_path(const char *path);
+extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_querytree_t *qtree);
 
 // filetree functions
 extern file_handle_t *			tagsistant_filetree_new(ptree_or_node_t *query);

@@ -69,7 +69,7 @@ int tagsistant_symlink(const char *from, const char *to)
 	from_qtree->is_external = (from == _from) ? 1 : 0;
 
 	if (from_qtree->object_path)
-		tagsistant_qtree_set_object_path(to_qtree, from_qtree->object_path);
+		tagsistant_querytree_set_object_path(to_qtree, from_qtree->object_path);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(to_qtree)) {
@@ -83,7 +83,7 @@ int tagsistant_symlink(const char *from, const char *to)
 		// if object_path is null, borrow it from original path
 		if (strlen(to_qtree->object_path) == 0) {
 			dbg(LOG_INFO, "Getting object path from %s", from);
-			tagsistant_qtree_set_object_path(to_qtree, g_path_get_basename(from));
+			tagsistant_querytree_set_object_path(to_qtree, g_path_get_basename(from));
 		}
 
 		// if qtree is internal, just re-tag it, taking the tags from to_qtree but

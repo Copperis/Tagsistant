@@ -77,7 +77,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	} else
 	
 	// -- object on disk --
-	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+	if (QTREE_POINTS_TO_OBJECT(qtree) && qtree->full_archive_path) {
 		if (!tagsistant_check_tagging_consistency(qtree)) {
 			res = -1;
 			tagsistant_errno = ENOENT;
