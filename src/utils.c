@@ -97,6 +97,13 @@ tagsistant_inode tagsistant_inode_extract_from_path(const char *path)
 {
 	tagsistant_inode inode = 0;
 
+	// TODO: get the inode using two regular expressions
+	// the first for the archive/<inode>___objectpath case
+	// the second for the tasg/..../=/<inode>___objectpath case
+	// or just one combining regex
+	//
+	// the following code just sucks!
+
 	// split incoming path
 	gchar **elements = g_strsplit_set(path, "/", 256);
 
@@ -122,7 +129,7 @@ tagsistant_inode tagsistant_inode_extract_from_path(const char *path)
  * @param qtree the tagsistant_querytree_t holding the inode
  * @return the inode, if found
  */
-tagsistant_inode tagsistant_inode_extract_from_querytree(tagsistant_querytree_t *qtree)
+tagsistant_inode tagsistant_inode_extract_from_querytree(tagsistant_querytree *qtree)
 {
 //	GStaticMutex mtx = G_STATIC_MUTEX_INIT;
 //	g_static_mutex_lock(&mtx);
@@ -179,7 +186,7 @@ void tagsistant_show_config()
  * @param tagsistant_errno error_reporting variable
  * @param force_create boolean: if true, creation is forced
  */
-int tagsistant_inner_create_and_tag_object(tagsistant_querytree_t *qtree, int *tagsistant_errno, int force_create)
+int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tagsistant_errno, int force_create)
 {
 	tagsistant_inode inode = 0;
 

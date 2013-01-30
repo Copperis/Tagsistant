@@ -52,7 +52,7 @@ int tagsistant_plugin_init()
 }
 
 /* exported processor function */
-int tagsistant_processor(const tagsistant_querytree_t *qtree)
+int tagsistant_processor(const tagsistant_querytree *qtree)
 {
 	/* default tagging */
 	tagsistant_sql_tag_object("document", qtree->inode);

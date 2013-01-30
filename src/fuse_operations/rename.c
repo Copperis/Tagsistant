@@ -30,7 +30,7 @@ int tagsistant_rename(const char *from, const char *to)
 {
     int res = 0, tagsistant_errno = 0;
 	gchar *rename_path = NULL;
-	tagsistant_querytree_t *from_qtree = NULL, *to_qtree = NULL;
+	tagsistant_querytree *from_qtree = NULL, *to_qtree = NULL;
 
 	TAGSISTANT_START("/ RENAME %s as %s", from, to);
 

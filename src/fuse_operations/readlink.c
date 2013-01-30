@@ -35,7 +35,7 @@ int tagsistant_readlink(const char *path, char *buf, size_t size)
 	TAGSISTANT_START("/ READLINK on %s", path);
 
 	// build querytree
-	tagsistant_querytree_t *qtree = tagsistant_querytree_new(path, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {

@@ -35,7 +35,7 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 
 	TAGSISTANT_START("/ READ on %s [size: %lu offset: %lu]", path, (long unsigned int) size, (long unsigned int) offset);
 
-	tagsistant_querytree_t *qtree = tagsistant_querytree_new(path, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {

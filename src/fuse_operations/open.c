@@ -29,7 +29,7 @@
  * @return(open() return value)
  * @todo Should it perform permissions checking???
  */
-int tagsistant_internal_open(tagsistant_querytree_t *qtree, int flags, int *_errno)
+int tagsistant_internal_open(tagsistant_querytree *qtree, int flags, int *_errno)
 {
 	// first check on plain path
 	int res = open(qtree->full_archive_path, flags);
@@ -62,7 +62,7 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 	gchar *open_path = NULL;
 
 	// build querytree
-	tagsistant_querytree_t *qtree = tagsistant_querytree_new(path, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {

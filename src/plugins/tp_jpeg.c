@@ -41,7 +41,7 @@ int tagsistant_plugin_init()
 }
 
 /* exported processor function */
-int tagsistant_processor(const tagsistant_querytree_t *qtree)
+int tagsistant_processor(const tagsistant_querytree *qtree)
 {
 	ExifData *ed = NULL;
 	ExifMnoteData *mn = NULL;

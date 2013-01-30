@@ -32,7 +32,7 @@ typedef struct ptree_and_node {
 
 	/** next AND token */
 	struct ptree_and_node *next;
-} ptree_and_node_t;
+} ptree_and_node;
 
 /**
  * define an OR section in a query path
@@ -43,7 +43,7 @@ typedef struct ptree_or_node {
 
 	/** the list of AND tokens */
 	struct ptree_and_node *and_set;
-} ptree_or_node_t;
+} ptree_or_node;
 
 /*
  * depeding on relative path, a query can be one in the following:
@@ -57,7 +57,7 @@ typedef enum {
 	QTYPE_RELATIONS,	// path that's a relation between two or more tags, begins with /relations/
 	QTYPE_STATS,		// path that's a special query for internal status, begins with /stats/
 	QTYPE_TOTAL
-} tagsistant_query_type_t;
+} tagsistant_query_type;
 
 /*
  * to ease coding, there are some macros to check
@@ -117,7 +117,7 @@ typedef struct querytree {
 	gchar *full_path;
 
 	/** the query tree */
-	ptree_or_node_t *tree;
+	ptree_or_node *tree;
 
 	/** the path of the object, if provided */
 	/** i.e. object/path.txt */
@@ -132,15 +132,16 @@ typedef struct querytree {
 	gchar *full_archive_path;
 
 	/** the query points to an object on disk? */
+	/** true if its an archive/ query or a complete tags/ query */
 	int points_to_object;
 
-	/** the object path pointed to is taggable (one element path) */
+	/** the object path pointed to is taggable? (one element path) */
 	int is_taggable;
 
 	/** the object is external to tagsistant mountpoint */
 	int is_external;
 
-	/** the ID of the object, if directly managed by tagsistant */
+	/** the inode of the object, if directly managed by tagsistant */
 	tagsistant_inode inode;
 
 	/** last tag found while parsing a /tags query */
@@ -149,49 +150,48 @@ typedef struct querytree {
 	/** the query is valid */
 	int valid;
 
-	/** the query is complete */
+	/** the tags/ query is complete */
 	int complete;
 
 	/** which kind of path is this? */
-	/** can be QTYPE_MALFORMED, QTYPE_ROOT, QTYPE_TAGS, QTYPE_ARCHIVE, QTYPE_RELATIONS, QTYPE_STATS */
+	/** see tagsistant_query_type */
 	int type;
 
-	/** the first tag in a relation */
+	/** the first tag in a relations/ query */
 	gchar *first_tag;
 
-	/** the second tag in a relation */
+	/** the second tag in a relations/ query */
 	gchar *second_tag;
 
-	/** the relation */
+	/** the relation in a relations/ query */
 	gchar *relation;
 
-	/** the stats path (used for status query in /stat/ paths */
+	/** the path in a stats/ query */
 	gchar *stats_path;
-} tagsistant_querytree_t;
+} tagsistant_querytree;
 
 /**
  * used in linked list of returned results
  *
  * Alessandro AkiRoss Re reported a conflict with the structure
- * file_handle in /usr/include/bits/fcntl.h on Fedora 15; making
- * the struct anonymous.
+ * file_handle in /usr/include/bits/fcntl.h on Fedora 15
  */
-typedef struct file_handle_struct {
+typedef struct tagsistant_file_handle {
 	/** filename pointed by this structure */
 	char *name;
 
 	/** next element in results */
-	struct file_handle_struct *next;
-} file_handle_t;
+	struct tagsistant_file_handle *next;
+} tagsistant_file_handle;
 
 /**
  * reasoning structure to trace reasoning process
  */
-typedef struct reasoning {
-	ptree_and_node_t *start_node;
-	ptree_and_node_t *actual_node;
+typedef struct {
+	ptree_and_node *start_node;
+	ptree_and_node *actual_node;
 	int added_tags;
-} reasoning_t;
+} tagsistant_reasoning;
 
 /**
  * evaluates true if string "relation" matches at least
@@ -199,11 +199,10 @@ typedef struct reasoning {
  */
 #define IS_VALID_RELATION(relation) ((g_strcmp0(relation, "is_equivalent")) == 0 || (g_strcmp0(relation, "includes")))
 
-// TODO change this macro into a function
 /**
  * allows for applying a function to all the ptree_and_node_t nodes of
  * a tagstistant_querytree_t structure. the function applied must be declared as:
- *   void function(ptree_and_node_t *node, ...)
+ *   void function(ptree_and_node *node, ...)
  * while can be of course provided with fixed length argument list
  *
  * @param qtree the tagsistant_querytree_t structure to traverse
@@ -212,9 +211,9 @@ typedef struct reasoning {
 #define tagsistant_traverse_querytree(qtree, funcpointer, ...) {\
 	dbg(LOG_INFO, "Traversing querytree...");\
 	if (NULL != qtree) {\
-		ptree_or_node_t *ptx = qtree->tree;\
+		ptree_or_node *ptx = qtree->tree;\
 		while (NULL != ptx) {\
-			ptree_and_node_t *andptx = ptx->and_set;\
+			ptree_and_node *andptx = ptx->and_set;\
 			while (NULL != andptx) {\
 				funcpointer(andptx->tag, ##__VA_ARGS__);\
 				dbg(LOG_INFO, "Applying %s(%s,...)", #funcpointer, andptx->tag);\
@@ -226,15 +225,15 @@ typedef struct reasoning {
 }
 
 // querytree functions
-extern tagsistant_querytree_t *	tagsistant_querytree_new(const char *path, int do_reasoning);
-extern void 					tagsistant_querytree_destroy(tagsistant_querytree_t *qtree);
+extern tagsistant_querytree *	tagsistant_querytree_new(const char *path, int do_reasoning);
+extern void 					tagsistant_querytree_destroy(tagsistant_querytree *qtree);
 
-extern void						tagsistant_querytree_set_object_path(tagsistant_querytree_t *qtree, char *path);
+extern void						tagsistant_querytree_set_object_path(tagsistant_querytree *qtree, char *path);
 
 extern tagsistant_inode			tagsistant_inode_extract_from_path(const char *path);
-extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_querytree_t *qtree);
+extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_querytree *qtree);
 
 // filetree functions
-extern file_handle_t *			tagsistant_filetree_new(ptree_or_node_t *query);
-extern void 					tagsistant_filetree_destroy(file_handle_t *fh);
+extern tagsistant_file_handle *	tagsistant_filetree_new(ptree_or_node *query);
+extern void 					tagsistant_filetree_destroy(tagsistant_file_handle *fh);
 

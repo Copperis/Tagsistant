@@ -50,7 +50,7 @@ typedef struct tagsistant_plugin {
 	 *   by other plugins is allowed) or 2 on successful processing (no further
 	 *   processing required).
 	 */
-	int (*processor)(const tagsistant_querytree_t *qtree);
+	int (*processor)(const tagsistant_querytree *qtree);
 
 	/**
 	 * hook to g_free allocated resources

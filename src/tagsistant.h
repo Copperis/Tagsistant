@@ -194,7 +194,7 @@ extern struct tagsistant tagsistant;
 
 /*** *** *** *** *** *** *** continue cleaning this file from here  *** *** *** *** ***/
 
-extern int tagsistant_process(tagsistant_querytree_t *qtree);
+extern int tagsistant_process(tagsistant_querytree *qtree);
 
 extern tagsistant_inode tagsistant_get_inode(const gchar *path, gchar **purename);
 
@@ -241,13 +241,13 @@ char *tagsistant_real_strdup(const char *orig, char *file, int line);
 }
 
 // returns the type of query described by a tagsistant_querytree_t struct
-extern gchar *	tagsistant_querytree_type(tagsistant_querytree_t *qtree);
+extern gchar *	tagsistant_querytree_type(tagsistant_querytree *qtree);
 
 extern void		tagsistant_show_config();
-extern void		tagsistant_plugin_apply_regex(const tagsistant_querytree_t *qtree, const char *buf, GMutex *m, GRegex *rx);
+extern void		tagsistant_plugin_apply_regex(const tagsistant_querytree *qtree, const char *buf, GMutex *m, GRegex *rx);
 extern int		tagsistant_getattr(const char *path, struct stat *stbuf);
 
-extern int		tagsistant_inner_create_and_tag_object(tagsistant_querytree_t *qtree, int *tagsistant_errno, int force_create);
+extern int		tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tagsistant_errno, int force_create);
 
 #define tagsistant_create_and_tag_object(qtree, errno) \
 	tagsistant_inner_create_and_tag_object(qtree, errno, 0); \

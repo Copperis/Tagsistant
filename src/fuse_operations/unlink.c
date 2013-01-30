@@ -33,7 +33,7 @@ int tagsistant_unlink(const char *path)
 	TAGSISTANT_START("/ UNLINK on %s", path);
 
 	// build querytree
-	tagsistant_querytree_t *qtree = tagsistant_querytree_new(path, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {

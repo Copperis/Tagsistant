@@ -100,7 +100,7 @@ BREAK_MIME_SEARCH:
  * \param filename file to be processed (just the name, will be looked up in /archive)
  * \return(zero on fault, one on success)
  */
-int tagsistant_process(tagsistant_querytree_t *qtree)
+int tagsistant_process(tagsistant_querytree *qtree)
 {
 	int res = 0, process_res = 0;
 
@@ -294,7 +294,7 @@ void tagsistant_plugin_unloader()
 	}
 }
 
-void tagsistant_plugin_apply_regex(const tagsistant_querytree_t *qtree, const char *buf, GMutex *m, GRegex *rx)
+void tagsistant_plugin_apply_regex(const tagsistant_querytree *qtree, const char *buf, GMutex *m, GRegex *rx)
 {
 	GMatchInfo *match_info;
 

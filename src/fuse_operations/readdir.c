@@ -26,7 +26,7 @@ struct tagsistant_use_filler_struct {
 	fuse_fill_dir_t filler;			/**< libfuse filler hook to return dir entries */
 	void *buf;						/**< libfuse buffer to hold readdir results */
 	const char *path;				/**< the path that generates the query */
-	tagsistant_querytree_t *qtree;	/**< the querytree that originated the readdir() */
+	tagsistant_querytree *qtree;	/**< the querytree that originated the readdir() */
 };
 
 /**
@@ -45,10 +45,10 @@ static int tagsistant_add_entry_to_dir(void *filler_ptr, dbi_result result)
 		return(0);
 
 	/* check if this tag has been already listed inside the path */
-	ptree_or_node_t *ptx = ufs->qtree->tree;
+	ptree_or_node *ptx = ufs->qtree->tree;
 	while (NULL != ptx->next) ptx = ptx->next; // last OR section
 
-	ptree_and_node_t *and_t = ptx->and_set;
+	ptree_and_node *and_t = ptx->and_set;
 	while (NULL != and_t) {
 		if (g_strcmp0(and_t->tag, dir) == 0) {
 			return(0);
@@ -60,7 +60,7 @@ static int tagsistant_add_entry_to_dir(void *filler_ptr, dbi_result result)
 }
 
 int tagsistant_readdir_on_object(
-		tagsistant_querytree_t *qtree,
+		tagsistant_querytree *qtree,
 		const char *path,
 		void *buf,
 		fuse_fill_dir_t filler,
@@ -91,7 +91,7 @@ int tagsistant_readdir_on_object(
 }
 
 int tagsistant_readdir_on_tags(
-		tagsistant_querytree_t *qtree,
+		tagsistant_querytree *qtree,
 		const char *path,
 		void *buf,
 		fuse_fill_dir_t filler,
@@ -103,7 +103,7 @@ int tagsistant_readdir_on_tags(
 
 	if (qtree->complete) {
 		// build the filetree
-		file_handle_t *fh = tagsistant_filetree_new(qtree->tree);
+		tagsistant_file_handle *fh = tagsistant_filetree_new(qtree->tree);
 
 		// check filetree is not null
 		if (NULL == fh) {
@@ -112,7 +112,7 @@ int tagsistant_readdir_on_tags(
 		}
 
 		// save filetree reference to later destroy it
-		file_handle_t *fh_save = fh;
+		tagsistant_file_handle *fh_save = fh;
 
 		// add each filetree node to directory
 		do {
@@ -159,7 +159,7 @@ int tagsistant_readdir_on_tags(
 }
 
 int tagsistant_readdir_on_relations(
-		tagsistant_querytree_t *qtree,
+		tagsistant_querytree *qtree,
 		const char *path,
 		void *buf,
 		fuse_fill_dir_t filler,
@@ -210,7 +210,7 @@ int tagsistant_readdir_on_relations(
 }
 
 int tagsistant_readdir_on_stats(
-		tagsistant_querytree_t *qtree,
+		tagsistant_querytree *qtree,
 		const char *path,
 		void *buf,
 		fuse_fill_dir_t filler,
@@ -246,7 +246,7 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 	TAGSISTANT_START("/ READDIR on %s", path);
 
 	// build querytree
-	tagsistant_querytree_t *qtree = tagsistant_querytree_new(path, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {

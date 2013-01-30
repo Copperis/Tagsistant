@@ -32,7 +32,7 @@
 static int tagsistant_add_reasoned_tag(void *_reasoning, dbi_result result)
 {
 	/* point to a reasoning_t structure */
-	reasoning_t *reasoning = (reasoning_t *) _reasoning;
+	tagsistant_reasoning *reasoning = (tagsistant_reasoning *) _reasoning;
 	assert(reasoning != NULL);
 	assert(reasoning->start_node != NULL);
 	assert(reasoning->actual_node != NULL);
@@ -42,7 +42,7 @@ static int tagsistant_add_reasoned_tag(void *_reasoning, dbi_result result)
 	const char *rel = dbi_result_get_string_idx(result, 2);
 	const char *t2 = dbi_result_get_string_idx(result, 3);
 
-	ptree_and_node_t *and = reasoning->start_node;
+	ptree_and_node *and = reasoning->start_node;
 	while (and->related != NULL) {
 		assert(and->tag != NULL);
 		if (strcmp(and->tag, t1) == 0) {
@@ -53,7 +53,7 @@ static int tagsistant_add_reasoned_tag(void *_reasoning, dbi_result result)
 	}
 
 	/* adding tag */
-	and->related = g_malloc(sizeof(ptree_and_node_t));
+	and->related = g_malloc(sizeof(ptree_and_node));
 	if (and->related == NULL) {
 		dbg(LOG_ERR, "Error allocating memory");
 		return(1);
@@ -81,7 +81,7 @@ static int tagsistant_add_reasoned_tag(void *_reasoning, dbi_result result)
  * @param reasoning the reasoning structure the tagsistant_reasoner should work on
  * @return number of tags added
  */
-int tagsistant_reasoner(reasoning_t *reasoning)
+int tagsistant_reasoner(tagsistant_reasoning *reasoning)
 {
 	assert(reasoning != NULL);
 	assert(reasoning->start_node != NULL);
@@ -113,31 +113,31 @@ int tagsistant_reasoner(reasoning_t *reasoning)
  *
  * @param qtree the tagsistant_querytree_t to be destroyed
  */
-void tagsistant_querytree_destroy(tagsistant_querytree_t *qtree)
+void tagsistant_querytree_destroy(tagsistant_querytree *qtree)
 {
 	if (NULL == qtree) return;
 
 	// destroy the tree
-	ptree_or_node_t *node = qtree->tree;
+	ptree_or_node *node = qtree->tree;
 	while (node != NULL) {
-		ptree_and_node_t *tag = node->and_set;
+		ptree_and_node *tag = node->and_set;
 		while (tag != NULL) {
 			// walk related tags
 			while (tag->related != NULL) {
-				ptree_and_node_t *related = tag->related;
+				ptree_and_node *related = tag->related;
 				tag->related = related->related;
 				freenull(related->tag);
 				freenull(related);
 			}
 
 			// free the ptree_and_node_t node
-			ptree_and_node_t *next = tag->next;
+			ptree_and_node *next = tag->next;
 			freenull(tag->tag);
 			freenull(tag);
 			tag = next;
 		}
 		// free the ptree_or_node_t node
-		ptree_or_node_t *next = node->next;
+		ptree_or_node *next = node->next;
 		freenull(node);
 		node = next;
 	}
@@ -157,8 +157,17 @@ void tagsistant_querytree_destroy(tagsistant_querytree_t *qtree)
 	freenull(qtree);
 }
 
+/**
+ * parse the query portion between tags/ and =/
+ *
+ * @param qtree the querytree object
+ * @param path the parsed path
+ * @param token_ptr a pointer to the tokenized path (three stars because we need to move it across the array even in calling function)
+ * @param do_reasoning boolean flag which activate the reasoner if true
+ * @return 1 on success, 0 on failure or errors
+ */
 int tagsistant_querytree_parse_tags (
-		tagsistant_querytree_t* qtree,
+		tagsistant_querytree *qtree,
 		const char *path,
 		gchar ***token_ptr,
 		int do_reasoning)
@@ -166,14 +175,14 @@ int tagsistant_querytree_parse_tags (
 	unsigned int orcount = 0, andcount = 0;
 
 	// initialize iterator variables on query tree nodes
-	ptree_or_node_t *last_or = qtree->tree = g_new0(ptree_or_node_t, 1);
+	ptree_or_node *last_or = qtree->tree = g_new0(ptree_or_node, 1);
 	if (qtree->tree == NULL) {
 		tagsistant_querytree_destroy(qtree);
 		dbg(LOG_ERR, "Error allocating memory");
 		return 0;
 	}
 
-	ptree_and_node_t *last_and = NULL;
+	ptree_and_node *last_and = NULL;
 
 	// state if the query is complete or not
 	qtree->complete = (NULL == g_strstr_len(path, strlen(path), "=")) ? 0 : 1;
@@ -190,7 +199,7 @@ int tagsistant_querytree_parse_tags (
 			/* open new entry in OR level */
 			orcount++;
 			andcount = 0;
-			ptree_or_node_t *new_or = g_new0(ptree_or_node_t, 1);
+			ptree_or_node *new_or = g_new0(ptree_or_node, 1);
 			if (new_or == NULL) {
 				dbg(LOG_ERR, "Error allocating memory");
 				return 0;
@@ -201,7 +210,7 @@ int tagsistant_querytree_parse_tags (
 			dbg(LOG_INFO, "Allocated new OR node...");
 		} else {
 			/* save next token in new ptree_and_node_t slot */
-			ptree_and_node_t *and = g_new0(ptree_and_node_t, 1);
+			ptree_and_node *and = g_new0(ptree_and_node, 1);
 			if (and == NULL) {
 				dbg(LOG_ERR, "Error allocating memory");
 				return 0;
@@ -224,7 +233,7 @@ int tagsistant_querytree_parse_tags (
 			if (do_reasoning) {
 				dbg(LOG_INFO, "Searching for other tags related to %s", and->tag);
 
-				reasoning_t *reasoning = g_malloc(sizeof(reasoning_t));
+				tagsistant_reasoning *reasoning = g_malloc(sizeof(tagsistant_reasoning));
 				if (reasoning != NULL) {
 					reasoning->start_node = and;
 					reasoning->actual_node = and;
@@ -246,8 +255,15 @@ int tagsistant_querytree_parse_tags (
 	return 1;
 }
 
+/**
+ * parse the query portion after relations/
+ *
+ * @param qtree the querytree object
+ * @param token_ptr a pointer to the tokenized path (three stars because we need to move it across the array even in calling function)
+ * @return 1 on success, 0 on failure or errors
+ */
 int tagsistant_querytree_parse_relations (
-	tagsistant_querytree_t* qtree,
+	tagsistant_querytree* qtree,
 	gchar ***token_ptr)
 {
 	/* parse a relations query */
@@ -267,8 +283,15 @@ int tagsistant_querytree_parse_relations (
 	return 1;
 }
 
+/**
+ * parse the query portion after stats/
+ *
+ * @param qtree the querytree object
+ * @param token_ptr a pointer to the tokenized path (three stars because we need to move it across the array even in calling function)
+ * @return 1 on success, 0 on failure or errors
+ */
 int tagsistant_querytree_parse_stats (
-		tagsistant_querytree_t* qtree,
+		tagsistant_querytree* qtree,
 		gchar ***token_ptr)
 {
 	if (NULL != **token_ptr) {
@@ -279,7 +302,13 @@ int tagsistant_querytree_parse_stats (
 	return 1;
 }
 
-tagsistant_query_type_t tagsistant_querytree_guess_type(gchar **token_ptr)
+/**
+ * guess the type of a query
+ *
+ * @param token_ptr the list of tokenized path
+ * @return the query type as listed in tagsistant_query_type struc
+ */
+tagsistant_query_type tagsistant_querytree_guess_type(gchar **token_ptr)
 {
 	if (g_strcmp0(*token_ptr, "tags") == 0) {
 		return QTYPE_TAGS;
@@ -310,10 +339,10 @@ tagsistant_query_type_t tagsistant_querytree_guess_type(gchar **token_ptr)
  * @param path the path to be converted in a logical query
  * @param do_reasoning if true, use the reasoner
  */
-tagsistant_querytree_t *tagsistant_querytree_new(const char *path, int do_reasoning)
+tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasoning)
 {
 	/* allocate the querytree structure */
-	tagsistant_querytree_t *qtree = g_new0(tagsistant_querytree_t, 1);
+	tagsistant_querytree *qtree = g_new0(tagsistant_querytree, 1);
 	if (qtree == NULL) {
 		dbg(LOG_ERR, "Error allocating memory");
 		return(NULL);
@@ -331,7 +360,7 @@ tagsistant_querytree_t *tagsistant_querytree_new(const char *path, int do_reason
 	/* guess the type of the query by first token */
 	qtree->type = tagsistant_querytree_guess_type(token_ptr);
 	if (QTYPE_MALFORMED == qtree->type) {
-		dbg(LOG_ERR, "Non existent path (%s)", path);
+		dbg(LOG_ERR, "Malformed or nonexistant path (%s)", path);
 		goto RETURN;
 	}
 
@@ -340,8 +369,7 @@ tagsistant_querytree_t *tagsistant_querytree_new(const char *path, int do_reason
 
 	/* do selective parsing of the query */
 	if (QTREE_IS_TAGS(qtree)) {
-		if (!tagsistant_querytree_parse_tags(qtree, path, &token_ptr, do_reasoning))
-			goto RETURN;
+		if (!tagsistant_querytree_parse_tags(qtree, path, &token_ptr, do_reasoning)) goto RETURN;
 	} else if (QTREE_IS_RELATIONS(qtree)) {
 		tagsistant_querytree_parse_relations(qtree, &token_ptr);
 	} else if (QTREE_IS_STATS(qtree)) {
@@ -350,6 +378,7 @@ tagsistant_querytree_t *tagsistant_querytree_new(const char *path, int do_reason
 
 	/* remaining part is the object pathname */
 	if (QTREE_IS_ARCHIVE(qtree)) {
+		qtree->inode = tagsistant_inode_extract_from_path(qtree->full_path);
 		qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
 		qtree->archive_path = g_strdup(qtree->object_path);
 		qtree->full_archive_path = g_strdup_printf("%s%s", tagsistant.archive, qtree->archive_path);
@@ -362,20 +391,32 @@ tagsistant_querytree_t *tagsistant_querytree_new(const char *path, int do_reason
 		qtree->inode = tagsistant_inode_extract_from_path(qtree->full_path);
 
 		// if no inode is found, try to guess it resolving the querytree
+		// we just need to check if an object with *token_ptr objectname and
+		// a matching or_node->and_set->tag named tag is listed
 		if (!qtree->inode) {
-			ptree_or_node_t *or_tmp = qtree->tree;
+			ptree_or_node *or_tmp = qtree->tree;
 			while (or_tmp && !qtree->inode) {
+				GString *and_set = g_string_new("");
+				ptree_and_node *and_tmp = or_tmp->and_set;
+
+				while (and_tmp) {
+					g_string_append_printf(and_set, "\"%s\"", and_tmp->tag);
+					if (and_tmp->next) g_string_append(and_set, ",");
+					and_tmp = and_tmp->next;
+				}
+
 				tagsistant_query(
 					"select objects.inode from objects "
 						"join tagging on objects.inode = tagging.inode "
 						"join tags on tagging.tag_id = tags.tag_id "
-						"where tags.tagname = \"%s\" and objects.objectname = \"%s\"",
+						"where tags.tagname in (%s) and objects.objectname = \"%s\"",
 					tagsistant_return_integer,
-					qtree->inode,
-					or_tmp->and_set->tag,
+					&(qtree->inode),
+					and_set->str,
 					*token_ptr
 				);
 
+				g_string_free(and_tmp, TRUE); // destroy the GString and its content
 				or_tmp = or_tmp->next;
 			}
 		}
@@ -403,15 +444,7 @@ tagsistant_querytree_t *tagsistant_querytree_new(const char *path, int do_reason
 		(strlen(qtree->object_path) > 0)
 	) {
 		qtree->points_to_object = 1;
-
-		/*
-		 * try to guess the object inode
-		 */
-		qtree->inode = tagsistant_inode_extract_from_path(qtree->full_path);
-
-		if (!qtree->inode) {
-			dbg(LOG_INFO, "Qtree path %s does NOT contain an inode", qtree->full_path);
-		}
+		if (!qtree->inode) dbg(LOG_INFO, "Qtree path %s points to an object but does NOT contain an inode", qtree->full_path);
 	} else {
 		qtree->points_to_object = 0;
 	}
@@ -428,7 +461,7 @@ RETURN:
  * return(querytree type as a printable string.)
  * the string MUST NOT be freed
  */
-gchar *tagsistant_querytree_type(tagsistant_querytree_t *qtree)
+gchar *tagsistant_querytree_type(tagsistant_querytree *qtree)
 {
 	static int initialized = 0;
 	static gchar *tagsistant_querytree_types[QTYPE_TOTAL];
@@ -446,13 +479,20 @@ gchar *tagsistant_querytree_type(tagsistant_querytree_t *qtree)
 	return(tagsistant_querytree_types[qtree->type]);
 }
 
-void tagsistant_querytree_set_object_path(tagsistant_querytree_t *qtree, char *path)
+/**
+ * set the object_path field of a tagsistant_querytree object and
+ * then update all the other depending fields
+ *
+ * @param qtree the tagsistant_querytree object
+ * @param path the new object_path which is copied by g_strdup()
+ */
+void tagsistant_querytree_set_object_path(tagsistant_querytree *qtree, char *new_object_path)
 {
 	/* free previous object path */
 	if (qtree->object_path) g_free(qtree->object_path);
 
 	/* set new object path */
-	qtree->object_path = g_strdup(path);
+	qtree->object_path = g_strdup(new_object_path);
 
 	/* look for an inode */
 	if (!qtree->inode)
@@ -474,7 +514,7 @@ void tagsistant_querytree_set_object_path(tagsistant_querytree_t *qtree, char *p
 /* a struct used by add_to_filetree function */
 struct tagsistant_atft {
 	uint64_t id;
-	file_handle_t **fh;
+	tagsistant_file_handle **fh;
 };
 
 /**
@@ -483,17 +523,10 @@ struct tagsistant_atft {
 static int tagsistant_add_to_filetree(void *atft_struct, dbi_result result)
 {
 	struct tagsistant_atft *atft = (struct tagsistant_atft*) atft_struct;
-	file_handle_t **fh = atft->fh;
+	tagsistant_file_handle **fh = atft->fh;
 
 	const char *objectname = dbi_result_get_string_idx(result, 1);
-	tagsistant_inode inode = 0;
-//	if (TAGSISTANT_DBI_SQLITE_BACKEND == tagsistant_database_driver) {
-//		const char *id_as_a_string = dbi_result_get_string_idx(result, 2);
-//		inode = strtol(id_as_a_string, NULL, 10);
-//	} else {
-		inode = dbi_result_get_uint_idx(result, 2);
-	//}
-
+	tagsistant_inode inode = dbi_result_get_uint_idx(result, 2);
 
 	/* no need to add empty files */
 	if (objectname == NULL || strlen(objectname) == 0)
@@ -501,12 +534,12 @@ static int tagsistant_add_to_filetree(void *atft_struct, dbi_result result)
 
 	(*fh)->name = g_strdup_printf("%u%s%s", inode, TAGSISTANT_INODE_DELIMITER, objectname);
 	dbg(LOG_INFO, "adding %s to filetree", (*fh)->name);
-	(*fh)->next = (file_handle_t *) g_new0(file_handle_t, 1);
+	(*fh)->next = (tagsistant_file_handle *) g_new0(tagsistant_file_handle, 1);
 	if ((*fh)->next == NULL) {
 		dbg(LOG_ERR, "Can't allocate memory in tagsistant_filetree_new");
 		return(1);
 	}
-	(*fh) = (file_handle_t *) (*fh)->next;
+	(*fh) = (tagsistant_file_handle *) (*fh)->next;
 	(*fh)->next = NULL;
 	(*fh)->name = NULL;
 
@@ -515,11 +548,11 @@ static int tagsistant_add_to_filetree(void *atft_struct, dbi_result result)
 }
 
 /**
- * drop all the views related to a ptree_or_node_t structure
+ * drop all the views related to a ptree_or_node structure
  *
  * @param query the ptree_or_node_t structure that originated the views to be dropped
  */
-void tagsistant_drop_views(ptree_or_node_t *query)
+void tagsistant_drop_views(ptree_or_node *query)
 {
 	while (query != NULL) {
 		tagsistant_query("drop view tv%.16" PRIxPTR, NULL, NULL, (uintptr_t) query);
@@ -551,7 +584,7 @@ void tagsistant_drop_views(ptree_or_node_t *query)
  * @param query the ptree_or_node_t* query structure to
  * be resolved.
  */
-file_handle_t *tagsistant_filetree_new(ptree_or_node_t *query)
+tagsistant_file_handle *tagsistant_filetree_new(ptree_or_node *query)
 {
 	if (query == NULL) {
 		dbg(LOG_ERR, "NULL path_tree_t object provided to %s", __func__);
@@ -561,12 +594,12 @@ file_handle_t *tagsistant_filetree_new(ptree_or_node_t *query)
 	//
 	// save a working pointer to the query
 	//
-	ptree_or_node_t *query_dup = query;
+	ptree_or_node *query_dup = query;
 
 	//
 	// allocate a new structure to return the file tree
 	//
-	file_handle_t *fh = g_new0(file_handle_t, 1);
+	tagsistant_file_handle *fh = g_new0(tagsistant_file_handle, 1);
 	if ( fh == NULL ) {
 		dbg(LOG_ERR, "Can't allocate memory in %s", __func__);
 		return(NULL);
@@ -577,7 +610,7 @@ file_handle_t *tagsistant_filetree_new(ptree_or_node_t *query)
 	//
 	// save a pointer to the first node
 	//
-	file_handle_t *result = fh;
+	tagsistant_file_handle *result = fh;
 
 	dbg(LOG_INFO, "building filetree...");
 
@@ -615,7 +648,7 @@ file_handle_t *tagsistant_filetree_new(ptree_or_node_t *query)
 
 	int nesting = 0;
 	while (query != NULL) {
-		ptree_and_node_t *tag = query->and_set;
+		ptree_and_node *tag = query->and_set;
 		GString *statement = g_string_new("");
 		g_string_printf(statement, "create view tv%.16" PRIxPTR " as ", (uintptr_t) query);
 		
@@ -637,7 +670,7 @@ file_handle_t *tagsistant_filetree_new(ptree_or_node_t *query)
 			
 			/* add related tags */
 			if (tag->related != NULL) {
-				ptree_and_node_t *related = tag->related;
+				ptree_and_node *related = tag->related;
 				while (related != NULL) {
 					g_string_append(statement, " or tagname = \"");
 					g_string_append(statement, related->tag);
@@ -661,7 +694,7 @@ file_handle_t *tagsistant_filetree_new(ptree_or_node_t *query)
 		}
 
 		g_string_append(statement, ";");
-		// dbg(LOG_INFO, "SQL: final statement is [%s]", statement->str);
+		dbg(LOG_INFO, "SQL: final statement is [%s]", statement->str);
 
 		/* create view */
 		tagsistant_query(statement->str, NULL, NULL);
@@ -681,7 +714,7 @@ file_handle_t *tagsistant_filetree_new(ptree_or_node_t *query)
 	}
 
 	g_string_append(view_statement, ";");
-	// dbg(LOG_INFO, "SQL view statement: %s", view_statement->str);
+	dbg(LOG_INFO, "SQL view statement: %s", view_statement->str);
 
 	struct tagsistant_atft *atft = g_new0(struct tagsistant_atft, 1);
 	if (atft == NULL) {
@@ -707,7 +740,7 @@ file_handle_t *tagsistant_filetree_new(ptree_or_node_t *query)
 /**
  * Destroy a filetree
  */
-void tagsistant_filetree_destroy(file_handle_t *fh)
+void tagsistant_filetree_destroy(tagsistant_file_handle *fh)
 {
 	if (fh == NULL)
 		return;

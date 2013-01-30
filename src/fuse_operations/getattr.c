@@ -22,7 +22,7 @@
 #define tagsistant_check_tagging_consistency(qtree) \
 	tagsistant_inner_check_tagging_consistency(qtree, 0)
 
-static int tagsistant_inner_check_tagging_consistency(tagsistant_querytree_t *qtree, int recurse)
+static int tagsistant_inner_check_tagging_consistency(tagsistant_querytree *qtree, int recurse)
 {
 	int exists = 0;
 
@@ -31,10 +31,10 @@ static int tagsistant_inner_check_tagging_consistency(tagsistant_querytree_t *qt
 		return(1);
 	}
 
-	ptree_or_node_t *or_ptr = qtree->tree;
+	ptree_or_node *or_ptr = qtree->tree;
 
 	while (NULL != or_ptr) {
-		ptree_and_node_t *and_ptr = or_ptr->and_set;
+		ptree_and_node *and_ptr = or_ptr->and_set;
 
 		while (NULL != and_ptr) {
 			tagsistant_inode tag_id = tagsistant_sql_get_tag_id(and_ptr->tag);
@@ -68,7 +68,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	TAGSISTANT_START("/ GETATTR on %s", path);
 
 	// build querytree
-	tagsistant_querytree_t *qtree = tagsistant_querytree_new(path, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
