@@ -174,8 +174,6 @@ void tagsistant_show_config()
 		fprintf(stderr, "%s: %s\n", pp->mime_type, pp->filename);
 		pp = pp->next;
 	}
-
-	exit(0);
 }
 
 /**

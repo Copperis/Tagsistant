@@ -46,14 +46,16 @@ static int tagsistant_add_entry_to_dir(void *filler_ptr, dbi_result result)
 
 	/* check if this tag has been already listed inside the path */
 	ptree_or_node *ptx = ufs->qtree->tree;
-	while (NULL != ptx->next) ptx = ptx->next; // last OR section
+	if (ptx) {
+		while (NULL != ptx->next) ptx = ptx->next; // last OR section
 
-	ptree_and_node *and_t = ptx->and_set;
-	while (NULL != and_t) {
-		if (g_strcmp0(and_t->tag, dir) == 0) {
-			return(0);
+		ptree_and_node *and_t = ptx->and_set;
+		while (NULL != and_t) {
+			if (g_strcmp0(and_t->tag, dir) == 0) {
+				return(0);
+			}
+			and_t = and_t->next;
 		}
-		and_t = and_t->next;
 	}
 
 	return(ufs->filler(ufs->buf, dir, NULL, 0));

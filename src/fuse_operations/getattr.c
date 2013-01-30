@@ -91,15 +91,19 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	// -- relations --
 	if (QTREE_IS_RELATIONS(qtree)) {
 		if (qtree->second_tag) {
-			// check if second tag exist
+			// check if the relation is valid
 			gchar *check_name = NULL;
+
 			tagsistant_query(
 				"select t2.tagname from tags as t2 "
 					"join relations on tag2_id = t2.tag_id "
 					"join tags as t1 on t1.tag_id = relations.tag1_id "
-				"where t1.tagname = '%s' and relation = '%s' and t2.tagname = '%s'",
-				tagsistant_return_string, &check_name,
-				qtree->first_tag, qtree->relation, qtree->second_tag);
+					"where t1.tagname = '%s' and relation = '%s' and t2.tagname = '%s'",
+				tagsistant_return_string,
+				&check_name,
+				qtree->first_tag,
+				qtree->relation,
+				qtree->second_tag);
 
 			if ((NULL == check_name) || (strcmp(qtree->second_tag, check_name) != 0)) {
 				res = -1;

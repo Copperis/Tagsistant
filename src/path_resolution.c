@@ -226,7 +226,7 @@ int tagsistant_querytree_parse_tags (
 			}
 			last_and = and;
 
-			dbg(LOG_INFO, "Query tree: %.2d.%.2d %s", orcount, andcount, **token_ptr);
+			dbg(LOG_INFO, "Query tree nodes %.2d.%.2d %s", orcount, andcount, **token_ptr);
 			andcount++;
 
 			/* search related tags */
@@ -269,13 +269,14 @@ int tagsistant_querytree_parse_relations (
 	/* parse a relations query */
 	if (NULL != **token_ptr) {
 		qtree->first_tag = g_strdup(**token_ptr);
-		token_ptr++;
+		(*token_ptr)++;
 		if (NULL != **token_ptr) {
 			qtree->relation = g_strdup(**token_ptr);
-			token_ptr++;
+			(*token_ptr)++;
 			if (NULL != **token_ptr) {
 				qtree->second_tag = g_strdup(**token_ptr);
 				qtree->complete = 1;
+				(*token_ptr)++;
 			}
 		}
 	}
@@ -444,13 +445,18 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 		(strlen(qtree->object_path) > 0)
 	) {
 		qtree->points_to_object = 1;
-		if (!qtree->inode) dbg(LOG_INFO, "Qtree path %s points to an object but does NOT contain an inode", qtree->full_path);
+		if (!qtree->inode)
+			dbg(LOG_INFO, "Qtree path %s points to an object but does NOT contain an inode", qtree->full_path);
 	} else {
 		qtree->points_to_object = 0;
 	}
 
 	/* get the id of the object referred by first element */
-	if (!qtree->inode) qtree->inode = tagsistant_inode_extract_from_path(path);
+	if (!qtree->inode)
+		qtree->inode = tagsistant_inode_extract_from_path(path);
+
+	if (qtree->inode)
+		dbg(LOG_INFO, "Inode %d extracted from path %s", qtree->inode, path);
 
 RETURN:
 	g_strfreev(splitted);
