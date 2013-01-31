@@ -47,7 +47,7 @@ int tagsistant_unlink(const char *path)
 
 			// if object is pointed by a tags/ query, then untag it
 			// from the tags included in the query path...
-			tagsistant_traverse_querytree(qtree, tagsistant_sql_untag_object, qtree->inode);
+			tagsistant_querytree_traverse(qtree, tagsistant_sql_untag_object, qtree->inode);
 
 			// ...then check if it's tagged elsewhere...
 			// ...if still tagged, then avoid real unlink(): the object must survive!

@@ -91,7 +91,7 @@ int tagsistant_symlink(const char *from, const char *to)
 #if TAGSISTANT_RETAG_INTERNAL_SYMLINKS
 		if (0 && QTREE_IS_INTERNAL(from_qtree) && from_qtree->object_id) {
 			dbg(LOG_INFO, "Retagging %s as internal to %s", from, tagsistant.mountpoint);
-			tagsistant_traverse_querytree(to_qtree, tagsistant_sql_tag_object, from_qtree->object_id);
+			tagsistant_querytree_traverse(to_qtree, tagsistant_sql_tag_object, from_qtree->object_id);
 			goto SYMLINK_EXIT;
 		} else
 #endif

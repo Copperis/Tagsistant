@@ -33,6 +33,7 @@
 									<listOptionValue builtIn="false" value="/usr/include/glib-2.0"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/tagsistant-0.6}&quot;"/>
 									<listOptionValue builtIn="false" value="/usr/include/fuse"/>
+									<listOptionValue builtIn="false" value="/usr/include/glib-2.0/glib"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.2071202874" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>

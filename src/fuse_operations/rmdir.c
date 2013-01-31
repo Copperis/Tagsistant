@@ -45,7 +45,7 @@ int tagsistant_rmdir(const char *path)
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		if (QTREE_IS_TAGGABLE(qtree)) {
 			// remove all the tags associated to the object
-			tagsistant_traverse_querytree(qtree, tagsistant_sql_untag_object, qtree->inode);
+			tagsistant_querytree_traverse(qtree, tagsistant_sql_untag_object, qtree->inode);
 		} else {
 
 			// do a real mkdir

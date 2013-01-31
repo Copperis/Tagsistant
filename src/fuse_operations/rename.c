@@ -81,10 +81,10 @@ int tagsistant_rename(const char *from, const char *to)
 			tagsistant_query("update objects set path = \"%s\" where object_id = %d", NULL, NULL, to_qtree->full_archive_path, from_qtree->inode);
 
 			// 2. deletes all the tagging between "from" file and all AND nodes in "from" path
-			tagsistant_traverse_querytree(from_qtree, tagsistant_sql_untag_object, from_qtree->inode);
+			tagsistant_querytree_traverse(from_qtree, tagsistant_sql_untag_object, from_qtree->inode);
 
 			// 3. adds all the tags from "to" path
-			tagsistant_traverse_querytree(to_qtree, tagsistant_sql_tag_object, from_qtree->inode);
+			tagsistant_querytree_traverse(to_qtree, tagsistant_sql_tag_object, from_qtree->inode);
 		}
 
 		rename_path = from_qtree->full_archive_path;

@@ -348,6 +348,7 @@ tagsistant_inode tagsistant_last_insert_id()
 {
 	return(dbi_conn_sequence_last(tagsistant_dbi_conn, NULL));
 
+#if 0
 	// -------- alternative version -----------------------------------------------
 
 	tagsistant_inode inode = 0;
@@ -363,6 +364,7 @@ tagsistant_inode tagsistant_last_insert_id()
 	}
 
 	return(inode);
+#endif
 }
 
 /**

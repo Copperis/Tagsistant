@@ -23,138 +23,159 @@
 #include "tagsistant.h"
 
 /**
- * SQL callback. Add new tag derived from reasoning to a ptree_and_node_t structure.
+ * Build query tree from path. A querytree is composed of a linked
+ * list of ptree_or_node_t objects. Each or object has a descending
+ * linked list of ptree_and_node_t objects. This kind of structure
+ * should be considered as a collection (the or horizontal level)
+ * of queries (the and vertical lists). Each and list should be
+ * resolved using SQLite INTERSECT compound operator. All results
+ * should be then merged in a unique list of filenames.
  *
- * @param _reasoning pointer to be casted to reasoning_t* structure
- * @param result dbi_result pointer
- * @return 0 always, due to SQLite policy, may change in the future
+ * @param path the path to be converted in a logical query
+ * @param do_reasoning if true, use the reasoner
  */
-static int tagsistant_add_reasoned_tag(void *_reasoning, dbi_result result)
+tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasoning)
 {
-	/* point to a reasoning_t structure */
-	tagsistant_reasoning *reasoning = (tagsistant_reasoning *) _reasoning;
-	assert(reasoning != NULL);
-	assert(reasoning->start_node != NULL);
-	assert(reasoning->actual_node != NULL);
-	assert(reasoning->added_tags >= 0);
-
-	const char *t1 = dbi_result_get_string_idx(result, 1);
-	const char *rel = dbi_result_get_string_idx(result, 2);
-	const char *t2 = dbi_result_get_string_idx(result, 3);
-
-	ptree_and_node *and = reasoning->start_node;
-	while (and->related != NULL) {
-		assert(and->tag != NULL);
-		if (strcmp(and->tag, t1) == 0) {
-			/* tag is already present, avoid looping */
-			return(0);
-		}
-		and = and->related;
-	}
-
-	/* adding tag */
-	and->related = g_malloc(sizeof(ptree_and_node));
-	if (and->related == NULL) {
+	/* allocate the querytree structure */
+	tagsistant_querytree *qtree = g_new0(tagsistant_querytree, 1);
+	if (qtree == NULL) {
 		dbg(LOG_ERR, "Error allocating memory");
-		return(1);
+		return(NULL);
 	}
 
-	and->related->next = NULL;
-	and->related->related = NULL;
-	and->related->tag = g_strdup(t1);
+	/* duplicate the path inside the struct */
+	qtree->full_path = g_strdup(path);
 
-	assert(and != NULL);
-	assert(and->related != NULL);
-	assert(and->related->tag != NULL);
+	dbg(LOG_INFO, "Building querytree for %s", qtree->full_path);
 
-	reasoning->added_tags += 1;
+	/* split the path */
+	gchar **splitted = g_strsplit(path, "/", 512); /* split up to 512 tokens */
+	gchar **token_ptr = splitted + 1; /* first element is always "" since path begins with '/' */
 
-	dbg(LOG_INFO, "Adding related tag %s (because %s %s)", and->related->tag, rel, t2);
-	return(0);
-}
-
-/**
- * Search and add related tags to a ptree_and_node_t,
- * enabling tagsistant_build_filetree to later add more criteria to SQL
- * statements to retrieve files
- *
- * @param reasoning the reasoning structure the tagsistant_reasoner should work on
- * @return number of tags added
- */
-int tagsistant_reasoner(tagsistant_reasoning *reasoning)
-{
-	assert(reasoning != NULL);
-	assert(reasoning->start_node != NULL);
-	assert(reasoning->actual_node != NULL);
-	assert(reasoning->actual_node->tag != NULL);
-
-	tagsistant_query(
-		"select tag1, tag2, relation from relations where tag2 = \"%s\" and relation = \"is_equivalent\";",
-		tagsistant_add_reasoned_tag, reasoning, reasoning->actual_node->tag);
-	
-	tagsistant_query(
-		"select tag2, tag1, relation from relations where tag1 = \"%s\" and relation = \"is_equivalent\";",
-		tagsistant_add_reasoned_tag, reasoning, reasoning->actual_node->tag);
-	
-	tagsistant_query(
-		"select tag2, tag1, relation from relations where tag1 = \"%s\" and relation = \"includes\";",
-		tagsistant_add_reasoned_tag, reasoning, reasoning->actual_node->tag);
-	
-	if (reasoning->actual_node->related != NULL) {
-		reasoning->actual_node = reasoning->actual_node->related;
-		tagsistant_reasoner(reasoning);
+	/* guess the type of the query by first token */
+	qtree->type = tagsistant_querytree_guess_type(token_ptr);
+	if (QTYPE_MALFORMED == qtree->type) {
+		dbg(LOG_ERR, "Malformed or nonexistant path (%s)", path);
+		goto RETURN;
 	}
 
-	return(reasoning->added_tags);
-}
+	/* then skip first token (used for guessing query type) */
+	token_ptr++;
 
-/**
- * destroy a tagsistant_querytree_t structure
- *
- * @param qtree the tagsistant_querytree_t to be destroyed
- */
-void tagsistant_querytree_destroy(tagsistant_querytree *qtree)
-{
-	if (NULL == qtree) return;
+	/* do selective parsing of the query */
+	if (QTREE_IS_TAGS(qtree)) {
+		if (!tagsistant_querytree_parse_tags(qtree, path, &token_ptr, do_reasoning)) goto RETURN;
+	} else if (QTREE_IS_RELATIONS(qtree)) {
+		tagsistant_querytree_parse_relations(qtree, &token_ptr);
+	} else if (QTREE_IS_STATS(qtree)) {
+		tagsistant_querytree_parse_stats(qtree, &token_ptr);
+	}
 
-	// destroy the tree
-	ptree_or_node *node = qtree->tree;
-	while (node != NULL) {
-		ptree_and_node *tag = node->and_set;
-		while (tag != NULL) {
-			// walk related tags
-			while (tag->related != NULL) {
-				ptree_and_node *related = tag->related;
-				tag->related = related->related;
-				freenull(related->tag);
-				freenull(related);
+	/* remaining part is the object pathname */
+	if (QTREE_IS_ARCHIVE(qtree)) {
+
+		qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
+		qtree->inode = tagsistant_inode_extract_from_path(qtree->full_path);
+		qtree->archive_path = g_strdup(qtree->object_path);
+		qtree->full_archive_path = g_strdup_printf("%s%s", tagsistant.archive, qtree->archive_path);
+
+	} else if (QTREE_IS_TAGS(qtree) && qtree->complete) {
+
+		// get the object path name joining the remaining part of tokens
+		qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
+
+		// look for an inode in full path
+		qtree->inode = tagsistant_inode_extract_from_path(qtree->full_path);
+
+		// if no inode is found, try to guess it resolving the querytree
+		// we just need to check if an object with *token_ptr objectname and
+		// a matching or_node->and_set->tag named tag is listed
+		if (!qtree->inode) {
+			ptree_or_node *or_tmp = qtree->tree;
+			while (or_tmp && !qtree->inode) {
+				GString *and_set = g_string_new("");
+				ptree_and_node *and_tmp = or_tmp->and_set;
+
+				while (and_tmp) {
+					g_string_append_printf(and_set, "\"%s\"", and_tmp->tag);
+					if (and_tmp->next) g_string_append(and_set, ",");
+					and_tmp = and_tmp->next;
+				}
+
+				tagsistant_query(
+					"select objects.inode from objects "
+						"join tagging on objects.inode = tagging.inode "
+						"join tags on tagging.tag_id = tags.tag_id "
+						"where tags.tagname in (%s) and objects.objectname = \"%s\"",
+					tagsistant_return_integer,
+					&(qtree->inode),
+					and_set->str,
+					*token_ptr
+				);
+
+				g_string_free(and_tmp, TRUE); // destroy the GString and its content
+				or_tmp = or_tmp->next;
 			}
-
-			// free the ptree_and_node_t node
-			ptree_and_node *next = tag->next;
-			freenull(tag->tag);
-			freenull(tag);
-			tag = next;
 		}
-		// free the ptree_or_node_t node
-		ptree_or_node *next = node->next;
-		freenull(node);
-		node = next;
+
+		// if an inode has been found, form the archive_path and full_archive_path
+		if (qtree->inode) {
+			tagsistant_querytree_set_inode(qtree, qtree->inode);
+		}
 	}
 
-	// free paths and other strings
-	freenull(qtree->full_path);
-	freenull(qtree->object_path);
-	freenull(qtree->archive_path);
-	freenull(qtree->full_archive_path);
-	freenull(qtree->first_tag);
-	freenull(qtree->second_tag);
-	freenull(qtree->relation);
-	freenull(qtree->stats_path);
-	freenull(qtree->last_tag);
+	dbg(LOG_INFO, "inode = %d", qtree->inode);
+	dbg(LOG_INFO, "object_path = \"%s\"", qtree->object_path);
+	dbg(LOG_INFO, "archive_path = \"%s\"", qtree->archive_path);
+	dbg(LOG_INFO, "full_archive_path = \"%s\"", qtree->full_archive_path);
 
-	// free the structure
-	freenull(qtree);
+	/*
+	 * guess if query points to an object on disk or not
+	 * that's true if object_path property is not null or zero length
+	 * and both query is /archive or query is a complete /tags (including = sign)
+	 */
+	if (
+		(QTREE_IS_ARCHIVE(qtree) || (QTREE_IS_TAGS(qtree) && qtree->complete && qtree->object_path))
+		&&
+		(strlen(qtree->object_path) > 0)
+	) {
+		qtree->points_to_object = 1;
+		if (!qtree->inode) dbg(LOG_INFO, "Qtree path %s points to an object but does NOT contain an inode", qtree->full_path);
+	} else {
+		qtree->points_to_object = 0;
+	}
+
+	/* get the id of the object referred by first element */
+	if (!qtree->inode) qtree->inode = tagsistant_inode_extract_from_path(path);
+
+RETURN:
+	g_strfreev(splitted);
+	return(qtree);
+}
+
+/**
+ * guess the type of a query
+ *
+ * @param token_ptr the list of tokenized path
+ * @return the query type as listed in tagsistant_query_type struc
+ */
+tagsistant_query_type tagsistant_querytree_guess_type(gchar **token_ptr)
+{
+	if (g_strcmp0(*token_ptr, "tags") == 0) {
+		return QTYPE_TAGS;
+	} else if (g_strcmp0(*token_ptr, "archive") == 0) {
+		return QTYPE_ARCHIVE;
+	} else if (g_strcmp0(*token_ptr, "relations") == 0) {
+		return QTYPE_RELATIONS;
+	} else if (g_strcmp0(*token_ptr, "stats") == 0) {
+		return QTYPE_STATS;
+	} else if (g_strcmp0(*token_ptr, "retag") == 0) {
+		return QTYPE_RETAG;
+	} else if ((NULL == *token_ptr) || (g_strcmp0(*token_ptr, "") == 0 || (g_strcmp0(*token_ptr, "/") == 0))) {
+		return QTYPE_ROOT;
+	} else {
+		return QTYPE_MALFORMED;
+	}
 }
 
 /**
@@ -236,7 +257,7 @@ int tagsistant_querytree_parse_tags (
 				tagsistant_reasoning *reasoning = g_malloc(sizeof(tagsistant_reasoning));
 				if (reasoning != NULL) {
 					reasoning->start_node = and;
-					reasoning->actual_node = and;
+					reasoning->current_node = and;
 					reasoning->added_tags = 0;
 					int newtags = tagsistant_reasoner(reasoning);
 					dbg(LOG_INFO, "Reasoning added %d tags", newtags);
@@ -304,166 +325,6 @@ int tagsistant_querytree_parse_stats (
 }
 
 /**
- * guess the type of a query
- *
- * @param token_ptr the list of tokenized path
- * @return the query type as listed in tagsistant_query_type struc
- */
-tagsistant_query_type tagsistant_querytree_guess_type(gchar **token_ptr)
-{
-	if (g_strcmp0(*token_ptr, "tags") == 0) {
-		return QTYPE_TAGS;
-	} else if (g_strcmp0(*token_ptr, "archive") == 0) {
-		return QTYPE_ARCHIVE;
-	} else if (g_strcmp0(*token_ptr, "relations") == 0) {
-		return QTYPE_RELATIONS;
-	} else if (g_strcmp0(*token_ptr, "stats") == 0) {
-		return QTYPE_STATS;
-	} else if (g_strcmp0(*token_ptr, "retag") == 0) {
-		return QTYPE_RETAG;
-	} else if ((NULL == *token_ptr) || (g_strcmp0(*token_ptr, "") == 0 || (g_strcmp0(*token_ptr, "/") == 0))) {
-		return QTYPE_ROOT;
-	} else {
-		return QTYPE_MALFORMED;
-	}
-}
-
-/**
- * Build query tree from path. A querytree is composed of a linked
- * list of ptree_or_node_t objects. Each or object has a descending
- * linked list of ptree_and_node_t objects. This kind of structure
- * should be considered as a collection (the or horizontal level)
- * of queries (the and vertical lists). Each and list should be
- * resolved using SQLite INTERSECT compound operator. All results
- * should be then merged in a unique list of filenames.
- *
- * @param path the path to be converted in a logical query
- * @param do_reasoning if true, use the reasoner
- */
-tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasoning)
-{
-	/* allocate the querytree structure */
-	tagsistant_querytree *qtree = g_new0(tagsistant_querytree, 1);
-	if (qtree == NULL) {
-		dbg(LOG_ERR, "Error allocating memory");
-		return(NULL);
-	}
-
-	/* duplicate the path inside the struct */
-	qtree->full_path = g_strdup(path);
-
-	dbg(LOG_INFO, "Building querytree for %s", qtree->full_path);
-
-	/* split the path */
-	gchar **splitted = g_strsplit(path, "/", 512); /* split up to 512 tokens */
-	gchar **token_ptr = splitted + 1; /* first element is always "" since path begins with '/' */
-
-	/* guess the type of the query by first token */
-	qtree->type = tagsistant_querytree_guess_type(token_ptr);
-	if (QTYPE_MALFORMED == qtree->type) {
-		dbg(LOG_ERR, "Malformed or nonexistant path (%s)", path);
-		goto RETURN;
-	}
-
-	/* then skip first token (used for guessing query type) */
-	token_ptr++;
-
-	/* do selective parsing of the query */
-	if (QTREE_IS_TAGS(qtree)) {
-		if (!tagsistant_querytree_parse_tags(qtree, path, &token_ptr, do_reasoning)) goto RETURN;
-	} else if (QTREE_IS_RELATIONS(qtree)) {
-		tagsistant_querytree_parse_relations(qtree, &token_ptr);
-	} else if (QTREE_IS_STATS(qtree)) {
-		tagsistant_querytree_parse_stats(qtree, &token_ptr);
-	}
-
-	/* remaining part is the object pathname */
-	if (QTREE_IS_ARCHIVE(qtree)) {
-		qtree->inode = tagsistant_inode_extract_from_path(qtree->full_path);
-		qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
-		qtree->archive_path = g_strdup(qtree->object_path);
-		qtree->full_archive_path = g_strdup_printf("%s%s", tagsistant.archive, qtree->archive_path);
-
-	} else if (QTREE_IS_TAGS(qtree) && qtree->complete) {
-		// get the object path name joining the remaining part of tokens
-		qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
-
-		// look for an inode in full path
-		qtree->inode = tagsistant_inode_extract_from_path(qtree->full_path);
-
-		// if no inode is found, try to guess it resolving the querytree
-		// we just need to check if an object with *token_ptr objectname and
-		// a matching or_node->and_set->tag named tag is listed
-		if (!qtree->inode) {
-			ptree_or_node *or_tmp = qtree->tree;
-			while (or_tmp && !qtree->inode) {
-				GString *and_set = g_string_new("");
-				ptree_and_node *and_tmp = or_tmp->and_set;
-
-				while (and_tmp) {
-					g_string_append_printf(and_set, "\"%s\"", and_tmp->tag);
-					if (and_tmp->next) g_string_append(and_set, ",");
-					and_tmp = and_tmp->next;
-				}
-
-				tagsistant_query(
-					"select objects.inode from objects "
-						"join tagging on objects.inode = tagging.inode "
-						"join tags on tagging.tag_id = tags.tag_id "
-						"where tags.tagname in (%s) and objects.objectname = \"%s\"",
-					tagsistant_return_integer,
-					&(qtree->inode),
-					and_set->str,
-					*token_ptr
-				);
-
-				g_string_free(and_tmp, TRUE); // destroy the GString and its content
-				or_tmp = or_tmp->next;
-			}
-		}
-
-		// if an inode has been found, form the archive_path and full_archive_path
-		if (qtree->inode) {
-			qtree->archive_path = g_strdup_printf("%d%s%s", qtree->inode, TAGSISTANT_INODE_DELIMITER, qtree->object_path);
-			qtree->full_archive_path = g_strdup_printf("%s%s", tagsistant.archive, qtree->archive_path);
-		}
-	}
-
-	dbg(LOG_INFO, "inode = %d", qtree->inode);
-	dbg(LOG_INFO, "object_path = \"%s\"", qtree->object_path);
-	dbg(LOG_INFO, "archive_path = \"%s\"", qtree->archive_path);
-	dbg(LOG_INFO, "full_archive_path = \"%s\"", qtree->full_archive_path);
-
-	/*
-	 * guess if query points to an object on disk or not
-	 * that's true if object_path property is not null or zero length
-	 * and both query is /archive or query is a complete /tags (including = sign)
-	 */
-	if (
-		(QTREE_IS_ARCHIVE(qtree) || (QTREE_IS_TAGS(qtree) && qtree->complete && qtree->object_path))
-		&&
-		(strlen(qtree->object_path) > 0)
-	) {
-		qtree->points_to_object = 1;
-		if (!qtree->inode)
-			dbg(LOG_INFO, "Qtree path %s points to an object but does NOT contain an inode", qtree->full_path);
-	} else {
-		qtree->points_to_object = 0;
-	}
-
-	/* get the id of the object referred by first element */
-	if (!qtree->inode)
-		qtree->inode = tagsistant_inode_extract_from_path(path);
-
-	if (qtree->inode)
-		dbg(LOG_INFO, "Inode %d extracted from path %s", qtree->inode, path);
-
-RETURN:
-	g_strfreev(splitted);
-	return(qtree);
-}
-
-/**
  * return(querytree type as a printable string.)
  * the string MUST NOT be freed
  */
@@ -494,28 +355,190 @@ gchar *tagsistant_querytree_type(tagsistant_querytree *qtree)
  */
 void tagsistant_querytree_set_object_path(tagsistant_querytree *qtree, char *new_object_path)
 {
-	/* free previous object path */
-	if (qtree->object_path) g_free(qtree->object_path);
+	if (!new_object_path) return;
 
-	/* set new object path */
+	if (qtree->object_path) g_free(qtree->object_path);
 	qtree->object_path = g_strdup(new_object_path);
 
-	/* look for an inode */
-	if (!qtree->inode)
-		qtree->inode = tagsistant_inode_extract_from_path(qtree->full_path);
+	tagsistant_querytree_rebuild_paths(qtree);
+}
 
-	/* free other paths */
+/**
+ * set the object inode and rebuild the paths
+ *
+ * @param qtree the tagsistant_querytree object
+ * @param inode the new inode
+ */
+void tagsistant_querytree_set_inode(tagsistant_querytree *qtree, tagsistant_inode inode)
+{
+	if (!qtree || !inode) return;
+
+	qtree->inode = inode;
+	tagsistant_querytree_rebuild_paths(qtree);
+}
+
+/**
+ * rebuild the paths of a tagsistant_querytree object
+ *
+ * @param qtree the tagsistant_querytree object
+ */
+void tagsistant_querytree_rebuild_paths(tagsistant_querytree *qtree)
+{
+	if (!qtree->inode) return;
+
 	if (qtree->archive_path) g_free(qtree->archive_path);
+	qtree->archive_path = g_strdup_printf("%d" TAGSISTANT_INODE_DELIMITER "%s", qtree->inode, qtree->object_path);
+
 	if (qtree->full_archive_path) g_free(qtree->full_archive_path);
-
-	/* prepare new paths */
-	if (qtree->inode)
-		qtree->archive_path = g_strdup_printf("%d%s%s", qtree->inode, TAGSISTANT_INODE_DELIMITER, qtree->object_path);
-	else
-		qtree->archive_path = g_strdup("");
-
 	qtree->full_archive_path = g_strdup_printf("%s%s", tagsistant.archive, qtree->archive_path);
 }
+
+/**
+ * destroy a tagsistant_querytree_t structure
+ *
+ * @param qtree the tagsistant_querytree_t to be destroyed
+ */
+void tagsistant_querytree_destroy(tagsistant_querytree *qtree)
+{
+	if (NULL == qtree) return;
+
+	// destroy the tree
+	ptree_or_node *node = qtree->tree;
+	while (node != NULL) {
+		ptree_and_node *tag = node->and_set;
+		while (tag != NULL) {
+			// walk related tags
+			while (tag->related != NULL) {
+				ptree_and_node *related = tag->related;
+				tag->related = related->related;
+				freenull(related->tag);
+				freenull(related);
+			}
+
+			// free the ptree_and_node_t node
+			ptree_and_node *next = tag->next;
+			freenull(tag->tag);
+			freenull(tag);
+			tag = next;
+		}
+		// free the ptree_or_node_t node
+		ptree_or_node *next = node->next;
+		freenull(node);
+		node = next;
+	}
+
+	// free paths and other strings
+	freenull(qtree->full_path);
+	freenull(qtree->object_path);
+	freenull(qtree->archive_path);
+	freenull(qtree->full_archive_path);
+	freenull(qtree->first_tag);
+	freenull(qtree->second_tag);
+	freenull(qtree->relation);
+	freenull(qtree->stats_path);
+	freenull(qtree->last_tag);
+
+	// free the structure
+	freenull(qtree);
+}
+
+/************************************************************************************/
+/***                                                                              ***/
+/*** Reasoner                                                                     ***/
+/***                                                                              ***/
+/************************************************************************************/
+
+/**
+ * SQL callback. Add new tag derived from reasoning to a ptree_and_node_t structure.
+ *
+ * @param _reasoning pointer to be casted to reasoning_t* structure
+ * @param result dbi_result pointer
+ * @return 0 always, due to SQLite policy, may change in the future
+ */
+static int tagsistant_add_reasoned_tag(void *_reasoning, dbi_result result)
+{
+	/* point to a reasoning_t structure */
+	tagsistant_reasoning *reasoning = (tagsistant_reasoning *) _reasoning;
+	assert(reasoning != NULL);
+	assert(reasoning->start_node != NULL);
+	assert(reasoning->current_node != NULL);
+	assert(reasoning->added_tags >= 0);
+
+	const char *t1 = dbi_result_get_string_idx(result, 1);
+	const char *rel = dbi_result_get_string_idx(result, 2);
+	const char *t2 = dbi_result_get_string_idx(result, 3);
+
+	ptree_and_node *and = reasoning->start_node;
+	while (and->related != NULL) {
+		assert(and->tag != NULL);
+		if (strcmp(and->tag, t1) == 0) {
+			/* tag is already present, avoid looping */
+			return(0);
+		}
+		and = and->related;
+	}
+
+	/* adding tag */
+	and->related = g_malloc(sizeof(ptree_and_node));
+	if (and->related == NULL) {
+		dbg(LOG_ERR, "Error allocating memory");
+		return(1);
+	}
+
+	and->related->next = NULL;
+	and->related->related = NULL;
+	and->related->tag = g_strdup(t1);
+
+	assert(and != NULL);
+	assert(and->related != NULL);
+	assert(and->related->tag != NULL);
+
+	reasoning->added_tags += 1;
+
+	dbg(LOG_INFO, "Adding related tag %s (because %s %s)", and->related->tag, rel, t2);
+	return(0);
+}
+
+/**
+ * Search and add related tags to a ptree_and_node_t,
+ * enabling tagsistant_build_filetree to later add more criteria to SQL
+ * statements to retrieve files
+ *
+ * @param reasoning the reasoning structure the tagsistant_reasoner should work on
+ * @return number of tags added
+ */
+int tagsistant_reasoner(tagsistant_reasoning *reasoning)
+{
+	assert(reasoning != NULL);
+	assert(reasoning->start_node != NULL);
+	assert(reasoning->current_node != NULL);
+	assert(reasoning->current_node->tag != NULL);
+
+	tagsistant_query(
+		"select tag1, tag2, relation from relations where tag2 = \"%s\" and relation = \"is_equivalent\";",
+		tagsistant_add_reasoned_tag, reasoning, reasoning->current_node->tag);
+
+	tagsistant_query(
+		"select tag2, tag1, relation from relations where tag1 = \"%s\" and relation = \"is_equivalent\";",
+		tagsistant_add_reasoned_tag, reasoning, reasoning->current_node->tag);
+
+	tagsistant_query(
+		"select tag2, tag1, relation from relations where tag1 = \"%s\" and relation = \"includes\";",
+		tagsistant_add_reasoned_tag, reasoning, reasoning->current_node->tag);
+
+	if (reasoning->current_node->related != NULL) {
+		reasoning->current_node = reasoning->current_node->related;
+		tagsistant_reasoner(reasoning);
+	}
+
+	return(reasoning->added_tags);
+}
+
+/************************************************************************************/
+/***                                                                              ***/
+/*** FileTree translation                                                         ***/
+/***                                                                              ***/
+/************************************************************************************/
 
 /* a struct used by add_to_filetree function */
 struct tagsistant_atft {

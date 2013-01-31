@@ -189,7 +189,7 @@ typedef struct tagsistant_file_handle {
  */
 typedef struct {
 	ptree_and_node *start_node;
-	ptree_and_node *actual_node;
+	ptree_and_node *current_node;
 	int added_tags;
 } tagsistant_reasoning;
 
@@ -200,6 +200,21 @@ typedef struct {
 #define IS_VALID_RELATION(relation) ((g_strcmp0(relation, "is_equivalent")) == 0 || (g_strcmp0(relation, "includes")))
 
 /**
+ * querytree functions
+ */
+extern tagsistant_querytree *	tagsistant_querytree_new(const char *path, int do_reasoning);
+extern tagsistant_query_type	tagsistant_querytree_guess_type(gchar **path);
+
+extern void 					tagsistant_querytree_destroy(tagsistant_querytree *qtree);
+
+extern void					tagsistant_querytree_set_object_path(tagsistant_querytree *qtree, char *path);
+extern void					tagsistant_querytree_set_inode(tagsistant_querytree *qtree, tagsistant_inode inode);
+extern void					tagsistant_querytree_rebuild_paths(tagsistant_querytree *qtree);
+
+extern tagsistant_inode			tagsistant_inode_extract_from_path(const char *path);
+extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_querytree *qtree);
+
+/**
  * allows for applying a function to all the ptree_and_node_t nodes of
  * a tagstistant_querytree_t structure. the function applied must be declared as:
  *   void function(ptree_and_node *node, ...)
@@ -208,7 +223,7 @@ typedef struct {
  * @param qtree the tagsistant_querytree_t structure to traverse
  * @param funcpointer the pointer to the function (barely the function name)
  */
-#define tagsistant_traverse_querytree(qtree, funcpointer, ...) {\
+#define tagsistant_querytree_traverse(qtree, funcpointer, ...) {\
 	dbg(LOG_INFO, "Traversing querytree...");\
 	if (NULL != qtree) {\
 		ptree_or_node *ptx = qtree->tree;\
@@ -224,16 +239,8 @@ typedef struct {
 	}\
 }
 
-// querytree functions
-extern tagsistant_querytree *	tagsistant_querytree_new(const char *path, int do_reasoning);
-extern void 					tagsistant_querytree_destroy(tagsistant_querytree *qtree);
-
-extern void						tagsistant_querytree_set_object_path(tagsistant_querytree *qtree, char *path);
-
-extern tagsistant_inode			tagsistant_inode_extract_from_path(const char *path);
-extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_querytree *qtree);
-
-// filetree functions
+/**
+ * filetree functions
+ */
 extern tagsistant_file_handle *	tagsistant_filetree_new(ptree_or_node *query);
 extern void 					tagsistant_filetree_destroy(tagsistant_file_handle *fh);
-

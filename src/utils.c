@@ -194,40 +194,29 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tag
 	if (!force_create) {
 		tagsistant_query(
 			"select inode from objects where objectname = \"%s\" and path = \"%s\" limit 1",
-			tagsistant_return_integer, &inode,
-			qtree->object_path, qtree->archive_path);
+			tagsistant_return_integer,
+			&inode,
+			qtree->object_path,
+			qtree->archive_path);
 	}
 
-	if (force_create || (0 == inode)) {
+	if (force_create || (!inode)) {
 		tagsistant_query(
 			"insert into objects (objectname, path) values (\"%s\", \"-\")",
-			NULL, NULL,
-			qtree->object_path);
-
-		/*
-		tagsistant_query(
-			"select max(inode) from objects where objectname = \"%s\" and path = \"-\"",
-			tagsistant_return_integer, &inode,
-			qtree->object_path);
-		*/
+			NULL, NULL,	qtree->object_path);
 
 		// don't know why it does not work on MySQL
 		inode = tagsistant_last_insert_id();
 	}
 
-	if (0 == inode) {
+	if (!inode) {
 		dbg(LOG_ERR, "Object %s recorded as inode 0!", qtree->object_path);
 		*tagsistant_errno = EIO;
 		return(-1);
 	}
 
 	// 2. adjust archive_path and full_archive_path with leading inode
-	g_free(qtree->archive_path);
-	g_free(qtree->full_archive_path);
-
-	qtree->inode = inode;
-	qtree->archive_path = g_strdup_printf("%d%s%s", inode, TAGSISTANT_INODE_DELIMITER, qtree->object_path);
-	qtree->full_archive_path = g_strdup_printf("%s%d%s%s", tagsistant.archive, inode, TAGSISTANT_INODE_DELIMITER, qtree->object_path);
+	tagsistant_querytree_set_inode(qtree, inode);
 
 	// 2.bis adjust object_path inside DB
 	tagsistant_query(
@@ -236,7 +225,7 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tag
 		qtree->archive_path, inode);
 
 	// 4. tag the object
-	tagsistant_traverse_querytree(qtree, tagsistant_sql_tag_object, inode);
+	tagsistant_querytree_traverse(qtree, tagsistant_sql_tag_object, inode);
 
 	// 5. use autotagging plugin stack
 	tagsistant_process(qtree);
