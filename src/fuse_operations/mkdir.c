@@ -34,7 +34,7 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 	TAGSISTANT_START("/ MKDIR on %s [mode: %d]", path, mode);
 
 	// build querytree
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -89,8 +89,6 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 	else if (QTREE_IS_STATS(qtree)) TAGSISTANT_ABORT_OPERATION(EROFS);
 
 TAGSISTANT_EXIT_OPERATION:
-	stop_labeled_time_profile("mkdir");
-
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("\\ MKDIR on %s (%s): %d %d: %s", path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {

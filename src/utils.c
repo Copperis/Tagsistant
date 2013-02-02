@@ -230,5 +230,8 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tag
 	// 5. use autotagging plugin stack
 	tagsistant_process(qtree);
 
+	if (force_create) { dbg(LOG_INFO, "Forced creation of object %s", qtree->full_path); }
+	else { dbg(LOG_INFO, "Tried creation of object %s", qtree->full_path); }
+
 	return(inode);
 }

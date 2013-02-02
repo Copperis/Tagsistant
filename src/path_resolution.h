@@ -243,7 +243,10 @@ extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_que
 extern tagsistant_querytree *	tagsistant_querytree_new(const char *path, int do_reasoning, int assign_inode);
 extern void 					tagsistant_querytree_destroy(tagsistant_querytree *qtree);
 
-extern void						tagsistant_querytree_set_object_path(tagsistant_querytree *qtree, char *path);
+extern void						tagsistant_querytree_set_object_path(tagsistant_querytree *qtree, char *new_object_path);
+extern void						tagsistant_querytree_set_inode(tagsistant_querytree *qtree, tagsistant_inode inode);
+extern void						tagsistant_querytree_rebuild_paths(tagsistant_querytree *qtree);
+extern tagsistant_query_type	tagsistant_querytree_guess_type(gchar **token_ptr);
 
 extern tagsistant_inode			tagsistant_inode_extract_from_path(const char *path);
 extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_querytree *qtree);

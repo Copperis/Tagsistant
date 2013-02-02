@@ -34,12 +34,12 @@ int tagsistant_rename(const char *from, const char *to)
 
 	TAGSISTANT_START("/ RENAME %s as %s", from, to);
 
-	from_qtree = tagsistant_querytree_new(from, FALSE);
+	from_qtree = tagsistant_querytree_new(from, FALSE, 0);
 	if (NULL == from_qtree) {
 		TAGSISTANT_ABORT_OPERATION(ENOMEM);
 	}
 
-	to_qtree = tagsistant_querytree_new(to, FALSE);
+	to_qtree = tagsistant_querytree_new(to, FALSE, 0);
 	if (NULL == to_qtree) TAGSISTANT_ABORT_OPERATION(ENOMEM);
 
 	// -- malformed --

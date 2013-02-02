@@ -34,8 +34,10 @@
  * @param path the path to be converted in a logical query
  * @param do_reasoning if true, use the reasoner
  */
-tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasoning)
+tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasoning, int assign_inode)
 {
+	int tagsistant_errno;
+
 	/* allocate the querytree structure */
 	tagsistant_querytree *qtree = g_new0(tagsistant_querytree, 1);
 	if (qtree == NULL) {
@@ -76,8 +78,11 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 
 		qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
 		qtree->inode = tagsistant_inode_extract_from_path(qtree->full_path);
-		qtree->archive_path = g_strdup(qtree->object_path);
-		qtree->full_archive_path = g_strdup_printf("%s%s", tagsistant.archive, qtree->archive_path);
+		if (!qtree->inode && assign_inode) {
+			tagsistant_force_create_and_tag_object(qtree, &tagsistant_errno);
+		} else {
+			tagsistant_querytree_set_inode(qtree, qtree->inode);
+		}
 
 	} else if (QTREE_IS_TAGS(qtree) && qtree->complete) {
 
