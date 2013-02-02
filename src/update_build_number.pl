@@ -24,6 +24,7 @@ if (open(IN, "buildnumber.h")) {
 my ($day, $month, $year) = (localtime)[3,4,5];
 $month = sprintf("%.2d", $month + 1);
 $year += 1900;
+$day = sprintf("%.2d", $day);
 my $new_build_date = "$year$month$day";
 my $new_build_revision = sprintf("%.6d", $current_build_revision + 1);
 if ($new_build_date != $current_build_date) {
