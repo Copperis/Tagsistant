@@ -36,10 +36,7 @@ int tagsistant_unlink(const char *path)
 	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0);
 
 	// -- malformed --
-	if (QTREE_IS_MALFORMED(qtree)) {
-		res = -1;
-		tagsistant_errno = ENOENT;
-	} else
+	if (QTREE_IS_MALFORMED(qtree)) TAGSISTANT_ABORT_OPERATION(ENOENT);
 
 	// -- objects on disk --
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
@@ -52,7 +49,7 @@ int tagsistant_unlink(const char *path)
 			// ...then check if it's tagged elsewhere...
 			// ...if still tagged, then avoid real unlink(): the object must survive!
 			if (tagsistant_object_is_tagged(qtree->inode))
-				goto UNLINK_EXIT;
+				goto TAGSISTANT_EXIT_OPERATION;
 
 			// otherwise just delete if from the objects table and go on.
 		} else if (QTREE_IS_ARCHIVE(qtree)) {
@@ -70,17 +67,14 @@ int tagsistant_unlink(const char *path)
 		res = unlink(unlink_path);
 		tagsistant_errno = errno;
 
-	} else
+	}
 
 	// -- tags --
 	// -- stats --
 	// -- relations --
-	{
-		res = -1;
-		tagsistant_errno = EROFS;
-	}
+	TAGSISTANT_ABORT_OPERATION(EROFS);
 
-UNLINK_EXIT:
+TAGSISTANT_EXIT_OPERATION:
 	stop_labeled_time_profile("unlink");
 
 	if ( res == -1 ) {

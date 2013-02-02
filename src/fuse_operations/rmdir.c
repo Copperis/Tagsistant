@@ -35,10 +35,10 @@ int tagsistant_rmdir(const char *path)
 	tagsistant_querytree *qtree = tagsistant_querytree_new(path, FALSE);
 
 	// -- malformed --
-	if (QTREE_IS_MALFORMED(qtree)) {
-		res = -1;
-		tagsistant_errno = ENOENT;
-	} else
+	if (QTREE_IS_MALFORMED(qtree)) TAGSISTANT_ABORT_OPERATION(ENOENT);
+
+	// -- stats
+	if (QTREE_IS_STATS(qtree)) TAGSISTANT_ABORT_OPERATION(EROFS);
 
 	// -- tags --
 	// -- archive
@@ -53,15 +53,15 @@ int tagsistant_rmdir(const char *path)
 			res = rmdir(rmdir_path);
 			tagsistant_errno = errno;
 		}
-	} else
+	}
 
 	// -- tags but incomplete (means: delete a tag) --
-	if (QTREE_IS_TAGS(qtree)) {
+	else if (QTREE_IS_TAGS(qtree)) {
 		tagsistant_sql_delete_tag(qtree->last_tag);
-	} else
+	}
 
 	// -- relations --
-	if (QTREE_IS_RELATIONS(qtree)) {
+	else if (QTREE_IS_RELATIONS(qtree)) {
 		// rmdir can be used only on third level
 		// since first level is all available tags
 		// and second level is all available relations
@@ -82,16 +82,9 @@ int tagsistant_rmdir(const char *path)
 			res = -1;
 			tagsistant_errno = EROFS;
 		}
-	} else
-
-	// -- stats
-	if (QTREE_IS_STATS(qtree)) {
-		res = -1;
-		tagsistant_errno = EROFS;
 	}
 
-	stop_labeled_time_profile("rmdir");
-
+TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("\\ RMDIR on %s (%s): %d %d: %s", path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {

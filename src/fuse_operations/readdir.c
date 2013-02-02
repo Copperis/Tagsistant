@@ -253,8 +253,7 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
 		dbg(LOG_INFO, "readdir on malformed path %s", path);
-		res = -1;
-		tagsistant_errno = ENOENT;
+		TAGSISTANT_ABORT_OPERATION(ENOENT);
 
 	} else if ((QTREE_POINTS_TO_OBJECT(qtree) && qtree->full_archive_path) || QTREE_IS_ARCHIVE(qtree)) {
 		dbg(LOG_INFO, "readdir on object %s", path);
@@ -286,6 +285,7 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 
 	}
 
+TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("\\ READDIR on %s (%s): %d %d: %s", path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {

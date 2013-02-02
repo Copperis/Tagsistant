@@ -218,7 +218,7 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tag
 	// 2. adjust archive_path and full_archive_path with leading inode
 	tagsistant_querytree_set_inode(qtree, inode);
 
-	// 2.bis adjust object_path inside DB
+	// 3. adjust object_path inside DB
 	tagsistant_query(
 		"update objects set path = \"%s\" where inode = %d",
 		NULL, NULL,

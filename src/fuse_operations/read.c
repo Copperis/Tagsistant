@@ -39,12 +39,11 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
-		res = -1;
-		tagsistant_errno = ENOENT;
-	} else
+		TAGSISTANT_ABORT_OPERATION(ENOENT);
+	}
 
 	// -- object on disk --
-	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+	else if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		int fd = tagsistant_internal_open(qtree, fi->flags|O_RDONLY, &tagsistant_errno);
 		if (fd != -1) {
 			res = pread(fd, buf, size, offset);
@@ -54,22 +53,18 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 			res = -1;
 			tagsistant_errno = errno;
 		}
-	} else
+	}
 
 	// -- stats --
-	if (QTREE_IS_STATS(qtree)) {
+	else if (QTREE_IS_STATS(qtree)) {
 		// do what is needed
-	} else
+	}
 
 	// -- tags --
 	// -- relations --
-	{
-		res = -1;
-		tagsistant_errno = EROFS;
-	}
+	else TAGSISTANT_ABORT_OPERATION(EROFS);
 
-	stop_labeled_time_profile("read");
-
+TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("\\ READ %s (%s) (%s): %d %d: %s", path, qtree->full_archive_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {

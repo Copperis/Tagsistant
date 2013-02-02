@@ -41,10 +41,7 @@ int tagsistant_write(const char *path, const char *buf, size_t size, off_t offse
 	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0);
 
 	// -- malformed --
-	if (QTREE_IS_MALFORMED(qtree)) {
-		res = -1;
-		tagsistant_errno = ENOENT;
-	} else
+	if (QTREE_IS_MALFORMED(qtree)) TAGSISTANT_ABORT_OPERATION(ENOENT);
 
 	// -- object on disk --
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
@@ -57,18 +54,14 @@ int tagsistant_write(const char *path, const char *buf, size_t size, off_t offse
 			res = -1;
 			tagsistant_errno = errno;
 		}
-	} else
+	}
 
 	// -- tags --
 	// -- stats --
 	// -- relations --
-	{
-		res = -1;
-		tagsistant_errno = EROFS;
-	}
+	else TAGSISTANT_ABORT_OPERATION(EROFS);
 
-	stop_labeled_time_profile("write");
-
+TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("\\ WRITE %s (%s) (%s): %d %d: %s", path, qtree->full_archive_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {

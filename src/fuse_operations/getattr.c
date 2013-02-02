@@ -72,24 +72,21 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
-		res = -1;
-		tagsistant_errno = ENOENT;
-	} else
+		TAGSISTANT_ABORT_OPERATION(ENOENT);
+	}
 	
 	// -- object on disk --
-	if (QTREE_POINTS_TO_OBJECT(qtree) && qtree->full_archive_path) {
+	else if (QTREE_POINTS_TO_OBJECT(qtree) && qtree->full_archive_path) {
 		if (!tagsistant_check_tagging_consistency(qtree)) {
-			res = -1;
-			tagsistant_errno = ENOENT;
-			goto GETATTR_EXIT;
+			TAGSISTANT_ABORT_OPERATION(ENOENT);
 		}
 
 		lstat_path = qtree->full_archive_path;
 		dbg(LOG_INFO, "lstat_path = %s", lstat_path);
-	} else
+	}
 
 	// -- relations --
-	if (QTREE_IS_RELATIONS(qtree)) {
+	else if (QTREE_IS_RELATIONS(qtree)) {
 		if (qtree->second_tag) {
 			// check if the relation is valid
 			gchar *check_name = NULL;
@@ -106,9 +103,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 				qtree->second_tag);
 
 			if ((NULL == check_name) || (strcmp(qtree->second_tag, check_name) != 0)) {
-				res = -1;
-				tagsistant_errno = ENOENT;
-				goto GETATTR_EXIT;
+				TAGSISTANT_ABORT_OPERATION(ENOENT);
 			} else {
 				lstat_path = tagsistant.archive;
 			}
@@ -116,16 +111,13 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 			lstat_path = tagsistant.archive;
 		}
 
-	} else
-
+	}
 
 	// -- tags --
 	// -- archive --
 	// -- root --
 	// -- stats --
-	{
-		lstat_path = tagsistant.archive;
-	}
+	else lstat_path = tagsistant.archive;
 
 	// do the real lstat()
 	res = lstat(lstat_path, stbuf);
@@ -179,7 +171,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 		// mangle inode for relations and stats
 	}
 
-GETATTR_EXIT:
+TAGSISTANT_EXIT_OPERATION:
 	stop_labeled_time_profile("getattr");
 
 	if ( res == -1 ) {

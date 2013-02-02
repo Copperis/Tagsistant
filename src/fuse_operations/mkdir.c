@@ -38,33 +38,31 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
-		res = -1;
-		tagsistant_errno = ENOENT;
-	} else
+		TAGSISTANT_ABORT_OPERATION(ENOENT);
+	}
 
 	// -- tags --
 	// -- archive
-	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+	else if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		if (QTREE_IS_TAGGABLE(qtree)) {
 			// create a new directory inside tagsistant.archive directory
 			// and tag it with all the tags in the qtree
 			res = tagsistant_create_and_tag_object(qtree, &tagsistant_errno);
-
-			if (-1 == res) goto MKDIR_EXIT;
+			if (-1 == res) goto TAGSISTANT_EXIT_OPERATION;
 		}
 
 		// do a real mkdir
 		res = mkdir(qtree->full_archive_path, mode);
 		tagsistant_errno = errno;
-	} else
+	}
 
 	// -- tags but incomplete (means: create a new tag) --
-	if (QTREE_IS_TAGS(qtree)) {
+	else if (QTREE_IS_TAGS(qtree)) {
 		tagsistant_sql_create_tag(qtree->last_tag);
-	} else
+	}
 
 	// -- relations --
-	if (QTREE_IS_RELATIONS(qtree)) {
+	else if (QTREE_IS_RELATIONS(qtree)) {
 		// mkdir can be used only on third level
 		// since first level is all available tags
 		// and second level is all available relations
@@ -85,15 +83,12 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 			res = -1;
 			tagsistant_errno = EROFS;
 		}
-	} else
-
-	// -- stats
-	if (QTREE_IS_STATS(qtree)) {
-		res = -1;
-		tagsistant_errno = EROFS;
 	}
 
-MKDIR_EXIT:
+	// -- stats
+	else if (QTREE_IS_STATS(qtree)) TAGSISTANT_ABORT_OPERATION(EROFS);
+
+TAGSISTANT_EXIT_OPERATION:
 	stop_labeled_time_profile("mkdir");
 
 	if ( res == -1 ) {

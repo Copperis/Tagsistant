@@ -36,42 +36,22 @@ int tagsistant_rename(const char *from, const char *to)
 
 	from_qtree = tagsistant_querytree_new(from, FALSE);
 	if (NULL == from_qtree) {
-		tagsistant_errno = ENOMEM;
-		goto RENAME_EXIT;
+		TAGSISTANT_ABORT_OPERATION(ENOMEM);
 	}
 
 	to_qtree = tagsistant_querytree_new(to, FALSE);
-	if (NULL == to_qtree) {
-		tagsistant_errno = ENOMEM;
-		goto RENAME_EXIT;
-	}
+	if (NULL == to_qtree) TAGSISTANT_ABORT_OPERATION(ENOMEM);
 
 	// -- malformed --
-	if (QTREE_IS_MALFORMED(from_qtree)) {
-		res = -1;
-		tagsistant_errno = ENOENT;
-		goto RENAME_EXIT;
-	}
-
-	if (QTREE_IS_MALFORMED(to_qtree)) {
-		res = -1;
-		tagsistant_errno = ENOENT;
-		goto RENAME_EXIT;
-	}
+	if (QTREE_IS_MALFORMED(from_qtree)) TAGSISTANT_ABORT_OPERATION(ENOENT);
 
 	// -- can't rename objects of different type or not both complete
-	if (!QTREES_ARE_SIMILAR(from_qtree, to_qtree)) {
-		res = -1;
-		tagsistant_errno = EINVAL;
-		goto RENAME_EXIT;
-	}
+	if (!QTREES_ARE_SIMILAR(from_qtree, to_qtree)) TAGSISTANT_ABORT_OPERATION(EINVAL);
 
 	// -- can't rename anything from or into /stats or /relations
-	if (QTREE_IS_STATS(to_qtree) || QTREE_IS_STATS(from_qtree) || QTREE_IS_RELATIONS(to_qtree) || QTREE_IS_RELATIONS(from_qtree)) {
-		res = -1;
-		tagsistant_errno = EINVAL;
-		goto RENAME_EXIT;
-	}
+	if (QTREE_IS_STATS(to_qtree) || QTREE_IS_STATS(from_qtree) || QTREE_IS_RELATIONS(to_qtree) || QTREE_IS_RELATIONS(from_qtree))
+		TAGSISTANT_ABORT_OPERATION(EINVAL);
+
 
 	// -- object on disk (/archive and complete /tags) --
 	if (QTREE_POINTS_TO_OBJECT(from_qtree)) {
@@ -90,23 +70,17 @@ int tagsistant_rename(const char *from, const char *to)
 		rename_path = from_qtree->full_archive_path;
 		res = rename(rename_path, to_qtree->full_archive_path);
 		tagsistant_errno = errno;
-
-		if (-1 == res) goto RENAME_EXIT;
-
 	} else if (QTREE_IS_ROOT(from_qtree)) {
-		res = -1;
-		tagsistant_errno = EPERM;
+		TAGSISTANT_ABORT_OPERATION(EPERM);
 	} else if (QTREE_IS_TAGS(from_qtree)) {
 		if (QTREE_IS_COMPLETE(from_qtree)) {
-			res = -1;
-			tagsistant_errno = EPERM;
-			goto RENAME_EXIT;
+			TAGSISTANT_ABORT_OPERATION(EPERM);
 		}
 
 		tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\"", NULL, NULL, to_qtree->last_tag, from_qtree->last_tag);
 	}
 
-RENAME_EXIT:
+TAGSISTANT_EXIT_OPERATION:
 	stop_labeled_time_profile("rename");
 
 	if ( res == -1 ) {

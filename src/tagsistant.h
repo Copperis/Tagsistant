@@ -249,13 +249,13 @@ extern int		tagsistant_getattr(const char *path, struct stat *stbuf);
 
 extern int		tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tagsistant_errno, int force_create);
 
-#define tagsistant_create_and_tag_object(qtree, errno) \
+#define tagsistant_create_and_tag_object(qtree, errno) {\
 	tagsistant_inner_create_and_tag_object(qtree, errno, 0); \
-	dbg(LOG_INFO, "Tried creation of object %s", qtree->full_path)
+	dbg(LOG_INFO, "Tried creation of object %s", qtree->full_path); }
 
-#define tagsistant_force_create_and_tag_object(qtree, errno) \
+#define tagsistant_force_create_and_tag_object(qtree, errno) {\
 	tagsistant_inner_create_and_tag_object(qtree, errno, 1); \
-	dbg(LOG_INFO, "Forced creation of object %s", qtree->full_path)
+	dbg(LOG_INFO, "Forced creation of object %s", qtree->full_path); }
 
 
 #include "fuse_operations/operations.h"

@@ -37,33 +37,26 @@ int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0);
 
 	// -- malformed --
-	if (QTREE_IS_MALFORMED(qtree)) {
-		res = -1;
-		tagsistant_errno = EFAULT;
-		goto MKNOD_EXIT;
-	} else
+	if (QTREE_IS_MALFORMED(qtree)) { TAGSISTANT_ABORT_OPERATION(EFAULT); }
+
+	// -- archive --
+	else if (QTREE_IS_ARCHIVE(qtree)) { TAGSISTANT_ABORT_OPERATION(EROFS); }
 
 	// -- tags --
-	// -- archive --
-	if (QTREE_POINTS_TO_OBJECT(qtree)) {
-		if (QTREE_IS_TAGGABLE(qtree)) {
-			res = tagsistant_force_create_and_tag_object(qtree, &tagsistant_errno);
-			if (-1 == res) goto MKNOD_EXIT;
+	else if (QTREE_POINTS_TO_OBJECT(qtree) && QTREE_IS_TAGGABLE(qtree)) {
+		res = tagsistant_force_create_and_tag_object(qtree, &tagsistant_errno);
+		if (-1 != res) {
+			dbg(LOG_INFO, "NEW object on disk: mknod(%s)", qtree->full_archive_path);
+			res = mknod(qtree->full_archive_path, mode, rdev);
+			tagsistant_errno = errno;
 		}
-
-		dbg(LOG_INFO, "NEW object on disk: mknod(%s)", qtree->full_archive_path);
-		res = mknod(qtree->full_archive_path, mode, rdev);
-		tagsistant_errno = errno;
-	} else
+	}
 
 	// -- stats --
 	// -- relations --
-	{
-		res = -1;
-		tagsistant_errno = EROFS;
-	}
+	else TAGSISTANT_ABORT_OPERATION(EROFS);
 
-MKNOD_EXIT:
+TAGSISTANT_EXIT_OPERATION:
 	stop_labeled_time_profile("mknod");
 
 	if ( res == -1 ) {

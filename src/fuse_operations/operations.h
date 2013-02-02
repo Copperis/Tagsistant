@@ -17,6 +17,9 @@
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
+#define TAGSISTANT_ABORT_OPERATION(set_errno) \
+	{ res = -1; tagsistant_errno = set_errno; goto TAGSISTANT_EXIT_OPERATION; }
+
 extern int tagsistant_getattr(const char *path, struct stat *stbuf);
 extern int tagsistant_readlink(const char *path, char *buf, size_t size);
 extern int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi);

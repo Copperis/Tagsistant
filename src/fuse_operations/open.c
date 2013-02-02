@@ -66,32 +66,27 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
-		res = -1;
-		tagsistant_errno = ENOENT;
-	} else
+		TAGSISTANT_ABORT_OPERATION(ENOENT);
+	}
 
 	// -- object --
-	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+	else if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		open_path = qtree->full_archive_path;
 		res = tagsistant_internal_open(qtree, fi->flags|O_RDONLY, &tagsistant_errno);
 		if (-1 != res) close(res);
-	} else
+	}
 
 	// -- stats --
-	if (QTREE_IS_STATS(qtree)) {
+	else if (QTREE_IS_STATS(qtree)) {
 		open_path = qtree->stats_path;
 		// do proper action
-	} else
+	}
 
 	// -- tags --
 	// -- relations --
-	{
-		res = -1;
-		tagsistant_errno = EROFS;
-	}
+	else TAGSISTANT_ABORT_OPERATION(EROFS);
 
-	stop_labeled_time_profile("open");
-
+TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("\\ OPEN on %s (%s) (%s): %d %d: %s", path, open_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {

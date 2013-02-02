@@ -39,18 +39,14 @@ int tagsistant_readlink(const char *path, char *buf, size_t size)
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
-		res = -1;
-		tagsistant_errno = ENOENT;
-		goto READLINK_EXIT;
+		TAGSISTANT_ABORT_OPERATION(ENOENT);
 	}
 
 	if ((QTREE_IS_TAGS(qtree) && QTREE_IS_COMPLETE(qtree)) || QTREE_IS_ARCHIVE(qtree)) {
 		readlink_path = qtree->object_path;
 		readlink_path = qtree->full_archive_path;
 	} else if (QTREE_IS_STATS(qtree) || QTREE_IS_RELATIONS(qtree)) {
-		res = -1;
-		tagsistant_errno = EINVAL; /* symlinks exist in archive/ and tags/ only */
-		goto READLINK_EXIT;
+		TAGSISTANT_ABORT_OPERATION(EINVAL);
 	}
 
 	// do real readlink()
@@ -60,7 +56,7 @@ int tagsistant_readlink(const char *path, char *buf, size_t size)
 	// fix bug #12475
 	if (res > 0) buf[res] = '\0';
 
-READLINK_EXIT:
+TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("\\ READLINK on %s (%s) (%s): %d %d: %s", path, readlink_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {

@@ -36,29 +36,23 @@ int tagsistant_utime(const char *path, struct utimbuf *buf)
 	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0);
 
 	// -- malformed --
-	if (QTREE_IS_MALFORMED(qtree)) {
-		res = -1;
-		tagsistant_errno = ENOENT;
-	} else
+	if (QTREE_IS_MALFORMED(qtree)) TAGSISTANT_ABORT_OPERATION(ENOENT);
 
 	// -- object on disk --
-	if (QTREE_POINTS_TO_OBJECT(qtree)) {
-		utime_path = qtree->full_archive_path;
-	} else
+	if (QTREE_POINTS_TO_OBJECT(qtree)) utime_path = qtree->full_archive_path;
 
 	// -- tags --
 	// -- stats --
 	// -- relations --
-	{
-		utime_path = tagsistant.archive;
-	}
+	else utime_path = tagsistant.archive;
 
 	// do the real utime()
+	dbg(LOG_INFO, "utime(%s)", utime_path);
+
 	res = utime(utime_path, buf);
 	tagsistant_errno = errno;
 
-	stop_labeled_time_profile("utime");
-
+TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("\\ UTIME %s (%s): %d %d: %s", utime_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {

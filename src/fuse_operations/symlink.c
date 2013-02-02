@@ -72,10 +72,7 @@ int tagsistant_symlink(const char *from, const char *to)
 		tagsistant_querytree_set_object_path(to_qtree, from_qtree->object_path);
 
 	// -- malformed --
-	if (QTREE_IS_MALFORMED(to_qtree)) {
-		res = -1;
-		tagsistant_errno = ENOENT;
-	} else
+	if (QTREE_IS_MALFORMED(to_qtree)) TAGSISTANT_ABORT_OPERATION(ENOENT);
 
 	// -- object on disk --
 	if (QTREE_POINTS_TO_OBJECT(to_qtree) || (QTREE_IS_TAGS(to_qtree) && QTREE_IS_COMPLETE(to_qtree))) {
@@ -100,7 +97,7 @@ int tagsistant_symlink(const char *from, const char *to)
 		if (QTREE_IS_TAGGABLE(to_qtree)) {
 			dbg(LOG_INFO, "SYMLINK : Creating %s", to_qtree->object_path);
 			res = tagsistant_force_create_and_tag_object(to_qtree, &tagsistant_errno);
-			if (-1 == res) goto SYMLINK_EXIT;
+			if (-1 == res) goto TAGSISTANT_EXIT_OPERATION;
 		} else
 
 		// nothing to do about tags
@@ -112,17 +109,14 @@ int tagsistant_symlink(const char *from, const char *to)
 		dbg(LOG_INFO, "Symlinking %s to %s", from, to_qtree->object_path);
 		res = symlink(from, to_qtree->full_archive_path);
 		tagsistant_errno = errno;
-	} else
+	}
 
 	// -- tags (uncomplete) --
 	// -- stats --
 	// -- relations --
-	{
-		res = -1;
-		tagsistant_errno = EINVAL; /* can't symlink outside of tags/ and archive/ */
-	}
+	else TAGSISTANT_ABORT_OPERATION(EINVAL);
 
-SYMLINK_EXIT:
+TAGSISTANT_EXIT_OPERATION:
 	stop_labeled_time_profile("symlink");
 
 	if ( res == -1 ) {

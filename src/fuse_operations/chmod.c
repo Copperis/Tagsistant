@@ -36,26 +36,21 @@ int tagsistant_chmod(const char *path, mode_t mode)
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
-		res = -1;
-		tagsistant_errno = ENOENT;
-	} else
+		TAGSISTANT_ABORT_OPERATION(ENOENT);
+	}
 
 	// -- object on disk --
-	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+	else if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		res = chmod(qtree->full_archive_path, mode);
 		tagsistant_errno = errno;
-	} else
+	}
 
 	// -- tags --
 	// -- stats --
 	// -- relations --
-	{
-		res = -1;
-		tagsistant_errno = EROFS;
-	}
+	else TAGSISTANT_ABORT_OPERATION(EROFS);
 
-	stop_labeled_time_profile("chmod");
-
+TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("\\ CHMOD %s (%s) as %d: %d %d: %s", qtree->full_archive_path, tagsistant_querytree_type(qtree), mode, res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
