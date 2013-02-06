@@ -113,11 +113,8 @@ typedef enum {
  */
 typedef struct querytree {
 	/** the complete path that generated the tree */
-	/** i.e. <MPOINT>/t1/+/t2/=/object/path.txt */
+	/** i.e. <MPOINT>/tags/t1/+/t2/=/object/path.txt */
 	gchar *full_path;
-
-	/** the query tree */
-	ptree_or_node *tree;
 
 	/** the path of the object, if provided */
 	/** i.e. object/path.txt */
@@ -131,6 +128,12 @@ typedef struct querytree {
 	/** ~/.tagsistant/archive/NNN___object/path.txt */
 	gchar *full_archive_path;
 
+	/** the inode of the object, if directly managed by tagsistant */
+	tagsistant_inode inode;
+
+	/** which kind of path is this? see tagsistant_query_type */
+	int type;
+
 	/** the query points to an object on disk? */
 	/** true if its an archive/ query or a complete tags/ query */
 	int points_to_object;
@@ -141,21 +144,20 @@ typedef struct querytree {
 	/** the object is external to tagsistant mountpoint */
 	int is_external;
 
-	/** the inode of the object, if directly managed by tagsistant */
-	tagsistant_inode inode;
-
 	/** last tag found while parsing a /tags query */
 	gchar *last_tag;
 
 	/** the query is valid */
 	int valid;
 
-	/** the tags/ query is complete */
+	/** the tags/ query is complete? it has a '=' sign? */
 	int complete;
 
-	/** which kind of path is this? */
-	/** see tagsistant_query_type */
-	int type;
+	/** the object pointed by is currently in the database? */
+	int exists;
+
+	/** the query tree in a tags/ query */
+	ptree_or_node *tree;
 
 	/** the first tag in a relations/ query */
 	gchar *first_tag;
@@ -176,12 +178,9 @@ typedef struct querytree {
  * Alessandro AkiRoss Re reported a conflict with the structure
  * file_handle in /usr/include/bits/fcntl.h on Fedora 15
  */
-typedef struct tagsistant_file_handle {
-	/** filename pointed by this structure */
-	char *name;
-
-	/** next element in results */
-	struct tagsistant_file_handle *next;
+typedef struct {
+	char *name;					/** object filename */
+	tagsistant_inode inode;		/** object inode */
 } tagsistant_file_handle;
 
 /**
@@ -237,5 +236,5 @@ extern tagsistant_inode			tagsistant_inode_extract_from_path(const char *path);
 extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_querytree *qtree);
 
 // filetree functions
-extern tagsistant_file_handle *	tagsistant_filetree_new(ptree_or_node *query);
-extern void 					tagsistant_filetree_destroy(tagsistant_file_handle *fh);
+extern GHashTable *				tagsistant_filetree_new(ptree_or_node *query);
+extern void 					tagsistant_filetree_destroy(GHashTable *hash_table);

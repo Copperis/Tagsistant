@@ -19,39 +19,7 @@
 
 #include "../tagsistant.h"
 
-#define tagsistant_check_tagging_consistency(qtree) \
-	tagsistant_inner_check_tagging_consistency(qtree, 0)
 
-static int tagsistant_inner_check_tagging_consistency(tagsistant_querytree *qtree, int recurse)
-{
-	int exists = 0;
-
-	if (!QTREE_IS_TAGS(qtree)) {
-		dbg(LOG_INFO, "%s is not a tag query", qtree->full_path);
-		return(1);
-	}
-
-	ptree_or_node *or_ptr = qtree->tree;
-
-	while (NULL != or_ptr) {
-		ptree_and_node *and_ptr = or_ptr->and_set;
-
-		while (NULL != and_ptr) {
-			tagsistant_inode tag_id = tagsistant_sql_get_tag_id(and_ptr->tag);
-			if (tag_id && tagsistant_object_is_tagged_as(qtree->inode, tag_id)) {
-				dbg(LOG_INFO, "Object %d is tagged as %d", qtree->inode, tag_id);
-				exists = 1;
-			} else {
-				dbg(LOG_INFO, "Object %d is NOT tagged as %d", qtree->inode, tag_id);
-			}
-			and_ptr = and_ptr->next;
-		}
-
-		or_ptr = or_ptr->next;
-	}
-
-	return(exists);
-}
 
 /**
  * lstat equivalent
@@ -76,13 +44,13 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	}
 	
 	// -- object on disk --
-	else if (QTREE_POINTS_TO_OBJECT(qtree) && qtree->full_archive_path) {
-		if (!tagsistant_check_tagging_consistency(qtree)) {
+	else if (QTREE_POINTS_TO_OBJECT(qtree)) {
+		if (qtree->exists && qtree->full_archive_path) {
+			lstat_path = qtree->full_archive_path;
+			dbg(LOG_INFO, "lstat_path = %s", lstat_path);
+		} else {
 			TAGSISTANT_ABORT_OPERATION(ENOENT);
 		}
-
-		lstat_path = qtree->full_archive_path;
-		dbg(LOG_INFO, "lstat_path = %s", lstat_path);
 	}
 
 	// -- relations --
@@ -113,8 +81,8 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 	}
 
-	// -- tags --
-	// -- archive --
+	// -- tags (incomplete) --
+	// -- archive (the directory itself) --
 	// -- root --
 	// -- stats --
 	else lstat_path = tagsistant.archive;

@@ -45,6 +45,11 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 		return(NULL);
 	}
 
+	/* set default values */
+	qtree->inode = qtree->type = qtree->points_to_object = qtree->is_taggable =
+		qtree->is_external = qtree->valid = qtree->complete = qtree->exists = 0;
+
+
 	/* duplicate the path inside the struct */
 	qtree->full_path = g_strdup(path);
 
@@ -118,15 +123,20 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 					*token_ptr
 				);
 
-				g_string_free(and_tmp, TRUE); // destroy the GString and its content
+				g_string_free(and_set, TRUE); // destroy the GString and its content
 				or_tmp = or_tmp->next;
 			}
 		}
 
 		// if an inode has been found, form the archive_path and full_archive_path
-		if (qtree->inode) {
+		if (qtree->inode)
 			tagsistant_querytree_set_inode(qtree, qtree->inode);
-		}
+
+		if (strlen(qtree->object_path))
+			qtree->points_to_object = qtree->valid = qtree->complete = 1;
+
+		// check if the query is consistent or not
+		tagsistant_querytree_check_tagging_consistency(qtree);
 	}
 
 	dbg(LOG_INFO, "inode = %d", qtree->inode);
@@ -151,7 +161,7 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 	}
 
 	/* get the id of the object referred by first element */
-	if (!qtree->inode) qtree->inode = tagsistant_inode_extract_from_path(path);
+//	if (!qtree->inode) qtree->inode = tagsistant_inode_extract_from_path(path);
 
 RETURN:
 	g_strfreev(splitted);
@@ -181,6 +191,67 @@ tagsistant_query_type tagsistant_querytree_guess_type(gchar **token_ptr)
 	} else {
 		return QTYPE_MALFORMED;
 	}
+}
+
+/**
+ * Check if the object_path of the qtree is contained in at least one
+ * of the and_sets referenced by the query
+ *
+ * @param qtree the tagsistant_querytree object to check
+ * @return true if contained, false otherwise
+ */
+int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
+{
+	qtree->exists = 0;
+	tagsistant_inode inode = 0;
+
+	// 0. no object path means no need to check for inner consistency
+	if (!qtree->object_path) return 0;
+
+	// 1. get the object path first element
+	gchar *object_first_element = g_strdup(qtree->object_path);
+	gchar *first_slash = g_strstr_len(object_first_element, strlen(object_first_element), G_DIR_SEPARATOR_S);
+	if (first_slash)
+		*first_slash = '\0';
+	else
+		qtree->is_taggable = 1;
+
+	// 2. use the object_first_element to guess if its tagged in the provided set of tags
+	ptree_or_node *or_tmp = qtree->tree;
+	while (or_tmp) {
+		GString *and_set = g_string_new("");
+		ptree_and_node *and_tmp = or_tmp->and_set;
+
+		while (and_tmp) {
+			g_string_append_printf(and_set, "\"%s\"", and_tmp->tag);
+			if (and_tmp->next) g_string_append(and_set, ",");
+			and_tmp = and_tmp->next;
+		}
+
+		tagsistant_query(
+			"select objects.inode from objects "
+				"join tagging on objects.inode = tagging.inode "
+				"join tags on tagging.tag_id = tags.tag_id "
+				"where tags.tagname in (%s) and objects.objectname = \"%s\"",
+			tagsistant_return_integer,
+			&inode,
+			and_set->str,
+			object_first_element
+		);
+
+		g_string_free(and_set, TRUE); // destroy the GString and its content
+
+		if (inode) {
+			qtree->exists = 1;
+			break;
+		}
+
+		or_tmp = or_tmp->next;
+	}
+
+	g_free(object_first_element);
+
+	return(qtree->exists);
 }
 
 /**
@@ -218,7 +289,7 @@ int tagsistant_querytree_parse_tags (
 	qtree->valid = 1;
 
 	// begin parsing
-	while ((NULL != **token_ptr) && ('=' != ***token_ptr)) {
+	while (**token_ptr && ('=' != ***token_ptr)) {
 		if (strlen(**token_ptr) == 0) {
 			/* ignore zero length tokens */
 		} else if (strcmp(**token_ptr, "+") == 0) {
@@ -277,7 +348,10 @@ int tagsistant_querytree_parse_tags (
 		(*token_ptr)++;
 	}
 
-	(*token_ptr)++;
+	// if last token is '=', move the pointer one element forward
+	if (**token_ptr && ('=' == ***token_ptr))
+		(*token_ptr)++;
+
 	return 1;
 }
 
@@ -545,38 +619,32 @@ int tagsistant_reasoner(tagsistant_reasoning *reasoning)
 /***                                                                              ***/
 /************************************************************************************/
 
-/* a struct used by add_to_filetree function */
-struct tagsistant_atft {
-	uint64_t id;
-	tagsistant_file_handle **fh;
-};
-
 /**
  * add a file to the file tree (callback function)
  */
-static int tagsistant_add_to_filetree(void *atft_struct, dbi_result result)
+static int tagsistant_add_to_filetree(void *hash_table_pointer, dbi_result result)
 {
-	struct tagsistant_atft *atft = (struct tagsistant_atft*) atft_struct;
-	tagsistant_file_handle **fh = atft->fh;
+	/* Cast the hash table */
+	GHashTable *hash_table = (GHashTable *) hash_table_pointer;
 
-	const char *objectname = dbi_result_get_string_idx(result, 1);
-	tagsistant_inode inode = dbi_result_get_uint_idx(result, 2);
+	/* fetch query results into tagsistant_file_handle struct */
+	tagsistant_file_handle *fh = g_new0(tagsistant_file_handle, 1);
+	fh->name = dbi_result_get_string_idx(result, 1);
+	fh->inode = dbi_result_get_uint_idx(result, 2);
 
-	/* no need to add empty files */
-	if (objectname == NULL || strlen(objectname) == 0)
-		return(0);
-
-	(*fh)->name = g_strdup_printf("%u%s%s", inode, TAGSISTANT_INODE_DELIMITER, objectname);
-	dbg(LOG_INFO, "adding %s to filetree", (*fh)->name);
-	(*fh)->next = (tagsistant_file_handle *) g_new0(tagsistant_file_handle, 1);
-	if ((*fh)->next == NULL) {
-		dbg(LOG_ERR, "Can't allocate memory in tagsistant_filetree_new");
-		return(1);
+	if (!fh->name || (strlen(fh->name) == 0)) {
+		g_free(fh);
+		return 0;
 	}
-	(*fh) = (tagsistant_file_handle *) (*fh)->next;
-	(*fh)->next = NULL;
-	(*fh)->name = NULL;
 
+	/* lookup the GList object */
+	GList *list = g_hash_table_lookup(hash_table, fh->name);
+	int must_insert = list ? 0 : 1;
+	list = g_list_append(list, fh);
+	if (must_insert)
+		g_hash_table_insert(hash_table, fh->name, fh);
+
+	dbg(LOG_INFO, "adding (%d,%s) to filetree", fh->inode, fh->name);
 
 	return(0);
 }
@@ -618,33 +686,15 @@ void tagsistant_drop_views(ptree_or_node *query)
  * @param query the ptree_or_node_t* query structure to
  * be resolved.
  */
-tagsistant_file_handle *tagsistant_filetree_new(ptree_or_node *query)
+GHashTable *tagsistant_filetree_new(ptree_or_node *query)
 {
 	if (query == NULL) {
 		dbg(LOG_ERR, "NULL path_tree_t object provided to %s", __func__);
 		return(NULL);
 	}
 
-	//
-	// save a working pointer to the query
-	//
+	/* save a working pointer to the query */
 	ptree_or_node *query_dup = query;
-
-	//
-	// allocate a new structure to return the file tree
-	//
-	tagsistant_file_handle *fh = g_new0(tagsistant_file_handle, 1);
-	if ( fh == NULL ) {
-		dbg(LOG_ERR, "Can't allocate memory in %s", __func__);
-		return(NULL);
-	}
-	fh->next = NULL;
-	fh->name = NULL;
-
-	//
-	// save a pointer to the first node
-	//
-	tagsistant_file_handle *result = fh;
 
 	dbg(LOG_INFO, "building filetree...");
 
@@ -750,42 +800,44 @@ tagsistant_file_handle *tagsistant_filetree_new(ptree_or_node *query)
 	g_string_append(view_statement, ";");
 	dbg(LOG_INFO, "SQL view statement: %s", view_statement->str);
 
-	struct tagsistant_atft *atft = g_new0(struct tagsistant_atft, 1);
-	if (atft == NULL) {
-		dbg(LOG_ERR, "Error allocating memory");
-		g_string_free(view_statement, TRUE);
-		tagsistant_filetree_destroy(result);
-		tagsistant_drop_views(query_dup);
-		return(NULL);
-	}
-	atft->fh = &fh;
-	// atft->dbh = dbh;
-
 	/* apply view statement */
-	tagsistant_query(view_statement->str, tagsistant_add_to_filetree, atft);
-	freenull(atft);
+	GHashTable *file_hash = g_hash_table_new(g_str_hash, g_str_equal);
+	tagsistant_query(view_statement->str, tagsistant_add_to_filetree, file_hash);
 
+	/* free the SQL statement */
 	g_string_free(view_statement, TRUE);
 
+	/* drop the views */
 	tagsistant_drop_views(query_dup);
-	return(result);
+
+	return(file_hash);
+}
+
+/**
+ * Destroy a filetree node
+ */
+void tagsistant_file_handle_destroy(gpointer unused_key, gpointer fh_pointer, gpointer unused_data)
+{
+	if (!fh_pointer) return;
+	
+	(void) unused_key;
+	(void) unused_data;
+
+	tagsistant_file_handle *fh = (tagsistant_file_handle *) fh_pointer;
+
+	freenull(fh->name);
+	freenull(fh);
 }
 
 /**
  * Destroy a filetree
  */
-void tagsistant_filetree_destroy(tagsistant_file_handle *fh)
+void tagsistant_filetree_destroy(GHashTable *hash_table)
 {
-	if (fh == NULL)
-		return;
-	
-	if (fh->name != NULL)
-		freenull(fh->name);
-	
-	if (fh->next != NULL)
-		tagsistant_filetree_destroy(fh->next);
+	if (!hash_table) return;
 
-	freenull(fh);
+	g_hash_table_foreach(hash_table, tagsistant_file_handle_destroy, NULL);
+	g_hash_table_destroy(hash_table);
 }
 
 // vim:ts=4:nowrap:nocindent
