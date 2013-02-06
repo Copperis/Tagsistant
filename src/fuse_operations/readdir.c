@@ -63,23 +63,26 @@ static int tagsistant_add_entry_to_dir(void *filler_ptr, dbi_result result)
 
 static int tagsistant_readdir_on_tags_filler(gchar *name, GList *fh_list, struct tagsistant_use_filler_struct *ufs)
 {
+	(void) name;
+
 	if (!fh_list) return 0;
 
-	// TODO here we have a segfault... why?
-	guint length = g_list_length(fh_list);
-	if (length > 1) {
-		// add inodes to filenames
-		guint i;
-		for (i = 0; i < length; i++) {
-			tagsistant_file_handle *fh = g_list_nth_data(fh_list, i);
+	if (!(fh_list->next)) {
+		// just add the filename
+		tagsistant_file_handle *fh = fh_list->data;
+		if (fh) return ufs->filler(ufs->buf, fh->name, NULL, 0);
+		return 0;
+	}
+
+	// add inodes to filenames
+	while (fh_list) {
+		tagsistant_file_handle *fh = fh_list->data;
+		if (fh) {
 			gchar *filename = g_strdup_printf("%d%s%s", fh->inode, TAGSISTANT_INODE_DELIMITER, fh->name);
 			ufs->filler(ufs->buf, filename, NULL, 0);
 			g_free(filename);
 		}
-	} else {
-		// just add the filename
-		tagsistant_file_handle *fh = g_list_nth_data(fh_list, 0);
-		ufs->filler(ufs->buf, fh->name, NULL, 0);
+		fh_list = fh_list->next;
 	}
 
 	return 0;
@@ -103,7 +106,7 @@ int tagsistant_readdir_on_tags(
 	struct tagsistant_use_filler_struct *ufs = g_new0(struct tagsistant_use_filler_struct, 1);
 	if (!ufs) {
 		dbg(LOG_ERR, "Error allocating memory");
-		*tagsistant_errno = EBADF;
+		*tagsistant_errno = ENOMEM;
 		return -1;
 	}
 
@@ -113,15 +116,15 @@ int tagsistant_readdir_on_tags(
 	ufs->qtree = qtree;
 
 	if (qtree->complete) {
+
 		// build the filetree
 		GHashTable *hash_table = tagsistant_filetree_new(qtree->tree);
-
 		g_hash_table_foreach(hash_table, tagsistant_readdir_on_tags_filler, ufs);
 		tagsistant_filetree_destroy(hash_table);
 
 	} else {
-		// add operators if path is not "/tags", to avoid
-		// "/tags/+" and "/tags/="
+
+		// add operators if path is not "/tags", to avoid "/tags/+" and "/tags/="
 		if (g_strcmp0(path, "/tags") != 0) {
 			filler(buf, "+", NULL, 0);
 			filler(buf, "=", NULL, 0);

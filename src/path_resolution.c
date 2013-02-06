@@ -642,7 +642,7 @@ static int tagsistant_add_to_filetree(void *hash_table_pointer, dbi_result resul
 	int must_insert = list ? 0 : 1;
 	list = g_list_append(list, fh);
 	if (must_insert)
-		g_hash_table_insert(hash_table, fh->name, fh);
+		g_hash_table_insert(hash_table, fh->name, list);
 
 	dbg(LOG_INFO, "adding (%d,%s) to filetree", fh->inode, fh->name);
 
