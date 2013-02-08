@@ -82,7 +82,7 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 	if (QTREE_IS_ARCHIVE(qtree)) {
 
 		qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
-		qtree->inode = tagsistant_inode_extract_from_path(qtree->full_path);
+		qtree->inode = tagsistant_inode_extract_from_path(qtree);
 		if (!qtree->inode && assign_inode) {
 			tagsistant_force_create_and_tag_object(qtree, &tagsistant_errno);
 		} else {
@@ -94,8 +94,8 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 		// get the object path name joining the remaining part of tokens
 		qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
 
-		// look for an inode in full path
-		qtree->inode = tagsistant_inode_extract_from_path(qtree->full_path);
+		// look for an inode in object_path
+		qtree->inode = tagsistant_inode_extract_from_path(qtree);
 
 		// if no inode is found, try to guess it resolving the querytree
 		// we just need to check if an object with *token_ptr objectname and
@@ -619,6 +619,19 @@ int tagsistant_reasoner(tagsistant_reasoning *reasoning)
 /***                                                                              ***/
 /************************************************************************************/
 
+void key_destroyed(gpointer key)
+{
+	fprintf(stderr, "Destroying key %s\n", key);
+}
+
+void value_destroyed(gpointer value)
+{
+	tagsistant_file_handle *fh = (tagsistant_file_handle *) value;
+	if (fh && fh->name) {
+		fprintf(stderr, "Destroying value %s\n", fh->name);
+	}
+}
+
 /**
  * add a file to the file tree (callback function)
  */
@@ -629,7 +642,7 @@ static int tagsistant_add_to_filetree(void *hash_table_pointer, dbi_result resul
 
 	/* fetch query results into tagsistant_file_handle struct */
 	tagsistant_file_handle *fh = g_new0(tagsistant_file_handle, 1);
-	fh->name = dbi_result_get_string_idx(result, 1);
+	fh->name = g_strdup(dbi_result_get_string_idx(result, 1));
 	fh->inode = dbi_result_get_uint_idx(result, 2);
 
 	if (!fh->name || (strlen(fh->name) == 0)) {
@@ -639,10 +652,8 @@ static int tagsistant_add_to_filetree(void *hash_table_pointer, dbi_result resul
 
 	/* lookup the GList object */
 	GList *list = g_hash_table_lookup(hash_table, fh->name);
-	int must_insert = list ? 0 : 1;
 	list = g_list_append(list, fh);
-	if (must_insert)
-		g_hash_table_insert(hash_table, fh->name, list);
+	g_hash_table_insert(hash_table, g_strdup(fh->name), list);
 
 	dbg(LOG_INFO, "adding (%d,%s) to filetree", fh->inode, fh->name);
 
@@ -801,7 +812,12 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query)
 	dbg(LOG_INFO, "SQL view statement: %s", view_statement->str);
 
 	/* apply view statement */
-	GHashTable *file_hash = g_hash_table_new(g_str_hash, g_str_equal);
+	GHashTable *file_hash = g_hash_table_new_full(
+		g_str_hash,
+		g_str_equal,
+		(GDestroyNotify) key_destroyed,
+		(GDestroyNotify) value_destroyed);
+
 	tagsistant_query(view_statement->str, tagsistant_add_to_filetree, file_hash);
 
 	/* free the SQL statement */
@@ -818,6 +834,8 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query)
  */
 void tagsistant_file_handle_destroy(gpointer unused_key, gpointer fh_pointer, gpointer unused_data)
 {
+	// TODO we are leaking memory here...
+	return;
 	if (!fh_pointer) return;
 	
 	(void) unused_key;

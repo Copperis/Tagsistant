@@ -24,7 +24,6 @@
 
 GRegex *tagsistant_inode_strip_from_querytree_regex = NULL;
 GRegex *tagsistant_inode_extract_from_querytree_regex = NULL;
-
 GRegex *tagsistant_inode_extract_from_path_regex = NULL;
 
 /**
@@ -95,28 +94,43 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream)
  * @param path the path supposed to contain an inode
  * @return the inode, if found
  */
-tagsistant_inode tagsistant_inode_extract_from_path(const char *path)
+tagsistant_inode tagsistant_inode_extract_from_path(tagsistant_querytree *qtree)
 {
-	if (!path) return 0;
+	if (!qtree || !qtree->object_path) return 0;
 
 	tagsistant_inode inode = 0;
-	static gchar pattern[] = "^/(tags/.*/=|archive)/([0-9]+)" TAGSISTANT_INODE_DELIMITER;
+//	static gchar pattern[] = "^/(tags/.*/=|archive)/([0-9]+)" TAGSISTANT_INODE_DELIMITER;
+	static gchar pattern[] = "^([0-9]+)" TAGSISTANT_INODE_DELIMITER;
 
 	if (!tagsistant_inode_extract_from_path_regex)
 		tagsistant_inode_extract_from_path_regex = g_regex_new(pattern, 0, 0, NULL);
 
 	GMatchInfo *match_info;
-	if (g_regex_match(tagsistant_inode_extract_from_path_regex, path, 0, &match_info)) {
-		gchar *inode_text = g_match_info_fetch(match_info, 2);
-		inode = strtol(inode_text, NULL, 10);
+	if (g_regex_match(tagsistant_inode_extract_from_path_regex, qtree->object_path, 0, &match_info)) {
+		//
+		// extract the inode
+		//
+		gchar *inode_text = g_match_info_fetch(match_info, 1);
+		gchar *backup_inode_text = inode_text;
+		inode = strtoul(inode_text, &backup_inode_text, 10);
 		g_free(inode_text);
+
+		//
+		// replace the inode and the separator with a blank string,
+		// actually stripping it from the object_path
+		//
+		qtree->object_path = g_regex_replace(
+			tagsistant_inode_extract_from_path_regex,
+			qtree->object_path,
+			strlen(qtree->object_path),
+			0, "", 0, NULL);
 	}
 	g_match_info_free(match_info);
 
 	if (inode) {
-		dbg(LOG_INFO, "%s has inode %lu", path, (long unsigned int) inode);
+		dbg(LOG_INFO, "%s has inode %lu", qtree->object_path, (long unsigned int) inode);
 	} else {
-		dbg(LOG_INFO, "%s does not contain and inode", path);
+		dbg(LOG_INFO, "%s does not contain and inode", qtree->object_path);
 	}
 
 	return inode;
