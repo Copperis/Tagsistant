@@ -89,6 +89,11 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 			tagsistant_querytree_set_inode(qtree, qtree->inode);
 		}
 
+		if (strlen(qtree->object_path) == 0) {
+			qtree->archive_path = g_strdup("");
+			qtree->full_archive_path = g_strdup(tagsistant.archive);
+		}
+
 	} else if (QTREE_IS_TAGS(qtree) && qtree->complete) {
 
 		// get the object path name joining the remaining part of tokens
@@ -126,6 +131,63 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 				g_string_free(and_set, TRUE); // destroy the GString and its content
 				or_tmp = or_tmp->next;
 			}
+		} else {
+			//
+			// check if the inode found in the object_path refers to an object
+			// which is really tagged by the tagset described in the tags/.../=
+			// path. a query is valid if the object is tagged in at least one
+			// and set
+			//
+			int valid_query = 0;
+			ptree_or_node *or_tmp = qtree->tree;
+
+			while (or_tmp) {
+				//
+				// check if the object is tagged in this andset
+				//
+				int valid_and_set = 1;
+				ptree_and_node *and_tmp = or_tmp->and_set;
+
+				while (and_tmp) {
+					tagsistant_inode tmp_inode;
+					tagsistant_query(
+						"select tagging.inode from tagging "
+							"join tags on tagging.tag_id = tags.tag_id "
+							"where tagging.inode = %d and tags.tag_name = \"%s\"",
+						tagsistant_return_integer,
+						&tmp_inode,
+						qtree->inode,
+						and_tmp->tag);
+
+					//
+					// if just one tag is not valid, the whole andset is not valid
+					//
+					if (tmp_inode != qtree->inode) {
+						valid_and_set = 0;
+						break;
+					}
+
+					and_tmp = and_tmp->next;
+				}
+
+				//
+				// if at least one andset is valid, the whole query is valid
+				// and we don't need further checking
+				//
+				if (valid_and_set) {
+					valid_query = 1;
+					break;
+				}
+
+				or_tmp = or_tmp->next;
+			}
+
+			//
+			// if the whole query is not valid
+			// we should reset the inode to 0
+			//
+			if (!valid_query)
+				tagsistant_querytree_set_inode(qtree, 0);
 		}
 
 		// if an inode has been found, form the archive_path and full_archive_path

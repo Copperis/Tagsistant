@@ -45,7 +45,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	
 	// -- object on disk --
 	else if (QTREE_POINTS_TO_OBJECT(qtree)) {
-		if (qtree->exists && qtree->full_archive_path) {
+		if (qtree->full_archive_path && (qtree->exists || QTREE_IS_ARCHIVE(qtree))) {
 			lstat_path = qtree->full_archive_path;
 			dbg(LOG_INFO, "lstat_path = %s", lstat_path);
 		} else {

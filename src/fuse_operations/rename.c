@@ -30,16 +30,13 @@ int tagsistant_rename(const char *from, const char *to)
 {
     int res = 0, tagsistant_errno = 0;
 	gchar *rename_path = NULL;
-	tagsistant_querytree *from_qtree = NULL, *to_qtree = NULL;
 
 	TAGSISTANT_START("/ RENAME %s as %s", from, to);
 
-	from_qtree = tagsistant_querytree_new(from, FALSE, 0);
-	if (NULL == from_qtree) {
-		TAGSISTANT_ABORT_OPERATION(ENOMEM);
-	}
+	tagsistant_querytree *from_qtree = tagsistant_querytree_new(from, FALSE, 0);
+	if (!from_qtree) TAGSISTANT_ABORT_OPERATION(ENOMEM);
 
-	to_qtree = tagsistant_querytree_new(to, FALSE, 0);
+	tagsistant_querytree *to_qtree = tagsistant_querytree_new(to, FALSE, 0);
 	if (NULL == to_qtree) TAGSISTANT_ABORT_OPERATION(ENOMEM);
 
 	// -- malformed --
@@ -56,9 +53,16 @@ int tagsistant_rename(const char *from, const char *to)
 	// -- object on disk (/archive and complete /tags) --
 	if (QTREE_POINTS_TO_OBJECT(from_qtree)) {
 		if (QTREE_IS_TAGGABLE(from_qtree)) {
+			// 0. preserve original inode
+			tagsistant_querytree_set_inode(to_qtree, from_qtree->inode);
+
 			// 1. rename the object
-			tagsistant_query("update objects set objectname = \"%s\" where object_id = %d", NULL, NULL, to_qtree->object_path, from_qtree->inode);
-			tagsistant_query("update objects set path = \"%s\" where object_id = %d", NULL, NULL, to_qtree->full_archive_path, from_qtree->inode);
+			tagsistant_query(
+				"update objects set objectname = \"%s\" "
+					"where inode = %d",
+					NULL, NULL,
+					to_qtree->object_path,
+					from_qtree->inode);
 
 			// 2. deletes all the tagging between "from" file and all AND nodes in "from" path
 			tagsistant_querytree_traverse(from_qtree, tagsistant_sql_untag_object, from_qtree->inode);
@@ -67,6 +71,7 @@ int tagsistant_rename(const char *from, const char *to)
 			tagsistant_querytree_traverse(to_qtree, tagsistant_sql_tag_object, from_qtree->inode);
 		}
 
+		// do the real rename
 		rename_path = from_qtree->full_archive_path;
 		res = rename(rename_path, to_qtree->full_archive_path);
 		tagsistant_errno = errno;
