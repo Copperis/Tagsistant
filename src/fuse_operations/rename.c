@@ -29,14 +29,13 @@
 int tagsistant_rename(const char *from, const char *to)
 {
     int res = 0, tagsistant_errno = 0;
-	gchar *rename_path = NULL;
 
 	TAGSISTANT_START("/ RENAME %s as %s", from, to);
 
-	tagsistant_querytree *from_qtree = tagsistant_querytree_new(from, FALSE, 0);
+	tagsistant_querytree *from_qtree = tagsistant_querytree_new(from, 1, 0);
 	if (!from_qtree) TAGSISTANT_ABORT_OPERATION(ENOMEM);
 
-	tagsistant_querytree *to_qtree = tagsistant_querytree_new(to, FALSE, 0);
+	tagsistant_querytree *to_qtree = tagsistant_querytree_new(to, 1, 0);
 	if (NULL == to_qtree) TAGSISTANT_ABORT_OPERATION(ENOMEM);
 
 	// -- malformed --
@@ -72,17 +71,23 @@ int tagsistant_rename(const char *from, const char *to)
 		}
 
 		// do the real rename
-		rename_path = from_qtree->full_archive_path;
-		res = rename(rename_path, to_qtree->full_archive_path);
+		res = rename(from_qtree->full_archive_path, to_qtree->full_archive_path);
 		tagsistant_errno = errno;
+
 	} else if (QTREE_IS_ROOT(from_qtree)) {
 		TAGSISTANT_ABORT_OPERATION(EPERM);
+
 	} else if (QTREE_IS_TAGS(from_qtree)) {
 		if (QTREE_IS_COMPLETE(from_qtree)) {
 			TAGSISTANT_ABORT_OPERATION(EPERM);
 		}
 
-		tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\"", NULL, NULL, to_qtree->last_tag, from_qtree->last_tag);
+		tagsistant_query(
+			"update tags set tagname = \"%s\" "
+				"where tagname = \"%s\"",
+			NULL, NULL,
+			to_qtree->last_tag,
+			from_qtree->last_tag);
 	}
 
 TAGSISTANT_EXIT_OPERATION:

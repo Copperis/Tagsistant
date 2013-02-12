@@ -34,7 +34,7 @@ int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 	TAGSISTANT_START("/ MKNOD on %s [mode: %u rdev: %u]", path, mode, (unsigned int) rdev);
 
 	// build querytree
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 1, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) { TAGSISTANT_ABORT_OPERATION(EFAULT); }

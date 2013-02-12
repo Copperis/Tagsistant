@@ -36,7 +36,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	TAGSISTANT_START("/ GETATTR on %s", path);
 
 	// build querytree
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 1, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -115,13 +115,13 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 		// dbg(LOG_INFO, "getattr: last tag is %s", qtree->last_tag);
 		if (NULL == qtree->last_tag) {
 			// ok
-		} else if (g_strcmp0(qtree->last_tag, "+") == 0) {
+		} else if (g_strcmp0(qtree->last_tag, TAGSISTANT_ANDSET_DELIMITER) == 0) {
 			// path ends by '+'
 			stbuf->st_ino += 1;
 			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
 			stbuf->st_nlink = 1;
-		} else if (g_strcmp0(qtree->last_tag, "=") == 0) {
-			// path ends by '='
+		} else if (g_strcmp0(qtree->last_tag, TAGSISTANT_QUERY_DELIMITER) == 0) {
+			// path ends by TAGSISTANT_QUERY_DELIMITER_CHAR
 			stbuf->st_ino += 2;
 			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
 			stbuf->st_nlink = 1;

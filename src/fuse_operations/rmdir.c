@@ -32,7 +32,7 @@ int tagsistant_rmdir(const char *path)
 
 	TAGSISTANT_START("/ RMDIR on %s", path);
 
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, FALSE, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 1, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) TAGSISTANT_ABORT_OPERATION(ENOENT);

@@ -33,41 +33,40 @@ int tagsistant_unlink(const char *path)
 	TAGSISTANT_START("/ UNLINK on %s", path);
 
 	// build querytree
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 1, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) TAGSISTANT_ABORT_OPERATION(ENOENT);
 
 	// -- objects on disk --
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
-		if (QTREE_IS_TAGGABLE(qtree) && QTREE_IS_TAGS(qtree)) {
-
-			// if object is pointed by a tags/ query, then untag it
-			// from the tags included in the query path...
-			tagsistant_querytree_traverse(qtree, tagsistant_sql_untag_object, qtree->inode);
-
-			// ...then check if it's tagged elsewhere...
-			// ...if still tagged, then avoid real unlink(): the object must survive!
-			if (tagsistant_object_is_tagged(qtree->inode))
-				goto TAGSISTANT_EXIT_OPERATION;
-
-			// otherwise just delete if from the objects table and go on.
-		} else if (QTREE_IS_ARCHIVE(qtree)) {
-			// if the query path points to archive/, it's clear that the
-			// object is required to disappear from the filesystem, so
-			// must be erased from the tagging table.
-			tagsistant_full_untag_object(qtree->inode);
+		if (QTREE_IS_ARCHIVE(qtree)) {
+			TAGSISTANT_ABORT_OPERATION(EROFS);
 		}
 
-		// wipe the object from objects table...
-		tagsistant_query("delete from objects where object_id = %d", NULL, NULL, qtree->inode);
+		if (QTREE_IS_TAGGABLE(qtree) && QTREE_IS_TAGS(qtree)) {
 
-		// ... and do the real unlink()
+			/*
+			 * if object is pointed by a tags/ query, then untag it
+			 * from the tags included in the query path...
+			 */
+			tagsistant_querytree_traverse(qtree, tagsistant_sql_untag_object, qtree->inode);
+
+			/*
+			 * ...then check if it's tagged elsewhere...
+			 * ...if still tagged, then avoid real unlink(): the object must survive!
+			 * ...otherwise we can delete it from the objects table
+			 */
+			if (!tagsistant_object_is_tagged(qtree->inode))
+				tagsistant_query("delete from objects where inode = %d", NULL, NULL, qtree->inode);
+		}
+
+		// last do the real unlink()
 		unlink_path = qtree->full_archive_path;
 		res = unlink(unlink_path);
 		tagsistant_errno = errno;
 
-	}
+	} else
 
 	// -- tags --
 	// -- stats --

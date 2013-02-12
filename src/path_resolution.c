@@ -113,7 +113,12 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 
 				while (and_tmp) {
 					g_string_append_printf(and_set, "\"%s\"", and_tmp->tag);
-					if (and_tmp->next) g_string_append(and_set, ",");
+					ptree_and_node *related = and_tmp->related;
+					while (related) {
+						g_string_append_printf(and_set, ", \"%s\"", related->tag);
+						related = related->next;
+					}
+					if (and_tmp->next) g_string_append(and_set, ", ");
 					and_tmp = and_tmp->next;
 				}
 
@@ -286,7 +291,12 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
 
 		while (and_tmp) {
 			g_string_append_printf(and_set, "\"%s\"", and_tmp->tag);
-			if (and_tmp->next) g_string_append(and_set, ",");
+			ptree_and_node *related = and_tmp->related;
+			while (related) {
+				g_string_append_printf(and_set, ", \"%s\"", related->tag);
+				related = related->next;
+			}
+			if (and_tmp->next) g_string_append(and_set, ", ");
 			and_tmp = and_tmp->next;
 		}
 
@@ -344,17 +354,17 @@ int tagsistant_querytree_parse_tags (
 	ptree_and_node *last_and = NULL;
 
 	// state if the query is complete or not
-	qtree->complete = (NULL == g_strstr_len(path, strlen(path), "=")) ? 0 : 1;
+	qtree->complete = (NULL == g_strstr_len(path, strlen(path), TAGSISTANT_QUERY_DELIMITER)) ? 0 : 1;
 	dbg(LOG_INFO, "Path %s is %scomplete", path, qtree->complete ? "" : "not ");
 
 	// by default a query is valid until something wrong happens while parsing it
 	qtree->valid = 1;
 
 	// begin parsing
-	while (**token_ptr && ('=' != ***token_ptr)) {
+	while (**token_ptr && (TAGSISTANT_QUERY_DELIMITER_CHAR != ***token_ptr)) {
 		if (strlen(**token_ptr) == 0) {
 			/* ignore zero length tokens */
-		} else if (strcmp(**token_ptr, "+") == 0) {
+		} else if (strcmp(**token_ptr, TAGSISTANT_ANDSET_DELIMITER) == 0) {
 			/* open new entry in OR level */
 			orcount++;
 			andcount = 0;
@@ -410,8 +420,9 @@ int tagsistant_querytree_parse_tags (
 		(*token_ptr)++;
 	}
 
-	// if last token is '=', move the pointer one element forward
-	if (**token_ptr && ('=' == ***token_ptr))
+	// if last token is TAGSISTANT_QUERY_DELIMITER_CHAR,
+	// move the pointer one element forward
+	if (**token_ptr && (TAGSISTANT_QUERY_DELIMITER_CHAR == ***token_ptr))
 		(*token_ptr)++;
 
 	return 1;
@@ -605,38 +616,36 @@ static int tagsistant_add_reasoned_tag(void *_reasoning, dbi_result result)
 	assert(reasoning->current_node != NULL);
 	assert(reasoning->added_tags >= 0);
 
-	const char *t1 = dbi_result_get_string_idx(result, 1);
-	const char *rel = dbi_result_get_string_idx(result, 2);
-	const char *t2 = dbi_result_get_string_idx(result, 3);
+	const char *reasoned_tag = dbi_result_get_string_idx(result, 1);
 
 	ptree_and_node *and = reasoning->start_node;
 	while (and->related != NULL) {
 		assert(and->tag != NULL);
-		if (strcmp(and->tag, t1) == 0) {
+		if (strcmp(and->tag, reasoned_tag) == 0) {
 			/* tag is already present, avoid looping */
 			return(0);
 		}
 		and = and->related;
 	}
 
+	assert(and != NULL);
+
 	/* adding tag */
-	and->related = g_malloc(sizeof(ptree_and_node));
-	if (and->related == NULL) {
+	and->related = g_new0(ptree_and_node, 1);
+	if (NULL == and->related) {
 		dbg(LOG_ERR, "Error allocating memory");
 		return(1);
 	}
 
 	and->related->next = NULL;
 	and->related->related = NULL;
-	and->related->tag = g_strdup(t1);
+	and->related->tag = g_strdup(reasoned_tag);
 
-	assert(and != NULL);
-	assert(and->related != NULL);
 	assert(and->related->tag != NULL);
 
 	reasoning->added_tags += 1;
 
-	dbg(LOG_INFO, "Adding related tag %s (because %s %s)", and->related->tag, rel, t2);
+	dbg(LOG_INFO, "Adding related tag %s", and->related->tag);
 	return(0);
 }
 
@@ -656,16 +665,31 @@ int tagsistant_reasoner(tagsistant_reasoning *reasoning)
 	assert(reasoning->current_node->tag != NULL);
 
 	tagsistant_query(
-		"select tag1, tag2, relation from relations where tag2 = \"%s\" and relation = \"is_equivalent\";",
-		tagsistant_add_reasoned_tag, reasoning, reasoning->current_node->tag);
+		"select tags2.tagname from relations "
+			"join tags as tags1 on tags1.tag_id = relations.tag1_id "
+			"join tags as tags2 on tags2.tag_id = relations.tag2_id "
+			"where tags1.tagname = \"%s\" and relation = \"is_equivalent\";",
+		tagsistant_add_reasoned_tag,
+		reasoning,
+		reasoning->current_node->tag);
 
 	tagsistant_query(
-		"select tag2, tag1, relation from relations where tag1 = \"%s\" and relation = \"is_equivalent\";",
-		tagsistant_add_reasoned_tag, reasoning, reasoning->current_node->tag);
+		"select tags1.tagname from relations "
+			"join tags as tags1 on tags1.tag_id = relations.tag1_id "
+			"join tags as tags2 on tags2.tag_id = relations.tag2_id "
+			"where tags2.tagname = \"%s\" and relation = \"is_equivalent\";",
+		tagsistant_add_reasoned_tag,
+		reasoning,
+		reasoning->current_node->tag);
 
 	tagsistant_query(
-		"select tag2, tag1, relation from relations where tag1 = \"%s\" and relation = \"includes\";",
-		tagsistant_add_reasoned_tag, reasoning, reasoning->current_node->tag);
+		"select tags2.tagname from relations "
+			"join tags as tags1 on tags1.tag_id = relations.tag1_id "
+			"join tags as tags2 on tags2.tag_id = relations.tag2_id "
+			"where tags1.tagname = \"%s\" and relation = \"includes\";",
+		tagsistant_add_reasoned_tag,
+		reasoning,
+		reasoning->current_node->tag);
 
 	if (reasoning->current_node->related != NULL) {
 		reasoning->current_node = reasoning->current_node->related;
@@ -683,11 +707,13 @@ int tagsistant_reasoner(tagsistant_reasoning *reasoning)
 
 void key_destroyed(gpointer key)
 {
-	fprintf(stderr, "Destroying key %s\n", key);
+	return;
+	fprintf(stderr, "Destroying key %s\n", (char *) key);
 }
 
 void value_destroyed(gpointer value)
 {
+	return;
 	tagsistant_file_handle *fh = (tagsistant_file_handle *) value;
 	if (fh && fh->name) {
 		fprintf(stderr, "Destroying value %s\n", fh->name);
@@ -714,12 +740,25 @@ static int tagsistant_add_to_filetree(void *hash_table_pointer, dbi_result resul
 
 	/* lookup the GList object */
 	GList *list = g_hash_table_lookup(hash_table, fh->name);
+
+	/* look for duplicates due to reasoning results */
+	GList *list_tmp = list;
+	while (list_tmp) {
+		tagsistant_file_handle *fh_tmp = (tagsistant_file_handle *) list_tmp->data;
+		if (fh_tmp && (fh_tmp->inode == fh->inode)) {
+			return 0;
+		}
+
+		list_tmp = list_tmp->next;
+	}
+
+	/* add the new element */
 	list = g_list_append(list, fh);
 	g_hash_table_insert(hash_table, g_strdup(fh->name), list);
 
 	dbg(LOG_INFO, "adding (%d,%s) to filetree", fh->inode, fh->name);
 
-	return(0);
+	return 0;
 }
 
 /**

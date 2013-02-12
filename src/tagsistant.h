@@ -26,6 +26,10 @@
 
 #define TAGSISTANT_PLUGIN_PREFIX "libtagsistant_"
 #define TAGSISTANT_ARCHIVE_PLACEHOLDER "<<<tagsistant>>>"
+#define TAGSISTANT_QUERY_DELIMITER "@"
+#define TAGSISTANT_QUERY_DELIMITER_CHAR '@'
+#define TAGSISTANT_ANDSET_DELIMITER "+"
+#define TAGSISTANT_ANDSET_DELIMITER_CHAR ''+'
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>

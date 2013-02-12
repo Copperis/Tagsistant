@@ -128,8 +128,8 @@ int tagsistant_readdir_on_tags(
 
 		// add operators if path is not "/tags", to avoid "/tags/+" and "/tags/="
 		if (g_strcmp0(path, "/tags") != 0) {
-			filler(buf, "+", NULL, 0);
-			filler(buf, "=", NULL, 0);
+			filler(buf, TAGSISTANT_ANDSET_DELIMITER, NULL, 0);
+			filler(buf, TAGSISTANT_QUERY_DELIMITER, NULL, 0);
 		}
 
 		/* parse tagsdir list */
@@ -195,16 +195,23 @@ int tagsistant_readdir_on_relations(
 
 	if (qtree->second_tag) {
 		// nothing
-		dbg(LOG_INFO, "readdir on /relations/something/relations/something_else");
+		dbg(LOG_INFO, "readdir on /relations/a_tag/relates/another_tag");
 	} else if (qtree->relation) {
 		// list all tags related to first_tag with this relation
-		dbg(LOG_INFO, "readdir on /relations/something/relation/");
-		tagsistant_query("select tags.tagname from tags join relations on relations.tag2_id = tags.tag_id join tags as firsttags on firsttags.tag_id = relations.tag1_id where firsttags.tagname = '%s' and relation = '%s';",
-			tagsistant_add_entry_to_dir, ufs, qtree->first_tag, qtree->relation);
+		dbg(LOG_INFO, "readdir on /relations/a_tag/relates/");
+		tagsistant_query(
+			"select tags.tagname from tags "
+				"join relations on relations.tag2_id = tags.tag_id "
+				"join tags as firsttags on firsttags.tag_id = relations.tag1_id "
+				"where firsttags.tagname = '%s' and relation = '%s';",
+			tagsistant_add_entry_to_dir,
+			ufs,
+			qtree->first_tag,
+			qtree->relation);
 
 	} else if (qtree->first_tag) {
 		// list all relations
-		dbg(LOG_INFO, "readdir on /relations/something/");
+		dbg(LOG_INFO, "readdir on /relations/a_tag/");
 		filler(buf, "includes", NULL, 0);
 		filler(buf, "is_equivalent", NULL, 0);
 
@@ -259,7 +266,7 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 	TAGSISTANT_START("/ READDIR on %s", path);
 
 	// build querytree
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 1, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {

@@ -34,7 +34,7 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 	TAGSISTANT_START("/ MKDIR on %s [mode: %d]", path, mode);
 
 	// build querytree
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 1, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
