@@ -22,6 +22,30 @@
 
 #include "tagsistant.h"
 
+gchar *tagsistant_compile_and_set(ptree_and_node *and_set)
+{
+	GString *str = g_string_new("");
+	ptree_and_node *and_tmp = and_set;
+
+	/* compile the string */
+	while (and_tmp) {
+		g_string_append_printf(str, "\"%s\"", and_tmp->tag);
+		ptree_and_node *related = and_tmp->related;
+		while (related) {
+			g_string_append_printf(str, ", \"%s\"", related->tag);
+			related = related->related;
+		}
+		if (and_tmp->next) g_string_append(str, ", ");
+		and_tmp = and_tmp->next;
+	}
+
+	/* save the result */
+	gchar *result = g_strdup(str->str);
+	g_string_free(str, TRUE); // destroy the GString but not its content
+
+	return result;
+}
+
 /**
  * Build query tree from path. A querytree is composed of a linked
  * list of ptree_or_node_t objects. Each or object has a descending
@@ -107,20 +131,8 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 		// a matching or_node->and_set->tag named tag is listed
 		if (!qtree->inode) {
 			ptree_or_node *or_tmp = qtree->tree;
-			while (or_tmp && !qtree->inode) {
-				GString *and_set = g_string_new("");
-				ptree_and_node *and_tmp = or_tmp->and_set;
-
-				while (and_tmp) {
-					g_string_append_printf(and_set, "\"%s\"", and_tmp->tag);
-					ptree_and_node *related = and_tmp->related;
-					while (related) {
-						g_string_append_printf(and_set, ", \"%s\"", related->tag);
-						related = related->next;
-					}
-					if (and_tmp->next) g_string_append(and_set, ", ");
-					and_tmp = and_tmp->next;
-				}
+			while (or_tmp && !qtree->inode && strlen(qtree->object_path)) {
+				gchar *and_set = tagsistant_compile_and_set(or_tmp->and_set);
 
 				tagsistant_query(
 					"select objects.inode from objects "
@@ -129,11 +141,11 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 						"where tags.tagname in (%s) and objects.objectname = \"%s\"",
 					tagsistant_return_integer,
 					&(qtree->inode),
-					and_set->str,
+					and_set,
 					*token_ptr
 				);
 
-				g_string_free(and_set, TRUE); // destroy the GString and its content
+				g_free(and_set);
 				or_tmp = or_tmp->next;
 			}
 		} else {
@@ -274,6 +286,10 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
 
 	// 0. no object path means no need to check for inner consistency
 	if (!qtree->object_path) return 0;
+	if (strlen(qtree->object_path) == 0) {
+		qtree->exists = 1;
+		return 1;
+	}
 
 	// 1. get the object path first element
 	gchar *object_first_element = g_strdup(qtree->object_path);
@@ -286,19 +302,7 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
 	// 2. use the object_first_element to guess if its tagged in the provided set of tags
 	ptree_or_node *or_tmp = qtree->tree;
 	while (or_tmp) {
-		GString *and_set = g_string_new("");
-		ptree_and_node *and_tmp = or_tmp->and_set;
-
-		while (and_tmp) {
-			g_string_append_printf(and_set, "\"%s\"", and_tmp->tag);
-			ptree_and_node *related = and_tmp->related;
-			while (related) {
-				g_string_append_printf(and_set, ", \"%s\"", related->tag);
-				related = related->next;
-			}
-			if (and_tmp->next) g_string_append(and_set, ", ");
-			and_tmp = and_tmp->next;
-		}
+		gchar *and_set = tagsistant_compile_and_set(or_tmp->and_set);
 
 		tagsistant_query(
 			"select objects.inode from objects "
@@ -307,11 +311,11 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
 				"where tags.tagname in (%s) and objects.objectname = \"%s\"",
 			tagsistant_return_integer,
 			&inode,
-			and_set->str,
+			and_set,
 			object_first_element
 		);
 
-		g_string_free(and_set, TRUE); // destroy the GString and its content
+		g_free(and_set);
 
 		if (inode) {
 			qtree->exists = 1;
@@ -611,41 +615,49 @@ static int tagsistant_add_reasoned_tag(void *_reasoning, dbi_result result)
 {
 	/* point to a reasoning_t structure */
 	tagsistant_reasoning *reasoning = (tagsistant_reasoning *) _reasoning;
-	assert(reasoning != NULL);
-	assert(reasoning->start_node != NULL);
-	assert(reasoning->current_node != NULL);
+	assert(reasoning);
+	assert(reasoning->start_node);
+	assert(reasoning->current_node);
 	assert(reasoning->added_tags >= 0);
 
+	/* fetch the reasoned tag */
 	const char *reasoned_tag = dbi_result_get_string_idx(result, 1);
 
+	/* check for duplicates */
 	ptree_and_node *and = reasoning->start_node;
-	while (and->related != NULL) {
-		assert(and->tag != NULL);
-		if (strcmp(and->tag, reasoned_tag) == 0) {
-			/* tag is already present, avoid looping */
-			return(0);
-		}
-		and = and->related;
-	}
+	while (and) {
+		if (strcmp(and->tag, reasoned_tag) == 0) return 0; // duplicate, don't add
 
-	assert(and != NULL);
+		ptree_and_node *related = and->related;
+		while (related && related->tag) {
+			if (strcmp(related->tag, reasoned_tag) == 0) return 0; // duplicate, don't add
+			related = related->related;
+		}
+
+		and = and->next;
+	}
 
 	/* adding tag */
-	and->related = g_new0(ptree_and_node, 1);
-	if (NULL == and->related) {
+	ptree_and_node *reasoned = g_new0(ptree_and_node, 1);
+	if (!reasoned) {
 		dbg(LOG_ERR, "Error allocating memory");
-		return(1);
+		return 1;
 	}
 
-	and->related->next = NULL;
-	and->related->related = NULL;
-	and->related->tag = g_strdup(reasoned_tag);
+	reasoned->next = NULL;
+	reasoned->related = NULL;
+	reasoned->tag = g_strdup(reasoned_tag);
 
-	assert(and->related->tag != NULL);
+	assert(reasoned->tag);
+
+	/* append the reasoned tag */
+	ptree_and_node *related = reasoning->current_node;
+	while (related->related) related = related->related;
+	related->related = reasoned;
 
 	reasoning->added_tags += 1;
 
-	dbg(LOG_INFO, "Adding related tag %s", and->related->tag);
+	dbg(LOG_INFO, "Adding related tag %s", reasoned->tag);
 	return(0);
 }
 
@@ -659,10 +671,9 @@ static int tagsistant_add_reasoned_tag(void *_reasoning, dbi_result result)
  */
 int tagsistant_reasoner(tagsistant_reasoning *reasoning)
 {
-	assert(reasoning != NULL);
-	assert(reasoning->start_node != NULL);
-	assert(reasoning->current_node != NULL);
-	assert(reasoning->current_node->tag != NULL);
+	assert(reasoning);
+	assert(reasoning->current_node);
+	assert(reasoning->current_node->tag);
 
 	tagsistant_query(
 		"select tags2.tagname from relations "
@@ -691,7 +702,7 @@ int tagsistant_reasoner(tagsistant_reasoning *reasoning)
 		reasoning,
 		reasoning->current_node->tag);
 
-	if (reasoning->current_node->related != NULL) {
+	if (reasoning->current_node->related) {
 		reasoning->current_node = reasoning->current_node->related;
 		tagsistant_reasoner(reasoning);
 	}
