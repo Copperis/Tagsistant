@@ -182,7 +182,7 @@ void tagsistant_usage(char *progname)
 	fprintf(stderr, "\n"
 		" Tagsistant (tagfs) v.%s Build: %s FUSE_USE_VERSION: %d\n"
 		" Semantic File System for Linux kernels\n"
-		" (c) 2006-2011 Tx0 <tx0@strumentiresistenti.org>\n"
+		" (c) 2006-2013 Tx0 <tx0@strumentiresistenti.org>\n"
 		" \n"
 		" This program is free software; you can redistribute it and/or modify\n"
 		" it under the terms of the GNU General Public License as published by\n"
