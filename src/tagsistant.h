@@ -29,7 +29,7 @@
 #define TAGSISTANT_QUERY_DELIMITER "@"
 #define TAGSISTANT_QUERY_DELIMITER_CHAR '@'
 #define TAGSISTANT_ANDSET_DELIMITER "+"
-#define TAGSISTANT_ANDSET_DELIMITER_CHAR ''+'
+#define TAGSISTANT_ANDSET_DELIMITER_CHAR '+'
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -210,17 +210,14 @@ char *tagsistant_real_strdup(const char *orig, char *file, int line);
 #define TAGSISTANT_START(line,...) {\
 	init_time_profile();\
 	start_time_profile();\
-	dbg(LOG_INFO, line, ##__VA_ARGS__);\
-	tagsistant_start_transaction();\
+	dbg(LOG_INFO, line, ##__VA_ARGS__); \
 }
 
-#define TAGSISTANT_STOP_OK(line,...) {\
-	tagsistant_commit_transaction();\
+#define TAGSISTANT_STOP_OK(line, ...) {\
 	dbg(LOG_INFO, line, ##__VA_ARGS__);\
 }
 
 #define TAGSISTANT_STOP_ERROR(line,...) {\
-	tagsistant_rollback_transaction();\
 	dbg(LOG_ERR, line, ##__VA_ARGS__);\
 }
 

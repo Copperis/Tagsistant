@@ -170,6 +170,9 @@ typedef struct querytree {
 
 	/** the path in a stats/ query */
 	gchar *stats_path;
+
+	/** libDBI connection handle */
+	dbi_conn conn;
 } tagsistant_querytree;
 
 /**
@@ -190,6 +193,7 @@ typedef struct {
 	ptree_and_node *start_node;
 	ptree_and_node *current_node;
 	int added_tags;
+	dbi_conn conn;
 } tagsistant_reasoning;
 
 /**
@@ -214,7 +218,7 @@ typedef struct {
 		while (NULL != ptx) {\
 			ptree_and_node *andptx = ptx->and_set;\
 			while (NULL != andptx) {\
-				funcpointer(andptx->tag, ##__VA_ARGS__);\
+				funcpointer(qtree->conn, andptx->tag, ##__VA_ARGS__);\
 				dbg(LOG_INFO, "Applying %s(%s,...)", #funcpointer, andptx->tag);\
 				andptx = andptx->next;\
 			}\
@@ -225,7 +229,7 @@ typedef struct {
 
 // querytree functions
 extern tagsistant_querytree *	tagsistant_querytree_new(const char *path, int do_reasoning, int assign_inode);
-extern void 					tagsistant_querytree_destroy(tagsistant_querytree *qtree);
+extern void 					tagsistant_querytree_destroy(tagsistant_querytree *qtree, uint commit_transaction);
 
 extern void						tagsistant_querytree_set_object_path(tagsistant_querytree *qtree, char *new_object_path);
 extern void						tagsistant_querytree_set_inode(tagsistant_querytree *qtree, tagsistant_inode inode);
@@ -236,5 +240,5 @@ extern tagsistant_inode			tagsistant_inode_extract_from_path(tagsistant_querytre
 extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_querytree *qtree);
 
 // filetree functions
-extern GHashTable *				tagsistant_filetree_new(ptree_or_node *query);
+extern GHashTable *				tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn);
 extern void 					tagsistant_filetree_destroy(GHashTable *hash_table);

@@ -432,9 +432,6 @@ int main(int argc, char *argv[])
 	/* opening (or creating) SQL tags database */
 	tagsistant.tags = g_strdup_printf("%s/tags.sql", tagsistant.repository);
 
-	/* initialize db connection */
-	tagsistant_db_connection();
-
 	/* checking file archive directory */
 	tagsistant.archive = g_strdup_printf("%s/archive/", tagsistant.repository);
 
@@ -486,6 +483,10 @@ int main(int argc, char *argv[])
 	 * print configuration if requested
 	 */
 	if (tagsistant.show_config) tagsistant_show_config();
+
+	/* initialize db connection */
+	tagsistant_db_init();
+	tagsistant_create_schema();
 
 #if FUSE_VERSION <= 25
 	res = fuse_main(args.argc, args.argv, &tagsistant_oper);

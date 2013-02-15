@@ -28,16 +28,8 @@
  */
 int tagsistant_access(const char *path, int mode)
 {
-	(void) mode;
-
-	/*
-	if (mode & X_OK) {
-		dbg(LOG_ERR, "ACCESS on %s: -1 %d: %s", path, EACCES, strerror(EACCES));
-		return(-EACCES);
-	}
-	*/
-
 	TAGSISTANT_START("/ ACCESS on %s [mode: %u]", path, mode);
+
 	struct stat st;
 	int res = tagsistant_getattr(path, &st);
 

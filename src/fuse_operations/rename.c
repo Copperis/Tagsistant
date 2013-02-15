@@ -59,9 +59,10 @@ int tagsistant_rename(const char *from, const char *to)
 			tagsistant_query(
 				"update objects set objectname = \"%s\" "
 					"where inode = %d",
-					NULL, NULL,
-					to_qtree->object_path,
-					from_qtree->inode);
+				from_qtree->conn,
+				NULL, NULL,
+				to_qtree->object_path,
+				from_qtree->inode);
 
 			// 2. deletes all the tagging between "from" file and all AND nodes in "from" path
 			tagsistant_querytree_traverse(from_qtree, tagsistant_sql_untag_object, from_qtree->inode);
@@ -85,6 +86,7 @@ int tagsistant_rename(const char *from, const char *to)
 		tagsistant_query(
 			"update tags set tagname = \"%s\" "
 				"where tagname = \"%s\"",
+			from_qtree->conn,
 			NULL, NULL,
 			to_qtree->last_tag,
 			from_qtree->last_tag);
@@ -95,11 +97,13 @@ TAGSISTANT_EXIT_OPERATION:
 
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("\\ RENAME %s (%s) to %s (%s): %d %d: %s", from, tagsistant_querytree_type(from_qtree), to, tagsistant_querytree_type(to_qtree), res, tagsistant_errno, strerror(tagsistant_errno));
+		tagsistant_querytree_destroy(from_qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
+		tagsistant_querytree_destroy(to_qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
 	} else {
 		TAGSISTANT_STOP_OK("\\ RENAME %s (%s) to %s (%s): OK", from, tagsistant_querytree_type(from_qtree), to, tagsistant_querytree_type(to_qtree));
+		tagsistant_querytree_destroy(from_qtree, TAGSISTANT_COMMIT_TRANSACTION);
+		tagsistant_querytree_destroy(to_qtree, TAGSISTANT_COMMIT_TRANSACTION);
 	}
 
-	tagsistant_querytree_destroy(from_qtree);
-	tagsistant_querytree_destroy(to_qtree);
 	return((res == -1) ? -tagsistant_errno : 0);
 }

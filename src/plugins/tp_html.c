@@ -52,12 +52,12 @@ int tagsistant_plugin_init()
 }
 
 /* exported processor function */
-int tagsistant_processor(const tagsistant_querytree *qtree)
+int tagsistant_processor(const tagsistant_querytree *qtree, dbi_conn conn)
 {
 	/* default tagging */
-	tagsistant_sql_tag_object("document", qtree->inode);
-	tagsistant_sql_tag_object("webpage", qtree->inode);
-	tagsistant_sql_tag_object("html", qtree->inode);
+	tagsistant_sql_tag_object(conn, "document", qtree->inode);
+	tagsistant_sql_tag_object(conn, "webpage", qtree->inode);
+	tagsistant_sql_tag_object(conn, "html", qtree->inode);
 
 	/* apply regular expressions to document content */
 

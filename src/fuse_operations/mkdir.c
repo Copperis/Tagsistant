@@ -58,7 +58,7 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 
 	// -- tags but incomplete (means: create a new tag) --
 	else if (QTREE_IS_TAGS(qtree)) {
-		tagsistant_sql_create_tag(qtree->last_tag);
+		tagsistant_sql_create_tag(qtree->conn, qtree->last_tag);
 	}
 
 	// -- relations --
@@ -68,13 +68,13 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 		// and second level is all available relations
 		if (qtree->second_tag) {
 			// create a new relation between two tags
-			tagsistant_sql_create_tag(qtree->second_tag);
-			int tag1_id = tagsistant_sql_get_tag_id(qtree->first_tag);
-			int tag2_id = tagsistant_sql_get_tag_id(qtree->second_tag);
+			tagsistant_sql_create_tag(qtree->conn, qtree->second_tag);
+			int tag1_id = tagsistant_sql_get_tag_id(qtree->conn, qtree->first_tag);
+			int tag2_id = tagsistant_sql_get_tag_id(qtree->conn, qtree->second_tag);
 			if (tag1_id && tag2_id && IS_VALID_RELATION(qtree->relation)) {
 				tagsistant_query(
 					"insert into relations (tag1_id, tag2_id, relation) values (%d, %d, \"%s\")",
-					NULL, NULL, tag1_id, tag2_id, qtree->relation);
+					qtree->conn, NULL, NULL, tag1_id, tag2_id, qtree->relation);
 			} else {
 				res = -1;
 				tagsistant_errno = EFAULT;
@@ -91,11 +91,12 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("\\ MKDIR on %s (%s): %d %d: %s", path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
+		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
 	} else {
 		TAGSISTANT_STOP_OK("\\ MKDIR on %s (%s): OK", path, tagsistant_querytree_type(qtree));
+		tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
 	}
 
-	tagsistant_querytree_destroy(qtree);
 	return((res == -1) ? -tagsistant_errno : 0);
 }
 

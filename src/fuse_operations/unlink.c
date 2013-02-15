@@ -57,8 +57,8 @@ int tagsistant_unlink(const char *path)
 			 * ...if still tagged, then avoid real unlink(): the object must survive!
 			 * ...otherwise we can delete it from the objects table
 			 */
-			if (!tagsistant_object_is_tagged(qtree->inode))
-				tagsistant_query("delete from objects where inode = %d", NULL, NULL, qtree->inode);
+			if (!tagsistant_object_is_tagged(qtree->conn, qtree->inode))
+				tagsistant_query("delete from objects where inode = %d", qtree->conn, NULL, NULL, qtree->inode);
 		}
 
 		// last do the real unlink()
@@ -78,10 +78,11 @@ TAGSISTANT_EXIT_OPERATION:
 
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("\\ UNLINK on %s (%s) (%s): %d %d: %s", path, unlink_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
+		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
 	} else {
 		TAGSISTANT_STOP_OK("\\ UNLINK on %s (%s): OK", path, tagsistant_querytree_type(qtree));
+		tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
 	}
 
-	tagsistant_querytree_destroy(qtree);
 	return((res == -1) ? -tagsistant_errno : 0);
 }

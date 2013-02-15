@@ -73,6 +73,8 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 	qtree->inode = qtree->type = qtree->points_to_object = qtree->is_taggable =
 		qtree->is_external = qtree->valid = qtree->complete = qtree->exists = 0;
 
+	/* tie this query to a DBI handle */
+	qtree->conn = tagsistant_db_connection();
 
 	/* duplicate the path inside the struct */
 	qtree->full_path = g_strdup(path);
@@ -139,6 +141,7 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 						"join tagging on objects.inode = tagging.inode "
 						"join tags on tagging.tag_id = tags.tag_id "
 						"where tags.tagname in (%s) and objects.objectname = \"%s\"",
+					qtree->conn,
 					tagsistant_return_integer,
 					&(qtree->inode),
 					and_set,
@@ -171,6 +174,7 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 						"select tagging.inode from tagging "
 							"join tags on tagging.tag_id = tags.tag_id "
 							"where tagging.inode = %d and tags.tag_name = \"%s\"",
+						qtree->conn,
 						tagsistant_return_integer,
 						&tmp_inode,
 						qtree->inode,
@@ -309,6 +313,7 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
 				"join tagging on objects.inode = tagging.inode "
 				"join tags on tagging.tag_id = tags.tag_id "
 				"where tags.tagname in (%s) and objects.objectname = \"%s\"",
+			qtree->conn,
 			tagsistant_return_integer,
 			&inode,
 			and_set,
@@ -350,7 +355,7 @@ int tagsistant_querytree_parse_tags (
 	// initialize iterator variables on query tree nodes
 	ptree_or_node *last_or = qtree->tree = g_new0(ptree_or_node, 1);
 	if (qtree->tree == NULL) {
-		tagsistant_querytree_destroy(qtree);
+		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
 		dbg(LOG_ERR, "Error allocating memory");
 		return 0;
 	}
@@ -411,6 +416,7 @@ int tagsistant_querytree_parse_tags (
 					reasoning->start_node = and;
 					reasoning->current_node = and;
 					reasoning->added_tags = 0;
+					reasoning->conn = qtree->conn;
 					int newtags = tagsistant_reasoner(reasoning);
 					dbg(LOG_INFO, "Reasoning added %d tags", newtags);
 				}
@@ -554,9 +560,16 @@ void tagsistant_querytree_rebuild_paths(tagsistant_querytree *qtree)
  *
  * @param qtree the tagsistant_querytree_t to be destroyed
  */
-void tagsistant_querytree_destroy(tagsistant_querytree *qtree)
+void tagsistant_querytree_destroy(tagsistant_querytree *qtree, uint commit_transaction)
 {
 	if (NULL == qtree) return;
+
+	if (commit_transaction)
+		tagsistant_commit_transaction(qtree->conn);
+	else
+		tagsistant_rollback_transaction(qtree->conn);
+
+	dbi_conn_close(qtree->conn);
 
 	// destroy the tree
 	ptree_or_node *node = qtree->tree;
@@ -674,12 +687,14 @@ int tagsistant_reasoner(tagsistant_reasoning *reasoning)
 	assert(reasoning);
 	assert(reasoning->current_node);
 	assert(reasoning->current_node->tag);
+	assert(reasoning->conn);
 
 	tagsistant_query(
 		"select tags2.tagname from relations "
 			"join tags as tags1 on tags1.tag_id = relations.tag1_id "
 			"join tags as tags2 on tags2.tag_id = relations.tag2_id "
 			"where tags1.tagname = \"%s\" and relation = \"is_equivalent\";",
+		reasoning->conn,
 		tagsistant_add_reasoned_tag,
 		reasoning,
 		reasoning->current_node->tag);
@@ -689,6 +704,7 @@ int tagsistant_reasoner(tagsistant_reasoning *reasoning)
 			"join tags as tags1 on tags1.tag_id = relations.tag1_id "
 			"join tags as tags2 on tags2.tag_id = relations.tag2_id "
 			"where tags2.tagname = \"%s\" and relation = \"is_equivalent\";",
+		reasoning->conn,
 		tagsistant_add_reasoned_tag,
 		reasoning,
 		reasoning->current_node->tag);
@@ -698,6 +714,7 @@ int tagsistant_reasoner(tagsistant_reasoning *reasoning)
 			"join tags as tags1 on tags1.tag_id = relations.tag1_id "
 			"join tags as tags2 on tags2.tag_id = relations.tag2_id "
 			"where tags1.tagname = \"%s\" and relation = \"includes\";",
+		reasoning->conn,
 		tagsistant_add_reasoned_tag,
 		reasoning,
 		reasoning->current_node->tag);
@@ -773,19 +790,6 @@ static int tagsistant_add_to_filetree(void *hash_table_pointer, dbi_result resul
 }
 
 /**
- * drop all the views related to a ptree_or_node structure
- *
- * @param query the ptree_or_node_t structure that originated the views to be dropped
- */
-void tagsistant_drop_views(ptree_or_node *query)
-{
-	while (query != NULL) {
-		tagsistant_query("drop view tv%.16" PRIxPTR, NULL, NULL, (uintptr_t) query);
-		query = query->next;
-	}
-}
-
-/**
  * build a linked list of filenames that apply to querytree
  * query expressed in query. querytree translate as follows
  * while using SQLite:
@@ -809,7 +813,7 @@ void tagsistant_drop_views(ptree_or_node *query)
  * @param query the ptree_or_node_t* query structure to
  * be resolved.
  */
-GHashTable *tagsistant_filetree_new(ptree_or_node *query)
+GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 {
 	if (query == NULL) {
 		dbg(LOG_ERR, "NULL path_tree_t object provided to %s", __func__);
@@ -904,7 +908,7 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query)
 		dbg(LOG_INFO, "SQL: final statement is [%s]", statement->str);
 
 		/* create view */
-		tagsistant_query(statement->str, NULL, NULL);
+		tagsistant_query(statement->str, conn, NULL, NULL);
 		g_string_free(statement,TRUE);
 		query = query->next;
 	}
@@ -930,13 +934,16 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query)
 		(GDestroyNotify) key_destroyed,
 		(GDestroyNotify) value_destroyed);
 
-	tagsistant_query(view_statement->str, tagsistant_add_to_filetree, file_hash);
+	tagsistant_query(view_statement->str, conn, tagsistant_add_to_filetree, file_hash);
 
 	/* free the SQL statement */
 	g_string_free(view_statement, TRUE);
 
 	/* drop the views */
-	tagsistant_drop_views(query_dup);
+	while (query != NULL) {
+		tagsistant_query("drop view tv%.16" PRIxPTR, conn, NULL, NULL, (uintptr_t) query);
+		query = query->next;
+	}
 
 	return(file_hash);
 }

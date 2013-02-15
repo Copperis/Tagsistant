@@ -121,12 +121,13 @@ TAGSISTANT_EXIT_OPERATION:
 
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("\\ SYMLINK from %s to %s (%s) (%s): %d %d: %s", from, to, to_qtree->full_archive_path, tagsistant_querytree_type(to_qtree), res, tagsistant_errno, strerror(tagsistant_errno));
+		tagsistant_querytree_destroy(from_qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
+		tagsistant_querytree_destroy(to_qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
 	} else {
 		TAGSISTANT_STOP_OK("\\ SYMLINK from %s to %s (%s): OK", from, to, tagsistant_querytree_type(to_qtree));
+		tagsistant_querytree_destroy(from_qtree, TAGSISTANT_COMMIT_TRANSACTION);
+		tagsistant_querytree_destroy(to_qtree, TAGSISTANT_COMMIT_TRANSACTION);
 	}
-
-	tagsistant_querytree_destroy(from_qtree);
-	tagsistant_querytree_destroy(to_qtree);
 
 	return((res == -1) ? -tagsistant_errno : 0);
 }
