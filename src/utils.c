@@ -21,26 +21,12 @@
 
 #include "tagsistant.h"
 #include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
-GRegex *tagsistant_inode_strip_from_querytree_regex = NULL;
-GRegex *tagsistant_inode_extract_from_querytree_regex = NULL;
 GRegex *tagsistant_inode_extract_from_path_regex = NULL;
-
-/**
- * initialize all the utilities
- */
-void tagsistant_utils_init()
-{
-	gchar *regex_pattern;
-	
-	regex_pattern = g_strdup_printf("^[0-9]+%s", TAGSISTANT_INODE_DELIMITER);
-	tagsistant_inode_strip_from_querytree_regex = g_regex_new(regex_pattern, 0, 0, NULL);
-	g_free(regex_pattern);
-
-	regex_pattern = g_strdup_printf("%s.*", TAGSISTANT_INODE_DELIMITER);
-	tagsistant_inode_extract_from_querytree_regex = g_regex_new(regex_pattern, 0, 0, NULL);
-	g_free(regex_pattern);
-}
+GThread *deduplication_thread = NULL;
 
 #ifdef DEBUG_TO_LOGFILE
 void open_debug_file()
@@ -62,7 +48,7 @@ void open_debug_file()
  */
 void init_syslog()
 {
-	static enabled = 0;
+	static int enabled = 0;
 	if (!enabled) {
 		openlog("tagsistant", LOG_PID, LOG_DAEMON);
 		enabled = 1;
@@ -99,11 +85,6 @@ tagsistant_inode tagsistant_inode_extract_from_path(tagsistant_querytree *qtree)
 	if (!qtree || !qtree->object_path) return 0;
 
 	tagsistant_inode inode = 0;
-//	static gchar pattern[] = "^/(tags/.*/=|archive)/([0-9]+)" TAGSISTANT_INODE_DELIMITER;
-	static gchar pattern[] = "^([0-9]+)" TAGSISTANT_INODE_DELIMITER;
-
-	if (!tagsistant_inode_extract_from_path_regex)
-		tagsistant_inode_extract_from_path_regex = g_regex_new(pattern, 0, 0, NULL);
 
 	GMatchInfo *match_info;
 	if (g_regex_match(tagsistant_inode_extract_from_path_regex, qtree->object_path, 0, &match_info)) {
@@ -134,27 +115,6 @@ tagsistant_inode tagsistant_inode_extract_from_path(tagsistant_querytree *qtree)
 	}
 
 	return inode;
-}
-
-/**
- * extract the inode from a querytree object
- *
- * @param qtree the tagsistant_querytree_t holding the inode
- * @return the inode, if found
- */
-tagsistant_inode tagsistant_inode_extract_from_querytree(tagsistant_querytree *qtree)
-{
-//	GStaticMutex mtx = G_STATIC_MUTEX_INIT;
-//	g_static_mutex_lock(&mtx);
-	gchar *stripped = g_regex_replace_literal(tagsistant_inode_extract_from_querytree_regex, qtree->object_path, -1, 0, "", 0, NULL);
-//	g_static_mutex_unlock(&mtx);
-
-	dbg(LOG_INFO, "%s extracted from %s", stripped, qtree->object_path);
-
-	tagsistant_inode inode = strtol(stripped, NULL, 10);
-
-	g_free(stripped);
-	return(inode);
 }
 
 /**
@@ -238,8 +198,253 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tag
 	// 4. use autotagging plugin stack
 	tagsistant_process(qtree);
 
-	if (force_create) { dbg(LOG_INFO, "Forced creation of object %s", qtree->full_path); }
-	else { dbg(LOG_INFO, "Tried creation of object %s", qtree->full_path); }
+	if (force_create) {
+		dbg(LOG_INFO, "Forced creation of object %s", qtree->full_path);
+	} else {
+		dbg(LOG_INFO, "Tried creation of object %s", qtree->full_path);
+	}
 
 	return(inode);
+}
+
+/****************************************************************************/
+/***                                                                      ***/
+/***   Checksumming and deduplication support                             ***/
+/***                                                                      ***/
+/****************************************************************************/
+
+/**
+ * Invalidate an object checksum
+ *
+ * @param inode the object inode
+ */
+void tagsistant_invalidate_object_checksum(tagsistant_inode inode, dbi_conn conn)
+{
+	tagsistant_query("update objects set checksum = \"\" where inode = %d", conn, NULL, NULL, inode);
+}
+
+/**
+ * Internal structure passed to tagsistant_remove_duplicated_inode
+ */
+typedef struct {
+	tagsistant_inode main_inode;
+	dbi_conn conn;
+	gchar *path;
+} tagsistant_rdi;
+
+/**
+ * callback called by tagsistant_find_duplicated_objects
+ *
+ * @param _context pointer to tagsistant_rdi struct
+ * @param result DBI result
+ */
+int tagsistant_remove_duplicated_inode(void *_context, dbi_result result)
+{
+	tagsistant_rdi *context = (tagsistant_rdi *) _context;
+	tagsistant_inode duplicated_inode = 0;
+
+	if (tagsistant.sql_database_driver == TAGSISTANT_DBI_SQLITE_BACKEND)
+		duplicated_inode = dbi_result_get_ulonglong_idx(result, 1);
+	else
+		duplicated_inode = dbi_result_get_uint_idx(result, 1);
+
+	if (context->main_inode != duplicated_inode) {
+		/* transfer tags to the main inode */
+		tagsistant_query(
+			"update tagging set inode = %d where inode = %d",
+			context->conn,
+			NULL, NULL,
+			context->main_inode,
+			duplicated_inode);
+
+		/* unlink the removable inode */
+		tagsistant_query(
+			"delete from objects where inode = %d",
+			context->conn,
+			NULL, NULL,
+			duplicated_inode);
+
+		unlink(context->path);
+	}
+
+	return 0;
+}
+
+/**
+ * deduplication function called by tagsistant_calculate_object_checksum
+ *
+ * @param inode the object inode
+ * @param hex the checksum string
+ * @param conn DBI connection handle
+ */
+void tagsistant_find_duplicated_objects(tagsistant_inode inode, gchar *hex, gchar *path, dbi_conn conn)
+{
+	tagsistant_inode main_inode = 0;
+
+	/* get the first inode matching the checksum */
+	tagsistant_query(
+		"select inode from objects "
+			"where checksum = \"%s\" "
+			"order by inode limit 1",
+		conn,
+		tagsistant_return_integer,
+		&main_inode,
+		hex);
+
+	/* if we have just one file, we can return */
+	if (inode == main_inode) return;
+
+	tagsistant_rdi *rdi = g_new0(tagsistant_rdi, 1);
+	if (!rdi) return;
+
+	rdi->conn = conn;
+	rdi->main_inode = inode;
+	rdi->path = path;
+
+	tagsistant_query(
+		"select inode from objects "
+			"where checksum = \"%s\" and inode <> %d "
+			"order by inode",
+		conn,
+		tagsistant_remove_duplicated_inode,
+		rdi,
+		hex,
+		main_inode);
+}
+
+/**
+ * Calculate the checksum of an object and look for duplicated objects
+ *
+ * @param inode the object inode
+ */
+void tagsistant_calculate_object_checksum(tagsistant_inode inode, dbi_conn conn)
+{
+//	dbi_conn conn = tagsistant_db_connection();
+	gchar *objectname = NULL;
+
+	/* fetch the object name */
+	tagsistant_query(
+		"select objectname from objects where inode = %d",
+		conn, tagsistant_return_string, &objectname, inode);
+
+	if (!objectname) {
+//		dbi_conn_close(conn);
+		return;
+	}
+
+	/* compute the object path */
+	gchar *path = g_strdup_printf(
+		"%s%d%s%s",
+		tagsistant.archive,
+		inode,
+		TAGSISTANT_INODE_DELIMITER,
+		objectname);
+
+	if (path) {
+		/* guess if the object is a file or a symlink */
+		struct stat buf;
+		if ((-1 == lstat(path, &buf)) || (!S_ISREG(buf.st_mode) && !S_ISLNK(buf.st_mode))) {
+			g_free(path);
+			g_free(objectname);
+//			dbi_conn_close(conn);
+			return;
+		}
+
+		/* open the file and read its content */
+		int fd = open(path, O_RDONLY|O_NOATIME);
+		if (-1 != fd) {
+			GChecksum *checksum = g_checksum_new(G_CHECKSUM_SHA1);
+			guchar *buffer = g_new0(guchar, 4096);
+
+			if (checksum && buffer) {
+				/* feed the checksum object */
+				do {
+					int length = read(fd, buffer, 4096);
+					if (length > 0)
+						g_checksum_update(checksum, buffer, length);
+					else
+						break;
+				} while (1);
+
+				/* get the hexadecimal checksum string */
+				gchar *hex = g_strdup(g_checksum_get_string(checksum));
+
+				/* destroy the checksum object */
+				g_checksum_free(checksum);
+				g_free(buffer);
+
+				/* save the string into the objects table */
+				tagsistant_query(
+					"update objects set checksum = '%s' where inode = %d;",
+					conn, NULL, NULL, hex, inode);
+
+				/* look for duplicated objects */
+				tagsistant_find_duplicated_objects(inode, hex, path, conn);
+
+				/* free the hex checksum string */
+				g_free(hex);
+			}
+			close(fd);
+		}
+		g_free(path);
+	}
+
+	g_free(objectname);
+//	dbi_conn_close(conn);
+}
+
+int tagsistant_deduplicator_callback(void *data, dbi_result result)
+{
+	dbi_conn conn = (dbi_conn) data;
+	tagsistant_inode inode = 0;
+
+	if (tagsistant.sql_database_driver == TAGSISTANT_DBI_SQLITE_BACKEND)
+		inode = dbi_result_get_ulonglong_idx(result, 1);
+	else
+		inode = dbi_result_get_uint_idx(result, 1);
+
+	tagsistant_calculate_object_checksum(inode, conn);
+
+	return 0;
+}
+
+/**
+ * Deduplication thread kernel
+ */
+gpointer tagsistant_deduplicator(gpointer data)
+{
+	(void) data;
+
+	while (1) {
+		dbi_conn conn = tagsistant_db_connection();
+
+		/* iterate over all the object with null checksum */
+		tagsistant_query(
+			"select inode from objects where checksum = \"\"",
+			conn,
+			tagsistant_deduplicator_callback,
+			conn);
+
+		tagsistant_commit_transaction(conn);
+
+		/* close the connection to the DBMS */
+		dbi_conn_close(conn);
+
+		/* sleep for one minute */
+		g_usleep(60 * G_USEC_PER_SEC);
+	}
+
+	return NULL;
+}
+
+/**
+ * initialize all the utilities
+ */
+void tagsistant_utils_init()
+{
+	/* compile regular expressions */
+	tagsistant_inode_extract_from_path_regex = g_regex_new("^([0-9]+)" TAGSISTANT_INODE_DELIMITER, 0, 0, NULL);
+
+	/* start deduplication thread */
+	deduplication_thread = g_thread_new("deduplication", tagsistant_deduplicator, NULL);
 }

@@ -465,11 +465,6 @@ int main(int argc, char *argv[])
 	g_thread_init(NULL);
 	tagsistant_plugin_loader();
 
-	/*
-	 * initializing utilites
-	 */
-	tagsistant_utils_init();
-
 	dbg(LOG_INFO, "Mounting filesystem");
 
 	dbg(LOG_INFO, "Fuse options:");
@@ -487,6 +482,11 @@ int main(int argc, char *argv[])
 	/* initialize db connection */
 	tagsistant_db_init();
 	tagsistant_create_schema();
+
+	/*
+	 * initializing utilites
+	 */
+	tagsistant_utils_init();
 
 #if FUSE_VERSION <= 25
 	res = fuse_main(args.argc, args.argv, &tagsistant_oper);

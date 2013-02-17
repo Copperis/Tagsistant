@@ -222,10 +222,10 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 		tagsistant_querytree_check_tagging_consistency(qtree);
 	}
 
-	dbg(LOG_INFO, "inode = %d", qtree->inode);
-	dbg(LOG_INFO, "object_path = \"%s\"", qtree->object_path);
-	dbg(LOG_INFO, "archive_path = \"%s\"", qtree->archive_path);
-	dbg(LOG_INFO, "full_archive_path = \"%s\"", qtree->full_archive_path);
+//	dbg(LOG_INFO, "inode = %d", qtree->inode);
+//	dbg(LOG_INFO, "object_path = \"%s\"", qtree->object_path);
+//	dbg(LOG_INFO, "archive_path = \"%s\"", qtree->archive_path);
+//	dbg(LOG_INFO, "full_archive_path = \"%s\"", qtree->full_archive_path);
 
 	/*
 	 * guess if query points to an object on disk or not

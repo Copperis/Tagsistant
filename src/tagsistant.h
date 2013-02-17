@@ -232,6 +232,8 @@ extern int		tagsistant_getattr(const char *path, struct stat *stbuf);
 #define 		tagsistant_force_create_and_tag_object(qtree, errno) tagsistant_inner_create_and_tag_object(qtree, errno, 1);
 extern int		tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tagsistant_errno, int force_create);
 
+extern void		tagsistant_invalidate_object_checksum(tagsistant_inode inode, dbi_conn conn);
+
 #include "fuse_operations/operations.h"
 
 // vim:ts=4:nocindent:nowrap
