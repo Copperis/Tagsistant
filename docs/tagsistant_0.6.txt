@@ -1,0 +1,106 @@
+-------- tagsistant 0.6 --------------------------------------------
+
+1. salvataggio dei file
+
+I file vengono salvati in archive/ utilizzando il loro tagsistant_inode.
+Questo ID viene mostrato all'utente solo ed esclusivamente se necessario
+(vedi in seguito).
+
+I file in archive possono essere elencati e acceduti ma ogni tentativo
+di creat(), link(), unlink(), symlink() e mkdir() o mknod() deve fallire.
+
+   -----> /archive è quindi ReadOnly, ma non lo sono i file in
+   esso contenuti! <------
+
+2. creazione dei file e tagging
+
+I file vengono creati e taggati mediante l'uso di creat() (o mknod()? ) sotto tags/.
+
+  cp something.txt ~/snap/tag/t1/t2/=/filename.txt
+
+La creazione può avvenire se e solo se non esiste già un file con tale
+nome dentro quel set di tag. In tal caso il filesystem rispone EEXIST.
+
+In ogni altro caso il file viene creato e taggato. Tagsistant contiene
+quindi un thread parallelo che si occupa di calcolare l'hashing SHA1
+dei contenuti di ciascun file in modo da poter __deduplicare__ i file
+al suo interno.
+
+3. deduplica dei file
+
+In caso tagsistant rilevi che un file è stato taggato due volte e ne
+esiste un duplicato, come dimostrato dal match SHA1, il secondo file
+trasferisce al primo tutto il suo corredo di tag e viene eliminato,
+liberando il proprio tagsistant_inode.
+
+Tagsistant fornisce anche una seconda directory /retag che funziona
+come /tag. La differenza fra leggere un file da /tag e da /retag è
+che nel secondo caso tagsistant fornisce un file contenente solo
+l'inode del file e poche altre informazioni (??). Questo gli
+consente di deduplicare istantaneamente i file.
+
+Esempio: 
+
+# cp ~/file.txt ~/snap/tag/t1/=
+# ls ~/snap/tag/t1/=
+file.txt
+# ls ~/snap/retag/t1/=
+file.txt
+# cp ~/snap/retag/t1/=/file.txt ~/snap/retag/t2/=
+# ls ~/snap/retag/t2=
+file.txt
+# ls ~/snap/tag/t1/t2/=
+file.txt
+
+Si tratta dello stesso file.txt che è stato ritaggato sulla base
+delle informazioni che Tagsistant si è fornito leggendo il file da
+retag e scrivendolo in retag.
+
+Se invece si fosse fatto:
+
+# cp ~/file.txt ~/snap/tag/t1/=
+# ls ~/snap/tag/t1/=
+file.txt
+# cp ~/snap/tag/t1/=/file.txt ~/snap/tag/t2/=
+# ls ~/snap/retag/t2=
+file.txt
+# ls ~/snap/tag/t1/t2/=
+123_file.txt 124_file.txt
+
+Solo in un secondo momento il thread di deduplica potrebbe ricondurre
+124 a 123, sulla base del checksuming SHA1 e a patto che i due file
+non divergano nel frattempo.
+
+Nel caso delle directory è ancora più evidente il problema:
+
+# mkdir ~/snap/tag/t1/=/mydir
+# ls ~/snap/tag/t1/=
+mydir
+# cp -r ~/snap/tag/t1/=/mydir ~/snap/tag/t2/=
+# ls ~/snap/tag/t1/=
+
+Ma qui il problema non presenta soluzioni possibili perché cp comunque
+farà un mkdir(), quindi anche leggere da retag non faciliterà la deduplica.
+
+Come si fa a modificare il set di tag di cui fa parte un oggetto?
+Probabilmente non esiste alcuna soluzione praticabile che accomuni
+tutti i tipi di oggetti.
+
+4. disambiguazione dei file
+
+Naturalmente può succedere che due file con lo stesso nome (ma
+tagsistant_inode differenti) siano risultati della medesima query. In
+tal caso i file devono essere disambiguati nei risultati di readdir()
+anteponendo il tagsistant_inode al nome del file con un separatore
+convenzionale, ad esempio ... o , (configurabile all'avvio di tagsistant).
+
+Quando readdir() viene eseguito, gli oggetti recuperati vengono riportati
+in una struttura dati GHashTable in cui il nome dell'oggetto è la chiave
+e il valore è una GList con gli inode corrispondenti. Quando readdir()
+riceve questa hash table, per ciascuna chiave (ordinate alfabeticamente)
+conta i valori. Se singoli, emette la chiave com'è. Se due o più emette
+la chiave una volta per ogni valore, anteponendolo.
+
+In questo modo i file elencati sono ordinati per chiave e dove ci siano
+duplicati questi sono vicini perché l'inode non influisce sull'ordinamento.
+
