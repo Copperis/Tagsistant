@@ -319,7 +319,6 @@ void tagsistant_find_duplicated_objects(tagsistant_inode inode, gchar *hex, gcha
  */
 void tagsistant_calculate_object_checksum(tagsistant_inode inode, dbi_conn conn)
 {
-//	dbi_conn conn = tagsistant_db_connection();
 	gchar *objectname = NULL;
 
 	/* fetch the object name */
@@ -327,10 +326,7 @@ void tagsistant_calculate_object_checksum(tagsistant_inode inode, dbi_conn conn)
 		"select objectname from objects where inode = %d",
 		conn, tagsistant_return_string, &objectname, inode);
 
-	if (!objectname) {
-//		dbi_conn_close(conn);
-		return;
-	}
+	if (!objectname) return;
 
 	/* compute the object path */
 	gchar *path = g_strdup_printf(
@@ -346,7 +342,6 @@ void tagsistant_calculate_object_checksum(tagsistant_inode inode, dbi_conn conn)
 		if ((-1 == lstat(path, &buf)) || (!S_ISREG(buf.st_mode) && !S_ISLNK(buf.st_mode))) {
 			g_free(path);
 			g_free(objectname);
-//			dbi_conn_close(conn);
 			return;
 		}
 
@@ -390,7 +385,6 @@ void tagsistant_calculate_object_checksum(tagsistant_inode inode, dbi_conn conn)
 	}
 
 	g_free(objectname);
-//	dbi_conn_close(conn);
 }
 
 int tagsistant_deduplicator_callback(void *data, dbi_result result)
@@ -431,7 +425,7 @@ gpointer tagsistant_deduplicator(gpointer data)
 		dbi_conn_close(conn);
 
 		/* sleep for one minute */
-		g_usleep(60 * G_USEC_PER_SEC);
+		g_usleep(TAGSISTANT_DEDUPLICATION_FREQUENCY * G_USEC_PER_SEC);
 	}
 
 	return NULL;

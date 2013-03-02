@@ -22,7 +22,6 @@
 
 /* for developing purposes only */
 #define VERBOSE_DEBUG 0
-/* #define DEBUG_STRDUP */
 
 #define TAGSISTANT_PLUGIN_PREFIX "libtagsistant_"
 #define TAGSISTANT_ARCHIVE_PLACEHOLDER "<<<tagsistant>>>"
@@ -30,6 +29,7 @@
 #define TAGSISTANT_QUERY_DELIMITER_CHAR '@'
 #define TAGSISTANT_ANDSET_DELIMITER "+"
 #define TAGSISTANT_ANDSET_DELIMITER_CHAR '+'
+#define TAGSISTANT_DEDUPLICATION_FREQUENCY 60 // seconds
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -43,7 +43,6 @@
 #define PLUGINS_DIR "/usr/local/lib/tagsistant/"
 #endif
 
-/* used to import mempcpy */
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -64,11 +63,7 @@
 #define _POSIX_PTHREAD_SEMANTICS
 
 #include <pthread.h>
-#ifndef TAGMAN
 #include "debug.h"
-#else
-#include "../../debug.h"
-#endif
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -105,10 +100,8 @@
 #define _FILE_OFFSET_BITS 64
 #endif
 
-#ifndef TAGMAN
 #include <fuse.h>
 #include "compat/fuse_opt.h"
-#endif
 
 /**
  * each object is identified by a unique number of type tagsistant_id
@@ -186,17 +179,6 @@ extern void tagsistant_utils_init();
 extern void init_syslog();
 extern void tagsistant_plugin_loader();
 extern void tagsistant_plugin_unloader();
-
-#ifdef DEBUG_STRDUP
-#	ifndef DEBUG_TO_LOGFILE
-#		define DEBUG_TO_LOGFILE
-#	endif
-#	ifdef strdup
-#		undef strdup
-#		define strdup(string) real_strdup(string, __FILE__, __LINE__)
-#	endif
-char *tagsistant_real_strdup(const char *orig, char *file, int line);
-#endif
 
 #define freenull(symbol) {\
 	if (symbol != NULL) {\
