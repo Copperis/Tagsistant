@@ -79,7 +79,7 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream)
  */
 tagsistant_inode tagsistant_inode_extract_from_path(tagsistant_querytree *qtree)
 {
-	if (!qtree || !qtree->object_path) return 0;
+	if (!qtree || !qtree->object_path) return (0);
 
 	tagsistant_inode inode = 0;
 
@@ -113,7 +113,7 @@ tagsistant_inode tagsistant_inode_extract_from_path(tagsistant_querytree *qtree)
 	}
 #endif
 
-	return inode;
+	return (inode);
 }
 
 /**
@@ -268,7 +268,7 @@ int tagsistant_remove_duplicated_inode(void *_context, dbi_result result)
 		unlink(context->path);
 	}
 
-	return 0;
+	return (0);
 }
 
 /**
@@ -400,7 +400,7 @@ int tagsistant_deduplicator_callback(void *data, dbi_result result)
 
 	tagsistant_calculate_object_checksum(inode, conn);
 
-	return 0;
+	return (0);
 }
 
 /**
@@ -429,7 +429,7 @@ gpointer tagsistant_deduplicator(gpointer data)
 		g_usleep(TAGSISTANT_DEDUPLICATION_FREQUENCY * G_USEC_PER_SEC);
 	}
 
-	return NULL;
+	return (NULL);
 }
 
 /**

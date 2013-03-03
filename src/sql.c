@@ -130,7 +130,7 @@ dbi_conn tagsistant_db_connection()
 		exit(1);
 	}
 
-#if 0
+#if TAGSISTANT_VERBOSE_LOGGING
 	// list configured options
 	const char *option = NULL;
 	int counter = 0;
@@ -155,7 +155,9 @@ dbi_conn tagsistant_db_connection()
 		exit(1);
 	}
 
-//	dbg(LOG_INFO, "SQL connection established");
+#if TAGSISTANT_VERBOSE_LOGGING
+	dbg(LOG_INFO, "SQL connection established");
+#endif
 
 	/* start a transaction */
 	switch (tagsistant.sql_database_driver) {
@@ -168,7 +170,7 @@ dbi_conn tagsistant_db_connection()
 			break;
 	}
 
-	return tagsistant_dbi_conn;
+	return(tagsistant_dbi_conn);
 }
 
 void tagsistant_create_schema()
@@ -239,13 +241,13 @@ int tagsistant_real_query(
 	// check if connection has been created
 	if (NULL == conn) {
 		dbg(LOG_ERR, "ERROR! DBI connection was not initialized!");
-		return 0;
+		return(0);
 	}
 
 	// check if the connection is alive
 	if (!dbi_conn_ping(conn) && (dbi_conn_connect(conn) < 0)) {
 		dbg(LOG_ERR, "ERROR! DBI Connection has gone!");
-		return 0;
+		return(0);
 	}
 
 	gchar *statement = g_strdup_vprintf(format, ap);
@@ -253,7 +255,7 @@ int tagsistant_real_query(
 	// check if statement is not null
 	if (NULL == statement) {
 		dbg(LOG_ERR, "Null SQL statement");
-		return 0;
+		return(0);
 	}
 
 #if TAGSISTANT_VERBOSE_LOGGING
@@ -282,7 +284,7 @@ int tagsistant_real_query(
 	}
 
 	g_free(statement);
-	return rows;
+	return(rows);
 }
 
 /**
@@ -290,7 +292,7 @@ int tagsistant_real_query(
  */
 tagsistant_inode tagsistant_last_insert_id(dbi_conn conn)
 {
-	return dbi_conn_sequence_last(conn, NULL);
+	return(dbi_conn_sequence_last(conn, NULL));
 
 #if 0
 	// -------- alternative version -----------------------------------------------
@@ -307,7 +309,7 @@ tagsistant_inode tagsistant_last_insert_id(dbi_conn conn)
 			break;
 	}
 
-	return inode;
+	return (inode);
 #endif
 }
 
@@ -328,9 +330,11 @@ int tagsistant_return_integer(void *return_integer, dbi_result result)
 	else
 		*buffer = dbi_result_get_uint_idx(result, 1);
 
-//	dbg(LOG_INFO, "Returning integer: %d", *buffer);
+#if TAGSISTANT_VERBOSE_LOGGING
+	dbg(LOG_INFO, "Returning integer: %d", *buffer);
+#endif
 
-	return 0;
+	return (0);
 }
 
 /**
@@ -350,9 +354,11 @@ int tagsistant_return_string(void *return_string, dbi_result result)
 
 	*result_string = dbi_result_get_string_copy_idx(result, 1);
 
-//	dbg(LOG_INFO, "Returning string: %s", *result_string);
+#if TAGSISTANT_VERBOSE_LOGGING
+	dbg(LOG_INFO, "Returning string: %s", *result_string);
+#endif
 
-	return 0;
+	return (0);
 }
 
 void tagsistant_sql_create_tag(dbi_conn conn, const gchar *tagname)
@@ -368,7 +374,7 @@ int tagsistant_object_is_tagged(dbi_conn conn, tagsistant_inode inode)
 		"select inode from tagging where inode = %d limit 1",
 		conn, tagsistant_return_integer, &still_exists, inode);
 	
-	return (still_exists) ? 1 : 0;
+	return ((still_exists) ? 1 : 0);
 }
 
 int tagsistant_object_is_tagged_as(dbi_conn conn, tagsistant_inode inode, tagsistant_inode tag_id)
@@ -379,7 +385,7 @@ int tagsistant_object_is_tagged_as(dbi_conn conn, tagsistant_inode inode, tagsis
 		"select inode from tagging where inode = %d and tag_id = %d limit 1",
 		conn, tagsistant_return_integer, &is_tagged, inode, tag_id);
 	
-	return (is_tagged) ? 1 : 0;
+	return ((is_tagged) ? 1 : 0);
 }
 
 void tagsistant_full_untag_object(dbi_conn conn, tagsistant_inode inode)
@@ -395,7 +401,7 @@ tagsistant_inode tagsistant_sql_get_tag_id(dbi_conn conn, const gchar *tagname)
 		"select tag_id from tags where tagname = \"%s\" limit 1",
 		conn, tagsistant_return_integer, &tag_id, tagname);
 
-	return tag_id;
+	return (tag_id);
 }
 
 void tagsistant_sql_delete_tag(dbi_conn conn, const gchar *tagname)
@@ -428,10 +434,10 @@ void tagsistant_sql_untag_object(dbi_conn conn, const gchar *tagname, tagsistant
 	dbg(LOG_INFO, "Untagging object %d from tag %s (%d)", inode, tagname, tag_id);
 #endif
 
-	tagsistant_query("delete from tagging where tag_id = \"%d\" and inode = \"%d\";", conn, NULL, NULL, tag_id, inode);\
+	tagsistant_query("delete from tagging where tag_id = \"%d\" and inode = \"%d\";", conn, NULL, NULL, tag_id, inode);
 }
 
 void tagsistant_sql_rename_tag(dbi_conn conn, const gchar *tagname, const gchar *oldtagname)
 {
-	tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\";", conn, NULL, NULL, tagname, oldtagname);\
+	tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\";", conn, NULL, NULL, tagname, oldtagname);
 }

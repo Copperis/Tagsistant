@@ -28,7 +28,7 @@
 #ifdef _DEBUG_SYSLOG
 #include <syslog.h>
 #define dbg(facility, string, ...) {\
-	if (!tagsistant.quiet && (!strstr(string, "SQL") || tagsistant.verbose)) {\
+	if (!tagsistant.quiet) {\
 		gchar *line = g_strdup_printf(string " [@%s:%d]", ##__VA_ARGS__, __FILE__, __LINE__);\
 		syslog(facility, line);\
 		g_free(line);\

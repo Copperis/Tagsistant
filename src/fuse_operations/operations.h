@@ -35,11 +35,20 @@ extern int tagsistant_chown(const char *path, uid_t uid, gid_t gid);
 extern int tagsistant_truncate(const char *path, off_t size);
 extern int tagsistant_utime(const char *path, struct utimbuf *buf);
 extern int tagsistant_access(const char *path, int mode);
-extern int tagsistant_internal_open(tagsistant_querytree *qtree, int flags, int *_errno);
 extern int tagsistant_open(const char *path, struct fuse_file_info *fi);
 extern int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi);
 extern int tagsistant_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi);
 
+#define tagsistant_internal_open(qtree, flags, res, internal_errno) {\
+	if ((!qtree) || (!qtree->full_archive_path)) {\
+		dbg(LOG_ERR, "Null qtree or qtree->full_archive path");\
+		res = -1;\
+		internal_errno = EFAULT;\
+	} else {\
+		res = open(qtree->full_archive_path, flags);\
+		internal_errno = errno;\
+	}\
+}
 
 #if FUSE_USE_VERSION >= 25
 	extern int tagsistant_statvfs(const char *path, struct statvfs *stbuf);

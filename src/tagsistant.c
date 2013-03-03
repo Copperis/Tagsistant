@@ -297,6 +297,10 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
+	/* do some tuning on FUSE options */
+	fuse_opt_add_arg(&args, "-odirect_io");
+	fuse_opt_add_arg(&args, "-obig_writes");
+//	fuse_opt_add_arg(&args, "-ofstype=tagsistant");
 	fuse_opt_add_arg(&args, "-ofsname=tagsistant");
 	fuse_opt_add_arg(&args, "-ouse_ino,readdir_ino");
 	// fuse_opt_add_arg(&args, "-oallow_other");
@@ -464,12 +468,6 @@ int main(int argc, char *argv[])
 	 */
 	g_thread_init(NULL);
 	tagsistant_plugin_loader();
-
-	/* do some tuning on FUSE options */
-	fuse_opt_add_arg(&args, "-odirect_io");
-	fuse_opt_add_arg(&args, "-obig_writes");
-//	fuse_opt_add_arg(&args, "-ofsname=tagsistant");
-//	fuse_opt_add_arg(&args, "-ofstype=tagsistant");
 
 	dbg(LOG_INFO, "Mounting filesystem");
 

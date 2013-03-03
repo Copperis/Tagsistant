@@ -93,7 +93,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	tagsistant_errno = errno;
 
 	// delete non existent objects
-	if (qtree->is_taggable && res == -1 && tagsistant_errno == ENOENT) {
+	if (0 && qtree->is_taggable && res == -1 && tagsistant_errno == ENOENT) {
 		tagsistant_query("delete from objects where inode = %d", qtree->conn, NULL, NULL, qtree->inode);
 		tagsistant_query("delete from tagging where inode = %d", qtree->conn, NULL, NULL, qtree->inode);
 	}

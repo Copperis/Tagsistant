@@ -202,8 +202,7 @@ extern void tagsistant_plugin_unloader();
 #	define TAGSISTANT_STOP_OK(line, ...) {}
 #	define TAGSISTANT_STOP_ERROR(line,...) dbg(LOG_ERR, line, ##__VA_ARGS__);
 
-#endif TAGSISTANT_VERBOSE_LOGGING
-
+#endif // TAGSISTANT_VERBOSE_LOGGING
 
 // returns the type of query described by a tagsistant_querytree_t struct
 extern gchar *	tagsistant_querytree_type(tagsistant_querytree *qtree);

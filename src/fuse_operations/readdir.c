@@ -65,15 +65,15 @@ static int tagsistant_readdir_on_tags_filler(gchar *name, GList *fh_list, struct
 {
 	(void) name;
 
-	if (NULL == fh_list) return 0;
+	if (NULL == fh_list) return (0);
 
 	if (!(fh_list->next)) {
 		// just add the filename
 		tagsistant_file_handle *fh = fh_list->data;
 
-		if (!fh) return 0;
+		if (!fh) return (0);
 
-		return ufs->filler(ufs->buf, fh->name, NULL, 0);
+		return (ufs->filler(ufs->buf, fh->name, NULL, 0));
 	}
 
 	// add inodes to filenames
@@ -87,7 +87,7 @@ static int tagsistant_readdir_on_tags_filler(gchar *name, GList *fh_list, struct
 		fh_list = fh_list->next;
 	}
 
-	return 0;
+	return (0);
 }
 
 int tagsistant_readdir_on_tags(
@@ -109,7 +109,7 @@ int tagsistant_readdir_on_tags(
 	if (!ufs) {
 		dbg(LOG_ERR, "Error allocating memory");
 		*tagsistant_errno = ENOMEM;
-		return -1;
+		return (-1);
 	}
 
 	ufs->filler = filler;
@@ -137,7 +137,7 @@ int tagsistant_readdir_on_tags(
 	}
 
 	freenull(ufs);
-	return 0;
+	return (0);
 }
 
 int tagsistant_readdir_on_object(
@@ -153,7 +153,7 @@ int tagsistant_readdir_on_object(
 	if (NULL == dp) {
 		*tagsistant_errno = errno;
 		dbg(LOG_ERR, "Unable to readdir(%s)", qtree->full_archive_path);
-		return -1;
+		return (-1);
 	}
 
 	struct dirent *de;
@@ -168,7 +168,7 @@ int tagsistant_readdir_on_object(
 	}
 
 	closedir(dp);
-	return 0;
+	return (0);
 }
 
 int tagsistant_readdir_on_relations(
@@ -185,7 +185,7 @@ int tagsistant_readdir_on_relations(
 	if (ufs == NULL) {
 		dbg(LOG_ERR, "Error allocating memory");
 		*tagsistant_errno = EBADF;
-		return -1;
+		return (-1);
 	}
 
 	ufs->filler = filler;
@@ -233,7 +233,7 @@ int tagsistant_readdir_on_relations(
 	}
 
 	freenull(ufs);
-	return 0;
+	return (0);
 }
 
 int tagsistant_readdir_on_stats(
@@ -251,7 +251,7 @@ int tagsistant_readdir_on_stats(
 	filler(buf, "..", NULL, 0);
 	// fill with available statistics
 
-	return 0;
+	return (0);
 }
 
 /**

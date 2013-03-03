@@ -78,7 +78,7 @@ typedef enum {
  *   archive/something
  *   tags/t1/t2/.../tN/=/something
  */
-#define QTREE_POINTS_TO_OBJECT(qtree) (qtree->points_to_object == 1)
+#define QTREE_POINTS_TO_OBJECT(qtree) (qtree->points_to_object)
 
 /*
  * some more info about a query:
@@ -87,7 +87,7 @@ typedef enum {
  * is_external -> the query points outside tagsistant mountpoint
  * is_internal -> the query points inside tagsistant mountpoint
  */
-#define QTREE_IS_TAGGABLE(qtree) (qtree->is_taggable == 1)
+#define QTREE_IS_TAGGABLE(qtree) (qtree->is_taggable)
 #define QTREE_IS_COMPLETE(qtree) (qtree->complete)
 #define QTREE_IS_EXTERNAL(qtree) (qtree->is_external)
 #define QTREE_IS_INTERNAL(qtree) (!qtree->is_external)

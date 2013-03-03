@@ -33,9 +33,6 @@ int tagsistant_write(const char *path, const char *buf, size_t size, off_t offse
 {
     int res = 0, tagsistant_errno = 0;
 
-	init_time_profile();
-	start_time_profile();
-
 	TAGSISTANT_START("/ WRITE on %s [size: %lu offset: %lu]", path, (unsigned long) size, (long unsigned int) offset);
 
 	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 1, 0);
@@ -45,7 +42,8 @@ int tagsistant_write(const char *path, const char *buf, size_t size, off_t offse
 
 	// -- object on disk --
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
-		int fd = tagsistant_internal_open(qtree, fi->flags|O_WRONLY, &tagsistant_errno);
+		int fd;
+		tagsistant_internal_open(qtree, fi->flags|O_WRONLY, fd, tagsistant_errno);
 		if (fd != -1) {
 			res = pwrite(fd, buf, size, offset);
 			tagsistant_errno = errno;

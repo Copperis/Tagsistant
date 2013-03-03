@@ -20,33 +20,6 @@
 #include "../tagsistant.h"
 
 /**
- * performs real open() on a file. Used by tagsistant_open(),
- * tagsistant_read() and tagsistant_write().
- *
- * @param filepath the path to be open()ed
- * @param flags how to open file (see open(2) for more informations)
- * @param _errno returns open() errno
- * @return(open() return value)
- * @todo Should it perform permissions checking???
- */
-int tagsistant_internal_open(tagsistant_querytree *qtree, int flags, int *_errno)
-{
-	// first check on plain path
-	int res = open(qtree->full_archive_path, flags);
-	*_errno = errno;
-
-#if TAGSISTANT_VERBOSE_LOGGING
-	dbg(LOG_INFO, "tagsistant_internal_open(%s): %d", filepath, res);
-	if (flags&O_CREAT) dbg(LOG_INFO, "...O_CREAT");
-	if (flags&O_WRONLY) dbg(LOG_INFO, "...O_WRONLY");
-	if (flags&O_TRUNC) dbg(LOG_INFO, "...O_TRUNC");
-	if (flags&O_LARGEFILE) dbg(LOG_INFO, "...O_LARGEFILE");
-#endif
-
-	return(res);
-}
-
-/**
  * open() equivalent
  *
  * @param path the path to be open()ed
@@ -72,7 +45,7 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 	// -- object --
 	else if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		open_path = qtree->full_archive_path;
-		res = tagsistant_internal_open(qtree, fi->flags|O_RDONLY, &tagsistant_errno);
+		tagsistant_internal_open(qtree, fi->flags|O_RDONLY, res, tagsistant_errno);
 		if (-1 != res) close(res);
 	}
 

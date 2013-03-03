@@ -36,7 +36,7 @@ int tagsistant_rename(const char *from, const char *to)
 	if (!from_qtree) TAGSISTANT_ABORT_OPERATION(ENOMEM);
 
 	tagsistant_querytree *to_qtree = tagsistant_querytree_new(to, 1, 0);
-	if (NULL == to_qtree) TAGSISTANT_ABORT_OPERATION(ENOMEM);
+	if (!to_qtree) TAGSISTANT_ABORT_OPERATION(ENOMEM);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(from_qtree)) TAGSISTANT_ABORT_OPERATION(ENOENT);
