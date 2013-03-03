@@ -31,7 +31,7 @@
 #define BUILD_DATE "/"
 
 /* defines command line options for tagsistant mount tool */
-/* static */ struct tagsistant tagsistant;
+struct tagsistant tagsistant;
 
 static int tagsistant_release(const char *path, struct fuse_file_info *fi)
 {
@@ -464,6 +464,12 @@ int main(int argc, char *argv[])
 	 */
 	g_thread_init(NULL);
 	tagsistant_plugin_loader();
+
+	/* do some tuning on FUSE options */
+	fuse_opt_add_arg(&args, "-odirect_io");
+	fuse_opt_add_arg(&args, "-obig_writes");
+//	fuse_opt_add_arg(&args, "-ofsname=tagsistant");
+//	fuse_opt_add_arg(&args, "-ofstype=tagsistant");
 
 	dbg(LOG_INFO, "Mounting filesystem");
 

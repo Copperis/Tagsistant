@@ -95,18 +95,18 @@ int tagsistant_symlink(const char *from, const char *to)
 
 		// if qtree is taggable, do it
 		if (QTREE_IS_TAGGABLE(to_qtree)) {
-			dbg(LOG_INFO, "SYMLINK : Creating %s", to_qtree->object_path);
+//			dbg(LOG_INFO, "SYMLINK : Creating %s", to_qtree->object_path);
 			res = tagsistant_force_create_and_tag_object(to_qtree, &tagsistant_errno);
 			if (-1 == res) goto TAGSISTANT_EXIT_OPERATION;
 		} else
 
 		// nothing to do about tags
 		{
-			dbg(LOG_INFO, "%s is not taggable!", to_qtree->full_path); // ??? why ??? should be taggable!!
+			dbg(LOG_ERR, "%s is not taggable!", to_qtree->full_path); // ??? why ??? should be taggable!!
 		}
 
 		// do the real symlink on disk
-		dbg(LOG_INFO, "Symlinking %s to %s", from, to_qtree->object_path);
+//		dbg(LOG_INFO, "Symlinking %s to %s", from, to_qtree->object_path);
 		res = symlink(from, to_qtree->full_archive_path);
 		tagsistant_errno = errno;
 	}

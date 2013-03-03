@@ -217,78 +217,6 @@ void tagsistant_rollback_transaction(dbi_conn conn)
 }
 
 /**
- * Perform SQL queries. This function was added to avoid database opening
- * duplication and better handle SQLite interfacing. If dbh is passed
- * NULL, a new SQLite connection will be opened. Otherwise, existing
- * connection will be used.
- *
- * NEVER use tagistant_real_do_sql() directly. Always use do_sql() macro which adds
- * __FILE__ and __LINE__ transparently for you. Code will be cleaner.
- *
- * @param statement SQL query to be performed
- * @param callback pointer to function to be called on results of SQL query
- * @param firstarg pointer to buffer for callback returned data
- * @param file __FILE__ passed by calling function
- * @param line __LINE__ passed by calling function
- * @return 0 (always, due to SQLite policy)
- */
-int tagistant_real_do_sql(
-	dbi_conn conn,
-	char *statement,
-	int (*callback)(void *, dbi_result),
-	void *firstarg,
-	char *file,
-	unsigned int line)
-{
-	// check if statement is not null
-	if (NULL == statement) {
-		dbg(LOG_ERR, "Null SQL statement");
-		return 0;
-	}
-
-	// check if connection has been created
-	if (NULL == conn) {
-		dbg(LOG_ERR, "ERROR! DBI connection was not initialized!");
-		return 0;
-	}
-
-	// check if the connection is alive
-	if (!dbi_conn_ping(conn) && (dbi_conn_connect(conn) < 0)) {
-		dbg(LOG_ERR, "ERROR! DBI Connection has gone!");
-		return 0;
-	}
-
-	dbg(LOG_INFO, "SQL: [%s] @%s:%d", statement, file, line);
-
-	// do the query
-	dbi_result result = dbi_conn_query(conn, statement);
-
-	// call the callback function on results or report an error
-	if (result) {
-		int rows = 0;
-
-		if (callback) {
-			while (dbi_result_next_row(result)) {
-				callback(firstarg, result);
-				rows++;
-			}
-		}
-
-		dbi_result_free(result);
-//		if (rows) dbg(LOG_INFO, "Retrieved %d rows", rows);
-		return rows;
-	}
-
-	// get the error message
-	const char *errmsg;
-	int err = dbi_conn_error(conn, &errmsg);
-	if ((-1 == err) && errmsg)
-		dbg(LOG_ERR, "Error: %s.", errmsg);
-
-	return 0;
-}
-
-/**
  * Prepare SQL queries and perform them.
  *
  * @param format printf-like string of SQL query
@@ -308,11 +236,53 @@ int tagsistant_real_query(
 	va_list ap;
 	va_start(ap, firstarg);
 
-	gchar *statement = g_strdup_vprintf(format, ap);
-	int res = tagistant_real_do_sql(conn, statement, callback, firstarg, file, line);
-	g_free(statement);
+	// check if connection has been created
+	if (NULL == conn) {
+		dbg(LOG_ERR, "ERROR! DBI connection was not initialized!");
+		return 0;
+	}
 
-	return(res);
+	// check if the connection is alive
+	if (!dbi_conn_ping(conn) && (dbi_conn_connect(conn) < 0)) {
+		dbg(LOG_ERR, "ERROR! DBI Connection has gone!");
+		return 0;
+	}
+
+	gchar *statement = g_strdup_vprintf(format, ap);
+
+	// check if statement is not null
+	if (NULL == statement) {
+		dbg(LOG_ERR, "Null SQL statement");
+		return 0;
+	}
+
+#if TAGSISTANT_VERBOSE_LOGGING
+	dbg(LOG_INFO, "SQL: [%s] @%s:%d", statement, file, line);
+#endif
+
+	// do the query
+	dbi_result result = dbi_conn_query(conn, statement);
+
+	// call the callback function on results or report an error
+	int rows = 0;
+
+	if (result) {
+		if (callback) {
+			while (dbi_result_next_row(result)) {
+				callback(firstarg, result);
+				rows++;
+			}
+		}
+		dbi_result_free(result);
+	} else {
+		// get the error message
+		const char *errmsg;
+		int err = dbi_conn_error(conn, &errmsg);
+		if ((-1 == err) && errmsg) dbg(LOG_ERR, "Error: %s.", errmsg);
+	}
+
+	g_free(statement);
+	return rows;
 }
 
 /**
@@ -443,7 +413,9 @@ void tagsistant_sql_tag_object(dbi_conn conn, const gchar *tagname, tagsistant_i
 
 	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(conn, tagname);
 
+#if TAGSISTANT_VERBOSE_LOGGING
 	dbg(LOG_INFO, "Tagging object %d as %s (%d)", inode, tagname, tag_id);
+#endif
 
 	tagsistant_query("insert into tagging(tag_id, inode) values(\"%d\", \"%d\");", conn, NULL, NULL, tag_id, inode);
 }
@@ -452,7 +424,9 @@ void tagsistant_sql_untag_object(dbi_conn conn, const gchar *tagname, tagsistant
 {
 	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(conn, tagname);
 
+#if TAGSISTANT_VERBOSE_LOGGING
 	dbg(LOG_INFO, "Untagging object %d from tag %s (%d)", inode, tagname, tag_id);
+#endif
 
 	tagsistant_query("delete from tagging where tag_id = \"%d\" and inode = \"%d\";", conn, NULL, NULL, tag_id, inode);\
 }

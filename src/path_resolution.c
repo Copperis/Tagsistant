@@ -79,7 +79,7 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 	/* duplicate the path inside the struct */
 	qtree->full_path = g_strdup(path);
 
-	dbg(LOG_INFO, "Building querytree for %s", qtree->full_path);
+//	dbg(LOG_INFO, "Building querytree for %s", qtree->full_path);
 
 	/* split the path */
 	gchar **splitted = g_strsplit(path, "/", 512); /* split up to 512 tokens */
@@ -238,7 +238,7 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 		(strlen(qtree->object_path) > 0)
 	) {
 		qtree->points_to_object = 1;
-		if (!qtree->inode) dbg(LOG_INFO, "Qtree path %s points to an object but does NOT contain an inode", qtree->full_path);
+//		if (!qtree->inode) dbg(LOG_INFO, "Qtree path %s points to an object but does NOT contain an inode", qtree->full_path);
 	} else {
 		qtree->points_to_object = 0;
 	}
@@ -364,7 +364,7 @@ int tagsistant_querytree_parse_tags (
 
 	// state if the query is complete or not
 	qtree->complete = (NULL == g_strstr_len(path, strlen(path), TAGSISTANT_QUERY_DELIMITER)) ? 0 : 1;
-	dbg(LOG_INFO, "Path %s is %scomplete", path, qtree->complete ? "" : "not ");
+//	dbg(LOG_INFO, "Path %s is %scomplete", path, qtree->complete ? "" : "not ");
 
 	// by default a query is valid until something wrong happens while parsing it
 	qtree->valid = 1;
@@ -385,7 +385,7 @@ int tagsistant_querytree_parse_tags (
 			last_or->next = new_or;
 			last_or = new_or;
 			last_and = NULL;
-			dbg(LOG_INFO, "Allocated new OR node...");
+//			dbg(LOG_INFO, "Allocated new OR node...");
 		} else {
 			/* save next token in new ptree_and_node_t slot */
 			ptree_and_node *and = g_new0(ptree_and_node, 1);
@@ -404,12 +404,12 @@ int tagsistant_querytree_parse_tags (
 			}
 			last_and = and;
 
-			dbg(LOG_INFO, "Query tree nodes %.2d.%.2d %s", orcount, andcount, **token_ptr);
+//			dbg(LOG_INFO, "Query tree nodes %.2d.%.2d %s", orcount, andcount, **token_ptr);
 			andcount++;
 
 			/* search related tags */
 			if (do_reasoning) {
-				dbg(LOG_INFO, "Searching for other tags related to %s", and->tag);
+//				dbg(LOG_INFO, "Searching for other tags related to %s", and->tag);
 
 				tagsistant_reasoning *reasoning = g_malloc(sizeof(tagsistant_reasoning));
 				if (reasoning != NULL) {
@@ -418,7 +418,7 @@ int tagsistant_querytree_parse_tags (
 					reasoning->added_tags = 0;
 					reasoning->conn = qtree->conn;
 					int newtags = tagsistant_reasoner(reasoning);
-					dbg(LOG_INFO, "Reasoning added %d tags", newtags);
+//					dbg(LOG_INFO, "Reasoning added %d tags", newtags);
 				}
 			}
 		}
@@ -670,7 +670,7 @@ static int tagsistant_add_reasoned_tag(void *_reasoning, dbi_result result)
 
 	reasoning->added_tags += 1;
 
-	dbg(LOG_INFO, "Adding related tag %s", reasoned->tag);
+//	dbg(LOG_INFO, "Adding related tag %s", reasoned->tag);
 	return(0);
 }
 
@@ -784,7 +784,7 @@ static int tagsistant_add_to_filetree(void *hash_table_pointer, dbi_result resul
 	list = g_list_append(list, fh);
 	g_hash_table_insert(hash_table, g_strdup(fh->name), list);
 
-	dbg(LOG_INFO, "adding (%d,%s) to filetree", fh->inode, fh->name);
+//	dbg(LOG_INFO, "adding (%d,%s) to filetree", fh->inode, fh->name);
 
 	return 0;
 }
@@ -822,8 +822,6 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 
 	/* save a working pointer to the query */
 	ptree_or_node *query_dup = query;
-
-	dbg(LOG_INFO, "building filetree...");
 
 	//
 	// MySQL does not support intersect!
@@ -905,7 +903,10 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 		}
 
 		g_string_append(statement, ";");
+
+#if TAGSISTANT_VERBOSE_LOGGING
 		dbg(LOG_INFO, "SQL: final statement is [%s]", statement->str);
+#endif
 
 		/* create view */
 		tagsistant_query(statement->str, conn, NULL, NULL);
@@ -925,7 +926,10 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 	}
 
 	g_string_append(view_statement, ";");
+
+#if TAGSISTANT_VERBOSE_LOGGING
 	dbg(LOG_INFO, "SQL view statement: %s", view_statement->str);
+#endif
 
 	/* apply view statement */
 	GHashTable *file_hash = g_hash_table_new_full(
@@ -940,9 +944,9 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 	g_string_free(view_statement, TRUE);
 
 	/* drop the views */
-	while (query != NULL) {
-		tagsistant_query("drop view tv%.16" PRIxPTR, conn, NULL, NULL, (uintptr_t) query);
-		query = query->next;
+	while (query_dup) {
+		tagsistant_query("drop view tv%.16" PRIxPTR, conn, NULL, NULL, (uintptr_t) query_dup);
+		query_dup = query_dup->next;
 	}
 
 	return(file_hash);

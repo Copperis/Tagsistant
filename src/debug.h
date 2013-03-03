@@ -47,7 +47,7 @@
 }
 #endif
 
-#ifdef _TIME_PROFILE
+#ifdef TAGSISTANT_TIME_PROFILE
 #include <sys/time.h>
 #include <time.h>
 #define init_time_profile() struct timeval tv_start, tv_stop, result;

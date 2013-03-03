@@ -20,13 +20,6 @@
 
 #include <dbi/dbi.h>
 
-//
-// Tagsistant offers an SQLite backend but plans to implement
-// a MySQL backend too. If you want to switch to experimental
-// MySQL backend, use:
-//
-// CFLAGS="-D TAGSISTANT_SQL_BACKEND=TAGSISTANT_DBI_MYSQL_BACKEND"
-//
 #define TAGSISTANT_NULL_BACKEND			0
 #define TAGSISTANT_DBI_MYSQL_BACKEND	1
 #define TAGSISTANT_DBI_SQLITE_BACKEND	2
@@ -41,13 +34,6 @@
 extern void tagsistant_db_init();
 extern dbi_conn tagsistant_db_connection();
 extern void tagsistant_create_schema();
-
-/* execute SQL query adding file:line coordinates */
-#define tagsistant_do_sql(statement, callback, firstarg)\
-	tagsistant_real_do_sql(statement, callback, firstarg, __FILE__, (unsigned int) __LINE__)
-
-/* real function to execute SQL statements */
-extern int tagsistant_real_do_sql(char *statement, int (*callback)(void *, dbi_result), void *firstarg, char *file, unsigned int line);
 
 /* execute SQL statements autoformatting the SQL string and adding file:line coords */
 #define tagsistant_query(format, conn, callback, firstarg, ...) \

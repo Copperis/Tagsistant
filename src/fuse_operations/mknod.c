@@ -47,12 +47,16 @@ int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 		if (QTREE_IS_TAGGABLE(qtree)) {
 			res = tagsistant_force_create_and_tag_object(qtree, &tagsistant_errno);
 			if (-1 != res) {
+#if TAGSISTANT_VERBOSE_LOGGING
 				dbg(LOG_INFO, "NEW object on disk: mknod(%s)", qtree->full_archive_path);
+#endif
 				res = mknod(qtree->full_archive_path, mode, rdev);
 				tagsistant_errno = errno;
 			}
 		} else {
+#if TAGSISTANT_VERBOSE_LOGGING
 			dbg(LOG_INFO, "NEW object on disk: mknod(%s)", qtree->full_archive_path);
+#endif
 			res = mknod(qtree->full_archive_path, mode, rdev);
 			tagsistant_errno = errno;
 		}

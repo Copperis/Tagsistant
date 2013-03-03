@@ -30,6 +30,7 @@
 #define TAGSISTANT_ANDSET_DELIMITER "+"
 #define TAGSISTANT_ANDSET_DELIMITER_CHAR '+'
 #define TAGSISTANT_DEDUPLICATION_FREQUENCY 60 // seconds
+#define TAGSISTANT_VERBOSE_LOGGING 0
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -189,19 +190,20 @@ extern void tagsistant_plugin_unloader();
 	}\
 }
 
-#define TAGSISTANT_START(line,...) {\
-	init_time_profile();\
-	start_time_profile();\
-	dbg(LOG_INFO, line, ##__VA_ARGS__); \
-}
+#if TAGSISTANT_VERBOSE_LOGGING
 
-#define TAGSISTANT_STOP_OK(line, ...) {\
-	dbg(LOG_INFO, line, ##__VA_ARGS__);\
-}
+#	define TAGSISTANT_START(line, ...) { init_time_profile(); start_time_profile();	dbg(LOG_INFO, line, ##__VA_ARGS__);
+#	define TAGSISTANT_STOP_OK(line, ...) dbg(LOG_INFO, line, ##__VA_ARGS__);
+#	define TAGSISTANT_STOP_ERROR(line,...) dbg(LOG_ERR, line, ##__VA_ARGS__);
 
-#define TAGSISTANT_STOP_ERROR(line,...) {\
-	dbg(LOG_ERR, line, ##__VA_ARGS__);\
-}
+#else
+
+#	define TAGSISTANT_START(line, ...) {}
+#	define TAGSISTANT_STOP_OK(line, ...) {}
+#	define TAGSISTANT_STOP_ERROR(line,...) dbg(LOG_ERR, line, ##__VA_ARGS__);
+
+#endif TAGSISTANT_VERBOSE_LOGGING
+
 
 // returns the type of query described by a tagsistant_querytree_t struct
 extern gchar *	tagsistant_querytree_type(tagsistant_querytree *qtree);

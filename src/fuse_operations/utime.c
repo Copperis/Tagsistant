@@ -47,7 +47,7 @@ int tagsistant_utime(const char *path, struct utimbuf *buf)
 	else utime_path = tagsistant.archive;
 
 	// do the real utime()
-	dbg(LOG_INFO, "utime(%s)", utime_path);
+//	dbg(LOG_INFO, "utime(%s)", utime_path);
 
 	res = utime(utime_path, buf);
 	tagsistant_errno = errno;

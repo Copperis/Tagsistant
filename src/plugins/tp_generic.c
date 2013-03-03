@@ -27,7 +27,7 @@ char mime_type[] = "*/*";
 /* exported init function */
 int tagsistant_plugin_init()
 {
-	/* dbg(LOG_INFO, "Plugin generic loaded, nice to meet you!"); */
+//	dbg(LOG_INFO, "Plugin generic loaded, nice to meet you!");
 	return(1);
 }
 
@@ -41,7 +41,7 @@ int tagsistant_processor(const char *filename)
 /* exported finalize function */
 void tagsistant_plugin_free()
 {
-	/* dbg(LOG_INFO, "Plugin generic gets unloaded, see you!"); */
+//	dbg(LOG_INFO, "Plugin generic gets unloaded, see you!");
 }
 
 // vim:ts=4:autoindent:nocindent:syntax=c

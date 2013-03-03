@@ -47,7 +47,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	else if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		if (qtree->full_archive_path && (qtree->exists || QTREE_IS_ARCHIVE(qtree))) {
 			lstat_path = qtree->full_archive_path;
-			dbg(LOG_INFO, "lstat_path = %s", lstat_path);
+//			dbg(LOG_INFO, "lstat_path = %s", lstat_path);
 		} else {
 			TAGSISTANT_ABORT_OPERATION(ENOENT);
 		}
@@ -92,26 +92,13 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	res = lstat(lstat_path, stbuf);
 	tagsistant_errno = errno;
 
-	//
-	// a getattr may fail if issued on a path that
-	// was just created by mknod or mkdir. so getattr
-	// can query the aliases hash table to guess
-	// if a path changed since its creation
-	//
-	// i.e.: 'cp filename tags/t1/=' will create a
-	// file called N.filename in the archive/ directory
-	// where N is the tagsistant_id assigned to the
-	// file. its path will be:
-	//
-	//   archive/N___filename
-	//   tags/t1/=/N___filename
-	//
-	if (-1 == res) {
-		res = lstat(lstat_path, stbuf);
-		tagsistant_errno = errno;
+	// delete non existent objects
+	if (qtree->is_taggable && res == -1 && tagsistant_errno == ENOENT) {
+		tagsistant_query("delete from objects where inode = %d", qtree->conn, NULL, NULL, qtree->inode);
+		tagsistant_query("delete from tagging where inode = %d", qtree->conn, NULL, NULL, qtree->inode);
 	}
 
-	// postprocess output
+	// postprocessing output
 	if (QTREE_IS_TAGS(qtree)) {
 		// dbg(LOG_INFO, "getattr: last tag is %s", qtree->last_tag);
 		if (NULL == qtree->last_tag) {

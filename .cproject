@@ -54,7 +54,11 @@
 			<resource resourceType="PROJECT" workspacePath="/tagsistant"/>
 		</configuration>
 	</storageModule>
-	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
+	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings">
+		<doc-comment-owner id="org.eclipse.cdt.ui.doxygen">
+			<path value=""/>
+		</doc-comment-owner>
+	</storageModule>
 	<storageModule moduleId="scannerConfiguration">
 		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.496502227;org.eclipse.linuxtools.cdt.autotools.core.toolChain.496502227.2100340891;org.eclipse.linuxtools.cdt.autotools.core.toolchain.tool.gcc.908212741;cdt.managedbuild.tool.gnu.c.compiler.input.830824117">

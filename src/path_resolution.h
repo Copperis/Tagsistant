@@ -212,14 +212,12 @@ typedef struct {
  * @param funcpointer the pointer to the function (barely the function name)
  */
 #define tagsistant_querytree_traverse(qtree, funcpointer, ...) {\
-	dbg(LOG_INFO, "Traversing querytree...");\
 	if (NULL != qtree) {\
 		ptree_or_node *ptx = qtree->tree;\
 		while (NULL != ptx) {\
 			ptree_and_node *andptx = ptx->and_set;\
 			while (NULL != andptx) {\
 				funcpointer(qtree->conn, andptx->tag, ##__VA_ARGS__);\
-				dbg(LOG_INFO, "Applying %s(%s,...)", #funcpointer, andptx->tag);\
 				andptx = andptx->next;\
 			}\
 			ptx = ptx->next;\

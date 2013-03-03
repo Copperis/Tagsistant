@@ -35,7 +35,7 @@ int tagsistant_internal_open(tagsistant_querytree *qtree, int flags, int *_errno
 	int res = open(qtree->full_archive_path, flags);
 	*_errno = errno;
 
-#if VERBOSE_DEBUG
+#if TAGSISTANT_VERBOSE_LOGGING
 	dbg(LOG_INFO, "tagsistant_internal_open(%s): %d", filepath, res);
 	if (flags&O_CREAT) dbg(LOG_INFO, "...O_CREAT");
 	if (flags&O_WRONLY) dbg(LOG_INFO, "...O_WRONLY");

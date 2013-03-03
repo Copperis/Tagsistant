@@ -34,11 +34,8 @@ void open_debug_file()
 	char debug_file[1024];
 	sprintf(debug_file, "/tmp/tagsistant.debug.%d", getpid());
 	tagsistant.debugfd = fopen(debug_file, "w");
-	if (tagsistant.debugfd != NULL) {
-		dbg(LOG_INFO, "Logfile %s open!", debug_file);
-	} else {
+	if (tagsistant.debugfd == NULL)
 		dbg(LOG_ERR, "Can't open logfile %s: %s!", debug_file, strerror(errno));
-	}
 }
 #endif
 
@@ -108,11 +105,13 @@ tagsistant_inode tagsistant_inode_extract_from_path(tagsistant_querytree *qtree)
 	}
 	g_match_info_free(match_info);
 
+#if TAGSISTANT_VERBOSE_LOGGING
 	if (inode) {
 		dbg(LOG_INFO, "%s has inode %lu", qtree->object_path, (long unsigned int) inode);
 	} else {
 		dbg(LOG_INFO, "%s does not contain and inode", qtree->object_path);
 	}
+#endif
 
 	return inode;
 }
@@ -198,11 +197,13 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tag
 	// 4. use autotagging plugin stack
 	tagsistant_process(qtree);
 
+#if TAGSISTANT_VERBOSE_LOGGING
 	if (force_create) {
 		dbg(LOG_INFO, "Forced creation of object %s", qtree->full_path);
 	} else {
 		dbg(LOG_INFO, "Tried creation of object %s", qtree->full_path);
 	}
+#endif
 
 	return(inode);
 }
