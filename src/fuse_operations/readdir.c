@@ -65,7 +65,9 @@ static int tagsistant_readdir_on_tags_filler(gchar *name, GList *fh_list, struct
 {
 	(void) name;
 
-	if (NULL == fh_list) return (0);
+	if (!fh_list) return 0;
+
+	if (NULL == fh_list) return 0;
 
 	if (!(fh_list->next)) {
 		// just add the filename
@@ -98,6 +100,8 @@ int tagsistant_readdir_on_tags(
 		off_t offset,
 		int *tagsistant_errno)
 {
+	(void) offset;
+
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
 
@@ -270,7 +274,7 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 
 	(void) fi;
 
-	TAGSISTANT_START("/ READDIR on %s", path);
+	TAGSISTANT_START("READDIR on %s", path);
 
 	// build querytree
 	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 1, 0);
@@ -312,10 +316,10 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 
 TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
-		TAGSISTANT_STOP_ERROR("\\ READDIR on %s (%s): %d %d: %s", path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
+		TAGSISTANT_STOP_ERROR("READDIR on %s (%s): %d %d: %s", path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
 	} else {
-		TAGSISTANT_STOP_OK("\\ READDIR on %s (%s): OK", path, tagsistant_querytree_type(qtree));
+		TAGSISTANT_STOP_OK("READDIR on %s (%s): OK", path, tagsistant_querytree_type(qtree));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
 	}
 

@@ -33,19 +33,18 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 {
     int res = 0, tagsistant_errno = 0;
 
-	TAGSISTANT_START("/ READ on %s [size: %lu offset: %lu]", path, (long unsigned int) size, (long unsigned int) offset);
+	TAGSISTANT_START("READ on %s [size: %lu offset: %lu]", path, (long unsigned int) size, (long unsigned int) offset);
 
 	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 1, 0);
 
 	// -- malformed --
-	if (QTREE_IS_MALFORMED(qtree)) {
+	if (QTREE_IS_MALFORMED(qtree))
 		TAGSISTANT_ABORT_OPERATION(ENOENT);
-	}
 
 	// -- object on disk --
-	else if (QTREE_POINTS_TO_OBJECT(qtree)) {
-		if ((!qtree) || (!qtree->full_archive_path)) {
-			dbg(LOG_ERR, "Null qtree or qtree->full_archive path");
+	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+		if (!qtree->full_archive_path) {
+			dbg(LOG_ERR, "Null qtree->full_archive_path");
 			TAGSISTANT_ABORT_OPERATION(EFAULT);
 		}
 
@@ -71,13 +70,13 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 
 TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
-		TAGSISTANT_STOP_ERROR("\\ READ %s (%s) (%s): %d %d: %s", path, qtree->full_archive_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
+		TAGSISTANT_STOP_ERROR("READ %s (%s) (%s): %d %d: %s", path, qtree->full_archive_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
 	} else {
-		TAGSISTANT_STOP_OK("\\ READ %s (%s): OK", path, tagsistant_querytree_type(qtree));
+		TAGSISTANT_STOP_OK("READ %s (%s): OK", path, tagsistant_querytree_type(qtree));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
 	}
 
-	return((res == -1) ? -tagsistant_errno : res);
+	return ((res == -1) ? -tagsistant_errno : res);
 }
 

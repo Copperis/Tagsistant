@@ -31,7 +31,7 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 	(void) mode;
     int res = 0, tagsistant_errno = 0;
 
-	TAGSISTANT_START("/ MKDIR on %s [mode: %d]", path, mode);
+	TAGSISTANT_START("MKDIR on %s [mode: %d]", path, mode);
 
 	// build querytree
 	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 1, 0);
@@ -90,10 +90,10 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 
 TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
-		TAGSISTANT_STOP_ERROR("\\ MKDIR on %s (%s): %d %d: %s", path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
+		TAGSISTANT_STOP_ERROR("MKDIR on %s (%s): %d %d: %s", path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
 	} else {
-		TAGSISTANT_STOP_OK("\\ MKDIR on %s (%s): OK", path, tagsistant_querytree_type(qtree));
+		TAGSISTANT_STOP_OK("MKDIR on %s (%s): OK", path, tagsistant_querytree_type(qtree));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
 	}
 

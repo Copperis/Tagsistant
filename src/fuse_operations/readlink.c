@@ -32,7 +32,7 @@ int tagsistant_readlink(const char *path, char *buf, size_t size)
     int res = 0, tagsistant_errno = 0;
 	gchar *readlink_path = NULL;
 
-	TAGSISTANT_START("/ READLINK on %s", path);
+	TAGSISTANT_START("READLINK on %s", path);
 
 	// build querytree
 	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 1, 0);
@@ -58,10 +58,10 @@ int tagsistant_readlink(const char *path, char *buf, size_t size)
 
 TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
-		TAGSISTANT_STOP_ERROR("\\ READLINK on %s (%s) (%s): %d %d: %s", path, readlink_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
+		TAGSISTANT_STOP_ERROR("READLINK on %s (%s) (%s): %d %d: %s", path, readlink_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
 	} else {
-		TAGSISTANT_STOP_OK("\\ REALINK on %s (%s): OK", path, tagsistant_querytree_type(qtree));
+		TAGSISTANT_STOP_OK("REALINK on %s (%s): OK", path, tagsistant_querytree_type(qtree));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
 	}
 

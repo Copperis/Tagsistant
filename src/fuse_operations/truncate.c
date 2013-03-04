@@ -30,7 +30,7 @@ int tagsistant_truncate(const char *path, off_t size)
 {
     int res = 0, tagsistant_errno = 0;
 
-	TAGSISTANT_START("/ TRUNCATE on %s [size: %lu]", path, (long unsigned int) size);
+	TAGSISTANT_START("TRUNCATE on %s [size: %lu]", path, (long unsigned int) size);
 
 	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 1, 0);
 
@@ -50,10 +50,10 @@ int tagsistant_truncate(const char *path, off_t size)
 
 TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
-		TAGSISTANT_STOP_ERROR("\\ TRUNCATE %s at %llu (%s): %d %d: %s", qtree->full_archive_path, (unsigned long long) size, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
+		TAGSISTANT_STOP_ERROR("TRUNCATE %s at %llu (%s): %d %d: %s", qtree->full_archive_path, (unsigned long long) size, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
 	} else {
-		TAGSISTANT_STOP_OK("\\ TRUNCATE %s, %llu (%s): OK", path, (unsigned long long) size, tagsistant_querytree_type(qtree));
+		TAGSISTANT_STOP_OK("TRUNCATE %s, %llu (%s): OK", path, (unsigned long long) size, tagsistant_querytree_type(qtree));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
 	}
 
