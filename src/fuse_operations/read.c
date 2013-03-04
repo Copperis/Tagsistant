@@ -44,16 +44,20 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 
 	// -- object on disk --
 	else if (QTREE_POINTS_TO_OBJECT(qtree)) {
-		int fd;
-		tagsistant_internal_open(qtree, fi->flags|O_RDONLY, fd, tagsistant_errno);
-		if (fd != -1) {
-			res = pread(fd, buf, size, offset);
-			tagsistant_errno = errno;
-			close(fd);
-		} else {
-			res = -1;
-			tagsistant_errno = errno;
+		if ((!qtree) || (!qtree->full_archive_path)) {
+			dbg(LOG_ERR, "Null qtree or qtree->full_archive path");
+			TAGSISTANT_ABORT_OPERATION(EFAULT);
 		}
+
+		int fd = open(qtree->full_archive_path, fi->flags|O_RDONLY);
+
+		if (-1 == fd) {
+			TAGSISTANT_ABORT_OPERATION(errno);
+		}
+
+		res = pread(fd, buf, size, offset);
+		tagsistant_errno = errno;
+		close(fd);
 	}
 
 	// -- stats --
