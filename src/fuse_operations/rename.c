@@ -93,8 +93,6 @@ int tagsistant_rename(const char *from, const char *to)
 	}
 
 TAGSISTANT_EXIT_OPERATION:
-	stop_labeled_time_profile("rename");
-
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("RENAME %s (%s) to %s (%s): %d %d: %s", from, tagsistant_querytree_type(from_qtree), to, tagsistant_querytree_type(to_qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(from_qtree, TAGSISTANT_ROLLBACK_TRANSACTION);

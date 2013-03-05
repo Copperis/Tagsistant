@@ -39,15 +39,13 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 1, 0);
 
 	// -- malformed --
-	if (QTREE_IS_MALFORMED(qtree)) {
+	if (QTREE_IS_MALFORMED(qtree))
 		TAGSISTANT_ABORT_OPERATION(ENOENT);
-	}
 	
 	// -- object on disk --
-	else if (QTREE_POINTS_TO_OBJECT(qtree)) {
+	if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		if (qtree->full_archive_path && (qtree->exists || QTREE_IS_ARCHIVE(qtree))) {
 			lstat_path = qtree->full_archive_path;
-//			dbg(LOG_INFO, "lstat_path = %s", lstat_path);
 		} else {
 			TAGSISTANT_ABORT_OPERATION(ENOENT);
 		}
@@ -128,8 +126,6 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	}
 
 TAGSISTANT_EXIT_OPERATION:
-	stop_labeled_time_profile("getattr");
-
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("GETATTR on %s (%s) {%s}: %d %d: %s", path, lstat_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);

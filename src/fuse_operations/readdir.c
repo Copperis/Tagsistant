@@ -65,9 +65,9 @@ static int tagsistant_readdir_on_tags_filler(gchar *name, GList *fh_list, struct
 {
 	(void) name;
 
-	if (!fh_list) return 0;
+	if (!fh_list) return (0);
 
-	if (NULL == fh_list) return 0;
+	if (NULL == fh_list) return (0);
 
 	if (!(fh_list->next)) {
 		// just add the filename

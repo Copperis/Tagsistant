@@ -178,7 +178,6 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tag
 			"insert into objects (objectname) values (\"%s\")",
 			qtree->conn, NULL, NULL, qtree->object_path);
 
-		// don't know why it does not work on MySQL
 		inode = tagsistant_last_insert_id(qtree->conn);
 	}
 
@@ -195,7 +194,8 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tag
 	tagsistant_querytree_traverse(qtree, tagsistant_sql_tag_object, inode);
 
 	// 4. use autotagging plugin stack
-	tagsistant_process(qtree);
+	// the object is empty, how should autotagging be able to extract anything?
+	//	tagsistant_process(qtree);
 
 #if TAGSISTANT_VERBOSE_LOGGING
 	if (force_create) {

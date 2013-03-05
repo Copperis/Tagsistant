@@ -74,8 +74,6 @@ int tagsistant_unlink(const char *path)
 	TAGSISTANT_ABORT_OPERATION(EROFS);
 
 TAGSISTANT_EXIT_OPERATION:
-	stop_labeled_time_profile("unlink");
-
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("UNLINK on %s (%s) (%s): %d %d: %s", path, unlink_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);

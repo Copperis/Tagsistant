@@ -55,7 +55,7 @@ int tagsistant_driver_is_available(const char *driver_name)
 	return(1);
 }
 
-static gchar **dboptions;
+gchar **dboptions;
 
 void tagsistant_db_init()
 {
@@ -104,10 +104,10 @@ dbi_conn tagsistant_db_connection()
 			exit(1);
 		}
 
-		dbi_conn_set_option(tagsistant_dbi_conn, "host", strlen(dboptions[1]) ? g_strdup(dboptions[1]) : "localhost");
-		dbi_conn_set_option(tagsistant_dbi_conn, "dbname", strlen(dboptions[2]) ? g_strdup(dboptions[2]) : "tagsistant");
-		dbi_conn_set_option(tagsistant_dbi_conn, "username", strlen(dboptions[3]) ? g_strdup(dboptions[3]) : "tagsistant");
-		dbi_conn_set_option(tagsistant_dbi_conn, "password", strlen(dboptions[4]) ? g_strdup(dboptions[4]) : "tagsistant");
+		dbi_conn_set_option(tagsistant_dbi_conn, "host",     dboptions[1] ? g_strdup(dboptions[1]) : "localhost" );
+		dbi_conn_set_option(tagsistant_dbi_conn, "dbname",   dboptions[2] ? g_strdup(dboptions[2]) : "tagsistant");
+		dbi_conn_set_option(tagsistant_dbi_conn, "username", dboptions[3] ? g_strdup(dboptions[3]) : "tagsistant");
+		dbi_conn_set_option(tagsistant_dbi_conn, "password", dboptions[4] ? g_strdup(dboptions[4]) : "tagsistant");
 		dbi_conn_set_option(tagsistant_dbi_conn, "encoding", "UTF-8");
 
 	} else if ((g_strcmp0(dboptions[0], "sqlite3") == 0) || (g_strcmp0(dboptions[0], "sqlite"))) {
@@ -191,7 +191,7 @@ void tagsistant_create_schema()
 
 		case TAGSISTANT_DBI_MYSQL_BACKEND:
 			tagsistant_query("create table if not exists tags (tag_id integer primary key auto_increment not null, tagname varchar(65) unique not null);", conn, NULL, NULL);
-			tagsistant_query("create table if not exists objects (inode integer not null primary key auto_increment, objectname varchar(255) not null, last_autotag timestamp not null default 0, checksum varchar(40) not null default \"\";", conn, NULL, NULL);
+			tagsistant_query("create table if not exists objects (inode integer not null primary key auto_increment, objectname varchar(255) not null, last_autotag timestamp not null default 0, checksum varchar(40) not null default \"\");", conn, NULL, NULL);
 			tagsistant_query("create table if not exists tagging (inode integer not null, tag_id integer not null, constraint Tagging_key unique key (inode, tag_id));", conn, NULL, NULL);
 			tagsistant_query("create table if not exists relations(relation_id integer primary key auto_increment not null, tag1_id integer not null, relation varchar(32) not null, tag2_id integer not null);", conn, NULL, NULL);
 			tagsistant_query("create index tags_index on tagging (inode, tag_id);", conn, NULL, NULL);

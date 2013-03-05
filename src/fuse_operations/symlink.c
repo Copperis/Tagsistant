@@ -117,8 +117,6 @@ int tagsistant_symlink(const char *from, const char *to)
 	else TAGSISTANT_ABORT_OPERATION(EINVAL);
 
 TAGSISTANT_EXIT_OPERATION:
-	stop_labeled_time_profile("symlink");
-
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("SYMLINK from %s to %s (%s) (%s): %d %d: %s", from, to, to_qtree->full_archive_path, tagsistant_querytree_type(to_qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(from_qtree, TAGSISTANT_ROLLBACK_TRANSACTION);

@@ -97,9 +97,8 @@
 #include <sys/xattr.h>
 #endif
 
-#ifndef _FILE_OFFSET_BITS
+#undef _FILE_OFFSET_BITS
 #define _FILE_OFFSET_BITS 64
-#endif
 
 #include <fuse.h>
 #include "compat/fuse_opt.h"
@@ -192,7 +191,7 @@ extern void tagsistant_plugin_unloader();
 
 #if TAGSISTANT_VERBOSE_LOGGING
 
-#	define TAGSISTANT_START(line, ...) { init_time_profile(); start_time_profile();	dbg(LOG_INFO, line, ##__VA_ARGS__);
+#	define TAGSISTANT_START(line, ...) { dbg(LOG_INFO, line, ##__VA_ARGS__);
 #	define TAGSISTANT_STOP_OK(line, ...) dbg(LOG_INFO, line, ##__VA_ARGS__);
 #	define TAGSISTANT_STOP_ERROR(line,...) dbg(LOG_ERR, line, ##__VA_ARGS__);
 

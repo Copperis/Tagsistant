@@ -37,25 +37,22 @@ int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 1, 0);
 
 	// -- malformed --
-	if (QTREE_IS_MALFORMED(qtree)) { TAGSISTANT_ABORT_OPERATION(EFAULT); }
+	if (QTREE_IS_MALFORMED(qtree))
+		TAGSISTANT_ABORT_OPERATION(EFAULT);
 
 	// -- archive --
-	else if (QTREE_IS_ARCHIVE(qtree)) { TAGSISTANT_ABORT_OPERATION(EROFS); }
+	if (QTREE_IS_ARCHIVE(qtree))
+		TAGSISTANT_ABORT_OPERATION(EROFS);
 
 	// -- tags --
-	else if (QTREE_POINTS_TO_OBJECT(qtree)) {
+	if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		if (QTREE_IS_TAGGABLE(qtree)) {
 			res = tagsistant_force_create_and_tag_object(qtree, &tagsistant_errno);
-			if (-1 != res) {
+		}
+
+		if (qtree->inode) {
 #if TAGSISTANT_VERBOSE_LOGGING
-				dbg(LOG_INFO, "NEW object on disk: mknod(%s)", qtree->full_archive_path);
-#endif
-				res = mknod(qtree->full_archive_path, mode, rdev);
-				tagsistant_errno = errno;
-			}
-		} else {
-#if TAGSISTANT_VERBOSE_LOGGING
-			dbg(LOG_INFO, "NEW object on disk: mknod(%s)", qtree->full_archive_path);
+			dbg(LOG_INFO, "NEW object on disk: mknod(%s) [inode: %d]", qtree->full_archive_path, qtree->inode);
 #endif
 			res = mknod(qtree->full_archive_path, mode, rdev);
 			tagsistant_errno = errno;
@@ -67,8 +64,6 @@ int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 	else TAGSISTANT_ABORT_OPERATION(EROFS);
 
 TAGSISTANT_EXIT_OPERATION:
-	stop_labeled_time_profile("mknod");
-
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("MKNOD on %s (%s) (%s): %d %d: %s", path, qtree->full_archive_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);

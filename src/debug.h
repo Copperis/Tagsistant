@@ -47,49 +47,8 @@
 }
 #endif
 
-#ifdef TAGSISTANT_TIME_PROFILE
-#include <sys/time.h>
-#include <time.h>
-#define init_time_profile() struct timeval tv_start, tv_stop, result;
-#define start_time_profile() gettimeofday(&tv_start, NULL);
-#define stop_time_profile() {\
-	gettimeofday(&tv_stop, NULL);\
-	timeval_subtract(&result, &tv_stop, &tv_start);\
-	dbg(LOG_INFO, "time_profile: Started at %ld, took %ld.%.6ld",\
-		(long int) tv_start.tv_sec, (long int) result.tv_sec, (long int) result.tv_usec);\
-}
-#define stop_labeled_time_profile(label) {\
-	gettimeofday(&tv_stop, NULL);\
-	timeval_subtract(&result, &tv_stop, &tv_start);\
-	dbg(LOG_INFO, "time_profile: [%s] Started at %ld, took %ld.%.6ld", label,\
-		(long int) tv_start.tv_sec, (long int) result.tv_sec, (long int) result.tv_usec);\
-}
-#else
-#define init_time_profile() {}
-#define start_time_profile() {}
-#define stop_time_profile() {}
-#define stop_labeled_time_profile(label) {}
-#endif
-
 extern int tagsistant_debug;
 
-#define oldfree(symbol) assert(symbol != NULL); dbg(LOG_INFO, "g_free(%s)", __STRING(symbol)); g_free(symbol);
-#define befree(symbol) {\
-	if (\
-		(strcmp(__STRING(symbol),"myself") == 0) ||\
-		(strcmp(__STRING(symbol),"&myself") == 0) ||\
-		(strcmp(__STRING(symbol),"owner") == 0) ||\
-		(strcmp(__STRING(symbol),"node") == 0) \
-	) {\
-		dbg(LOG_INFO, "Trying to g_free(%s) which is probably wrong!", __STRING(symbol));\
-	} else {\
-		dbg(LOG_INFO, "g_free(%s)", __STRING(symbol));\
-		assert(symbol != NULL);\
-		g_free(symbol);\
-	}\
-}
-
 #define strlen(string) ((string == NULL) ? 0 : strlen(string))
-extern int strlen0(const char *string);
 
 // vim:ts=4

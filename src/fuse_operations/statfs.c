@@ -38,8 +38,6 @@ int tagsistant_statfs(const char *path, struct statfs *stbuf)
 	res = statfs(tagsistant.repository, stbuf);
 	tagsistant_errno = errno;
 
-	stop_labeled_time_profile("statfs");
-
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("STATFS on %s: %d %d: %s", path, res, tagsistant_errno, strerror(tagsistant_errno));
 	} else {
