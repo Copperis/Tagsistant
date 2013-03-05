@@ -173,6 +173,9 @@ dbi_conn tagsistant_db_connection()
 	return(tagsistant_dbi_conn);
 }
 
+/**
+ * Create DB schema
+ */
 void tagsistant_create_schema()
 {
 	dbi_conn conn = tagsistant_db_connection();
@@ -203,19 +206,8 @@ void tagsistant_create_schema()
 			break;
 	}
 
+	tagsistant_commit_transaction(conn);
 	dbi_conn_close(conn);
-}
-
-// commit a transaction
-void tagsistant_commit_transaction(dbi_conn conn)
-{
-	tagsistant_query("commit", conn, NULL, NULL);
-}
-
-// rollback a transaction
-void tagsistant_rollback_transaction(dbi_conn conn)
-{
-	tagsistant_query("rollback", conn, NULL, NULL);
 }
 
 /**

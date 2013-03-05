@@ -55,10 +55,12 @@ extern int tagsistant_return_string(void *return_string, dbi_result result);
 /** callback to return an integer */
 extern int tagsistant_return_integer(void *return_integer, dbi_result result);
 
-/* transactions */
-extern void tagsistant_start_transaction();
-extern void tagsistant_commit_transaction();
-extern void tagsistant_rollback_transaction();
+/**
+ * transactions are started by default in tagsistant_db_connection()
+ * and must be closed calling one of the following macros
+ */
+#define tagsistant_commit_transaction(dbi_conn) tagsistant_query("commit", dbi_conn, NULL, NULL)
+#define tagsistant_rollback_transaction(dbi_conn) tagsistant_query("rollback", dbi_conn, NULL, NULL);
 
 /***************\
  * SQL QUERIES *
