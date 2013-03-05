@@ -20,16 +20,17 @@
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
 */
 
-/* for developing purposes only */
-#define VERBOSE_DEBUG 0
-
 #define TAGSISTANT_PLUGIN_PREFIX "libtagsistant_"
-#define TAGSISTANT_ARCHIVE_PLACEHOLDER "<<<tagsistant>>>"
+
 #define TAGSISTANT_QUERY_DELIMITER "@"
 #define TAGSISTANT_QUERY_DELIMITER_CHAR '@'
+
 #define TAGSISTANT_ANDSET_DELIMITER "+"
 #define TAGSISTANT_ANDSET_DELIMITER_CHAR '+'
+
+#define TAGSISTANT_ENABLE_DEDUPLICATOR 0
 #define TAGSISTANT_DEDUPLICATION_FREQUENCY 60 // seconds
+
 #define TAGSISTANT_VERBOSE_LOGGING 0
 
 #ifdef HAVE_CONFIG_H
@@ -184,7 +185,7 @@ extern void tagsistant_plugin_unloader();
 	if (symbol != NULL) {\
 		g_free(symbol);\
 		symbol = NULL;\
-	} else if (VERBOSE_DEBUG) {\
+	} else {\
 		dbg(LOG_INFO, "free(%s) but symbol is NULL!", __STRING(symbol));\
 	}\
 }

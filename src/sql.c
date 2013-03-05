@@ -39,7 +39,7 @@ int tagsistant_driver_is_available(const char *driver_name)
 	while ((driver = dbi_driver_list(driver)) != NULL) {
 		counter++;
 #if TAGSISTANT_VERBOSE_LOGGING
-		dbg(LOG_INFO, "  Driver #%d: %s - %s", counter, dbi_driver_get_name(driver), dbi_driver_get_filename(driver));
+		dbg(LOG_INFO, "  Driver #%d: %s - %s", counter, dbi_driver_get_name(backend), dbi_driver_get_filename(backend));
 #endif
 		if (g_strcmp0(dbi_driver_get_name(driver), driver_name) == 0) {
 			driver_found = 1;
@@ -59,8 +59,21 @@ int tagsistant_driver_is_available(const char *driver_name)
 	return(1);
 }
 
-gchar *dboptions[5];
+/**
+ * Contains DBI parsed options
+ */
+struct {
+	int backend;
+	gchar *backend_name;
+	gchar *host;
+	gchar *db;
+	gchar *username;
+	gchar *password;
+} dboptions;
 
+/**
+ * Initialize libDBI structures
+ */
 void tagsistant_db_init()
 {
 	// initialize DBI library
@@ -69,10 +82,13 @@ void tagsistant_db_init()
 	// by default, DBI backend provides intersect
 	tagsistant.sql_backend_have_intersect = 1;
 	tagsistant.sql_database_driver = TAGSISTANT_NULL_BACKEND;
+	dboptions.backend = TAGSISTANT_NULL_BACKEND;
 
 	// if no database option has been passed, use default SQLite3
 	if (strlen(tagsistant.dboptions) == 0) {
 		tagsistant.dboptions = g_strdup("sqlite3::::");
+		dboptions.backend_name = g_strdup("sqlite3");
+		dboptions.backend = TAGSISTANT_DBI_SQLITE_BACKEND;
 		dbg(LOG_INFO, "Using default driver: sqlite3");
 	}
 
@@ -81,99 +97,64 @@ void tagsistant_db_init()
 	// split database option value up to 5 tokens
 	gchar **_dboptions = g_strsplit(tagsistant.dboptions, ":", 5);
 
-	// check failsafe DB options
+	// set failsafe DB options
 	if (_dboptions[0]) {
-		dboptions[0] = g_strdup(_dboptions[0]);
-		if (_dboptions[1]) {
-			dboptions[1] = g_strdup(_dboptions[1]);
-			if (_dboptions[2]) {
-				dboptions[2] = g_strdup(_dboptions[2]);
-				if (_dboptions[3]) {
-					dboptions[3] = g_strdup(_dboptions[3]);
-					if (_dboptions[4]) {
-						dboptions[4] = g_strdup(_dboptions[4]);
-					} else {
-						dboptions[4] = g_strdup("tagsistant");
-					}
-				} else {
-					dboptions[3] = g_strdup("tagsistant");
-					dboptions[4] = g_strdup("tagsistant");
-				}
-			} else {
-				dboptions[2] = g_strdup("tagsistant");
-				dboptions[3] = g_strdup("tagsistant");
-				dboptions[4] = g_strdup("tagsistant");
-			}
-		} else {
-			dboptions[1] = g_strdup("localhost");
-			dboptions[2] = g_strdup("tagsistant");
-			dboptions[3] = g_strdup("tagsistant");
-			dboptions[4] = g_strdup("tagsistant");
+		if (strcmp(_dboptions[0], "sqlite3") == 0) {
+
+			tagsistant.sql_database_driver = TAGSISTANT_DBI_SQLITE_BACKEND;
+			dboptions.backend = TAGSISTANT_DBI_SQLITE_BACKEND;
+			dboptions.backend_name = g_strdup("sqlite3");
+
+		} else if (strcmp(_dboptions[0], "mysql") == 0) {
+
+			tagsistant.sql_database_driver = TAGSISTANT_DBI_MYSQL_BACKEND;
+			dboptions.backend = TAGSISTANT_DBI_MYSQL_BACKEND;
+			dboptions.backend_name = g_strdup("mysql");
+
 		}
-	} else {
-		dboptions[0] = g_strdup("sqlite3"); // not a typo, default filesystem is SQLite3
-		dboptions[1] = g_strdup("localhost");
-		dboptions[2] = g_strdup("tagsistant");
-		dboptions[3] = g_strdup("tagsistant");
-		dboptions[4] = g_strdup("tagsistant");
+	}
+
+	if (TAGSISTANT_DBI_MYSQL_BACKEND == dboptions.backend) {
+		if (_dboptions[1] && strlen(_dboptions[1])) {
+			dboptions.host = g_strdup(_dboptions[1]);
+
+			if (_dboptions[2] && strlen(_dboptions[2])) {
+				dboptions.db = g_strdup(_dboptions[2]);
+
+				if (_dboptions[3] && strlen(_dboptions[3])) {
+					dboptions.username = g_strdup(_dboptions[3]);
+
+					if (_dboptions[4] && strlen(_dboptions[4])) {
+						dboptions.password = g_strdup(_dboptions[4]);
+					} else {
+						dboptions.password = g_strdup("tagsistant");
+					}
+
+				} else {
+					dboptions.password = g_strdup("tagsistant");
+					dboptions.username = g_strdup("tagsistant");
+				}
+
+			} else {
+				dboptions.password = g_strdup("tagsistant");
+				dboptions.username = g_strdup("tagsistant");
+				dboptions.db = g_strdup("tagsistant");
+			}
+
+		} else {
+			dboptions.password = g_strdup("tagsistant");
+			dboptions.username = g_strdup("tagsistant");
+			dboptions.db = g_strdup("tagsistant");
+			dboptions.host = g_strdup("localhost");
+		}
+
 	}
 
 	g_strfreev(_dboptions);
 
-	dbg(LOG_INFO, "Database driver: %s", dboptions[0]);
-}
-
-/**
- * Parse command line options, create connection object,
- * start the connection and finally create database schema
- */
-dbi_conn tagsistant_db_connection()
-{
-	/* DBI connection handler used by subsequent calls to dbi_* functions */
-	dbi_conn tagsistant_dbi_conn;
-
-	// initialize different drivers
-	if (g_strcmp0(dboptions[0], "mysql") == 0) {
-		tagsistant.sql_database_driver = TAGSISTANT_DBI_MYSQL_BACKEND;
-		if (!tagsistant_driver_is_available("mysql")) exit(1);
-
-		// unlucky, MySQL does not provide INTERSECT operator
-		tagsistant.sql_backend_have_intersect = 0;
-
-		// create connection
-		tagsistant_dbi_conn = dbi_conn_new("mysql");
-		if (NULL == tagsistant_dbi_conn) {
-			dbg(LOG_ERR, "Error creating MySQL connection");
-			exit(1);
-		}
-
-		dbi_conn_set_option(tagsistant_dbi_conn, "host",     dboptions[1]);
-		dbi_conn_set_option(tagsistant_dbi_conn, "dbname",   dboptions[2]);
-		dbi_conn_set_option(tagsistant_dbi_conn, "username", dboptions[3]);
-		dbi_conn_set_option(tagsistant_dbi_conn, "password", dboptions[4]);
-		dbi_conn_set_option(tagsistant_dbi_conn, "encoding", "UTF-8");
-
-	} else if ((g_strcmp0(dboptions[0], "sqlite3") == 0) || (g_strcmp0(dboptions[0], "sqlite"))) {
-		tagsistant.sql_database_driver = TAGSISTANT_DBI_SQLITE_BACKEND;
-		if (!tagsistant_driver_is_available("sqlite3")) exit(1);
-
-		// create connection
-		tagsistant_dbi_conn = dbi_conn_new("sqlite3");
-		if (NULL == tagsistant_dbi_conn) {
-			dbg(LOG_ERR, "Error connecting to SQLite3");
-			exit(1);
-		}
-
-		// set connection options
-		dbi_conn_set_option(tagsistant_dbi_conn, "dbname", "tags.sql");
-		dbi_conn_set_option(tagsistant_dbi_conn, "sqlite3_dbdir", tagsistant.repository);
-
-	} else {
-		dbg(LOG_ERR, "No or wrong database family specified!");
-		exit(1);
-	}
-
 #if TAGSISTANT_VERBOSE_LOGGING
+	dbg(LOG_INFO, "Database driver: %s", dboptions.backend_name);
+
 	// list configured options
 	const char *option = NULL;
 	int counter = 0;
@@ -190,6 +171,61 @@ dbi_conn tagsistant_db_connection()
 		dbg(LOG_INFO, "Database does not support INTERSECT operator");
 	}
 #endif
+}
+
+/**
+ * Parse command line options, create connection object,
+ * start the connection and finally create database schema
+ *
+ * @return DBI connection handle
+ */
+dbi_conn tagsistant_db_connection()
+{
+	/* DBI connection handler used by subsequent calls to dbi_* functions */
+	dbi_conn tagsistant_dbi_conn;
+
+	// initialize different drivers
+	if (TAGSISTANT_DBI_MYSQL_BACKEND == dboptions.backend) {
+		if (!tagsistant_driver_is_available("mysql"))
+			exit (1);
+
+		// unlucky, MySQL does not provide INTERSECT operator
+		tagsistant.sql_backend_have_intersect = 0;
+
+		// create connection
+		tagsistant_dbi_conn = dbi_conn_new("mysql");
+		if (NULL == tagsistant_dbi_conn) {
+			dbg(LOG_ERR, "Error creating MySQL connection");
+			exit (1);
+		}
+
+		// set connection options
+		dbi_conn_set_option(tagsistant_dbi_conn, "host",     dboptions.host);
+		dbi_conn_set_option(tagsistant_dbi_conn, "dbname",   dboptions.db);
+		dbi_conn_set_option(tagsistant_dbi_conn, "username", dboptions.username);
+		dbi_conn_set_option(tagsistant_dbi_conn, "password", dboptions.password);
+		dbi_conn_set_option(tagsistant_dbi_conn, "encoding", "UTF-8");
+
+	} else if (TAGSISTANT_DBI_SQLITE_BACKEND == dboptions.backend) {
+		if (!tagsistant_driver_is_available("sqlite3"))
+			exit(1);
+
+		// create connection
+		tagsistant_dbi_conn = dbi_conn_new("sqlite3");
+		if (NULL == tagsistant_dbi_conn) {
+			dbg(LOG_ERR, "Error connecting to SQLite3");
+			exit (1);
+		}
+
+		// set connection options
+		dbi_conn_set_option(tagsistant_dbi_conn, "dbname", "tags.sql");
+		dbi_conn_set_option(tagsistant_dbi_conn, "sqlite3_dbdir", tagsistant.repository);
+
+	} else {
+
+		dbg(LOG_ERR, "No or wrong database family specified!");
+		exit (1);
+	}
 
 	// try to connect
 	if (dbi_conn_connect(tagsistant_dbi_conn) < 0) {

@@ -60,7 +60,7 @@ extern int tagsistant_return_integer(void *return_integer, dbi_result result);
  * and must be closed calling one of the following macros
  */
 #define tagsistant_commit_transaction(dbi_conn) tagsistant_query("commit", dbi_conn, NULL, NULL)
-#define tagsistant_rollback_transaction(dbi_conn) tagsistant_query("rollback", dbi_conn, NULL, NULL);
+#define tagsistant_rollback_transaction(dbi_conn) tagsistant_query("rollback", dbi_conn, NULL, NULL)
 
 /***************\
  * SQL QUERIES *
