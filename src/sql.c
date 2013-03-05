@@ -33,10 +33,14 @@ int tagsistant_driver_is_available(const char *driver_name)
 	int driver_found = 0;
 	dbi_driver driver = NULL;
 
-//	dbg(LOG_INFO, "Available drivers:");
+#if TAGSISTANT_VERBOSE_LOGGING
+	dbg(LOG_INFO, "Available drivers:");
+#endif
 	while ((driver = dbi_driver_list(driver)) != NULL) {
 		counter++;
-		// dbg(LOG_INFO, "  Driver #%d: %s - %s", counter, dbi_driver_get_name(driver), dbi_driver_get_filename(driver));
+#if TAGSISTANT_VERBOSE_LOGGING
+		dbg(LOG_INFO, "  Driver #%d: %s - %s", counter, dbi_driver_get_name(driver), dbi_driver_get_filename(driver));
+#endif
 		if (g_strcmp0(dbi_driver_get_name(driver), driver_name) == 0) {
 			driver_found = 1;
 		}
@@ -55,7 +59,7 @@ int tagsistant_driver_is_available(const char *driver_name)
 	return(1);
 }
 
-gchar **dboptions;
+gchar *dboptions[5];
 
 void tagsistant_db_init()
 {
@@ -68,14 +72,53 @@ void tagsistant_db_init()
 
 	// if no database option has been passed, use default SQLite3
 	if (strlen(tagsistant.dboptions) == 0) {
-		tagsistant.dboptions = g_strdup("sqlite3");
+		tagsistant.dboptions = g_strdup("sqlite3::::");
 		dbg(LOG_INFO, "Using default driver: sqlite3");
 	}
 
 	dbg(LOG_INFO, "Database options: %s", tagsistant.dboptions);
 
-	// split database option value
-	dboptions = g_strsplit(tagsistant.dboptions, ":", 6); /* split up to 6 tokens */
+	// split database option value up to 5 tokens
+	gchar **_dboptions = g_strsplit(tagsistant.dboptions, ":", 5);
+
+	// check failsafe DB options
+	if (_dboptions[0]) {
+		dboptions[0] = g_strdup(_dboptions[0]);
+		if (_dboptions[1]) {
+			dboptions[1] = g_strdup(_dboptions[1]);
+			if (_dboptions[2]) {
+				dboptions[2] = g_strdup(_dboptions[2]);
+				if (_dboptions[3]) {
+					dboptions[3] = g_strdup(_dboptions[3]);
+					if (_dboptions[4]) {
+						dboptions[4] = g_strdup(_dboptions[4]);
+					} else {
+						dboptions[4] = g_strdup("tagsistant");
+					}
+				} else {
+					dboptions[3] = g_strdup("tagsistant");
+					dboptions[4] = g_strdup("tagsistant");
+				}
+			} else {
+				dboptions[2] = g_strdup("tagsistant");
+				dboptions[3] = g_strdup("tagsistant");
+				dboptions[4] = g_strdup("tagsistant");
+			}
+		} else {
+			dboptions[1] = g_strdup("localhost");
+			dboptions[2] = g_strdup("tagsistant");
+			dboptions[3] = g_strdup("tagsistant");
+			dboptions[4] = g_strdup("tagsistant");
+		}
+	} else {
+		dboptions[0] = g_strdup("sqlite3"); // not a typo, default filesystem is SQLite3
+		dboptions[1] = g_strdup("localhost");
+		dboptions[2] = g_strdup("tagsistant");
+		dboptions[3] = g_strdup("tagsistant");
+		dboptions[4] = g_strdup("tagsistant");
+	}
+
+	g_strfreev(_dboptions);
 
 	dbg(LOG_INFO, "Database driver: %s", dboptions[0]);
 }
@@ -104,10 +147,10 @@ dbi_conn tagsistant_db_connection()
 			exit(1);
 		}
 
-		dbi_conn_set_option(tagsistant_dbi_conn, "host",     dboptions[1] ? g_strdup(dboptions[1]) : "localhost" );
-		dbi_conn_set_option(tagsistant_dbi_conn, "dbname",   dboptions[2] ? g_strdup(dboptions[2]) : "tagsistant");
-		dbi_conn_set_option(tagsistant_dbi_conn, "username", dboptions[3] ? g_strdup(dboptions[3]) : "tagsistant");
-		dbi_conn_set_option(tagsistant_dbi_conn, "password", dboptions[4] ? g_strdup(dboptions[4]) : "tagsistant");
+		dbi_conn_set_option(tagsistant_dbi_conn, "host",     dboptions[1]);
+		dbi_conn_set_option(tagsistant_dbi_conn, "dbname",   dboptions[2]);
+		dbi_conn_set_option(tagsistant_dbi_conn, "username", dboptions[3]);
+		dbi_conn_set_option(tagsistant_dbi_conn, "password", dboptions[4]);
 		dbi_conn_set_option(tagsistant_dbi_conn, "encoding", "UTF-8");
 
 	} else if ((g_strcmp0(dboptions[0], "sqlite3") == 0) || (g_strcmp0(dboptions[0], "sqlite"))) {
