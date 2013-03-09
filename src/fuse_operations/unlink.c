@@ -57,8 +57,8 @@ int tagsistant_unlink(const char *path)
 			 * ...if still tagged, then avoid real unlink(): the object must survive!
 			 * ...otherwise we can delete it from the objects table
 			 */
-			if (!tagsistant_object_is_tagged(qtree->conn, qtree->inode))
-				tagsistant_query("delete from objects where inode = %d", qtree->conn, NULL, NULL, qtree->inode);
+			if (!tagsistant_object_is_tagged(qtree->dbi, qtree->inode))
+				tagsistant_query("delete from objects where inode = %d", qtree->dbi, NULL, NULL, qtree->inode);
 		}
 
 		// last do the real unlink()

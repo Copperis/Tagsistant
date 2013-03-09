@@ -20,6 +20,15 @@
 
 #include <dbi/dbi.h>
 
+/**
+ * Holds a DBI connection to SQL database
+ * and a flag which tells if its in use
+ */
+typedef struct {
+	dbi_conn dbi;
+	int in_use;
+} tagsistant_dbi_connection;
+
 #define TAGSISTANT_NULL_BACKEND			0
 #define TAGSISTANT_DBI_MYSQL_BACKEND	1
 #define TAGSISTANT_DBI_SQLITE_BACKEND	2
@@ -32,19 +41,17 @@
 #endif
 
 extern void tagsistant_db_init();
-extern dbi_conn tagsistant_db_connection();
+extern tagsistant_dbi_connection *tagsistant_db_connection();
 extern void tagsistant_create_schema();
 
-/* execute SQL statements autoformatting the SQL string and adding file:line coords */
+/* execute SQL statements auto formatting the SQL string and adding file:line coords */
 #define tagsistant_query(format, conn, callback, firstarg, ...) \
-	tagsistant_real_query(conn, format, __FILE__, __LINE__, callback, firstarg, ## __VA_ARGS__)
+	tagsistant_real_query(conn, format, callback, firstarg, ## __VA_ARGS__)
 
 /* the real code behind the previous macro */
 extern int tagsistant_real_query(
 		dbi_conn conn,
 		const char *format,
-		gchar *file,
-		int line,
 		int (*callback)(void *, dbi_result),
 		void *firstarg,
 		...);

@@ -182,11 +182,9 @@ extern void tagsistant_plugin_loader();
 extern void tagsistant_plugin_unloader();
 
 #define freenull(symbol) {\
-	if (symbol != NULL) {\
+	if (symbol) {\
 		g_free(symbol);\
 		symbol = NULL;\
-	} else {\
-		dbg(LOG_INFO, "free(%s) but symbol is NULL!", __STRING(symbol));\
 	}\
 }
 

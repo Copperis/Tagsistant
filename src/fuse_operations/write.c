@@ -70,7 +70,7 @@ TAGSISTANT_EXIT_OPERATION:
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
 	} else {
 		TAGSISTANT_STOP_OK("WRITE %s (%s): OK", path, tagsistant_querytree_type(qtree));
-		tagsistant_invalidate_object_checksum(qtree->inode, qtree->conn);
+		tagsistant_invalidate_object_checksum(qtree->inode, qtree->dbi);
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
 	}
 

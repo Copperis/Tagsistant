@@ -167,7 +167,7 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tag
 	if (!force_create) {
 		tagsistant_query(
 			"select inode from objects where objectname = \"%s\" limit 1",
-			qtree->conn,
+			qtree->dbi,
 			tagsistant_return_integer,
 			&inode,
 			qtree->object_path);
@@ -176,9 +176,9 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tag
 	if (force_create || (!inode)) {
 		tagsistant_query(
 			"insert into objects (objectname) values (\"%s\")",
-			qtree->conn, NULL, NULL, qtree->object_path);
+			qtree->dbi, NULL, NULL, qtree->object_path);
 
-		inode = tagsistant_last_insert_id(qtree->conn);
+		inode = tagsistant_last_insert_id(qtree->dbi);
 	}
 
 	if (!inode) {

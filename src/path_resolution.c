@@ -54,21 +54,16 @@ gchar *tagsistant_compile_and_set(ptree_and_node *and_set)
  */
 tagsistant_query_type tagsistant_querytree_guess_type(gchar **token_ptr)
 {
-	if (g_strcmp0(*token_ptr, "tags") == 0) {
-		return (QTYPE_TAGS);
-	} else if (g_strcmp0(*token_ptr, "archive") == 0) {
-		return (QTYPE_ARCHIVE);
-	} else if (g_strcmp0(*token_ptr, "relations") == 0) {
-		return (QTYPE_RELATIONS);
-	} else if (g_strcmp0(*token_ptr, "stats") == 0) {
-		return (QTYPE_STATS);
-	} else if (g_strcmp0(*token_ptr, "retag") == 0) {
-		return (QTYPE_RETAG);
-	} else if ((NULL == *token_ptr) || (g_strcmp0(*token_ptr, "") == 0 || (g_strcmp0(*token_ptr, "/") == 0))) {
+	if ((NULL == *token_ptr) || (g_strcmp0(*token_ptr, "") == 0 || (g_strcmp0(*token_ptr, "/") == 0)))
 		return (QTYPE_ROOT);
-	} else {
-		return (QTYPE_MALFORMED);
-	}
+
+	if (g_strcmp0(*token_ptr, "tags") == 0)			return (QTYPE_TAGS);
+	if (g_strcmp0(*token_ptr, "archive") == 0)		return (QTYPE_ARCHIVE);
+	if (g_strcmp0(*token_ptr, "relations") == 0)	return (QTYPE_RELATIONS);
+	if (g_strcmp0(*token_ptr, "stats") == 0)		return (QTYPE_STATS);
+	if (g_strcmp0(*token_ptr, "retag") == 0)		return (QTYPE_RETAG);
+
+	return (QTYPE_MALFORMED);
 }
 
 /**
@@ -110,7 +105,7 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
 				"join tagging on objects.inode = tagging.inode "
 				"join tags on tagging.tag_id = tags.tag_id "
 				"where tags.tagname in (%s) and objects.objectname = \"%s\"",
-			qtree->conn,
+			qtree->dbi,
 			tagsistant_return_integer,
 			&inode,
 			and_set,
@@ -331,7 +326,7 @@ int tagsistant_querytree_parse_tags (
 					reasoning->start_node = and;
 					reasoning->current_node = and;
 					reasoning->added_tags = 0;
-					reasoning->conn = qtree->conn;
+					reasoning->conn = qtree->dbi;
 					int newtags = tagsistant_reasoner(reasoning);
 #if TAGSISTANT_VERBOSE_LOGGING
 					dbg(LOG_INFO, "Reasoning added %d tags", newtags);
@@ -499,6 +494,7 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 
 	/* tie this query to a DBI handle */
 	qtree->conn = tagsistant_db_connection();
+	if (qtree->conn) qtree->dbi = qtree->conn->dbi;
 
 	/* duplicate the path inside the struct */
 	qtree->full_path = g_strdup(path);
@@ -522,8 +518,18 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 	qtree->exists = 0;
 
 	/* guess the type of the query by first token */
-	qtree->type = tagsistant_querytree_guess_type(token_ptr);
-	if (QTYPE_MALFORMED == qtree->type) {
+//	qtree->type = tagsistant_querytree_guess_type(token_ptr);
+
+//	if ((NULL == *token_ptr) || (g_strcmp0(*token_ptr, "") == 0 || (g_strcmp0(*token_ptr, "/") == 0)))
+
+	if ('\0' == **token_ptr)							qtree->type = QTYPE_ROOT;
+	else if (g_strcmp0(*token_ptr, "tags") == 0)		qtree->type = QTYPE_TAGS;
+	else if (g_strcmp0(*token_ptr, "archive") == 0)		qtree->type = QTYPE_ARCHIVE;
+	else if (g_strcmp0(*token_ptr, "relations") == 0)	qtree->type = QTYPE_RELATIONS;
+	else if (g_strcmp0(*token_ptr, "stats") == 0)		qtree->type = QTYPE_STATS;
+//	else if (g_strcmp0(*token_ptr, "retag") == 0)		qtree->type = QTYPE_RETAG;
+	else {
+		qtree->type = QTYPE_MALFORMED;
 		dbg(LOG_ERR, "Malformed or nonexistant path (%s)", path);
 		goto RETURN;
 	}
@@ -577,7 +583,7 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 						"join tagging on objects.inode = tagging.inode "
 						"join tags on tagging.tag_id = tags.tag_id "
 						"where tags.tagname in (%s) and objects.objectname = \"%s\"",
-					qtree->conn,
+					qtree->dbi,
 					tagsistant_return_integer,
 					&(qtree->inode),
 					and_set,
@@ -610,7 +616,7 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 						"select tagging.inode from tagging "
 							"join tags on tagging.tag_id = tags.tag_id "
 							"where tagging.inode = %d and tags.tag_name = \"%s\"",
-						qtree->conn,
+						qtree->dbi,
 						tagsistant_return_integer,
 						&tmp_inode,
 						qtree->inode,
@@ -700,11 +706,12 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, uint commit_trans
 	if (!qtree) return;
 
 	if (commit_transaction)
-		tagsistant_commit_transaction(qtree->conn);
+		tagsistant_commit_transaction(qtree->dbi);
 	else
-		tagsistant_rollback_transaction(qtree->conn);
+		tagsistant_rollback_transaction(qtree->dbi);
 
-	dbi_conn_close(qtree->conn);
+//	dbi_conn_close(qtree->conn);
+	qtree->conn->in_use = 0;
 
 	// destroy the tree
 	ptree_or_node *node = qtree->tree;

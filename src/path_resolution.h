@@ -171,8 +171,11 @@ typedef struct querytree {
 	/** the path in a stats/ query */
 	gchar *stats_path;
 
+	/** libDBI connection handle envelop */
+	tagsistant_dbi_connection *conn;
+
 	/** libDBI connection handle */
-	dbi_conn conn;
+	dbi_conn dbi;
 } tagsistant_querytree;
 
 /**
@@ -217,7 +220,7 @@ typedef struct {
 		while (NULL != ptx) {\
 			ptree_and_node *andptx = ptx->and_set;\
 			while (NULL != andptx) {\
-				funcpointer(qtree->conn, andptx->tag, ##__VA_ARGS__);\
+				funcpointer(qtree->dbi, andptx->tag, ##__VA_ARGS__);\
 				andptx = andptx->next;\
 			}\
 			ptx = ptx->next;\

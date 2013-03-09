@@ -62,7 +62,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 					"join relations on tag2_id = t2.tag_id "
 					"join tags as t1 on t1.tag_id = relations.tag1_id "
 					"where t1.tagname = '%s' and relation = '%s' and t2.tagname = '%s'",
-				qtree->conn,
+				qtree->dbi,
 				tagsistant_return_string,
 				&check_name,
 				qtree->first_tag,
@@ -92,8 +92,8 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 	// delete non existent objects
 	if (0 && qtree->is_taggable && res == -1 && tagsistant_errno == ENOENT) {
-		tagsistant_query("delete from objects where inode = %d", qtree->conn, NULL, NULL, qtree->inode);
-		tagsistant_query("delete from tagging where inode = %d", qtree->conn, NULL, NULL, qtree->inode);
+		tagsistant_query("delete from objects where inode = %d", qtree->dbi, NULL, NULL, qtree->inode);
+		tagsistant_query("delete from tagging where inode = %d", qtree->dbi, NULL, NULL, qtree->inode);
 	}
 
 	// postprocessing output
@@ -112,9 +112,9 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
 			stbuf->st_nlink = 1;
 		} else {
-			tagsistant_inode tag_id = tagsistant_sql_get_tag_id(qtree->conn, qtree->last_tag);
+			tagsistant_inode tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->last_tag);
 			if (tag_id) {
-				// each directory holds 3 inodes: itself/, itself/+, itself/=
+				// each directory holds 3 inodes: itself/, itself/+, itself/@
 				stbuf->st_ino = tag_id * 3;
 			} else {
 				tagsistant_errno = ENOENT;

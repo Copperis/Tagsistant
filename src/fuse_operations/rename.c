@@ -59,7 +59,7 @@ int tagsistant_rename(const char *from, const char *to)
 			tagsistant_query(
 				"update objects set objectname = \"%s\" "
 					"where inode = %d",
-				from_qtree->conn,
+				from_qtree->dbi,
 				NULL, NULL,
 				to_qtree->object_path,
 				from_qtree->inode);
@@ -86,7 +86,7 @@ int tagsistant_rename(const char *from, const char *to)
 		tagsistant_query(
 			"update tags set tagname = \"%s\" "
 				"where tagname = \"%s\"",
-			from_qtree->conn,
+			from_qtree->dbi,
 			NULL, NULL,
 			to_qtree->last_tag,
 			from_qtree->last_tag);

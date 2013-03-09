@@ -57,7 +57,7 @@ int tagsistant_rmdir(const char *path)
 
 	// -- tags but incomplete (means: delete a tag) --
 	else if (QTREE_IS_TAGS(qtree)) {
-		tagsistant_sql_delete_tag(qtree->conn, qtree->last_tag);
+		tagsistant_sql_delete_tag(qtree->dbi, qtree->last_tag);
 	}
 
 	// -- relations --
@@ -67,13 +67,13 @@ int tagsistant_rmdir(const char *path)
 		// and second level is all available relations
 		if (qtree->second_tag) {
 			// create a new relation between two tags
-			tagsistant_sql_create_tag(qtree->conn, qtree->second_tag);
-			int tag1_id = tagsistant_sql_get_tag_id(qtree->conn, qtree->first_tag);
-			int tag2_id = tagsistant_sql_get_tag_id(qtree->conn, qtree->second_tag);
+			tagsistant_sql_create_tag(qtree->dbi, qtree->second_tag);
+			int tag1_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->first_tag);
+			int tag2_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->second_tag);
 			if (tag1_id && tag2_id && IS_VALID_RELATION(qtree->relation)) {
 				tagsistant_query(
 					"delete from relations where tag1_id = \"%d\" and tag2_id = \"%d\" and relation = \"%s\"",
-					qtree->conn, NULL, NULL, tag1_id, tag2_id, qtree->relation);
+					qtree->dbi, NULL, NULL, tag1_id, tag2_id, qtree->relation);
 			} else {
 				res = -1;
 				tagsistant_errno = EFAULT;

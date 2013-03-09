@@ -124,7 +124,7 @@ int tagsistant_readdir_on_tags(
 	if (qtree->complete) {
 
 		// build the filetree
-		GHashTable *hash_table = tagsistant_filetree_new(qtree->tree, qtree->conn);
+		GHashTable *hash_table = tagsistant_filetree_new(qtree->tree, qtree->dbi);
 		g_hash_table_foreach(hash_table, (GHFunc) tagsistant_readdir_on_tags_filler, ufs);
 		// tagsistant_filetree_destroy(hash_table);
 
@@ -137,7 +137,7 @@ int tagsistant_readdir_on_tags(
 		}
 
 		/* parse tagsdir list */
-		tagsistant_query("select tagname from tags;", qtree->conn, tagsistant_add_entry_to_dir, ufs);
+		tagsistant_query("select tagname from tags;", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
 	}
 
 	freenull(ufs);
@@ -208,7 +208,7 @@ int tagsistant_readdir_on_relations(
 				"join relations on relations.tag2_id = tags.tag_id "
 				"join tags as firsttags on firsttags.tag_id = relations.tag1_id "
 				"where firsttags.tagname = '%s' and relation = '%s';",
-			qtree->conn,
+			qtree->dbi,
 			tagsistant_add_entry_to_dir,
 			ufs,
 			qtree->first_tag,
@@ -233,7 +233,7 @@ int tagsistant_readdir_on_relations(
 	} else {
 		// list all tags
 //		dbg(LOG_INFO, "readdir on /relations");
-		tagsistant_query("select tagname from tags;", qtree->conn, tagsistant_add_entry_to_dir, ufs);
+		tagsistant_query("select tagname from tags;", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
 	}
 
 	freenull(ufs);
