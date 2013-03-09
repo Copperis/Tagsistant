@@ -22,6 +22,35 @@
 
 #include "tagsistant.h"
 
+gchar *tagsistant_querytree_types[QTYPE_TOTAL];
+
+/**
+ * tagsistant_querytree objects cache
+ */
+GHashTable *tagsistant_querytree_cache = NULL;
+GStaticRWLock tagsistant_querytree_cache_lock = G_STATIC_RW_LOCK_INIT;
+
+void tagsistant_path_resolution_init()
+{
+	/* prepare stringified version of tagsistant_querytree types */
+	tagsistant_querytree_types[QTYPE_MALFORMED] = g_strdup("QTYPE_MALFORMED");
+	tagsistant_querytree_types[QTYPE_ROOT] = g_strdup("QTYPE_ROOT");
+	tagsistant_querytree_types[QTYPE_ARCHIVE] = g_strdup("QTYPE_ARCHIVE");
+	tagsistant_querytree_types[QTYPE_TAGS] = g_strdup("QTYPE_TAGS");
+	tagsistant_querytree_types[QTYPE_RELATIONS] = g_strdup("QTYPE_RELATIONS");
+	tagsistant_querytree_types[QTYPE_STATS] = g_strdup("QTYPE_STATS");
+
+	/* initialize the tagsistant_querytree object cache */
+	tagsistant_querytree_cache = g_hash_table_new(g_str_hash, g_str_equal);
+}
+
+/**
+ * Given a linked list of ptree_and_node objects (called an and-set)
+ * return a string with a comma separated list of all the tags.
+ *
+ * @param and_set the linked and-set list
+ * @return a string like "tag1, tag2, tag3"
+ */
 gchar *tagsistant_compile_and_set(ptree_and_node *and_set)
 {
 	GString *str = g_string_new("");
@@ -44,26 +73,6 @@ gchar *tagsistant_compile_and_set(ptree_and_node *and_set)
 	g_string_free(str, TRUE); // destroy the GString but not its content
 
 	return (result);
-}
-
-/**
- * guess the type of a query
- *
- * @param token_ptr the list of tokenized path
- * @return the query type as listed in tagsistant_query_type struc
- */
-tagsistant_query_type tagsistant_querytree_guess_type(gchar **token_ptr)
-{
-	if ((NULL == *token_ptr) || (g_strcmp0(*token_ptr, "") == 0 || (g_strcmp0(*token_ptr, "/") == 0)))
-		return (QTYPE_ROOT);
-
-	if (g_strcmp0(*token_ptr, "tags") == 0)			return (QTYPE_TAGS);
-	if (g_strcmp0(*token_ptr, "archive") == 0)		return (QTYPE_ARCHIVE);
-	if (g_strcmp0(*token_ptr, "relations") == 0)	return (QTYPE_RELATIONS);
-	if (g_strcmp0(*token_ptr, "stats") == 0)		return (QTYPE_STATS);
-	if (g_strcmp0(*token_ptr, "retag") == 0)		return (QTYPE_RETAG);
-
-	return (QTYPE_MALFORMED);
 }
 
 /**
@@ -272,7 +281,9 @@ int tagsistant_querytree_parse_tags (
 
 	// state if the query is complete or not
 	qtree->complete = (NULL == g_strstr_len(path, strlen(path), TAGSISTANT_QUERY_DELIMITER)) ? 0 : 1;
-//	dbg(LOG_INFO, "Path %s is %scomplete", path, qtree->complete ? "" : "not ");
+#if TAGSISTANT_VERBOSE_LOGGING
+	dbg(LOG_INFO, "Path %s is %scomplete", path, qtree->complete ? "" : "not ");
+#endif
 
 	// by default a query is valid until something wrong happens while parsing it
 	qtree->valid = 1;
@@ -293,7 +304,6 @@ int tagsistant_querytree_parse_tags (
 			last_or->next = new_or;
 			last_or = new_or;
 			last_and = NULL;
-//			dbg(LOG_INFO, "Allocated new OR node...");
 		} else {
 			/* save next token in new ptree_and_node_t slot */
 			ptree_and_node *and = g_new0(ptree_and_node, 1);
@@ -302,7 +312,6 @@ int tagsistant_querytree_parse_tags (
 				return (0);
 			}
 			and->tag = g_strdup(**token_ptr);
-			// dbg(LOG_INFO, "New AND node allocated on tag %s...", and->tag);
 			and->next = NULL;
 			and->related = NULL;
 			if (last_and == NULL) {
@@ -312,7 +321,9 @@ int tagsistant_querytree_parse_tags (
 			}
 			last_and = and;
 
-//			dbg(LOG_INFO, "Query tree nodes %.2d.%.2d %s", orcount, andcount, **token_ptr);
+#if TAGSISTANT_VERBOSE_LOGGING
+			dbg(LOG_INFO, "Query tree nodes %.2d.%.2d %s", orcount, andcount, **token_ptr);
+#endif
 			andcount++;
 
 			/* search related tags */
@@ -401,28 +412,6 @@ int tagsistant_querytree_parse_stats (
 }
 
 /**
- * return(querytree type as a printable string.)
- * the string MUST NOT be freed
- */
-gchar *tagsistant_querytree_type(tagsistant_querytree *qtree)
-{
-	static int initialized = 0;
-	static gchar *tagsistant_querytree_types[QTYPE_TOTAL];
-
-	if (!initialized) {
-		tagsistant_querytree_types[QTYPE_MALFORMED] = g_strdup("QTYPE_MALFORMED");
-		tagsistant_querytree_types[QTYPE_ROOT] = g_strdup("QTYPE_ROOT");
-		tagsistant_querytree_types[QTYPE_ARCHIVE] = g_strdup("QTYPE_ARCHIVE");
-		tagsistant_querytree_types[QTYPE_TAGS] = g_strdup("QTYPE_TAGS");
-		tagsistant_querytree_types[QTYPE_RELATIONS] = g_strdup("QTYPE_RELATIONS");
-		tagsistant_querytree_types[QTYPE_STATS] = g_strdup("QTYPE_STATS");
-		initialized = 1;
-	}
-
-	return(tagsistant_querytree_types[qtree->type]);
-}
-
-/**
  * set the object_path field of a tagsistant_querytree object and
  * then update all the other depending fields
  *
@@ -484,9 +473,16 @@ void tagsistant_querytree_rebuild_paths(tagsistant_querytree *qtree)
 tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasoning, int assign_inode)
 {
 	int tagsistant_errno;
+	tagsistant_querytree *qtree = NULL;
 
-	/* allocate the querytree structure */
-	tagsistant_querytree *qtree = g_new0(tagsistant_querytree, 1);
+	/* first look in the cache */
+//	g_static_rw_lock_reader_lock(&tagsistant_querytree_cache_lock);
+//	qtree = g_hash_table_lookup (tagsistant_querytree_cache, path);
+//	g_static_rw_lock_reader_unlock(&tagsistant_querytree_cache_lock);
+//	if (qtree) return (qtree);
+
+	/* the qtree object has not been found so lets allocate the querytree structure */
+	qtree = g_new0(tagsistant_querytree, 1);
 	if (qtree == NULL) {
 		dbg(LOG_ERR, "Error allocating memory");
 		return(NULL);
@@ -518,10 +514,6 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 	qtree->exists = 0;
 
 	/* guess the type of the query by first token */
-//	qtree->type = tagsistant_querytree_guess_type(token_ptr);
-
-//	if ((NULL == *token_ptr) || (g_strcmp0(*token_ptr, "") == 0 || (g_strcmp0(*token_ptr, "/") == 0)))
-
 	if ('\0' == **token_ptr)							qtree->type = QTYPE_ROOT;
 	else if (g_strcmp0(*token_ptr, "tags") == 0)		qtree->type = QTYPE_TAGS;
 	else if (g_strcmp0(*token_ptr, "archive") == 0)		qtree->type = QTYPE_ARCHIVE;
@@ -693,6 +685,11 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 
 RETURN:
 	g_strfreev(splitted);
+
+//	g_static_rw_lock_writer_lock(&tagsistant_querytree_cache_lock);
+//	g_hash_table_insert(tagsistant_querytree_cache, path, qtree);
+//	g_static_rw_lock_writer_unlock(&tagsistant_querytree_cache_lock);
+
 	return(qtree);
 }
 

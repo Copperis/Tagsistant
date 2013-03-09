@@ -485,13 +485,13 @@ int main(int argc, char *argv[])
 	 */
 	if (tagsistant.show_config) tagsistant_show_config();
 
-	/* initialize db connection */
+	/*
+	 * initialize db connection, SQL schema,
+	 * path_resolution.c and utils.c structures
+	 */
 	tagsistant_db_init();
 	tagsistant_create_schema();
-
-	/*
-	 * initializing utilites
-	 */
+	tagsistant_path_resolution_init();
 	tagsistant_utils_init();
 
 #if FUSE_VERSION <= 25

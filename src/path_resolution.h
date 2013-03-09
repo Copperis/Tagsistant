@@ -59,6 +59,14 @@ typedef enum {
 	QTYPE_TOTAL
 } tagsistant_query_type;
 
+extern gchar *tagsistant_querytree_types[QTYPE_TOTAL];
+
+/**
+ * returns the type of query described by a tagsistant_querytree struct
+ * WARNING: the returned string MUST NOT BE FREED!
+ */
+#define tagsistant_querytree_type(qtree) tagsistant_querytree_types[qtree->type]
+
 /*
  * to ease coding, there are some macros to check
  * if a query if of a given type
@@ -229,6 +237,8 @@ typedef struct {
 }
 
 // querytree functions
+extern void						tagsistant_path_resolution_init();
+
 extern tagsistant_querytree *	tagsistant_querytree_new(const char *path, int do_reasoning, int assign_inode);
 extern void 					tagsistant_querytree_destroy(tagsistant_querytree *qtree, uint commit_transaction);
 

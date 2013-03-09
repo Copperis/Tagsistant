@@ -202,9 +202,6 @@ extern void tagsistant_plugin_unloader();
 
 #endif // TAGSISTANT_VERBOSE_LOGGING
 
-// returns the type of query described by a tagsistant_querytree_t struct
-extern gchar *	tagsistant_querytree_type(tagsistant_querytree *qtree);
-
 extern void		tagsistant_show_config();
 extern void		tagsistant_plugin_apply_regex(const tagsistant_querytree *qtree, const char *buf, GMutex *m, GRegex *rx);
 extern int		tagsistant_getattr(const char *path, struct stat *stbuf);
