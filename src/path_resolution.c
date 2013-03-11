@@ -707,47 +707,52 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, uint commit_trans
 	else
 		tagsistant_rollback_transaction(qtree->dbi);
 
-//	dbi_conn_close(qtree->conn);
+	/* mark the connection as available */
 	qtree->conn->in_use = 0;
 
-	// destroy the tree
-	ptree_or_node *node = qtree->tree;
-	while (node != NULL) {
-		ptree_and_node *tag = node->and_set;
-		while (tag != NULL) {
-			// walk related tags
-			while (tag->related != NULL) {
-				ptree_and_node *related = tag->related;
-				tag->related = related->related;
-				freenull(related->tag);
-				freenull(related);
-			}
-
-			// free the ptree_and_node_t node
-			ptree_and_node *next = tag->next;
-			freenull(tag->tag);
-			freenull(tag);
-			tag = next;
-		}
-		// free the ptree_or_node_t node
-		ptree_or_node *next = node->next;
-		freenull(node);
-		node = next;
-	}
-
-	// free paths and other strings
 	freenull(qtree->full_path);
 	freenull(qtree->object_path);
 	freenull(qtree->archive_path);
 	freenull(qtree->full_archive_path);
-	freenull(qtree->first_tag);
-	freenull(qtree->second_tag);
-	freenull(qtree->relation);
-	freenull(qtree->stats_path);
-	freenull(qtree->last_tag);
+
+	if (QTREE_IS_TAGS(qtree)) {
+		ptree_or_node *node = qtree->tree;
+		while (node != NULL) {
+
+			ptree_and_node *tag = node->and_set;
+			while (tag != NULL) {
+
+				// walk related tags
+				while (tag->related) {
+					ptree_and_node *related = tag->related;
+					tag->related = related->related;
+					freenull(related->tag);
+					freenull(related);
+				}
+
+				// free the ptree_and_node_t node
+				ptree_and_node *next = tag->next;
+				freenull(tag->tag);
+				freenull(tag);
+				tag = next;
+			}
+
+			// free the ptree_or_node_t node
+			ptree_or_node *next = node->next;
+			freenull(node);
+			node = next;
+		}
+		freenull(qtree->last_tag);
+	} else if (QTREE_IS_RELATIONS(qtree)) {
+		freenull(qtree->first_tag);
+		freenull(qtree->second_tag);
+		freenull(qtree->relation);
+	} else if (QTREE_IS_STATS(qtree)) {
+		freenull(qtree->stats_path);
+	}
 
 	// free the structure
-	freenull(qtree);
+	g_free(qtree);
 }
 
 /************************************************************************************/

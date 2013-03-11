@@ -28,7 +28,7 @@
 #define TAGSISTANT_ANDSET_DELIMITER "+"
 #define TAGSISTANT_ANDSET_DELIMITER_CHAR '+'
 
-#define TAGSISTANT_ENABLE_DEDUPLICATOR 0
+#define TAGSISTANT_ENABLE_DEDUPLICATOR 1
 #define TAGSISTANT_DEDUPLICATION_FREQUENCY 60 // seconds
 
 #define TAGSISTANT_VERBOSE_LOGGING 0
@@ -170,17 +170,12 @@ struct tagsistant {
 /** where global values are stored */
 extern struct tagsistant tagsistant;
 
-/*** *** *** *** *** *** *** continue cleaning this file from here  *** *** *** *** ***/
-
-extern int tagsistant_process(tagsistant_querytree *qtree);
-
-extern tagsistant_inode tagsistant_get_inode(const gchar *path, gchar **purename);
-
-extern void tagsistant_utils_init();
-extern void init_syslog();
-extern void tagsistant_plugin_loader();
-extern void tagsistant_plugin_unloader();
-
+/**
+ * g_free() a symbol only if it's not NULL
+ *
+ * @param symbol the symbol to free
+ * @return
+ */
 #define freenull(symbol) {\
 	if (symbol) {\
 		g_free(symbol);\
@@ -188,6 +183,10 @@ extern void tagsistant_plugin_unloader();
 	}\
 }
 
+/**
+ * Fuse operations logging macros.
+ * Enabled or disabled by TAGSISTANT_VERBOSE_LOGGING.
+ */
 #if TAGSISTANT_VERBOSE_LOGGING
 
 #	define TAGSISTANT_START(line, ...) { dbg(LOG_INFO, line, ##__VA_ARGS__);
@@ -198,19 +197,32 @@ extern void tagsistant_plugin_unloader();
 
 #	define TAGSISTANT_START(line, ...) {}
 #	define TAGSISTANT_STOP_OK(line, ...) {}
-#	define TAGSISTANT_STOP_ERROR(line,...) dbg(LOG_ERR, line, ##__VA_ARGS__);
+#	define TAGSISTANT_STOP_ERROR(line,...) {}
 
 #endif // TAGSISTANT_VERBOSE_LOGGING
 
-extern void		tagsistant_show_config();
-extern void		tagsistant_plugin_apply_regex(const tagsistant_querytree *qtree, const char *buf, GMutex *m, GRegex *rx);
-extern int		tagsistant_getattr(const char *path, struct stat *stbuf);
+/*** *** *** *** *** *** *** continue cleaning this file from here  *** *** *** *** ***/
 
-#define 		tagsistant_create_and_tag_object(qtree, errno) tagsistant_inner_create_and_tag_object(qtree, errno, 0);
-#define 		tagsistant_force_create_and_tag_object(qtree, errno) tagsistant_inner_create_and_tag_object(qtree, errno, 1);
-extern int		tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tagsistant_errno, int force_create);
+extern int 				tagsistant_process(tagsistant_querytree *qtree);
 
-extern void		tagsistant_invalidate_object_checksum(tagsistant_inode inode, dbi_conn conn);
+extern tagsistant_inode	tagsistant_get_inode(const gchar *path, gchar **purename);
+
+extern void				tagsistant_utils_init();
+extern void				init_syslog();
+extern void				tagsistant_plugin_loader();
+extern void				tagsistant_plugin_unloader();
+
+extern void				tagsistant_plugin_apply_regex(const tagsistant_querytree *qtree, const char *buf, GMutex *m, GRegex *rx);
+
+#define 				tagsistant_create_and_tag_object(qtree, errno)\
+							tagsistant_inner_create_and_tag_object(qtree, errno, 0);
+
+#define 				tagsistant_force_create_and_tag_object(qtree, errno)\
+							tagsistant_inner_create_and_tag_object(qtree, errno, 1);
+
+extern int				tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tagsistant_errno, int force_create);
+
+extern void				tagsistant_invalidate_object_checksum(tagsistant_inode inode, dbi_conn conn);
 
 #include "fuse_operations/operations.h"
 
