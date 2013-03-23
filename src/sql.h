@@ -40,8 +40,11 @@ typedef struct {
 #	define TAGSISTANT_SQL_BACKEND TAGSISTANT_DBI_SQLITE_BACKEND
 #endif
 
+#define TAGSISTANT_START_TRANSACTION		1
+#define TAGSISTANT_DONT_START_TRANSACTION	0
+
 extern void tagsistant_db_init();
-extern tagsistant_dbi_connection *tagsistant_db_connection();
+extern tagsistant_dbi_connection *tagsistant_db_connection(int start_transaction);
 extern void tagsistant_create_schema();
 
 /* execute SQL statements auto formatting the SQL string and adding file:line coords */

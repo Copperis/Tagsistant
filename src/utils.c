@@ -454,7 +454,7 @@ gpointer tagsistant_deduplicator(gpointer data)
 	(void) data;
 
 	while (1) {
-		tagsistant_dbi_connection *conn = tagsistant_db_connection();
+		tagsistant_dbi_connection *conn = tagsistant_db_connection(TAGSISTANT_START_TRANSACTION);
 
 		/* iterate over all the object with null checksum */
 		tagsistant_query(

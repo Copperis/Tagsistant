@@ -470,7 +470,7 @@ void tagsistant_querytree_rebuild_paths(tagsistant_querytree *qtree)
  * @param path the path to be converted in a logical query
  * @param do_reasoning if true, use the reasoner
  */
-tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasoning, int assign_inode)
+tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasoning, int assign_inode, int start_transaction)
 {
 	int tagsistant_errno;
 	tagsistant_querytree *qtree = NULL;
@@ -489,7 +489,8 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 	}
 
 	/* tie this query to a DBI handle */
-	qtree->conn = tagsistant_db_connection();
+	qtree->conn = tagsistant_db_connection(start_transaction);
+	qtree->transaction_started = start_transaction;
 	if (qtree->conn) qtree->dbi = qtree->conn->dbi;
 
 	/* duplicate the path inside the struct */
@@ -702,10 +703,12 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, uint commit_trans
 {
 	if (!qtree) return;
 
-	if (commit_transaction)
-		tagsistant_commit_transaction(qtree->dbi);
-	else
-		tagsistant_rollback_transaction(qtree->dbi);
+	if (qtree->transaction_started) {
+		if (commit_transaction)
+			tagsistant_commit_transaction(qtree->dbi);
+		else
+			tagsistant_rollback_transaction(qtree->dbi);
+	}
 
 	/* mark the connection as available */
 	qtree->conn->in_use = 0;

@@ -186,7 +186,7 @@ int connections = 0;
  *
  * @return DBI connection handle
  */
-tagsistant_dbi_connection *tagsistant_db_connection()
+tagsistant_dbi_connection *tagsistant_db_connection(int start_transaction)
 {
 	/* DBI connection handler used by subsequent calls to dbi_* functions */
 	tagsistant_dbi_connection *conn = NULL;
@@ -291,14 +291,16 @@ tagsistant_dbi_connection *tagsistant_db_connection()
 	}
 
 	/* start a transaction */
-	switch (tagsistant.sql_database_driver) {
-		case TAGSISTANT_DBI_SQLITE_BACKEND:
-			tagsistant_query("begin transaction", conn->dbi, NULL, NULL);
-			break;
+	if (start_transaction) {
+		switch (tagsistant.sql_database_driver) {
+			case TAGSISTANT_DBI_SQLITE_BACKEND:
+				tagsistant_query("begin transaction", conn->dbi, NULL, NULL);
+				break;
 
-		case TAGSISTANT_DBI_MYSQL_BACKEND:
-			tagsistant_query("start transaction", conn->dbi, NULL, NULL);
-			break;
+			case TAGSISTANT_DBI_MYSQL_BACKEND:
+				tagsistant_query("start transaction", conn->dbi, NULL, NULL);
+				break;
+		}
 	}
 
 	return(conn);
@@ -309,7 +311,7 @@ tagsistant_dbi_connection *tagsistant_db_connection()
  */
 void tagsistant_create_schema()
 {
-	tagsistant_dbi_connection *conn = tagsistant_db_connection();
+	tagsistant_dbi_connection *conn = tagsistant_db_connection(TAGSISTANT_START_TRANSACTION);
 
 	// create database schema
 	switch (tagsistant.sql_database_driver) {

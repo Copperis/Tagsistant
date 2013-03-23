@@ -184,6 +184,9 @@ typedef struct querytree {
 
 	/** libDBI connection handle */
 	dbi_conn dbi;
+
+	/** record if a transaction has been opened on this connection */
+	int transaction_started;
 } tagsistant_querytree;
 
 /**
@@ -239,7 +242,7 @@ typedef struct {
 // querytree functions
 extern void						tagsistant_path_resolution_init();
 
-extern tagsistant_querytree *	tagsistant_querytree_new(const char *path, int do_reasoning, int assign_inode);
+extern tagsistant_querytree *	tagsistant_querytree_new(const char *path, int do_reasoning, int assign_inode, int start_transaction);
 extern void 					tagsistant_querytree_destroy(tagsistant_querytree *qtree, uint commit_transaction);
 
 extern void						tagsistant_querytree_set_object_path(tagsistant_querytree *qtree, char *new_object_path);
