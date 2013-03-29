@@ -27,7 +27,7 @@
  */
 int tagsistant_rmdir(const char *path)
 {
-    int res = 0, tagsistant_errno = 0;
+    int res = 0, tagsistant_errno = 0, do_rmdir = 1;
 	gchar *rmdir_path = NULL;
 
 	TAGSISTANT_START("RMDIR on %s", path);
@@ -35,29 +35,41 @@ int tagsistant_rmdir(const char *path)
 	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 1, 0, 1);
 
 	// -- malformed --
-	if (QTREE_IS_MALFORMED(qtree)) TAGSISTANT_ABORT_OPERATION(ENOENT);
-
-	// -- stats
-	if (QTREE_IS_STATS(qtree)) TAGSISTANT_ABORT_OPERATION(EROFS);
+	if (QTREE_IS_MALFORMED(qtree)) {
+		TAGSISTANT_ABORT_OPERATION(ENOENT);
+	}
 
 	// -- tags --
-	// -- archive
-	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+	if (QTREE_IS_TAGS(qtree)) {
 		if (QTREE_IS_TAGGABLE(qtree)) {
-			// remove all the tags associated to the object
+			/*
+			 * if object is pointed by a tags/ query, then untag it
+			 * from the tags included in the query path...
+			 */
 			tagsistant_querytree_traverse(qtree, tagsistant_sql_untag_object, qtree->inode);
-		} else {
 
-			// do a real mkdir
+			/*
+			 * ...then check if it's tagged elsewhere...
+			 * ...if still tagged, then avoid real unlink(): the object must survive!
+			 * ...otherwise we can delete it from the objects table
+			 */
+			if (!tagsistant_object_is_tagged(qtree->dbi, qtree->inode)) {
+				tagsistant_query("delete from objects where inode = %d", qtree->dbi, NULL, NULL, qtree->inode);
+			} else {
+				do_rmdir = 0;
+			}
+		} else {
+			// -- tags but incomplete (means: delete a tag) --
+			tagsistant_querytree_traverse(qtree, tagsistant_sql_delete_tag);
+		}
+
+		// do a real mkdir
+		if (do_rmdir) {
 			rmdir_path = qtree->full_archive_path;
 			res = rmdir(rmdir_path);
 			tagsistant_errno = errno;
-		}
-	}
 
-	// -- tags but incomplete (means: delete a tag) --
-	else if (QTREE_IS_TAGS(qtree)) {
-		tagsistant_sql_delete_tag(qtree->dbi, qtree->last_tag);
+		}
 	}
 
 	// -- relations --
@@ -83,6 +95,11 @@ int tagsistant_rmdir(const char *path)
 			tagsistant_errno = EROFS;
 		}
 	}
+
+	// -- archive
+	// -- stats
+	else if (QTREE_IS_STATS(qtree)) TAGSISTANT_ABORT_OPERATION(EROFS);
+
 
 TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {

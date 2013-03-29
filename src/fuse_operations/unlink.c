@@ -27,7 +27,7 @@
  */
 int tagsistant_unlink(const char *path)
 {
-    int res = 0, tagsistant_errno = 0;
+    int res = 0, tagsistant_errno = 0, do_unlink = 1;
 	gchar *unlink_path = NULL;
 
 	TAGSISTANT_START("UNLINK on %s", path);
@@ -39,13 +39,8 @@ int tagsistant_unlink(const char *path)
 	if (QTREE_IS_MALFORMED(qtree)) TAGSISTANT_ABORT_OPERATION(ENOENT);
 
 	// -- objects on disk --
-	if (QTREE_POINTS_TO_OBJECT(qtree)) {
-		if (QTREE_IS_ARCHIVE(qtree)) {
-			TAGSISTANT_ABORT_OPERATION(EROFS);
-		}
-
-		if (QTREE_IS_TAGGABLE(qtree) && QTREE_IS_TAGS(qtree)) {
-
+	if (QTREE_IS_TAGS(qtree)) {
+		if (QTREE_IS_TAGGABLE(qtree)) {
 			/*
 			 * if object is pointed by a tags/ query, then untag it
 			 * from the tags included in the query path...
@@ -59,19 +54,23 @@ int tagsistant_unlink(const char *path)
 			 */
 			if (!tagsistant_object_is_tagged(qtree->dbi, qtree->inode))
 				tagsistant_query("delete from objects where inode = %d", qtree->dbi, NULL, NULL, qtree->inode);
+			else
+				do_unlink = 0;
 		}
 
-		// last do the real unlink()
-		unlink_path = qtree->full_archive_path;
-		res = unlink(unlink_path);
-		tagsistant_errno = errno;
-
-	} else
+		// unlink the object on disk
+		if (do_unlink) {
+			unlink_path = qtree->full_archive_path;
+			res = unlink(unlink_path);
+			tagsistant_errno = errno;
+		}
+	}
 
 	// -- tags --
 	// -- stats --
 	// -- relations --
-	TAGSISTANT_ABORT_OPERATION(EROFS);
+	// -- archive --
+	else TAGSISTANT_ABORT_OPERATION(EROFS);
 
 TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
