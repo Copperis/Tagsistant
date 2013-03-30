@@ -42,9 +42,9 @@ GRegex *_rx_keywords = NULL;
 int tagsistant_plugin_init()
 {
 	/* initialize mutex */
-	g_mutex_new();
+	processor_mutex = g_mutex_new();
 
-	/* intialize regular expressions */
+	/* initialize regular expressions */
 	_rx_title = g_regex_new("<title>([^<]+)</title>", _RX_COMPILE_FLAGS, 0, NULL);
 	_rx_keywords = g_regex_new("<meta name=[\"']keywords['\"] content=['\"]([^'\"]+)[\"']/?>", _RX_COMPILE_FLAGS, 0, NULL);
 

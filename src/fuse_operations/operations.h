@@ -38,6 +38,7 @@ extern int tagsistant_access(const char *path, int mode);
 extern int tagsistant_open(const char *path, struct fuse_file_info *fi);
 extern int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi);
 extern int tagsistant_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi);
+extern int tagsistant_flush(const char *path, struct fuse_file_info *fi);
 
 #define tagsistant_internal_open(qtree, flags, res, internal_errno) {\
 	if ((!qtree) || (!qtree->full_archive_path)) {\

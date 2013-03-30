@@ -124,6 +124,7 @@ static struct fuse_operations tagsistant_oper = {
     .open		= tagsistant_open,
     .read		= tagsistant_read,
     .write		= tagsistant_write,
+    .flush		= tagsistant_flush,
 #if FUSE_USE_VERSION >= 25
     .statfs		= tagsistant_statvfs,
 #else
@@ -273,6 +274,8 @@ void cleanup(int s)
 	dbg(LOG_ERR, "Got Signal %d", s);
 	exit(s);
 }
+
+extern void tagsistant_show_config();
 
 int main(int argc, char *argv[])
 {

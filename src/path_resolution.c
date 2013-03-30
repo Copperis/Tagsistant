@@ -28,7 +28,7 @@ gchar *tagsistant_querytree_types[QTYPE_TOTAL];
  * tagsistant_querytree objects cache
  */
 GHashTable *tagsistant_querytree_cache = NULL;
-GStaticRWLock tagsistant_querytree_cache_lock = G_STATIC_RW_LOCK_INIT;
+// GStaticRWLock tagsistant_querytree_cache_lock = G_STATIC_RW_LOCK_INIT;
 
 void tagsistant_path_resolution_init()
 {
