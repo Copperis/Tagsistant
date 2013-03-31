@@ -32,9 +32,9 @@ int tagsistant_plugin_init()
 }
 
 /* exported processor function */
-int tagsistant_processor(const char *filename)
+int tagsistant_processor(tagsistant_querytree *qtree)
 {
-	(void) filename;
+	(void) qtree;
 	return(TP_NULL);
 }
 

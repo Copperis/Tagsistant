@@ -181,6 +181,9 @@ STOP_CHAIN_TAGGING:
 	return(res);
 }
 
+/**
+ * Loads the plugins
+ */
 void tagsistant_plugin_loader()
 {
 	char *tagsistant_plugins = NULL;
@@ -236,7 +239,7 @@ void tagsistant_plugin_loader()
 				char *pname = g_strdup_printf("%s/%s", tagsistant_plugins, de->d_name);
 
 				/* load the plugin */
-				plugin->handle = dlopen(pname, RTLD_NOW|RTLD_GLOBAL);
+				plugin->handle = dlopen(pname, RTLD_NOW/* |RTLD_GLOBAL */);
 				if (plugin->handle == NULL) {
 					if (!tagsistant.quiet)
 						fprintf(stderr, " *** error dlopen()ing plugin %s: %s ***\n", de->d_name, dlerror());
@@ -311,6 +314,15 @@ void tagsistant_plugin_unloader()
 	}
 }
 
+/**
+ * Apply a regular expression to a buffer (first N bytes of a file) and use each
+ * matched token to tag the object
+ *
+ * @param qtree the querytree object to be tagged
+ * @param buf the text to be matched by the regex
+ * @param m a mutex to protect the regular expression
+ * @param rx the regular expression
+ */
 void tagsistant_plugin_apply_regex(const tagsistant_querytree *qtree, const char *buf, GMutex *m, GRegex *rx)
 {
 	GMatchInfo *match_info;
@@ -327,7 +339,7 @@ void tagsistant_plugin_apply_regex(const tagsistant_querytree *qtree, const char
 		dbg(LOG_INFO, "Found raw data: %s", raw);
 #endif
 
-		gchar **tokens = g_strsplit_set(raw, " \t,.!?", 255);
+		gchar **tokens = g_strsplit_set(raw, " \t,.!?/", 255);
 		g_free(raw);
 
 		int x = 0;

@@ -52,12 +52,12 @@ int tagsistant_plugin_init()
 }
 
 /* exported processor function */
-int tagsistant_processor(const tagsistant_querytree *qtree, dbi_conn conn)
+int tagsistant_processor(const tagsistant_querytree *qtree)
 {
 	/* default tagging */
-	tagsistant_sql_tag_object(conn, "document", qtree->inode);
-	tagsistant_sql_tag_object(conn, "webpage", qtree->inode);
-	tagsistant_sql_tag_object(conn, "html", qtree->inode);
+	tagsistant_sql_tag_object(qtree->dbi, "document", qtree->inode);
+	tagsistant_sql_tag_object(qtree->dbi, "webpage", qtree->inode);
+	tagsistant_sql_tag_object(qtree->dbi, "html", qtree->inode);
 
 	/* apply regular expressions to document content */
 
@@ -79,6 +79,7 @@ int tagsistant_processor(const tagsistant_querytree *qtree, dbi_conn conn)
 	tagsistant_plugin_apply_regex(qtree, buf, processor_mutex, _rx_keywords);
 
 	close(fd);
+
 	return(TP_STOP);
 }
 

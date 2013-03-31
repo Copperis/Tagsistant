@@ -20,7 +20,7 @@
 #include "../tagsistant.h"
 
 /**
- * open() equivalent
+ * close() equivalent [first part, second is tagsistant_release()]
  *
  * @param path the path to be open()ed
  * @param fi struct fuse_file_info holding open() flags

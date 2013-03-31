@@ -64,7 +64,7 @@ am_tagsistant_OBJECTS = tagsistant-tagsistant.$(OBJEXT) \
 	tagsistant-statvfs.$(OBJEXT) tagsistant-symlink.$(OBJEXT) \
 	tagsistant-truncate.$(OBJEXT) tagsistant-unlink.$(OBJEXT) \
 	tagsistant-utime.$(OBJEXT) tagsistant-write.$(OBJEXT) \
-	tagsistant-flush.$(OBJEXT)
+	tagsistant-flush.$(OBJEXT) tagsistant-release.$(OBJEXT)
 tagsistant_OBJECTS = $(am_tagsistant_OBJECTS)
 tagsistant_LDADD = $(LDADD)
 tagsistant_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
@@ -274,7 +274,8 @@ tagsistant_SOURCES = tagsistant.c\
 	fuse_operations/unlink.c\
 	fuse_operations/utime.c\
 	fuse_operations/write.c\
-	fuse_operations/flush.c
+	fuse_operations/flush.c\
+	fuse_operations/release.c
 
 tagsistant_CFLAGS = -pg -D'PLUGINS_DIR="@libdir@/"' $(CFLAGS) `pkg-config --cflags glib-2.0`
 tagsistant_LDFLAGS = -lfuse -ldl -rdynamic `pkg-config --libs glib-2.0`
@@ -380,6 +381,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-read.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-readdir.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-readlink.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-release.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-rename.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-rmdir.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-sql.Po@am__quote@
@@ -791,6 +793,20 @@ tagsistant-flush.obj: fuse_operations/flush.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fuse_operations/flush.c' object='tagsistant-flush.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -c -o tagsistant-flush.obj `if test -f 'fuse_operations/flush.c'; then $(CYGPATH_W) 'fuse_operations/flush.c'; else $(CYGPATH_W) '$(srcdir)/fuse_operations/flush.c'; fi`
+
+tagsistant-release.o: fuse_operations/release.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -MT tagsistant-release.o -MD -MP -MF $(DEPDIR)/tagsistant-release.Tpo -c -o tagsistant-release.o `test -f 'fuse_operations/release.c' || echo '$(srcdir)/'`fuse_operations/release.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/tagsistant-release.Tpo $(DEPDIR)/tagsistant-release.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fuse_operations/release.c' object='tagsistant-release.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -c -o tagsistant-release.o `test -f 'fuse_operations/release.c' || echo '$(srcdir)/'`fuse_operations/release.c
+
+tagsistant-release.obj: fuse_operations/release.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -MT tagsistant-release.obj -MD -MP -MF $(DEPDIR)/tagsistant-release.Tpo -c -o tagsistant-release.obj `if test -f 'fuse_operations/release.c'; then $(CYGPATH_W) 'fuse_operations/release.c'; else $(CYGPATH_W) '$(srcdir)/fuse_operations/release.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/tagsistant-release.Tpo $(DEPDIR)/tagsistant-release.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fuse_operations/release.c' object='tagsistant-release.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -c -o tagsistant-release.obj `if test -f 'fuse_operations/release.c'; then $(CYGPATH_W) 'fuse_operations/release.c'; else $(CYGPATH_W) '$(srcdir)/fuse_operations/release.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo

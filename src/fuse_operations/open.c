@@ -49,7 +49,16 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 		res = open(qtree->full_archive_path, fi->flags|O_RDONLY);
 		tagsistant_errno = errno;
 
-		if (-1 != res) close(res);
+		if (-1 != res) {
+			close(res);
+
+			if ((fi->flags&O_WRONLY) || (fi->flags&O_RDWR)) {
+				// invalidate the checksum
+				tagsistant_query(
+					"update objects set checksum = \"\" where inode = %d",
+					qtree->dbi, NULL, NULL, qtree->inode);
+			}
+		}
 	}
 
 	// -- stats --

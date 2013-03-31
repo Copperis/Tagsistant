@@ -36,7 +36,8 @@ tagsistant_SOURCES = tagsistant.c\
 	fuse_operations/unlink.c\
 	fuse_operations/utime.c\
 	fuse_operations/write.c\
-	fuse_operations/flush.c
+	fuse_operations/flush.c\
+	fuse_operations/release.c
 
 tagsistant_CFLAGS = -pg -D'PLUGINS_DIR="@libdir@/"' $(CFLAGS) `pkg-config --cflags glib-2.0`
 tagsistant_LDFLAGS = -lfuse -ldl -rdynamic `pkg-config --libs glib-2.0`

@@ -33,17 +33,6 @@
 /* defines command line options for tagsistant mount tool */
 struct tagsistant tagsistant;
 
-static int tagsistant_release(const char *path, struct fuse_file_info *fi)
-{
-    /* Just a stub.  This method is optional and can safely be left
-       unimplemented */
-
-    (void) path;
-    (void) fi;
-
-	return(0); /* REMOVE ME AFTER CODING */
-}
-
 static int tagsistant_fsync(const char *path, int isdatasync,
                      struct fuse_file_info *fi)
 {
@@ -124,13 +113,13 @@ static struct fuse_operations tagsistant_oper = {
     .open		= tagsistant_open,
     .read		= tagsistant_read,
     .write		= tagsistant_write,
-    .flush		= tagsistant_flush,
+//    .flush		= tagsistant_flush,
+    .release	= tagsistant_release,
 #if FUSE_USE_VERSION >= 25
     .statfs		= tagsistant_statvfs,
 #else
     .statfs		= tagsistant_statfs,
 #endif
-    .release	= tagsistant_release,
     .fsync		= tagsistant_fsync,
 #ifdef HAVE_SETXATTR
     .setxattr	= tagsistant_setxattr,
