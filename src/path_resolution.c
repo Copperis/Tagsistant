@@ -489,9 +489,8 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 	}
 
 	/* tie this query to a DBI handle */
-	qtree->conn = tagsistant_db_connection(start_transaction);
+	qtree->dbi = tagsistant_db_connection(start_transaction);
 	qtree->transaction_started = start_transaction;
-	if (qtree->conn) qtree->dbi = qtree->conn->dbi;
 
 	/* duplicate the path inside the struct */
 	qtree->full_path = g_strdup(path);
@@ -711,7 +710,7 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, uint commit_trans
 	}
 
 	/* mark the connection as available */
-	qtree->conn->in_use = 0;
+	tagsistant_db_connection_release(qtree->dbi);
 
 	freenull(qtree->full_path);
 	freenull(qtree->object_path);

@@ -454,19 +454,19 @@ gpointer tagsistant_deduplicator(gpointer data)
 	(void) data;
 
 	while (1) {
-		tagsistant_dbi_connection *conn = tagsistant_db_connection(TAGSISTANT_START_TRANSACTION);
+		dbi_conn dbi = tagsistant_db_connection(TAGSISTANT_START_TRANSACTION);
 
 		/* iterate over all the object with null checksum */
 		tagsistant_query(
 			"select inode from objects where checksum = \"\"",
-			conn->dbi,
+			dbi,
 			tagsistant_deduplicator_callback,
-			conn->dbi);
+			dbi);
 
-		tagsistant_commit_transaction(conn->dbi);
+		tagsistant_commit_transaction(dbi);
 
-		/* close the connection to the DBMS */
-		conn->in_use = 0;
+		/* release the connection to the DBMS */
+		tagsistant_db_connection_release(dbi);
 
 		/* sleep for one minute */
 		g_usleep(TAGSISTANT_DEDUPLICATION_FREQUENCY * G_USEC_PER_SEC);

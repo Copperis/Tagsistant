@@ -179,9 +179,6 @@ typedef struct querytree {
 	/** the path in a stats/ query */
 	gchar *stats_path;
 
-	/** libDBI connection handle envelop */
-	tagsistant_dbi_connection *conn;
-
 	/** libDBI connection handle */
 	dbi_conn dbi;
 

@@ -20,15 +20,6 @@
 
 #include <dbi/dbi.h>
 
-/**
- * Holds a DBI connection to SQL database
- * and a flag which tells if its in use
- */
-typedef struct {
-	dbi_conn dbi;
-	int in_use;
-} tagsistant_dbi_connection;
-
 #define TAGSISTANT_NULL_BACKEND			0
 #define TAGSISTANT_DBI_MYSQL_BACKEND	1
 #define TAGSISTANT_DBI_SQLITE_BACKEND	2
@@ -44,7 +35,7 @@ typedef struct {
 #define TAGSISTANT_DONT_START_TRANSACTION	0
 
 extern void tagsistant_db_init();
-extern tagsistant_dbi_connection *tagsistant_db_connection(int start_transaction);
+extern dbi_conn *tagsistant_db_connection(int start_transaction);
 extern void tagsistant_create_schema();
 
 /* execute SQL statements auto formatting the SQL string and adding file:line coords */

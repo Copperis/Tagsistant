@@ -186,41 +186,36 @@ int connections = 0;
  *
  * @return DBI connection handle
  */
-tagsistant_dbi_connection *tagsistant_db_connection(int start_transaction)
+dbi_conn *tagsistant_db_connection(int start_transaction)
 {
 	/* DBI connection handler used by subsequent calls to dbi_* functions */
-	tagsistant_dbi_connection *conn = NULL;
+	dbi_conn dbi = NULL;
 
 	/* lock the pool */
 	g_mutex_lock(&tagsistant_connection_pool_lock);
 	GList *pool = tagsistant_connection_pool;
 	while (pool) {
-		tagsistant_dbi_connection *conn_ptr = (tagsistant_dbi_connection *) pool->data;
-		if (!conn_ptr->in_use) {
-			conn_ptr->in_use = 1;
+		dbi = (dbi_conn) pool->data;
 
-			/* check if the connection is still alive */
-			if (!dbi_conn_ping(conn_ptr->dbi) && (dbi_conn_connect(conn_ptr->dbi) < 0)) {
-				dbi_conn_close(conn_ptr->dbi);
-				tagsistant_connection_pool = g_list_delete_link(tagsistant_connection_pool, pool);
-				connections--;
-			} else {
+		/* check if the connection is still alive */
+		if (!dbi_conn_ping(dbi) && (dbi_conn_connect(dbi) < 0)) {
+			dbi_conn_close(dbi);
+			tagsistant_connection_pool = g_list_delete_link(tagsistant_connection_pool, pool);
+			connections--;
+		} else {
 #if TAGSISTANT_VERBOSE_LOGGING
-				dbg(LOG_INFO, "Reusing DBI connection (currently %d created", connections);
+			dbg(LOG_INFO, "Reusing DBI connection (currently %d created", connections);
 #endif
-				conn = conn_ptr;
-				break;
-			}
+			tagsistant_connection_pool = g_list_remove_link(tagsistant_connection_pool, pool);
+			break;
 		}
 
 		pool = pool->next;
 	}
 	g_mutex_unlock(&tagsistant_connection_pool_lock);
 
-	if (!conn) {
-		dbi_conn dbi;
-
-		// initialize different drivers
+	if (!dbi) {
+		// initialize DBI drivers
 		if (TAGSISTANT_DBI_MYSQL_BACKEND == dboptions.backend) {
 			if (!tagsistant_driver_is_available("mysql"))
 				exit (1);
@@ -273,37 +268,33 @@ tagsistant_dbi_connection *tagsistant_db_connection(int start_transaction)
 #if TAGSISTANT_VERBOSE_LOGGING
 		dbg(LOG_INFO, "SQL connection established");
 #endif
-
-		/*
-		 * Add the connection to the pool
-		 */
-		conn = g_new0(tagsistant_dbi_connection, 1);
-		conn->in_use = 1;
-		conn->dbi = dbi;
-
-		g_mutex_lock(&tagsistant_connection_pool_lock);
-		tagsistant_connection_pool = g_list_append(tagsistant_connection_pool, conn);
-#if TAGSISTANT_VERBOSE_LOGGING
-		dbg(LOG_INFO, "Creating DBI connection (currently %d created", connections);
-#endif
-		connections++;
-		g_mutex_unlock(&tagsistant_connection_pool_lock);
 	}
 
 	/* start a transaction */
 	if (start_transaction) {
 		switch (tagsistant.sql_database_driver) {
 			case TAGSISTANT_DBI_SQLITE_BACKEND:
-				tagsistant_query("begin transaction", conn->dbi, NULL, NULL);
+				tagsistant_query("begin transaction", dbi, NULL, NULL);
 				break;
 
 			case TAGSISTANT_DBI_MYSQL_BACKEND:
-				tagsistant_query("start transaction", conn->dbi, NULL, NULL);
+				tagsistant_query("start transaction", dbi, NULL, NULL);
 				break;
 		}
 	}
 
-	return(conn);
+	return(dbi);
+}
+
+void tagsistant_db_connection_release(dbi_conn dbi)
+{
+	g_mutex_lock(&tagsistant_connection_pool_lock);
+	tagsistant_connection_pool = g_list_append(tagsistant_connection_pool, dbi);
+#if TAGSISTANT_VERBOSE_LOGGING
+	dbg(LOG_INFO, "Releasing DBI connection (currently %d created", connections);
+#endif
+	connections++;
+	g_mutex_unlock(&tagsistant_connection_pool_lock);
 }
 
 /**
@@ -311,37 +302,36 @@ tagsistant_dbi_connection *tagsistant_db_connection(int start_transaction)
  */
 void tagsistant_create_schema()
 {
-	tagsistant_dbi_connection *conn = tagsistant_db_connection(TAGSISTANT_START_TRANSACTION);
+	dbi_conn dbi = tagsistant_db_connection(TAGSISTANT_START_TRANSACTION);
 
 	// create database schema
 	switch (tagsistant.sql_database_driver) {
 		case TAGSISTANT_DBI_SQLITE_BACKEND:
-			tagsistant_query("create table if not exists tags (tag_id integer primary key autoincrement not null, tagname varchar(65) unique not null);", conn->dbi, NULL, NULL);
-			tagsistant_query("create table if not exists objects (inode integer not null primary key autoincrement, objectname text(255) not null, last_autotag timestamp not null default 0, checksum text(40) not null default \"\");", conn->dbi, NULL, NULL);
-			tagsistant_query("create table if not exists tagging (inode integer not null, tag_id integer not null, constraint Tagging_key unique (inode, tag_id));", conn->dbi, NULL, NULL);
-			tagsistant_query("create table if not exists relations(relation_id integer primary key autoincrement not null, tag1_id integer not null, relation varchar not null, tag2_id integer not null);", conn->dbi, NULL, NULL);
-			tagsistant_query("create index if not exists tags_index on tagging (inode, tag_id);", conn->dbi, NULL, NULL);
-			tagsistant_query("create index if not exists relations_index on relations (tag1_id, tag2_id);", conn->dbi, NULL, NULL);
-			tagsistant_query("create index if not exists relations_type_index on relations (relation);", conn->dbi, NULL, NULL);
+			tagsistant_query("create table if not exists tags (tag_id integer primary key autoincrement not null, tagname varchar(65) unique not null);", dbi, NULL, NULL);
+			tagsistant_query("create table if not exists objects (inode integer not null primary key autoincrement, objectname text(255) not null, last_autotag timestamp not null default 0, checksum text(40) not null default \"\");", dbi, NULL, NULL);
+			tagsistant_query("create table if not exists tagging (inode integer not null, tag_id integer not null, constraint Tagging_key unique (inode, tag_id));", dbi, NULL, NULL);
+			tagsistant_query("create table if not exists relations(relation_id integer primary key autoincrement not null, tag1_id integer not null, relation varchar not null, tag2_id integer not null);", dbi, NULL, NULL);
+			tagsistant_query("create index if not exists tags_index on tagging (inode, tag_id);", dbi, NULL, NULL);
+			tagsistant_query("create index if not exists relations_index on relations (tag1_id, tag2_id);", dbi, NULL, NULL);
+			tagsistant_query("create index if not exists relations_type_index on relations (relation);", dbi, NULL, NULL);
 			break;
 
 		case TAGSISTANT_DBI_MYSQL_BACKEND:
-			tagsistant_query("create table if not exists tags (tag_id integer primary key auto_increment not null, tagname varchar(65) unique not null);", conn->dbi, NULL, NULL);
-			tagsistant_query("create table if not exists objects (inode integer not null primary key auto_increment, objectname varchar(255) not null, last_autotag timestamp not null default 0, checksum varchar(40) not null default \"\");", conn->dbi, NULL, NULL);
-			tagsistant_query("create table if not exists tagging (inode integer not null, tag_id integer not null, constraint Tagging_key unique key (inode, tag_id));", conn->dbi, NULL, NULL);
-			tagsistant_query("create table if not exists relations(relation_id integer primary key auto_increment not null, tag1_id integer not null, relation varchar(32) not null, tag2_id integer not null);", conn->dbi, NULL, NULL);
-			tagsistant_query("create index tags_index on tagging (inode, tag_id);", conn->dbi, NULL, NULL);
-			tagsistant_query("create index relations_index on relations (tag1_id, tag2_id);", conn->dbi, NULL, NULL);
-			tagsistant_query("create index relations_type_index on relations (relation);", conn->dbi, NULL, NULL);
+			tagsistant_query("create table if not exists tags (tag_id integer primary key auto_increment not null, tagname varchar(65) unique not null);", dbi, NULL, NULL);
+			tagsistant_query("create table if not exists objects (inode integer not null primary key auto_increment, objectname varchar(255) not null, last_autotag timestamp not null default 0, checksum varchar(40) not null default \"\");", dbi, NULL, NULL);
+			tagsistant_query("create table if not exists tagging (inode integer not null, tag_id integer not null, constraint Tagging_key unique key (inode, tag_id));", dbi, NULL, NULL);
+			tagsistant_query("create table if not exists relations(relation_id integer primary key auto_increment not null, tag1_id integer not null, relation varchar(32) not null, tag2_id integer not null);", dbi, NULL, NULL);
+			tagsistant_query("create index tags_index on tagging (inode, tag_id);", dbi, NULL, NULL);
+			tagsistant_query("create index relations_index on relations (tag1_id, tag2_id);", dbi, NULL, NULL);
+			tagsistant_query("create index relations_type_index on relations (relation);", dbi, NULL, NULL);
 			break;
 
 		default:
 			break;
 	}
 
-	tagsistant_commit_transaction(conn->dbi);
-	conn->in_use = 0;
-//	dbi_conn_close(conn);
+	tagsistant_commit_transaction(dbi);
+	tagsistant_db_connection_release(dbi);
 }
 
 /**
@@ -353,7 +343,7 @@ void tagsistant_create_schema()
  * @return 0 (always, due to SQLite policy)
  */
 int tagsistant_real_query(
-	dbi_conn conn,
+	dbi_conn dbi,
 	const char *format,
 	int (*callback)(void *, dbi_result),
 	void *firstarg,
@@ -363,13 +353,13 @@ int tagsistant_real_query(
 	va_start(ap, firstarg);
 
 	// check if connection has been created
-	if (NULL == conn) {
+	if (NULL == dbi) {
 		dbg(LOG_ERR, "ERROR! DBI connection was not initialized!");
 		return(0);
 	}
 
 	// check if the connection is alive
-	if (!dbi_conn_ping(conn) && (dbi_conn_connect(conn) < 0)) {
+	if (!dbi_conn_ping(dbi) && (dbi_conn_connect(dbi) < 0)) {
 		dbg(LOG_ERR, "ERROR! DBI Connection has gone!");
 		return(0);
 	}
@@ -387,7 +377,7 @@ int tagsistant_real_query(
 #endif
 
 	// do the query
-	dbi_result result = dbi_conn_query(conn, statement);
+	dbi_result result = dbi_conn_query(dbi, statement);
 
 	// call the callback function on results or report an error
 	int rows = 0;
@@ -403,7 +393,7 @@ int tagsistant_real_query(
 	} else {
 		// get the error message
 		const char *errmsg;
-		int err = dbi_conn_error(conn, &errmsg);
+		int err = dbi_conn_error(dbi, &errmsg);
 		if ((-1 == err) && errmsg) dbg(LOG_ERR, "Error: %s.", errmsg);
 	}
 
