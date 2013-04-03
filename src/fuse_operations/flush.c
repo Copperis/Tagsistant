@@ -41,19 +41,18 @@ int tagsistant_flush(const char *path, struct fuse_file_info *fi)
 
 	// -- object --
 	if (QTREE_IS_TAGGABLE(qtree)) {
-		/*
-		 * if the object is taggable and the open flags indicate the
-		 * intention to write, invalidate the checksum and run the
-		 * autotagging plugin stack
-		 */
-		if (QTREE_IS_TAGGABLE(qtree) && ((fi->flags&O_WRONLY) || (fi->flags&O_RDWR))) {
-			// invalidate the checksum
-			tagsistant_query(
-				"update objects set checksum = \"\" where inode = %d",
-				qtree->dbi, NULL, NULL, qtree->inode);
+		// check if the file has been modified
+		int modified = 0;
+		tagsistant_query(
+			"select inode from objects where inode = %d and checksum = \"\"",
+			qtree->dbi, tagsistant_return_integer, &modified, qtree->inode);
 
+		if (modified) {
 			// run the autotagging plugin stack
 			tagsistant_process(qtree);
+
+			// deduplicate the object
+			tagsistant_querytree_deduplicate(qtree);
 		}
 	}
 

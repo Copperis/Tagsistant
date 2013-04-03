@@ -28,7 +28,8 @@
 #define TAGSISTANT_ANDSET_DELIMITER "+"
 #define TAGSISTANT_ANDSET_DELIMITER_CHAR '+'
 
-#define TAGSISTANT_ENABLE_DEDUPLICATOR 1
+// deduplicator has been replaced by a call in fuse_operations/flush.c
+#define TAGSISTANT_ENABLE_DEDUPLICATOR 0
 #define TAGSISTANT_DEDUPLICATION_FREQUENCY 60 // seconds
 
 #define TAGSISTANT_VERBOSE_LOGGING 0

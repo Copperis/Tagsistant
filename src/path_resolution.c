@@ -694,6 +694,95 @@ RETURN:
 }
 
 /**
+ * deduplication function called by tagsistant_calculate_object_checksum
+ *
+ * @param inode the object inode
+ * @param hex the checksum string
+ * @param dbi DBI connection handle
+ */
+void tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *hex)
+{
+	tagsistant_inode main_inode = 0;
+
+	/* get the first inode matching the checksum */
+	tagsistant_query(
+		"select inode from objects where checksum = \"%s\" order by inode limit 1",
+		qtree->dbi,	tagsistant_return_integer, &main_inode,	hex);
+
+	/* if we have just one file, we can return */
+	if (qtree->inode == main_inode) return;
+
+	dbg(LOG_INFO, "Deduplicating %s: %d -> %d", qtree->full_archive_path, qtree->inode, main_inode);
+
+	/* first move all the tags of inode to main_inode */
+	tagsistant_query(
+		"update tagging set inode = %d where inode = %d",
+		qtree->dbi,	NULL, NULL,	main_inode,	qtree->inode);
+
+	/* then delete records left because of duplicates in key(inode, tag_id) in the tagging table */
+	tagsistant_query(
+		"delete from tagging where inode = %d",
+		qtree->dbi,	NULL, NULL,	qtree->inode);
+
+	/* and finally unlink the removable inode */
+	tagsistant_query(
+		"delete from objects where inode = %d",
+		qtree->dbi, NULL, NULL,	qtree->inode);
+}
+
+/**
+ * Deduplicate the object pointed by the querytree
+ *
+ * @param qtree the querytree object
+ */
+void tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
+{
+	/* guess if the object is a file or a symlink */
+	struct stat buf;
+	if ((-1 == lstat(qtree->full_archive_path, &buf)) || (!S_ISREG(buf.st_mode) && !S_ISLNK(buf.st_mode)))
+		return;
+
+	dbg(LOG_INFO, "Checksumming %s", qtree->full_archive_path);
+
+	/* open the file and read its content */
+	int fd = open(qtree->full_archive_path, O_RDONLY|O_NOATIME);
+	if (-1 != fd) {
+		GChecksum *checksum = g_checksum_new(G_CHECKSUM_SHA1);
+		guchar *buffer = g_new0(guchar, 65535);
+
+		if (checksum && buffer) {
+			/* feed the checksum object */
+			do {
+				int length = read(fd, buffer, 65535);
+				if (length > 0)
+					g_checksum_update(checksum, buffer, length);
+				else
+					break;
+			} while (1);
+
+			/* get the hexadecimal checksum string */
+			gchar *hex = g_strdup(g_checksum_get_string(checksum));
+
+			/* destroy the checksum object */
+			g_checksum_free(checksum);
+			g_free(buffer);
+
+			/* save the string into the objects table */
+			tagsistant_query(
+				"update objects set checksum = '%s' where inode = %d;",
+				qtree->dbi, NULL, NULL, hex, qtree->inode);
+
+			/* look for duplicated objects */
+			tagsistant_querytree_find_duplicates(qtree, hex);
+
+			/* free the hex checksum string */
+			g_free(hex);
+		}
+		close(fd);
+	}
+}
+
+/**
  * destroy a tagsistant_querytree_t structure
  *
  * @param qtree the tagsistant_querytree_t to be destroyed

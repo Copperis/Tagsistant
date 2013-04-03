@@ -224,55 +224,6 @@ void tagsistant_invalidate_object_checksum(tagsistant_inode inode, dbi_conn conn
 	tagsistant_query("update objects set checksum = \"\" where inode = %d", conn, NULL, NULL, inode);
 }
 
-#if 0
-/**
- * Internal structure passed to tagsistant_remove_duplicated_inode
- */
-typedef struct {
-	tagsistant_inode main_inode;
-	dbi_conn dbi;
-	gchar *path;
-} tagsistant_rdi;
-
-/**
- * callback called by tagsistant_find_duplicated_objects
- *
- * @param _context pointer to tagsistant_rdi struct
- * @param result DBI result
- */
-int tagsistant_remove_duplicated_inode(void *_context, dbi_result result)
-{
-	tagsistant_rdi *context = (tagsistant_rdi *) _context;
-	tagsistant_inode duplicated_inode = 0;
-
-	if (tagsistant.sql_database_driver == TAGSISTANT_DBI_SQLITE_BACKEND)
-		duplicated_inode = dbi_result_get_ulonglong_idx(result, 1);
-	else
-		duplicated_inode = dbi_result_get_uint_idx(result, 1);
-
-	if (context->main_inode != duplicated_inode) {
-		/* transfer tags to the main inode */
-		tagsistant_query(
-			"update tagging set inode = %d where inode = %d",
-			context->dbi,
-			NULL, NULL,
-			context->main_inode,
-			duplicated_inode);
-
-		/* unlink the removable inode */
-		tagsistant_query(
-			"delete from objects where inode = %d",
-			context->dbi,
-			NULL, NULL,
-			duplicated_inode);
-
-		unlink(context->path);
-	}
-
-	return (0);
-}
-#endif
-
 /**
  * deduplication function called by tagsistant_calculate_object_checksum
  *
@@ -322,25 +273,6 @@ void tagsistant_find_duplicated_objects(tagsistant_inode inode, gchar *hex, gcha
 		inode);
 
 	unlink(path);
-
-#if 0
-	tagsistant_rdi *rdi = g_new0(tagsistant_rdi, 1);
-	if (!rdi) return;
-
-	rdi->dbi = dbi;
-	rdi->main_inode = inode;
-	rdi->path = path;
-
-	tagsistant_query(
-		"select inode from objects "
-			"where checksum = \"%s\" and inode <> %d "
-			"order by inode",
-		dbi,
-		tagsistant_remove_duplicated_inode,
-		rdi,
-		hex,
-		main_inode);
-#endif
 }
 
 /**
@@ -459,9 +391,7 @@ gpointer tagsistant_deduplicator(gpointer data)
 		/* iterate over all the object with null checksum */
 		tagsistant_query(
 			"select inode from objects where checksum = \"\"",
-			dbi,
-			tagsistant_deduplicator_callback,
-			dbi);
+			dbi, tagsistant_deduplicator_callback, dbi);
 
 		tagsistant_commit_transaction(dbi);
 
@@ -482,7 +412,7 @@ void tagsistant_utils_init()
 {
 	/* compile regular expressions */
 	tagsistant_inode_extract_from_path_regex = g_regex_new("^([0-9]+)" TAGSISTANT_INODE_DELIMITER, 0, 0, NULL);
-
+	
 	/* start deduplication thread */
 #if TAGSISTANT_ENABLE_DEDUPLICATOR
 	deduplication_thread = g_thread_new("deduplication", tagsistant_deduplicator, NULL);
