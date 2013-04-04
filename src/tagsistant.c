@@ -290,7 +290,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* do some tuning on FUSE options */
-//	fuse_opt_add_arg(&args, "-s");
+	fuse_opt_add_arg(&args, "-s");
 	fuse_opt_add_arg(&args, "-odirect_io");
 	fuse_opt_add_arg(&args, "-obig_writes");
 	fuse_opt_add_arg(&args, "-omax_write=131072");

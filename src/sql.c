@@ -286,10 +286,16 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 	return(dbi);
 }
 
+/**
+ * Release a DBI connection
+ *
+ * @param dbi the connection to be released
+ */
 void tagsistant_db_connection_release(dbi_conn dbi)
 {
 	g_mutex_lock(&tagsistant_connection_pool_lock);
-	tagsistant_connection_pool = g_list_append(tagsistant_connection_pool, dbi);
+	// TODO check for leaks
+	tagsistant_connection_pool = g_list_prepend(tagsistant_connection_pool, dbi);
 #if TAGSISTANT_VERBOSE_LOGGING
 	dbg(LOG_INFO, "Releasing DBI connection (currently %d created", connections);
 #endif

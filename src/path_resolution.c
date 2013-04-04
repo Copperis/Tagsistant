@@ -53,24 +53,33 @@ void tagsistant_path_resolution_init()
  */
 gchar *tagsistant_compile_and_set(ptree_and_node *and_set)
 {
-	GString *str = g_string_new("");
-	ptree_and_node *and_tmp = and_set;
+	// TODO check for leaks
+	GString *str = g_string_sized_new(1024);
+	ptree_and_node *and_pointer = and_set;
 
 	/* compile the string */
-	while (and_tmp) {
-		g_string_append_printf(str, "\"%s\"", and_tmp->tag);
-		ptree_and_node *related = and_tmp->related;
+	while (and_pointer) {
+		g_string_append_printf(str, "\"%s\"", and_pointer->tag);
+
+		/* look for related tags too */
+		ptree_and_node *related = and_pointer->related;
 		while (related) {
 			g_string_append_printf(str, ", \"%s\"", related->tag);
 			related = related->related;
 		}
-		if (and_tmp->next) g_string_append(str, ", ");
-		and_tmp = and_tmp->next;
+
+		/* check to avoid terminating the line with a ',' */
+		if (and_pointer->next)
+			g_string_append(str, ", ");
+
+		and_pointer = and_pointer->next;
 	}
 
-	/* save the result */
-	gchar *result = g_strdup(str->str);
-	g_string_free(str, TRUE); // destroy the GString but not its content
+	/* save a pointer to the result */
+	gchar *result = str->str;
+
+	/* destroy the GString but not its content */
+	g_string_free(str, FALSE);
 
 	return (result);
 }
@@ -344,6 +353,7 @@ int tagsistant_querytree_parse_tags (
 #else
 					(void) newtags;
 #endif
+					g_free(reasoning);
 				}
 			}
 		}
@@ -852,21 +862,6 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, uint commit_trans
 /***                                                                              ***/
 /************************************************************************************/
 
-void key_destroyed(gpointer key)
-{
-	return;
-	fprintf(stderr, "Destroying key %s\n", (char *) key);
-}
-
-void value_destroyed(gpointer value)
-{
-	return;
-	tagsistant_file_handle *fh = (tagsistant_file_handle *) value;
-	if (fh && fh->name) {
-		fprintf(stderr, "Destroying value %s\n", fh->name);
-	}
-}
-
 /**
  * add a file to the file tree (callback function)
  */
@@ -893,6 +888,7 @@ static int tagsistant_add_to_filetree(void *hash_table_pointer, dbi_result resul
 	while (list_tmp) {
 		tagsistant_file_handle *fh_tmp = (tagsistant_file_handle *) list_tmp->data;
 		if (fh_tmp && (fh_tmp->inode == fh->inode)) {
+			g_free(fh);
 			return (0);
 		}
 
@@ -900,13 +896,16 @@ static int tagsistant_add_to_filetree(void *hash_table_pointer, dbi_result resul
 	}
 
 	/* add the new element */
-	list = g_list_append(list, fh);
-	g_hash_table_insert(hash_table, g_strdup(fh->name), list);
+	// TODO: check for leaks
+	list = g_list_prepend(list, fh);
+	g_hash_table_insert(hash_table, fh->name, list);
 
 //	dbg(LOG_INFO, "adding (%d,%s) to filetree", fh->inode, fh->name);
 
 	return (0);
 }
+
+void tagsistant_filetree_destroy_value_list(gpointer list_pointer);
 
 /**
  * build a linked list of filenames that apply to querytree
@@ -977,7 +976,8 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 	int nesting = 0;
 	while (query != NULL) {
 		ptree_and_node *tag = query->and_set;
-		GString *statement = g_string_new("");
+		// TODO check for leaks
+		GString *statement = g_string_sized_new(10240);
 		g_string_printf(statement, "create view tv%.16" PRIxPTR " as ", (uintptr_t) query);
 		
 		while (tag != NULL) {
@@ -1052,10 +1052,7 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 
 	/* apply view statement */
 	GHashTable *file_hash = g_hash_table_new_full(
-		g_str_hash,
-		g_str_equal,
-		(GDestroyNotify) key_destroyed,
-		(GDestroyNotify) value_destroyed);
+		g_str_hash, g_str_equal, NULL, (GDestroyNotify) tagsistant_filetree_destroy_value_list);
 
 	tagsistant_query(view_statement->str, conn, tagsistant_add_to_filetree, file_hash);
 
@@ -1072,32 +1069,38 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 }
 
 /**
- * Destroy a filetree node
+ * Destroy a tagsistant_file_handle
  */
-void tagsistant_file_handle_destroy(gpointer unused_key, gpointer fh_pointer, gpointer unused_data)
+void tagsistant_filetree_destroy_value(gpointer value)
 {
-	// TODO we are leaking memory here...
-	return;
-	if (!fh_pointer) return;
-	
-	(void) unused_key;
-	(void) unused_data;
+	tagsistant_file_handle *fh = (tagsistant_file_handle *) value;
+	if (!fh) return;
 
-	tagsistant_file_handle *fh = (tagsistant_file_handle *) fh_pointer;
-
-	freenull(fh->name);
-	freenull(fh);
+	g_free(fh->name);
+	g_free(fh);
 }
 
 /**
- * Destroy a filetree
+ * Destroy a filetree element GList list of tagsistant_file_handle.
+ * This will free the GList data structure by first calling
+ * tagsistant_filetree_destroy_value() on each linked node.
+ */
+void tagsistant_filetree_destroy_value_list(gpointer list_pointer)
+{
+	GList *list = (GList *) list_pointer;
+	if (!list_pointer) return;
+
+	g_list_free_full(list, tagsistant_filetree_destroy_value);
+}
+
+/**
+ * Destroy an entire filetree. The call to g_hash_table_destroy()
+ * will trigger a call to tagsistant_filetree_destroy_value_list()
+ * for each value in the hash table.
  */
 void tagsistant_filetree_destroy(GHashTable *hash_table)
 {
 	if (!hash_table) return;
 
-	g_hash_table_foreach(hash_table, tagsistant_file_handle_destroy, NULL);
 	g_hash_table_destroy(hash_table);
 }
-
-// vim:ts=4:nowrap:nocindent

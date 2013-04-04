@@ -249,6 +249,7 @@ void tagsistant_plugin_loader()
 					int (*init_function)() = NULL;
 					init_function = dlsym(plugin->handle, "tagsistant_plugin_init");
 					if (init_function != NULL) {
+						// TODO check for leaks
 						int init_res = init_function();
 						if (!init_res) {
 							/* if init failed, ignore this plugin */
