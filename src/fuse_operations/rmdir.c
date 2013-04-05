@@ -40,8 +40,17 @@ int tagsistant_rmdir(const char *path)
 	}
 
 	// -- tags --
+	// tags/delete_this_tag
+	// tags/delete_this_tag/@/
+	// tags/tag/@/delete_this_dir
+	// tags/tag/@/dir/delete_this_dir
+	//
 	if (QTREE_IS_TAGS(qtree)) {
-		if (QTREE_IS_TAGGABLE(qtree)) {
+		if (!QTREE_IS_COMPLETE(qtree)) {
+			// -- tags but incomplete (means: delete a tag) --
+			tagsistant_querytree_traverse(qtree, tagsistant_sql_delete_tag);
+			do_rmdir = 0;
+		} else if (QTREE_IS_TAGGABLE(qtree)) {
 			/*
 			 * if object is pointed by a tags/ query, then untag it
 			 * from the tags included in the query path...
@@ -54,13 +63,12 @@ int tagsistant_rmdir(const char *path)
 			 * ...otherwise we can delete it from the objects table
 			 */
 			if (!tagsistant_object_is_tagged(qtree->dbi, qtree->inode)) {
-				tagsistant_query("delete from objects where inode = %d", qtree->dbi, NULL, NULL, qtree->inode);
+				tagsistant_query(
+					"delete from objects where inode = %d",
+					qtree->dbi, NULL, NULL, qtree->inode);
 			} else {
 				do_rmdir = 0;
 			}
-		} else {
-			// -- tags but incomplete (means: delete a tag) --
-			tagsistant_querytree_traverse(qtree, tagsistant_sql_delete_tag);
 		}
 
 		// do a real mkdir
