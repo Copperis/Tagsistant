@@ -207,6 +207,7 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 			dbg(LOG_INFO, "Reusing DBI connection (currently %d created", connections);
 #endif
 			tagsistant_connection_pool = g_list_remove_link(tagsistant_connection_pool, pool);
+			g_list_free_1(pool);
 			break;
 		}
 
@@ -294,7 +295,7 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 void tagsistant_db_connection_release(dbi_conn dbi)
 {
 	g_mutex_lock(&tagsistant_connection_pool_lock);
-	// TODO check for leaks
+	// TODO valgrind says: check for leaks
 	tagsistant_connection_pool = g_list_prepend(tagsistant_connection_pool, dbi);
 #if TAGSISTANT_VERBOSE_LOGGING
 	dbg(LOG_INFO, "Releasing DBI connection (currently %d created", connections);
@@ -379,8 +380,10 @@ int tagsistant_real_query(
 	}
 
 #if TAGSISTANT_VERBOSE_LOGGING
-	dbg(LOG_INFO, "SQL: [%s] @%s:%d", statement, file, line);
+	dbg(LOG_INFO, "SQL: [%s] @%s:%d", statement);
 #endif
+
+	syslog(LOG_INFO, "SQL: %s", statement);
 
 	// do the query
 	dbi_result result = dbi_conn_query(dbi, statement);

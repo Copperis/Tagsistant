@@ -24,11 +24,13 @@
 
 gchar *tagsistant_querytree_types[QTYPE_TOTAL];
 
+#if TAGSISTANT_ENABLE_QUERYTREE_CACHE
 /**
  * tagsistant_querytree objects cache
  */
 GHashTable *tagsistant_querytree_cache = NULL;
-// GStaticRWLock tagsistant_querytree_cache_lock = G_STATIC_RW_LOCK_INIT;
+GStaticRWLock tagsistant_querytree_cache_lock = G_STATIC_RW_LOCK_INIT;
+#endif
 
 void tagsistant_path_resolution_init()
 {
@@ -40,8 +42,10 @@ void tagsistant_path_resolution_init()
 	tagsistant_querytree_types[QTYPE_RELATIONS] = g_strdup("QTYPE_RELATIONS");
 	tagsistant_querytree_types[QTYPE_STATS] = g_strdup("QTYPE_STATS");
 
+#if TAGSISTANT_ENABLE_QUERYTREE_CACHE
 	/* initialize the tagsistant_querytree object cache */
 	tagsistant_querytree_cache = g_hash_table_new(g_str_hash, g_str_equal);
+#endif
 }
 
 /**
@@ -53,7 +57,7 @@ void tagsistant_path_resolution_init()
  */
 gchar *tagsistant_compile_and_set(ptree_and_node *and_set)
 {
-	// TODO check for leaks
+	// TODO valgrind says: check for leaks
 	GString *str = g_string_sized_new(1024);
 	ptree_and_node *and_pointer = and_set;
 
@@ -64,7 +68,7 @@ gchar *tagsistant_compile_and_set(ptree_and_node *and_set)
 		/* look for related tags too */
 		ptree_and_node *related = and_pointer->related;
 		while (related) {
-			g_string_append_printf(str, ", \"%s\"", related->tag);
+			g_string_append_printf(str, ",\"%s\"", related->tag);
 			related = related->related;
 		}
 
@@ -227,7 +231,11 @@ int tagsistant_reasoner(tagsistant_reasoning *reasoning)
 		"select tags2.tagname from relations "
 			"join tags as tags1 on tags1.tag_id = relations.tag1_id "
 			"join tags as tags2 on tags2.tag_id = relations.tag2_id "
-			"where tags1.tagname = \"%s\" and relation = \"is_equivalent\";",
+			"where tags1.tagname = \"%s\" "
+				/*
+				"and relation = \"is_equivalent\" "
+				"or relation = \"includes\""
+				*/,
 		reasoning->conn,
 		tagsistant_add_reasoned_tag,
 		reasoning,
@@ -238,16 +246,6 @@ int tagsistant_reasoner(tagsistant_reasoning *reasoning)
 			"join tags as tags1 on tags1.tag_id = relations.tag1_id "
 			"join tags as tags2 on tags2.tag_id = relations.tag2_id "
 			"where tags2.tagname = \"%s\" and relation = \"is_equivalent\";",
-		reasoning->conn,
-		tagsistant_add_reasoned_tag,
-		reasoning,
-		reasoning->current_node->tag);
-
-	tagsistant_query(
-		"select tags2.tagname from relations "
-			"join tags as tags1 on tags1.tag_id = relations.tag1_id "
-			"join tags as tags2 on tags2.tag_id = relations.tag2_id "
-			"where tags1.tagname = \"%s\" and relation = \"includes\";",
 		reasoning->conn,
 		tagsistant_add_reasoned_tag,
 		reasoning,
@@ -468,6 +466,126 @@ void tagsistant_querytree_rebuild_paths(tagsistant_querytree *qtree)
 	qtree->full_archive_path = g_strdup_printf("%s%s", tagsistant.archive, qtree->archive_path);
 }
 
+#if TAGSISTANT_ENABLE_QUERYTREE_CACHE
+
+/**
+ * Duplicate the related branch of a ptree_and_tree branch
+ *
+ * @param origin
+ * @return
+ */
+ptree_and_node *tagsistant_querytree_duplicate_ptree_and_node_related(ptree_and_node *origin)
+{
+	if (!origin) return (NULL);
+
+	ptree_and_node *copy = g_new0(ptree_and_node, 1);
+	if (!copy) return (NULL);
+
+	copy->tag = g_strdup(origin->tag);
+	copy->related = tagsistant_querytree_duplicate_ptree_and_node_related(origin->related);
+
+	return (copy);
+}
+
+/**
+ * Duplicate a ptree_and_node branch
+ *
+ * @param origin
+ * @return
+ */
+ptree_and_node *tagsistant_querytree_duplicate_ptree_and_node(ptree_and_node *origin)
+{
+	if (!origin) return (NULL);
+
+	ptree_and_node *copy = g_new0(ptree_and_node, 1);
+	if (!copy) return (NULL);
+
+	copy->tag = g_strdup(origin->tag);
+	copy->related = tagsistant_querytree_duplicate_ptree_and_node_related(origin->related);
+	copy->next = tagsistant_querytree_duplicate_ptree_and_node(origin->next);
+
+	return (copy);
+}
+
+/**
+ * Duplicate a ptree_or_node tree from a querytree
+ *
+ * @param origin
+ * @return
+ */
+ptree_or_node *tagsistant_querytree_duplicate_ptree_or_node(ptree_or_node *origin)
+{
+	if (!origin) return (NULL);
+
+	ptree_or_node *copy = g_new0(ptree_or_node, 1);
+	if (!copy) return (NULL);
+
+	copy->next = tagsistant_querytree_duplicate_ptree_or_node(origin->next);
+	copy->and_set = tagsistant_querytree_duplicate_ptree_and_node(origin->and_set);
+
+	return (copy);
+}
+
+/**
+ * Duplicate a querytree, assigning a new connection
+ *
+ * @param qtree
+ * @return
+ */
+tagsistant_querytree *tagsistant_querytree_duplicate(tagsistant_querytree *qtree)
+{
+	tagsistant_querytree *duplicated = g_new0(tagsistant_querytree, 1);
+	if (!duplicated) return (NULL);
+
+	duplicated->full_path = g_strdup(qtree->full_path);
+	duplicated->full_archive_path = g_strdup(qtree->full_archive_path);
+	duplicated->archive_path = g_strdup(qtree->archive_path);
+	duplicated->object_path = g_strdup(qtree->object_path);
+	duplicated->last_tag = g_strdup(qtree->last_tag);
+	duplicated->first_tag = g_strdup(qtree->first_tag);
+	duplicated->second_tag = g_strdup(qtree->second_tag);
+	duplicated->relation = g_strdup(qtree->relation);
+	duplicated->stats_path = g_strdup(qtree->stats_path);
+
+	duplicated->inode = qtree->inode;
+	duplicated->type = qtree->type;
+	duplicated->points_to_object = qtree->points_to_object;
+	duplicated->is_taggable = qtree->is_taggable;
+	duplicated->is_external = qtree->is_external;
+	duplicated->valid = qtree->valid;
+	duplicated->complete = qtree->complete;
+	duplicated->exists = qtree->exists;
+	duplicated->transaction_started = qtree->transaction_started;
+
+	/* duplicate tag tree */
+	duplicated->tree = tagsistant_querytree_duplicate_ptree_or_node(qtree->tree);
+
+	/* return the querytree */
+	return (duplicated);
+}
+
+/**
+ * Lookup a querytree from the cache
+ *
+ * @param path the query path
+ * @return a tagsistant_querytree duplicated object
+ */
+tagsistant_querytree *tagsistant_querytree_lookup(const char *path)
+{
+	/* lookup the querytree */
+	tagsistant_querytree *qtree = NULL;
+	g_static_rw_lock_reader_lock(&tagsistant_querytree_cache_lock);
+	qtree = g_hash_table_lookup (tagsistant_querytree_cache, path);
+	g_static_rw_lock_reader_unlock(&tagsistant_querytree_cache_lock);
+
+	/* not found, return and proceed to normal creation */
+	if (!qtree) return (NULL);
+
+	/* duplicate the qtree */
+	return (tagsistant_querytree_duplicate(qtree));
+}
+#endif
+
 /**
  * Build query tree from path. A querytree is composed of a linked
  * list of ptree_or_node_t objects. Each or object has a descending
@@ -485,11 +603,15 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 	int tagsistant_errno;
 	tagsistant_querytree *qtree = NULL;
 
+#if TAGSISTANT_ENABLE_QUERYTREE_CACHE
 	/* first look in the cache */
-//	g_static_rw_lock_reader_lock(&tagsistant_querytree_cache_lock);
-//	qtree = g_hash_table_lookup (tagsistant_querytree_cache, path);
-//	g_static_rw_lock_reader_unlock(&tagsistant_querytree_cache_lock);
-//	if (qtree) return (qtree);
+	qtree = tagsistant_querytree_lookup(path);
+	if (qtree) {
+		/* assign a new connection */
+		qtree->dbi = tagsistant_db_connection(start_transaction);
+		return (qtree);
+	}
+#endif
 
 	/* the qtree object has not been found so lets allocate the querytree structure */
 	qtree = g_new0(tagsistant_querytree, 1);
@@ -663,6 +785,8 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 			qtree->points_to_object = qtree->valid = qtree->complete = 1;
 
 		// check if the query is consistent or not
+		// TODO is this really necessary?
+		// Wouldn't be enough to do it explicitly in getattr()?
 		tagsistant_querytree_check_tagging_consistency(qtree);
 	}
 
@@ -696,9 +820,12 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 RETURN:
 	g_strfreev(splitted);
 
-//	g_static_rw_lock_writer_lock(&tagsistant_querytree_cache_lock);
-//	g_hash_table_insert(tagsistant_querytree_cache, path, qtree);
-//	g_static_rw_lock_writer_unlock(&tagsistant_querytree_cache_lock);
+#if TAGSISTANT_ENABLE_QUERYTREE_CACHE
+	/* save the querytree in the cache */
+	g_static_rw_lock_writer_lock(&tagsistant_querytree_cache_lock);
+	g_hash_table_insert(tagsistant_querytree_cache, path, tagsistant_querytree_duplicate(qtree));
+	g_static_rw_lock_writer_unlock(&tagsistant_querytree_cache_lock);
+#endif
 
 	return(qtree);
 }
@@ -870,35 +997,41 @@ static int tagsistant_add_to_filetree(void *hash_table_pointer, dbi_result resul
 	/* Cast the hash table */
 	GHashTable *hash_table = (GHashTable *) hash_table_pointer;
 
-	/* fetch query results into tagsistant_file_handle struct */
-	tagsistant_file_handle *fh = g_new0(tagsistant_file_handle, 1);
-	fh->name = g_strdup(dbi_result_get_string_idx(result, 1));
-	fh->inode = dbi_result_get_uint_idx(result, 2);
+	/* fetch query results */
+	gchar *name = dbi_result_get_string_copy_idx(result, 1);
+	if (!name) return (0);
 
-	if (!fh->name || (strlen(fh->name) == 0)) {
-		g_free(fh);
-		return (0);
-	}
+	tagsistant_inode inode = dbi_result_get_uint_idx(result, 2);
 
 	/* lookup the GList object */
-	GList *list = g_hash_table_lookup(hash_table, fh->name);
+	GList *list = g_hash_table_lookup(hash_table, name);
 
 	/* look for duplicates due to reasoning results */
 	GList *list_tmp = list;
 	while (list_tmp) {
 		tagsistant_file_handle *fh_tmp = (tagsistant_file_handle *) list_tmp->data;
-		if (fh_tmp && (fh_tmp->inode == fh->inode)) {
-			g_free(fh);
+
+		if (fh_tmp && (fh_tmp->inode == inode)) {
+			g_free(name);
 			return (0);
 		}
 
 		list_tmp = list_tmp->next;
 	}
 
+	/* fetch query results into tagsistant_file_handle struct */
+	tagsistant_file_handle *fh = g_new0(tagsistant_file_handle, 1);
+	if (!fh) {
+		g_free(name);
+		return (0);
+	}
+
+	fh->name = name;
+	fh->inode = inode;
+
 	/* add the new element */
-	// TODO: check for leaks
-	list = g_list_prepend(list, fh);
-	g_hash_table_insert(hash_table, fh->name, list);
+	// TODO valgrind says: check for leaks
+	g_hash_table_insert(hash_table, name, g_list_prepend(list, fh));
 
 //	dbg(LOG_INFO, "adding (%d,%s) to filetree", fh->inode, fh->name);
 
@@ -976,7 +1109,8 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 	int nesting = 0;
 	while (query != NULL) {
 		ptree_and_node *tag = query->and_set;
-		// TODO check for leaks
+
+		// TODO valgrind says: check for leaks
 		GString *statement = g_string_sized_new(10240);
 		g_string_printf(statement, "create view tv%.16" PRIxPTR " as ", (uintptr_t) query);
 		
@@ -1021,7 +1155,7 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 			}
 		}
 
-		g_string_append(statement, ";");
+//		g_string_append(statement, ";");
 
 #if TAGSISTANT_VERBOSE_LOGGING
 		dbg(LOG_INFO, "SQL: final statement is [%s]", statement->str);
@@ -1034,7 +1168,7 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 	}
 
 	/* format view statement */
-	GString *view_statement = g_string_new("");
+	GString *view_statement = g_string_sized_new(10240);
 	query = query_dup;
 	while (query != NULL) {
 		g_string_append_printf(view_statement, "select objectname, inode from tv%.16" PRIxPTR, (uintptr_t) query);
@@ -1044,7 +1178,7 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 		query = query->next;
 	}
 
-	g_string_append(view_statement, ";");
+//	g_string_append(view_statement, ";");
 
 #if TAGSISTANT_VERBOSE_LOGGING
 	dbg(LOG_INFO, "SQL view statement: %s", view_statement->str);

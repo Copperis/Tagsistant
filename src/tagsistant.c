@@ -290,14 +290,14 @@ int main(int argc, char *argv[])
 	}
 
 	/* do some tuning on FUSE options */
-	fuse_opt_add_arg(&args, "-s");
+//	fuse_opt_add_arg(&args, "-s");
 	fuse_opt_add_arg(&args, "-odirect_io");
 	fuse_opt_add_arg(&args, "-obig_writes");
 	fuse_opt_add_arg(&args, "-omax_write=131072");
-//	fuse_opt_add_arg(&args, "-ofstype=tagsistant");
 	fuse_opt_add_arg(&args, "-ofsname=tagsistant");
+//	fuse_opt_add_arg(&args, "-ofstype=tagsistant");
 //	fuse_opt_add_arg(&args, "-ouse_ino,readdir_ino");
-	// fuse_opt_add_arg(&args, "-oallow_other");
+//	fuse_opt_add_arg(&args, "-oallow_other");
 
 #ifdef MACOSX
 	fuse_opt_add_arg(&args, "-odefer_permissions");
