@@ -32,6 +32,43 @@ GHashTable *tagsistant_querytree_cache = NULL;
 GStaticRWLock tagsistant_querytree_cache_lock = G_STATIC_RW_LOCK_INIT;
 #endif
 
+/**
+ * Counts one single element of the querytree hashtable
+ *
+ * @return
+ */
+void tagsistant_querytree_cache_counter(gpointer key, gpointer value, gpointer user_data)
+{
+	int *elements = (int *) user_data;
+	*elements = *elements + 1;
+}
+
+/**
+ * Count the elements contained in the querytree cache
+ *
+ * @param qtree
+ */
+int tagsistant_querytree_cache_total()
+{
+	int elements = 0;
+	g_hash_table_foreach(tagsistant_querytree_cache, tagsistant_querytree_cache_counter, &elements);
+	return (elements);
+}
+
+/**
+ * Just a wrapper around tagsistant_querytree_destroy() called when
+ * an element is removed from tagsistant_querytree_cache.
+ *
+ * @param qtree the querytree object to be removed
+ */
+void tagsistant_querytree_cache_destroy_element(tagsistant_querytree *qtree)
+{
+	tagsistant_querytree_destroy(qtree, 0);
+}
+
+/**
+ * Initialize path_resolution.c module
+ */
 void tagsistant_path_resolution_init()
 {
 	/* prepare stringified version of tagsistant_querytree types */
@@ -44,7 +81,11 @@ void tagsistant_path_resolution_init()
 
 #if TAGSISTANT_ENABLE_QUERYTREE_CACHE
 	/* initialize the tagsistant_querytree object cache */
-	tagsistant_querytree_cache = g_hash_table_new(g_str_hash, g_str_equal);
+	tagsistant_querytree_cache = g_hash_table_new_full(
+		g_str_hash,
+		g_str_equal,
+		NULL,
+		tagsistant_querytree_cache_destroy_element);
 #endif
 }
 
@@ -584,7 +625,49 @@ tagsistant_querytree *tagsistant_querytree_lookup(const char *path)
 	/* duplicate the qtree */
 	return (tagsistant_querytree_duplicate(qtree));
 }
-#endif
+
+/**
+ * Return true if entry->full_path contains qtree->first_tag or qtree->second_tag
+ * or both.
+ *
+ * @param key unused
+ * @param entry the querytree object from the cache being evaluated
+ * @param qtree the querytree object invalidating the cache
+ * @return TRUE if a match is found, FALSE otherwise
+ */
+gboolean tagsistant_invalidate_querytree_entry(gpointer key_p, gpointer entry_p, gpointer qtree_p)
+{
+	(void) key_p;
+	tagsistant_querytree *entry = (tagsistant_querytree *) entry_p;
+	tagsistant_querytree *qtree = (tagsistant_querytree *) qtree_p;
+
+	gboolean matches = FALSE;
+
+	gchar *first_tag = g_strdup_printf("/%s/", qtree->first_tag);
+	gchar *second_tag = g_strdup_printf("/%s/", qtree->second_tag);
+
+	if (strstr(entry->full_path, first_tag) || strstr(entry->full_path, second_tag))
+		matches = TRUE;
+
+	g_free(first_tag);
+	g_free(second_tag);
+
+	return (matches);
+}
+
+/**
+ * Delete the cache entries which involve one of the tags qtree->first_tag
+ * and qtree->second_tag
+ *
+ * @param qtree the querytree object which is invalidating the cache
+ */
+void tagsistant_invalidate_querytree_cache(tagsistant_querytree *qtree)
+{
+	g_static_rw_lock_writer_lock(&tagsistant_querytree_cache_lock);
+	g_hash_table_foreach_remove(tagsistant_querytree_cache, tagsistant_invalidate_querytree_entry, qtree);
+	g_static_rw_lock_writer_unlock(&tagsistant_querytree_cache_lock);
+}
+#endif TAGSISTANT_ENABLE_QUERYTREE_CACHE
 
 /**
  * Build query tree from path. A querytree is composed of a linked
@@ -1187,7 +1270,10 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 
 	/* apply view statement */
 	GHashTable *file_hash = g_hash_table_new_full(
-		g_str_hash, g_str_equal, NULL, (GDestroyNotify) tagsistant_filetree_destroy_value_list);
+		g_str_hash,
+		g_str_equal,
+		NULL,
+		(GDestroyNotify) tagsistant_filetree_destroy_value_list);
 
 	tagsistant_query(view_statement->str, conn, tagsistant_add_to_filetree, file_hash);
 
@@ -1206,11 +1292,11 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 /**
  * Destroy a tagsistant_file_handle
  */
-void tagsistant_filetree_destroy_value(gpointer value)
+void tagsistant_filetree_destroy_value(gpointer fh_p)
 {
-	tagsistant_file_handle *fh = (tagsistant_file_handle *) value;
-	if (!fh) return;
+	if (!fh_p) return;
 
+	tagsistant_file_handle *fh = (tagsistant_file_handle *) fh_p;
 	g_free(fh->name);
 	g_free(fh);
 }
@@ -1220,22 +1306,10 @@ void tagsistant_filetree_destroy_value(gpointer value)
  * This will free the GList data structure by first calling
  * tagsistant_filetree_destroy_value() on each linked node.
  */
-void tagsistant_filetree_destroy_value_list(gpointer list_pointer)
+void tagsistant_filetree_destroy_value_list(gpointer list_p)
 {
-	GList *list = (GList *) list_pointer;
-	if (!list_pointer) return;
+	if (!list_p) return;
 
+	GList *list = (GList *) list_p;
 	g_list_free_full(list, tagsistant_filetree_destroy_value);
-}
-
-/**
- * Destroy an entire filetree. The call to g_hash_table_destroy()
- * will trigger a call to tagsistant_filetree_destroy_value_list()
- * for each value in the hash table.
- */
-void tagsistant_filetree_destroy(GHashTable *hash_table)
-{
-	if (!hash_table) return;
-
-	g_hash_table_destroy(hash_table);
 }

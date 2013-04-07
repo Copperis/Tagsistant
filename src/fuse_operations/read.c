@@ -32,6 +32,7 @@
 int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
     int res = 0, tagsistant_errno = 0;
+    gchar stats_buffer[1024];
 
 	TAGSISTANT_START("READ on %s [size: %lu offset: %lu]", path, (long unsigned int) size, (long unsigned int) offset);
 
@@ -61,7 +62,36 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 
 	// -- stats --
 	else if (QTREE_IS_STATS(qtree)) {
-		// do what is needed
+		memset(stats_buffer, 0, 1024);
+
+		// -- connections --
+		if (g_regex_match_simple("/connections$", path, 0, 0)) {
+			sprintf(stats_buffer, "MySQL open connections: %d\n", connections);
+
+			size_t stats_size = strlen(stats_buffer);
+
+			if (offset == 0) {
+				memcpy(buf, stats_buffer, stats_size);
+				res = stats_size;
+			} else {
+				res = 0;
+			}
+		}
+
+		// -- cached_queries --
+		else if (g_regex_match_simple("/cached_queries$", path, 0, 0)) {
+			int entries = tagsistant_querytree_cache_total();
+			sprintf(stats_buffer, "# of cached queries: %d\n", entries);
+
+			size_t stats_size = strlen(stats_buffer);
+
+			if (offset == 0) {
+				memcpy(buf, stats_buffer, stats_size);
+				res = stats_size;
+			} else {
+				res = 0;
+			}
+		}
 	}
 
 	// -- tags --

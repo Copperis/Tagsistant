@@ -75,6 +75,11 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 				tagsistant_query(
 					"insert into relations (tag1_id, tag2_id, relation) values (%d, %d, \"%s\")",
 					qtree->dbi, NULL, NULL, tag1_id, tag2_id, qtree->relation);
+
+#if TAGSISTANT_ENABLE_QUERYTREE_CACHE
+				// invalidate the cache entries which involves one of the tags related
+				tagsistant_invalidate_querytree_cache(qtree);
+#endif
 			} else {
 				res = -1;
 				tagsistant_errno = EFAULT;

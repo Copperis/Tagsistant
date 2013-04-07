@@ -126,7 +126,7 @@ int tagsistant_readdir_on_tags(
 		// build the filetree
 		GHashTable *hash_table = tagsistant_filetree_new(qtree->tree, qtree->dbi);
 		g_hash_table_foreach(hash_table, (GHFunc) tagsistant_readdir_on_tags_filler, ufs);
-		tagsistant_filetree_destroy(hash_table);
+		g_hash_table_destroy(hash_table);
 
 	} else {
 
@@ -253,6 +253,8 @@ int tagsistant_readdir_on_stats(
 
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
+	filler(buf, "connections", NULL, 0);
+	filler(buf, "cached_queries", NULL, 0);
 	// fill with available statistics
 
 	return (0);

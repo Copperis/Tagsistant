@@ -80,10 +80,17 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 	}
 
+	// -- stats --
+	else if (QTREE_IS_STATS(qtree)) {
+		if (g_regex_match_simple("stats/.+", path, 0, 0))
+			lstat_path = tagsistant.tags;
+		else
+			lstat_path = tagsistant.archive;
+	}
+
 	// -- tags (incomplete) --
 	// -- archive (the directory itself) --
 	// -- root --
-	// -- stats --
 	else lstat_path = tagsistant.archive;
 
 	// do the real lstat()

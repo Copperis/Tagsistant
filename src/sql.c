@@ -266,6 +266,8 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 			exit(1);
 		}
 
+		connections++;
+
 #if TAGSISTANT_VERBOSE_LOGGING
 		dbg(LOG_INFO, "SQL connection established");
 #endif
@@ -300,7 +302,6 @@ void tagsistant_db_connection_release(dbi_conn dbi)
 #if TAGSISTANT_VERBOSE_LOGGING
 	dbg(LOG_INFO, "Releasing DBI connection (currently %d created", connections);
 #endif
-	connections++;
 	g_mutex_unlock(&tagsistant_connection_pool_lock);
 }
 

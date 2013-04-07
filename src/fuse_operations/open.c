@@ -63,6 +63,8 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 
 	// -- stats --
 	else if (QTREE_IS_STATS(qtree)) {
+		res = open(tagsistant.tags, fi->flags|O_RDONLY);
+		tagsistant_errno = errno;
 	}
 
 	// -- tags --

@@ -42,6 +42,9 @@ extern void tagsistant_create_schema();
 #define tagsistant_query(format, conn, callback, firstarg, ...) \
 	tagsistant_real_query(conn, format, callback, firstarg, ## __VA_ARGS__)
 
+/* number of active connections */
+extern int connections;
+
 /* the real code behind the previous macro */
 extern int tagsistant_real_query(
 		dbi_conn conn,
