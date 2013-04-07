@@ -1,5 +1,3 @@
-Tagsistant install documentation:
-
 - The short way
 
 $ ./configure
@@ -28,9 +26,6 @@ whole process please refer to INSTALL.GNU file.
 Tagsistant uses some external libraries you need to install before compiling.
 The most important one is libfuse, a library which enables user space
 applications to talk with kernel to provide a filesystem-like interface.
-You'll also need libssl for SHA1 hashing algorithm. That dependence will be
-probably removed in future releases when glib implementation will be used.
 
-Each autotagging plugin will require specific library. So far, no library
-is needed because all the plugins included in the repository are just place
-holders with almost no real functionality. In the future that will change.
+Each autotagging plugin will require specific libraries. Read carefully
+the output of ./configure.

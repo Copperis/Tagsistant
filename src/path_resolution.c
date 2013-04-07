@@ -823,7 +823,8 @@ RETURN:
 #if TAGSISTANT_ENABLE_QUERYTREE_CACHE
 	/* save the querytree in the cache */
 	g_static_rw_lock_writer_lock(&tagsistant_querytree_cache_lock);
-	g_hash_table_insert(tagsistant_querytree_cache, path, tagsistant_querytree_duplicate(qtree));
+	tagsistant_querytree *duplicated = tagsistant_querytree_duplicate(qtree);
+	g_hash_table_insert(tagsistant_querytree_cache, duplicated->full_path, duplicated);
 	g_static_rw_lock_writer_unlock(&tagsistant_querytree_cache_lock);
 #endif
 
