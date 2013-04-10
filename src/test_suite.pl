@@ -30,7 +30,7 @@ $tagsistant_id_delimiter =~ s/"//g;
 if (defined $ARGV[0]) {
 	if ($ARGV[0] eq "--mysql") {
 		$driver = "mysql";
-		system("echo 'drop table objects; drop table tags; drop table tagging; drop table relations;' | mysql -u tagsistant --password='tagsistant' tagsistant");
+		system("echo 'drop table objects; drop table tags; drop table tagging; drop table relations;' | mysql -u tagsistant_test --password='tagsistant_test' tagsistant_test");
 	} elsif (($ARGV[0] eq "--sqlite") || ($ARGV[0] eq "--sqlite3")) {
 		$driver = "sqlite3";
 	} else {
@@ -52,7 +52,7 @@ my $MP = $MPOINT;
 my $REPOSITORY = "$ENV{HOME}/.tagsistant_test";
 my $MCMD = "$BIN -s -d -v --repository=$REPOSITORY ";
 if ($driver eq "mysql") {
-	$MCMD .= "--db=mysql:localhost:tagsistant:tagsistant:tagsistant ";
+	$MCMD .= "--db=mysql:localhost:tagsistant_test:tagsistant_test:tagsistant_test";
 } elsif ($driver eq "sqlite3") {
 	$MCMD .= "--db=sqlite3";
 } else {
@@ -122,53 +122,47 @@ test("rmdir $MP/tags/tobedeleted");
 # and than read again using diff. this ensures proper operations
 # on open(), read(), write(), symlink() and readlink()
 system("dmesg | tail > /tmp/clutter");
-test("cp /tmp/clutter $MP/tags/t1/=/");
-test("cp /tmp/clutter $MP/tags/t2/=/");
-test("ln -s /tmp/clutter $MP/tags/t3/=");
-test("readlink $MP/tags/t3/=/*clutter");
+sleep 30;
+test("cp /tmp/clutter $MP/tags/t1/@/");
+test("cp /tmp/clutter $MP/tags/t2/@/");
+test("ln -s /tmp/clutter $MP/tags/t3/@");
+test("readlink $MP/tags/t3/@/clutter");
 
 # goto OUT;
 
 test("ls -la $MP/archive/");
-test("ls -la $MP/tags/t1/=");
-test("ls -la $MP/tags/t1/+/t2/=");
-test("ls -la $MP/tags/t1/t2/=");
-test("diff $MP/tags/t1/=/1${tagsistant_id_delimiter}clutter $MP/tags/t2/=/2${tagsistant_id_delimiter}clutter");
-test("diff $MP/tags/t1/=/1${tagsistant_id_delimiter}clutter $MP/tags/t3/=/3${tagsistant_id_delimiter}clutter");
+test("ls -la $MP/tags/t1/@");
+test("ls -la $MP/tags/t1/+/t2/@");
+test("ls -la $MP/tags/t1/t2/@");
+test("diff $MP/tags/t1/@/clutter $MP/tags/t2/@/clutter");
+test("diff $MP/tags/t1/@/clutter $MP/tags/t3/@/clutter");
 
 # then we rename a file
-test("mv $MP/tags/t1/=/1${tagsistant_id_delimiter}clutter $MP/tags/t1/=/1${tagsistant_id_delimiter}clutter_renamed");
-test("ls -la $MP/tags/t1/=/");
-test("stat $MP/tags/t1/=/1${tagsistant_id_delimiter}clutter_renamed");
-
-# then we rename it again using a wrong syntax:
-# by providing a destination path with and ID on it.
-# tagsistant should strip the wrong ID and put the
-# right one in place
-test("mv $MP/tags/t2/=/2${tagsistant_id_delimiter}clutter $MP/tags/t2/=/10${tagsistant_id_delimiter}clutter");
-test("ls $MP/tags/t2/=");
+test("mv $MP/tags/t1/@/clutter $MP/tags/t1/@/clutter_renamed");
+test("ls -la $MP/tags/t1/@/");
+test("stat $MP/tags/t1/@/clutter_renamed");
 
 # then we rename a file out of a directory into another;
 # that means, from a tagsistant point of view, untag the
 # file with all the tag contained in original path and
 # tag it with all the tags contained in the destination
 # path
-test("mv $MP/tags/t2/=/2${tagsistant_id_delimiter}clutter $MP/tags/t1/t3/=/2${tagsistant_id_delimiter}clutter");
-test("ls -la $MP/tags/t2/=");
-test("ls -la $MP/tags/t1/=");
-test("ls -la $MP/tags/t3/=/");
-test("ls -la $MP/tags/t1/t3/=/");
+test("mv $MP/tags/t2/@/clutter $MP/tags/t1/t3/@/clutter");
+test("ls -la $MP/tags/t2/@");
+test("ls -la $MP/tags/t1/@");
+test("ls -la $MP/tags/t3/@/");
+test("ls -la $MP/tags/t1/t3/@/");
 
 # now we check the unlink() method. first we copy two
 # files in a tag directory. then we delete the first
 # from the directory and the second from the archive/.
-test("cp /tmp/clutter $MP/tags/t1/=/tobedeleted");
-test("cp /tmp/clutter $MP/tags/t2/=/tobedeleted_fromarchive");
-test("rm $MP/tags/t1/=/*tobedeleted");
-test("ls -l $MP/tags/t1/=/*tobedeleted", 2); # we specify 2 as exit status 'cause we don't expect to find what we are searching
-my $filename = qx|ls $MP/archive/*tobedeleted_fromarchive|;
+test("cp /tmp/clutter $MP/tags/t1/@/tobedeleted");
+test("cp /tmp/clutter $MP/tags/t2/@/tobedeleted_fromarchive");
+test("rm $MP/tags/t1/@/tobedeleted");
+test("ls -l $MP/tags/t1/@/tobedeleted", 2); # we specify 2 as exit status 'cause we don't expect to find what we are searching
+my $filename = qx|ls $MP/archive/tobedeleted_fromarchive|;
 test("rm $filename");
-test("ls $MP/tags/t2/=/*tobedeleted*", 2); # 2 again
+test("ls $MP/tags/t2/@/tobedeleted*", 2); # 2 again
 test("ls $MP/archive/*tobedeleted*", 2); # same reason: the file should be gone
 
 # now we create a file in two directories and than
@@ -176,25 +170,25 @@ test("ls $MP/archive/*tobedeleted*", 2); # same reason: the file should be gone
 # be still available in the other. then we delete
 # from the second and last one and we expect it to
 # desappear from the archive/ as well.
-test("cp /tmp/clutter $MP/tags/t1/t2/=/multifile");
-test("stat $MP/tags/t1/=/*multifile");
-test("stat $MP/tags/t2/=/*multifile");
-test("rm $MP/tags/t2/=/*multifile");
-test("ls -l $MP/tags/t1/=/*multifile", 0); # 0! we DO expect the file to be here
-test("diff /tmp/clutter $MP/tags/t1/=/*multifile");
+test("cp /tmp/clutter $MP/tags/t1/t2/@/multifile");
+test("stat $MP/tags/t1/@/multifile");
+test("stat $MP/tags/t2/@/multifile");
+test("rm $MP/tags/t2/@/multifile");
+test("ls -l $MP/tags/t1/@/multifile", 0); # 0! we DO expect the file to be here
+test("diff /tmp/clutter $MP/tags/t1/@/multifile");
 test("diff /tmp/clutter $MP/archive/*multifile");
-test("rm $MP/tags/t1/=/*multifile");
-test("ls -l $MP/tags/t1/=/*multifile", 2); # 2! we DON'T expect the file to be here
+test("rm $MP/tags/t1/@/multifile");
+test("ls -l $MP/tags/t1/@/multifile", 2); # 2! we DON'T expect the file to be here
 test("ls -l $MP/archive/*multifile", 2); # 2! we DON'T expect the file to be here too
 
 # truncate() test
-test("cp /tmp/clutter $MP/tags/t1/=/truncate1");
-test("truncate -s 0 $MP/tags/t1/=/*truncate1");
-test("stat $MP/tags/t1/=/*truncate1");
+test("cp /tmp/clutter $MP/tags/t1/@/truncate1");
+test("truncate -s 0 $MP/tags/t1/@/truncate1");
+test("stat $MP/tags/t1/@/truncate1");
 out_test('Size: 0');
-test("cp /tmp/clutter $MP/tags/t2/=/truncate2");
-test("truncate -s 10 $MP/tags/t2/=/*truncate2");
-test("stat $MP/tags/t2/=/*truncate2");
+test("cp /tmp/clutter $MP/tags/t2/@/truncate2");
+test("truncate -s 10 $MP/tags/t2/@/truncate2");
+test("stat $MP/tags/t2/@/truncate2");
 out_test('Size: 10');
 
 # ---------[no more test to run]---------------------------------------- <---

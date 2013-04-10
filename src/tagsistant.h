@@ -20,22 +20,33 @@
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
 */
 
+/** Tagsistant plugin prefix */
 #define TAGSISTANT_PLUGIN_PREFIX "libtagsistant_"
 
+/** Query delimiter as a string */
 #define TAGSISTANT_QUERY_DELIMITER "@"
+
+/** Query delimiter as a single char */
 #define TAGSISTANT_QUERY_DELIMITER_CHAR '@'
 
+/** Andset delimiter as a string */
 #define TAGSISTANT_ANDSET_DELIMITER "+"
+
+/** Andset delimiter as a single char */
 #define TAGSISTANT_ANDSET_DELIMITER_CHAR '+'
 
-// deduplicator has been replaced by a call in fuse_operations/flush.c
+/** deduplicator has been replaced by a call in fuse_operations/flush.c */
 #define TAGSISTANT_ENABLE_DEDUPLICATOR 0
 #define TAGSISTANT_DEDUPLICATION_FREQUENCY 60 // seconds
 
-// use an hash table to save previously processed querytrees
+/** use an hash table to save previously processed querytrees */
 #define TAGSISTANT_ENABLE_QUERYTREE_CACHE 1
 
+/** enable verbose logging, useful during debugging only */
 #define TAGSISTANT_VERBOSE_LOGGING 0
+
+/** the string used to separate inodes from filenames inside archive/ directory */
+#define TAGSISTANT_INODE_DELIMITER "___"
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -118,8 +129,6 @@ typedef uint32_t tagsistant_inode;
  */
 #define TAGSISTANT_MAX_TAG_LENGTH 255
 #define TAGSISTANT_MAX_PATH_TOKENS 128
-
-#define TAGSISTANT_INODE_DELIMITER "___"
 
 /*
  * if tagsistant_symlink is called with two internal

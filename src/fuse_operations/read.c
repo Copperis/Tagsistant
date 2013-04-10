@@ -66,11 +66,11 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 
 		// -- connections --
 		if (g_regex_match_simple("/connections$", path, 0, 0)) {
-			sprintf(stats_buffer, "MySQL open connections: %d\n", connections);
-
-			size_t stats_size = strlen(stats_buffer);
 
 			if (offset == 0) {
+				sprintf(stats_buffer, "MySQL open connections: %d\n", connections);
+				size_t stats_size = strlen(stats_buffer);
+
 				memcpy(buf, stats_buffer, stats_size);
 				res = stats_size;
 			} else {
@@ -80,12 +80,11 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 
 		// -- cached_queries --
 		else if (g_regex_match_simple("/cached_queries$", path, 0, 0)) {
-			int entries = tagsistant_querytree_cache_total();
-			sprintf(stats_buffer, "# of cached queries: %d\n", entries);
-
-			size_t stats_size = strlen(stats_buffer);
-
 			if (offset == 0) {
+				int entries = tagsistant_querytree_cache_total();
+				sprintf(stats_buffer, "# of cached queries: %d\n", entries);
+				size_t stats_size = strlen(stats_buffer);
+
 				memcpy(buf, stats_buffer, stats_size);
 				res = stats_size;
 			} else {
@@ -96,7 +95,7 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 
 	// -- tags --
 	// -- relations --
-	else TAGSISTANT_ABORT_OPERATION(EROFS);
+	else TAGSISTANT_ABORT_OPERATION(EINVAL);
 
 TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
