@@ -50,7 +50,7 @@ my $BIN = "./tagsistant";
 my $MPOINT = "$ENV{HOME}/tags";
 my $MP = $MPOINT;
 my $REPOSITORY = "$ENV{HOME}/.tagsistant_test";
-my $MCMD = "$BIN -s -d -v --repository=$REPOSITORY ";
+my $MCMD = "$BIN -d -v --repository=$REPOSITORY ";
 if ($driver eq "mysql") {
 	$MCMD .= "--db=mysql:localhost:tagsistant_test:tagsistant_test:tagsistant_test";
 } elsif ($driver eq "sqlite3") {
@@ -122,7 +122,6 @@ test("rmdir $MP/tags/tobedeleted");
 # and than read again using diff. this ensures proper operations
 # on open(), read(), write(), symlink() and readlink()
 system("dmesg | tail > /tmp/clutter");
-sleep 30;
 test("cp /tmp/clutter $MP/tags/t1/@/");
 test("cp /tmp/clutter $MP/tags/t2/@/");
 test("ln -s /tmp/clutter $MP/tags/t3/@");
@@ -256,7 +255,7 @@ sub start_tagsistant {
 	#
 	# wait until tagsistant is brought to life
 	#
-	sleep(1);
+	sleep(3);
 
 	#
 	# check if thread was properly started

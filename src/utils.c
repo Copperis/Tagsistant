@@ -43,7 +43,7 @@ void open_debug_file()
 /**
  * initialize syslog stream
  */
-void init_syslog()
+void tagsistant_init_syslog()
 {
 	static int enabled = 0;
 	if (!enabled) {
@@ -213,16 +213,6 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tag
 /***   Checksumming and deduplication support                             ***/
 /***                                                                      ***/
 /****************************************************************************/
-
-/**
- * Invalidate an object checksum
- *
- * @param inode the object inode
- */
-void tagsistant_invalidate_object_checksum(tagsistant_inode inode, dbi_conn conn)
-{
-	tagsistant_query("update objects set checksum = \"\" where inode = %d", conn, NULL, NULL, inode);
-}
 
 /**
  * deduplication function called by tagsistant_calculate_object_checksum
@@ -417,4 +407,94 @@ void tagsistant_utils_init()
 #if TAGSISTANT_ENABLE_DEDUPLICATOR
 	deduplication_thread = g_thread_new("deduplication", tagsistant_deduplicator, NULL);
 #endif
+}
+
+/****************************************************************************/
+/***                                                                      ***/
+/***   Reporitory .ini file parsing and writing                           ***/
+/***                                                                      ***/
+/****************************************************************************/
+
+#define tagsistant_get_repository_ini_path() g_strdup_printf("%s/repository.ini", tagsistant.repository)
+
+/**
+ * Read the repository.ini file contained into a tagsistant repository
+ *
+ * @return a GKeyFile object
+ */
+GKeyFile *tagsistant_parse_repository_ini()
+{
+	GError *error = NULL;
+	gchar *ini_path = tagsistant_get_repository_ini_path();
+	GKeyFile *kf = g_key_file_new();
+
+	// load the key file
+	g_key_file_load_from_file(kf, ini_path, G_KEY_FILE_NONE, &error);
+	g_free(ini_path);
+
+	// if no error occurred, return the GKeyFile object
+	if (!error) return (kf);
+
+	// otherwise, free the GKeyFile object and return NULL
+	g_key_file_free(kf);
+	return (NULL);
+}
+
+/**
+ * Save a repository.ini file
+ *
+ * @param kf the GKeyFile object to save
+ */
+void tagsistant_save_repository_ini(GKeyFile *kf)
+{
+	gchar *ini_path = tagsistant_get_repository_ini_path();
+	gsize size = 0;
+	gchar *content = g_key_file_to_data(kf, &size, NULL);
+
+	// open the file and write the content
+	int fd = open(ini_path, O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR);
+	if (-1 != fd) {
+		int written = write(fd, content, size);
+		if (written == -1) {
+			dbg(LOG_ERR, "Error writing %s: %s", ini_path, strerror(errno));
+		}
+		close(fd);
+	} else {
+		dbg(LOG_ERR, "Unable to write %s: %s", ini_path, strerror(errno));
+	}
+
+	g_free(content);
+	g_free(ini_path);
+}
+
+/**
+ * Read the repository.ini file, compare its content with
+ * provided command line arguments and than saves back the
+ * merge of both in repository.ini
+ */
+void tagsistant_manage_repository_ini() {
+	// read the repository.ini file from disk
+	GKeyFile *kf = tagsistant_parse_repository_ini();
+	if (kf) {
+		if (g_key_file_has_group(kf, "Tagsistant")) {
+			if (g_key_file_has_key(kf, "Tagsistant", "db", NULL)) {
+				if (tagsistant.dboptions) {
+					dbg(LOG_INFO, "Ignoring command line --db parameter in favor of repository.ini");
+				}
+				tagsistant.dboptions = g_key_file_get_value(kf, "Tagsistant", "db", NULL);
+			}
+		}
+	}
+
+	// if repository.ini has not been laded, create an empty GKeyFile object
+	if (!kf) kf = g_key_file_new();
+
+	// fill the GKeyFile object with command line values
+	g_key_file_set_value(kf, "Tagsistant", "db", tagsistant.dboptions);
+	g_key_file_set_value(kf, "Tagsistant", "mountpoint", tagsistant.mountpoint);
+	g_key_file_set_value(kf, "Tagsistant", "repository", tagsistant.repository);
+
+	// save and free the GKeyFile object
+	tagsistant_save_repository_ini(kf);
+	g_key_file_free(kf);
 }

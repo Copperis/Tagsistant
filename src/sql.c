@@ -449,10 +449,50 @@ int tagsistant_return_integer(void *return_integer, dbi_result result)
 	uint32_t *buffer = (uint32_t *) return_integer;
 	*buffer = 0;
 
+	unsigned int type = dbi_result_get_field_type_idx(result, 1);
+	if (type == DBI_TYPE_INTEGER) {
+		unsigned int size = dbi_result_get_field_attribs_idx(result, 1);
+		unsigned int is_unsigned = size & DBI_INTEGER_UNSIGNED;
+		size = size & DBI_INTEGER_SIZEMASK;
+		switch (size) {
+			case DBI_INTEGER_SIZE8:
+				if (is_unsigned)
+					*buffer = dbi_result_get_ulonglong_idx(result, 1);
+				else
+					*buffer = dbi_result_get_longlong_idx(result, 1);
+				break;
+			case DBI_INTEGER_SIZE4:
+			case DBI_INTEGER_SIZE3:
+				if (is_unsigned)
+					*buffer = dbi_result_get_uint_idx(result, 1);
+				else
+					*buffer = dbi_result_get_int_idx(result, 1);
+				break;
+			case DBI_INTEGER_SIZE2:
+				if (is_unsigned)
+					*buffer = dbi_result_get_ushort_idx(result, 1);
+				else
+					*buffer = dbi_result_get_short_idx(result, 1);
+				break;
+			case DBI_INTEGER_SIZE1:
+				if (is_unsigned)
+					*buffer = dbi_result_get_uchar_idx(result, 1);
+				else
+					*buffer = dbi_result_get_char_idx(result, 1);
+				break;
+		}
+	} else {
+		dbg(LOG_INFO, "tagsistant_return_integer called on non integer field");
+		return (0);
+	}
+
+
+	/*
 	if (tagsistant.sql_database_driver == TAGSISTANT_DBI_SQLITE_BACKEND)
 		*buffer = dbi_result_get_ulonglong_idx(result, 1);
 	else
 		*buffer = dbi_result_get_uint_idx(result, 1);
+	*/
 
 #if TAGSISTANT_VERBOSE_LOGGING
 	dbg(LOG_INFO, "Returning integer: %d", *buffer);

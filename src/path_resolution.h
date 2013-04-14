@@ -184,6 +184,9 @@ typedef struct querytree {
 
 	/** record if a transaction has been opened on this connection */
 	int transaction_started;
+
+	/** last time the cached copy of this querytree has been accessed */
+	gint64 last_access_microsecond;
 } tagsistant_querytree;
 
 /**
@@ -248,6 +251,7 @@ extern void						tagsistant_querytree_rebuild_paths(tagsistant_querytree *qtree)
 extern tagsistant_query_type	tagsistant_querytree_guess_type(gchar **token_ptr);
 extern void						tagsistant_querytree_deduplicate(tagsistant_querytree *qtree);
 extern int						tagsistant_querytree_cache_total();
+extern void						tagsistant_invalidate_querytree_cache(tagsistant_querytree *qtree);
 
 extern tagsistant_inode			tagsistant_inode_extract_from_path(tagsistant_querytree *qtree);
 extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_querytree *qtree);

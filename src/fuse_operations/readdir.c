@@ -255,6 +255,11 @@ int tagsistant_readdir_on_stats(
 	filler(buf, "..", NULL, 0);
 	filler(buf, "connections", NULL, 0);
 	filler(buf, "cached_queries", NULL, 0);
+	filler(buf, "configuration", NULL, 0);
+	filler(buf, "objects", NULL, 0);
+	filler(buf, "relations", NULL, 0);
+	filler(buf, "tags", NULL, 0);
+
 	// fill with available statistics
 
 	return (0);

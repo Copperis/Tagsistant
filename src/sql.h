@@ -59,6 +59,8 @@ extern int tagsistant_return_string(void *return_string, dbi_result result);
 /** callback to return an integer */
 extern int tagsistant_return_integer(void *return_integer, dbi_result result);
 
+extern void tagsistant_db_connection_release(dbi_conn dbi);
+
 /**
  * transactions are started by default in tagsistant_db_connection()
  * and must be closed calling one of the following macros

@@ -29,7 +29,7 @@ gchar *tagsistant_querytree_types[QTYPE_TOTAL];
  * tagsistant_querytree objects cache
  */
 GHashTable *tagsistant_querytree_cache = NULL;
-GStaticRWLock tagsistant_querytree_cache_lock = G_STATIC_RW_LOCK_INIT;
+GRWLock tagsistant_querytree_cache_lock;
 #endif
 
 /**
@@ -39,7 +39,10 @@ GStaticRWLock tagsistant_querytree_cache_lock = G_STATIC_RW_LOCK_INIT;
  */
 void tagsistant_querytree_cache_counter(gpointer key, gpointer value, gpointer user_data)
 {
-	int *elements = (int *) user_data;
+	(void) key;
+	(void) value;
+
+ 	int *elements = (int *) user_data;
 	*elements = *elements + 1;
 }
 
@@ -85,7 +88,7 @@ void tagsistant_path_resolution_init()
 		g_str_hash,
 		g_str_equal,
 		NULL,
-		tagsistant_querytree_cache_destroy_element);
+		(GDestroyNotify) tagsistant_querytree_cache_destroy_element);
 #endif
 }
 
@@ -615,14 +618,21 @@ tagsistant_querytree *tagsistant_querytree_lookup(const char *path)
 {
 	/* lookup the querytree */
 	tagsistant_querytree *qtree = NULL;
-	g_static_rw_lock_reader_lock(&tagsistant_querytree_cache_lock);
+	g_rw_lock_reader_lock(&tagsistant_querytree_cache_lock);
 	qtree = g_hash_table_lookup (tagsistant_querytree_cache, path);
-	g_static_rw_lock_reader_unlock(&tagsistant_querytree_cache_lock);
+	g_rw_lock_reader_unlock(&tagsistant_querytree_cache_lock);
 
 	/* not found, return and proceed to normal creation */
 	if (!qtree) return (NULL);
 
-	/* duplicate the qtree */
+	/*
+	 * set the last_access_microsecond time
+	 * will be used in future code to decide if a cached entry
+	 * could be removed for memory management
+	 */
+	qtree->last_access_microsecond = g_get_real_time();
+
+	/* return a duplicate of the qtree */
 	return (tagsistant_querytree_duplicate(qtree));
 }
 
@@ -663,11 +673,11 @@ gboolean tagsistant_invalidate_querytree_entry(gpointer key_p, gpointer entry_p,
  */
 void tagsistant_invalidate_querytree_cache(tagsistant_querytree *qtree)
 {
-	g_static_rw_lock_writer_lock(&tagsistant_querytree_cache_lock);
+	g_rw_lock_writer_lock(&tagsistant_querytree_cache_lock);
 	g_hash_table_foreach_remove(tagsistant_querytree_cache, tagsistant_invalidate_querytree_entry, qtree);
-	g_static_rw_lock_writer_unlock(&tagsistant_querytree_cache_lock);
+	g_rw_lock_writer_unlock(&tagsistant_querytree_cache_lock);
 }
-#endif TAGSISTANT_ENABLE_QUERYTREE_CACHE
+#endif /* TAGSISTANT_ENABLE_QUERYTREE_CACHE */
 
 /**
  * Build query tree from path. A querytree is composed of a linked
@@ -904,11 +914,14 @@ RETURN:
 	g_strfreev(splitted);
 
 #if TAGSISTANT_ENABLE_QUERYTREE_CACHE
-	/* save the querytree in the cache */
-	g_static_rw_lock_writer_lock(&tagsistant_querytree_cache_lock);
-	tagsistant_querytree *duplicated = tagsistant_querytree_duplicate(qtree);
-	g_hash_table_insert(tagsistant_querytree_cache, duplicated->full_path, duplicated);
-	g_static_rw_lock_writer_unlock(&tagsistant_querytree_cache_lock);
+	if ((!qtree->points_to_object) || qtree->inode) {
+		/* save the querytree in the cache */
+		tagsistant_querytree *duplicated = tagsistant_querytree_duplicate(qtree);
+
+		g_rw_lock_writer_lock(&tagsistant_querytree_cache_lock);
+		g_hash_table_insert(tagsistant_querytree_cache, duplicated->full_path, duplicated);
+		g_rw_lock_writer_unlock(&tagsistant_querytree_cache_lock);
+	}
 #endif
 
 	return(qtree);

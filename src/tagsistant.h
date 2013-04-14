@@ -214,29 +214,33 @@ extern struct tagsistant tagsistant;
 
 #endif // TAGSISTANT_VERBOSE_LOGGING
 
-/*** *** *** *** *** *** *** continue cleaning this file from here  *** *** *** *** ***/
+// some init functions
+extern void tagsistant_utils_init();
+extern void tagsistant_init_syslog();
+extern void tagsistant_plugin_loader();
+extern void tagsistant_plugin_unloader();
 
-extern int 				tagsistant_process(tagsistant_querytree *qtree);
+// call the plugin stack
+extern int tagsistant_process(tagsistant_querytree *qtree);
 
-extern tagsistant_inode	tagsistant_get_inode(const gchar *path, gchar **purename);
+// used by plugins to apply regex to file content
+extern void tagsistant_plugin_apply_regex(const tagsistant_querytree *qtree, const char *buf, GMutex *m, GRegex *rx);
 
-extern void				tagsistant_utils_init();
-extern void				init_syslog();
-extern void				tagsistant_plugin_loader();
-extern void				tagsistant_plugin_unloader();
+// create and tag a new object in one single operation
+#define tagsistant_create_and_tag_object(qtree, errno) tagsistant_inner_create_and_tag_object(qtree, errno, 0);
+#define tagsistant_force_create_and_tag_object(qtree, errno) tagsistant_inner_create_and_tag_object(qtree, errno, 1);
+extern int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tagsistant_errno, int force_create);
 
-extern void				tagsistant_plugin_apply_regex(const tagsistant_querytree *qtree, const char *buf, GMutex *m, GRegex *rx);
+/**
+ * invalidate object checksum
+ *
+ * @param inode the object inode
+ * @param dbi_conn a valid DBI connection
+ */
+#define tagsistant_invalidate_object_checksum(inode, dbi_conn)\
+	tagsistant_query("update objects set checksum = \"\" where inode = %d", dbi_conn, NULL, NULL, inode)
 
-#define 				tagsistant_create_and_tag_object(qtree, errno)\
-							tagsistant_inner_create_and_tag_object(qtree, errno, 0);
-
-#define 				tagsistant_force_create_and_tag_object(qtree, errno)\
-							tagsistant_inner_create_and_tag_object(qtree, errno, 1);
-
-extern int				tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tagsistant_errno, int force_create);
-
-extern void				tagsistant_invalidate_object_checksum(tagsistant_inode inode, dbi_conn conn);
+// read and write repository.ini file
+extern void tagsistant_manage_repository_ini();
 
 #include "fuse_operations/operations.h"
-
-// vim:ts=4:nocindent:nowrap

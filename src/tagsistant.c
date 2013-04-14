@@ -285,7 +285,7 @@ int main(int argc, char *argv[])
 
 	tagsistant.progname = argv[0];
 
-	if (fuse_opt_parse(&args, &tagsistant, tagsistant_opts, tagsistant_opt_proc) == -1) {
+	if (-1 == fuse_opt_parse(&args, &tagsistant, tagsistant_opts, tagsistant_opt_proc)) {
 		exit(1);
 	}
 
@@ -452,7 +452,7 @@ int main(int argc, char *argv[])
 	umask(0);
 
 #ifdef _DEBUG_SYSLOG
-	init_syslog();
+	tagsistant_init_syslog();
 #endif
 
 #if REGISTER_CLEANUP
@@ -466,6 +466,11 @@ int main(int argc, char *argv[])
 	 */
 	g_thread_init(NULL);
 	tagsistant_plugin_loader();
+
+	/*
+	 * load repository.ini
+	 */
+	tagsistant_manage_repository_ini();
 
 	dbg(LOG_INFO, "Mounting filesystem");
 

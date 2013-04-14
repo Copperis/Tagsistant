@@ -29,6 +29,7 @@
 int tagsistant_access(const char *path, int mode)
 {
 	TAGSISTANT_START("ACCESS on %s [mode: %u]", path, mode);
+	(void) mode;
 
 	struct stat st;
 	int res = tagsistant_getattr(path, &st);

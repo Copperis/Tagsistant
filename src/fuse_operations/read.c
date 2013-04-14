@@ -66,9 +66,8 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 
 		// -- connections --
 		if (g_regex_match_simple("/connections$", path, 0, 0)) {
-
 			if (offset == 0) {
-				sprintf(stats_buffer, "MySQL open connections: %d\n", connections);
+				sprintf(stats_buffer, "# of MySQL open connections: %d\n", connections);
 				size_t stats_size = strlen(stats_buffer);
 
 				memcpy(buf, stats_buffer, stats_size);
@@ -91,6 +90,94 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 				res = 0;
 			}
 		}
+
+		// -- configuration --
+		else if (g_regex_match_simple("/configuration$", path, 0, 0)) {
+			if (offset == 0) {
+				sprintf(stats_buffer,
+					"\n"
+					" --> Command line options:\n\n"
+					"         mountpoint: %s\n"
+					"    repository path: %s\n"
+					"   database options: %s\n"
+					"              debug: %d\n"
+					"  run in foreground: %d\n"
+					"    single threaded: %d\n"
+					"    mount read-only: %d\n"
+					"\n"
+					" --> Compile flags:\n\n"
+					"  TAGSISTANT_ENABLE_QUERYTREE_CACHE: %d\n"
+					"         TAGSISTANT_QUERY_DELIMITER: %c\n"
+					"        TAGSISTANT_ANDSET_DELIMITER: %c\n"
+					"         TAGSISTANT_VERBOSE_LOGGING: %d\n"
+					"         TAGSISTANT_INODE_DELIMITER: '%s'\n\n",
+					tagsistant.mountpoint,
+					tagsistant.repository,
+					tagsistant.dboptions,
+					tagsistant.debug,
+					tagsistant.foreground,
+					tagsistant.singlethread,
+					tagsistant.readonly,
+					TAGSISTANT_ENABLE_QUERYTREE_CACHE,
+					TAGSISTANT_QUERY_DELIMITER_CHAR,
+					TAGSISTANT_ANDSET_DELIMITER_CHAR,
+					TAGSISTANT_VERBOSE_LOGGING,
+					TAGSISTANT_INODE_DELIMITER);
+				size_t stats_size = strlen(stats_buffer);
+
+				memcpy(buf, stats_buffer, stats_size);
+				res = stats_size;
+			} else {
+				res = 0;
+			}
+		}
+
+		// -- objects --
+		else if (g_regex_match_simple("/objects$", path, 0, 0)) {
+			if (offset == 0) {
+				int entries = 0;
+				tagsistant_query("select count(1) as entries from objects", qtree->dbi, tagsistant_return_integer, &entries);
+				sprintf(stats_buffer, "# of objects: %d\n", entries);
+				size_t stats_size = strlen(stats_buffer);
+
+				memcpy(buf, stats_buffer, stats_size);
+				res = stats_size;
+			} else {
+				res = 0;
+			}
+		}
+
+		// -- tags --
+		else if (g_regex_match_simple("/tags$", path, 0, 0)) {
+			if (offset == 0) {
+				int entries = 2;
+				tagsistant_query("select count(1) as entries from tags", qtree->dbi, tagsistant_return_integer, &entries);
+				sprintf(stats_buffer, "# of tags: %d\n", entries);
+				size_t stats_size = strlen(stats_buffer);
+
+				memcpy(buf, stats_buffer, stats_size);
+				res = stats_size;
+			} else {
+				res = 0;
+			}
+		}
+
+		// -- relations --
+		else if (g_regex_match_simple("/relations$", path, 0, 0)) {
+			if (offset == 0) {
+				int entries = 0;
+				tagsistant_query("select count(1) as entries from relations", qtree->dbi, tagsistant_return_integer, &entries);
+				sprintf(stats_buffer, "# of relations: %d\n", entries);
+				size_t stats_size = strlen(stats_buffer);
+
+				memcpy(buf, stats_buffer, stats_size);
+				res = stats_size;
+			} else {
+				res = 0;
+			}
+		}
+
+
 	}
 
 	// -- tags --
