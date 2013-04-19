@@ -35,8 +35,12 @@ int tagsistant_rename(const char *from, const char *to)
 	tagsistant_querytree *from_qtree = tagsistant_querytree_new(from, 1, 0, 1);
 	if (!from_qtree) TAGSISTANT_ABORT_OPERATION(ENOMEM);
 
-	tagsistant_querytree *to_qtree = tagsistant_querytree_new(to, 1, 0, 1);
+	tagsistant_querytree *to_qtree = tagsistant_querytree_new(to, 1, 0, 0);
 	if (!to_qtree) TAGSISTANT_ABORT_OPERATION(ENOMEM);
+
+	// save to_qtree->dbi and set it to from_qtree->dbi
+	dbi_conn tmp_dbi = to_qtree->dbi;
+	to_qtree->dbi = from_qtree->dbi;
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(from_qtree)) TAGSISTANT_ABORT_OPERATION(ENOENT);
@@ -48,7 +52,6 @@ int tagsistant_rename(const char *from, const char *to)
 	if (QTREE_IS_STATS(to_qtree) || QTREE_IS_STATS(from_qtree) || QTREE_IS_RELATIONS(to_qtree) || QTREE_IS_RELATIONS(from_qtree))
 		TAGSISTANT_ABORT_OPERATION(EINVAL);
 
-
 	// -- object on disk (/archive and complete /tags) --
 	if (QTREE_POINTS_TO_OBJECT(from_qtree)) {
 		if (QTREE_IS_TAGGABLE(from_qtree)) {
@@ -57,8 +60,7 @@ int tagsistant_rename(const char *from, const char *to)
 
 			// 1. rename the object
 			tagsistant_query(
-				"update objects set objectname = \"%s\" "
-					"where inode = %d",
+				"update objects set objectname = \"%s\" where inode = %d",
 				from_qtree->dbi,
 				NULL, NULL,
 				to_qtree->object_path,
@@ -93,6 +95,9 @@ int tagsistant_rename(const char *from, const char *to)
 	}
 
 TAGSISTANT_EXIT_OPERATION:
+	// reset to_qtree->dbi
+	to_qtree->dbi = tmp_dbi;
+
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("RENAME %s (%s) to %s (%s): %d %d: %s", from, tagsistant_querytree_type(from_qtree), to, tagsistant_querytree_type(to_qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(from_qtree, TAGSISTANT_ROLLBACK_TRANSACTION);

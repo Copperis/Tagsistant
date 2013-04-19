@@ -625,6 +625,16 @@ tagsistant_querytree *tagsistant_querytree_lookup(const char *path)
 	/* not found, return and proceed to normal creation */
 	if (!qtree) return (NULL);
 
+	/* the querytree is no longer valid, so we destroy it and return NULL */
+	struct stat st;
+	if (qtree->full_archive_path && (0 != stat(qtree->full_archive_path, &st))) {
+		g_rw_lock_reader_lock(&tagsistant_querytree_cache_lock);
+		g_hash_table_remove(tagsistant_querytree_cache, path);
+		g_rw_lock_reader_unlock(&tagsistant_querytree_cache_lock);
+
+		return (NULL);
+	}
+
 	/*
 	 * set the last_access_microsecond time
 	 * will be used in future code to decide if a cached entry
@@ -702,6 +712,7 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 	if (qtree) {
 		/* assign a new connection */
 		qtree->dbi = tagsistant_db_connection(start_transaction);
+		qtree->transaction_started = start_transaction;
 		return (qtree);
 	}
 #endif

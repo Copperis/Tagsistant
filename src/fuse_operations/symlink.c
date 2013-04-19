@@ -64,7 +64,11 @@ int tagsistant_symlink(const char *from, const char *to)
 	}
 
 	tagsistant_querytree *from_qtree = tagsistant_querytree_new(_from, 1, 0, 1);
-	tagsistant_querytree *to_qtree = tagsistant_querytree_new(to, 1, 0, 1);
+	tagsistant_querytree *to_qtree = tagsistant_querytree_new(to, 1, 0, 0);
+
+	// save to_qtree->dbi and set it to from_qtree->dbi
+	dbi_conn tmp_dbi = to_qtree->dbi;
+	to_qtree->dbi = from_qtree->dbi;
 
 	from_qtree->is_external = (from == _from) ? 1 : 0;
 
@@ -117,6 +121,9 @@ int tagsistant_symlink(const char *from, const char *to)
 	else TAGSISTANT_ABORT_OPERATION(EINVAL);
 
 TAGSISTANT_EXIT_OPERATION:
+	// reset to_qtree->dbi
+	to_qtree->dbi = tmp_dbi;
+
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("SYMLINK from %s to %s (%s) (%s): %d %d: %s", from, to, to_qtree->full_archive_path, tagsistant_querytree_type(to_qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(from_qtree, TAGSISTANT_ROLLBACK_TRANSACTION);

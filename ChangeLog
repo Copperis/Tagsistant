@@ -1,8 +1,40 @@
-0.0.20080219
-  - added reasoning to query management
-  - created tagsistant manager, a Gtk+ interface to tagsistant SQL db to
-    add or remove relations
-  - solved some bugs
-0.0.20071009
-  - bug in tagsistant_rename fixed; both directory and file can now be
-  renamed properly
+0.6 rc4:
+  - When a tagsistant_querytree object was fetch from the cache, the
+    transaction_started field were not set accordingly to
+    tagsistant_querytree_new() actual parameters, thus preventing proper
+    SQL transaction commit. This bug was especially evident inside
+    rename() calls.
+    
+  - stats/ now contains some meaningful files:
+      cached_queries: how many queries got cached
+      configuration: the whole configuration given at run time
+      connections: how many connections to SQL are active
+      objects: how many objects are tagged
+      relations: how many relations are established
+      tags: how many tags have been created
+  - 
+    
+0.6 rc3:
+  - Queries are cached. Since a lot of time is spent by
+    tagsistant_querytree_new() in reasoning the tags of a query,
+    once is done a copy of the data structure is saved in a hash
+    table and later reloaded. Performance improved by a 5-10x.
+    
+  - Tag removal (rmdir ~/mifiles/tags/a_tag/) lead to an error. Bug
+    reported by Lingnan.
+    
+  - Speeds up reasoning by cutting one SQL query every three.
+
+0.6 rc2:
+  - Bug reported by Matei David:
+      $ mkdir myfiles/tags/tag-a
+      $ mkdir myfiles/tags/tag-b
+      $ touch some-file
+      $ cp some-file myfiles/tags/tag-a/tag-b/@/
+      $ rm myfiles/tags/tag-b/@/some-file
+      $ ls myfiles/tags/tag-a/@/
+        ls: cannot access myfiles/tags/tag-a/@/some-file: No such file or directory
+
+0.6 rc1:
+  - Introduces universal tagging: not just files can be tagged, but
+    directories and devices and pipes too.

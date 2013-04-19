@@ -43,7 +43,6 @@ if (defined $ARGV[0]) {
 my $FUSE_GROUP = "fuse";
 
 print "Testing with $driver driver\n";
-sleep 2;
 
 # mount command
 my $BIN = "./tagsistant";
@@ -93,6 +92,8 @@ unless ($testbed_ok) {
 	goto EXITSUITE;
 }
 
+print "Press [ENTER] before each test\n";
+
 out_test('^\.$', '^\.\.$');
 test("ls -a $MP/archive");
 out_test('^\.$', '^\.\.$');
@@ -112,6 +113,8 @@ test("mkdir $MP/tags/toberenamed");
 test("mkdir $MP/tags/tobedeleted");
 test("ls $MP/tags");
 test("ls $MP/archive");
+test("stat $MP/tags/t1");
+test("ls $MP/tags/t1");
 
 # then we check rename and remove of tag directories
 test("mv $MP/tags/toberenamed $MP/tags/renamed");
@@ -122,6 +125,10 @@ test("rmdir $MP/tags/tobedeleted");
 # and than read again using diff. this ensures proper operations
 # on open(), read(), write(), symlink() and readlink()
 system("dmesg | tail > /tmp/clutter");
+test("ls $MP/tags/");
+test("ls $MP/tags/t1");
+test("ls $MP/tags/t1/@");
+
 test("cp /tmp/clutter $MP/tags/t1/@/");
 test("cp /tmp/clutter $MP/tags/t2/@/");
 test("ln -s /tmp/clutter $MP/tags/t3/@");
@@ -134,10 +141,11 @@ test("ls -la $MP/tags/t1/@");
 test("ls -la $MP/tags/t1/+/t2/@");
 test("ls -la $MP/tags/t1/t2/@");
 test("diff $MP/tags/t1/@/clutter $MP/tags/t2/@/clutter");
-test("diff $MP/tags/t1/@/clutter $MP/tags/t3/@/clutter");
+test("diff $MP/tags/t1/@/clutter $MP/tags/t2/@/clutter");
 
 # then we rename a file
 test("mv $MP/tags/t1/@/clutter $MP/tags/t1/@/clutter_renamed");
+print ".....\n"; sleep(30); goto OUT;
 test("ls -la $MP/tags/t1/@/");
 test("stat $MP/tags/t1/@/clutter_renamed");
 
@@ -275,6 +283,7 @@ sub stop_tagsistant {
 # Execute a command and check its exit code
 #
 sub test {
+	$a = <STDIN>;
 	$tc++;
 
 	#
