@@ -26,24 +26,29 @@
 #undef _DEBUG_STDERR
 
 #ifdef _DEBUG_SYSLOG
-#include <syslog.h>
-#define dbg(facility, string, ...) \
-	{ if (!tagsistant.quiet) syslog(facility, string " [@%s:%d]", ##__VA_ARGS__, __FILE__, __LINE__); }
+#	include <syslog.h>
+#	define dbg(facility, string, ...) \
+		{ if (!tagsistant.quiet) syslog(facility, string " [@%s:%d]", ##__VA_ARGS__, __FILE__, __LINE__); }
 #endif
 
 #ifdef _DEBUG_STDERR
-#include <stdio.h>
-#define dbg(facility,string,...) {\
-	fprintf(stderr,"TS> ");\
-	if ((*string != '/') && (*string != '\\')) fprintf(stderr,"| ");\
-	fprintf(stderr,string, ##__VA_ARGS__);\
-	fprintf(stderr," [@%s:%d]\n", __FILE__, __LINE__);\
-	if (*string == '\\') fprintf(stderr,"TS> \n");\
-}
+#	include <stdio.h>
+#	define dbg(facility,string,...) \
+		{ if (!tagsistant.quiet) fprintf(stderr,"TS> " string " [@%s:%d]\n", ##__VA_ARGS__, __FILE__, __LINE__); }
 #endif
-
-extern int tagsistant_debug;
 
 #define strlen(string) ((string == NULL) ? 0 : strlen(string))
 
-// vim:ts=4
+#if 0
+#define tagsistant_dirty_logging(statement) {\
+	int fd = open("/tmp/tagsistant.sql", O_APPEND|O_CREAT|O_WRONLY, S_IRUSR|S_IWUSR);\
+	if (-1 != fd) {\
+		int count = write(fd, statement, strlen(statement));\
+		count = write(fd, "\n", 1);\
+		(void) count;\
+		close(fd);\
+	}\
+}
+#else
+#define tagsistant_dirty_logging(statement) {}
+#endif

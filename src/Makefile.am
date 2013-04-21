@@ -6,6 +6,7 @@ tagsistant_SOURCES = tagsistant.c\
 	tagsistant.h\
 	path_resolution.c\
 	path_resolution.h\
+	reasoner.c\
 	compat/fuse_opt.c\
 	compat/fuse_opt.h\
 	debug.h\

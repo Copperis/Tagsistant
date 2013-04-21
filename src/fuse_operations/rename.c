@@ -32,10 +32,12 @@ int tagsistant_rename(const char *from, const char *to)
 
 	TAGSISTANT_START("RENAME %s as %s", from, to);
 
-	tagsistant_querytree *from_qtree = tagsistant_querytree_new(from, 1, 0, 1);
+	tagsistant_querytree *from_qtree = NULL, *to_qtree = NULL;
+
+	from_qtree = tagsistant_querytree_new(from, 1, 0, 1);
 	if (!from_qtree) TAGSISTANT_ABORT_OPERATION(ENOMEM);
 
-	tagsistant_querytree *to_qtree = tagsistant_querytree_new(to, 1, 0, 0);
+	to_qtree = tagsistant_querytree_new(to, 1, 0, 0);
 	if (!to_qtree) TAGSISTANT_ABORT_OPERATION(ENOMEM);
 
 	// save to_qtree->dbi and set it to from_qtree->dbi
@@ -96,7 +98,7 @@ int tagsistant_rename(const char *from, const char *to)
 
 TAGSISTANT_EXIT_OPERATION:
 	// reset to_qtree->dbi
-	to_qtree->dbi = tmp_dbi;
+	if (to_qtree) to_qtree->dbi = tmp_dbi;
 
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("RENAME %s (%s) to %s (%s): %d %d: %s", from, tagsistant_querytree_type(from_qtree), to, tagsistant_querytree_type(to_qtree), res, tagsistant_errno, strerror(tagsistant_errno));

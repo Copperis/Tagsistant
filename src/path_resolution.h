@@ -241,6 +241,7 @@ typedef struct {
 
 // querytree functions
 extern void						tagsistant_path_resolution_init();
+extern void						tagsistant_reasoner_init();
 
 extern tagsistant_querytree *	tagsistant_querytree_new(const char *path, int do_reasoning, int assign_inode, int start_transaction);
 extern void 					tagsistant_querytree_destroy(tagsistant_querytree *qtree, uint commit_transaction);
@@ -255,6 +256,8 @@ extern void						tagsistant_invalidate_querytree_cache(tagsistant_querytree *qtr
 
 extern tagsistant_inode			tagsistant_inode_extract_from_path(tagsistant_querytree *qtree);
 extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_querytree *qtree);
+
+extern int						tagsistant_reasoner(tagsistant_reasoning *reasoning);
 
 // filetree functions
 extern GHashTable *				tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn);

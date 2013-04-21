@@ -42,11 +42,28 @@
 /** use an hash table to save previously processed querytrees */
 #define TAGSISTANT_ENABLE_QUERYTREE_CACHE 1
 
+/** cache tag IDs? */
+#define TAGSISTANT_ENABLE_TAG_ID_CACHE 0
+
+/** cache inode resolution queries? */
+#define TAGSISTANT_ENABLE_AND_SET_CACHE 0
+
 /** enable verbose logging, useful during debugging only */
 #define TAGSISTANT_VERBOSE_LOGGING 0
 
 /** the string used to separate inodes from filenames inside archive/ directory */
 #define TAGSISTANT_INODE_DELIMITER "___"
+
+/**
+ * if tagsistant_symlink is called with two internal
+ * paths, it should add the tags from the destination
+ * path to the object pointed by source path (1), or
+ * should create a new symlink (0)?
+ *
+ * NOTE: choosing 1 breaks support of Nautilus and
+ * probably other file managers
+ */
+#define TAGSISTANT_RETAG_INTERNAL_SYMLINKS 0
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -124,23 +141,6 @@
  */
 typedef uint32_t tagsistant_inode;
 
-/**
- * some limits mainly taken from POSIX standard
- */
-#define TAGSISTANT_MAX_TAG_LENGTH 255
-#define TAGSISTANT_MAX_PATH_TOKENS 128
-
-/*
- * if tagsistant_symlink is called with two internal
- * paths, it should add the tags from the destination
- * path to the object pointed by source path (1), or
- * should create a new symlink (0)?
- *
- * NOTE: choosing 1 breaks support of Nautilus and
- * probably other file managers
- */
-#define TAGSISTANT_RETAG_INTERNAL_SYMLINKS 0
-
 #define dyn_strcat(original, newstring) original = _dyn_strcat(original, newstring)
 extern gchar *_dyn_strcat(gchar *original, const gchar *newstring);
 
@@ -157,7 +157,7 @@ struct tagsistant {
 	int	singlethread;	/**< single thread? */
 	int	readonly;		/**< mount filesystem readonly */
 	int	verbose;		/**< do verbose logging on syslog (stderr is always verbose) */
-	int	quiet;			/**< don't log anything */
+	int	quiet;			/**< don't log anything, even errors */
 	int	show_config;	/**< show whole configuration */
 
 	char *progname;		/**< tagsistant */

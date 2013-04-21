@@ -72,12 +72,12 @@ extern void tagsistant_db_connection_release(dbi_conn dbi);
  * SQL QUERIES *
 \***************/
 
-extern void				tagsistant_sql_create_tag(dbi_conn conn, const gchar *tagname);
-extern tagsistant_inode	tagsistant_sql_get_tag_id(dbi_conn conn, const gchar *tagname);
-extern void				tagsistant_sql_delete_tag(dbi_conn conn, const gchar *tagname);
-extern void				tagsistant_sql_tag_object(dbi_conn conn, const gchar *tagname, tagsistant_inode inode);
-extern void				tagsistant_sql_untag_object(dbi_conn conn, const gchar *tagname, tagsistant_inode inode);
-extern void				tagsistant_sql_rename_tag(dbi_conn conn, const gchar *tagname, const gchar *oldtagname);
+extern void				tagsistant_sql_create_tag(dbi_conn conn, gchar *tagname);
+extern tagsistant_inode	tagsistant_sql_get_tag_id(dbi_conn conn, gchar *tagname);
+extern void				tagsistant_sql_delete_tag(dbi_conn conn, gchar *tagname);
+extern void				tagsistant_sql_tag_object(dbi_conn conn, gchar *tagname, tagsistant_inode inode);
+extern void				tagsistant_sql_untag_object(dbi_conn conn, gchar *tagname, tagsistant_inode inode);
+extern void				tagsistant_sql_rename_tag(dbi_conn conn, gchar *tagname, gchar *oldtagname);
 extern tagsistant_inode	tagsistant_last_insert_id(dbi_conn conn);
 extern int				tagsistant_object_is_tagged(dbi_conn conn, tagsistant_inode inode);
 extern int				tagsistant_object_is_tagged_as(dbi_conn conn, tagsistant_inode inode, tagsistant_inode tag_id);

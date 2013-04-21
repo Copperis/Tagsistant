@@ -431,8 +431,11 @@ int main(int argc, char *argv[])
 	tagsistant.tags = g_strdup_printf("%s/tags.sql", tagsistant.repository);
 
 	/* tags.sql is also used by getattr() as a guaranteed file when asked for stats/ files */
-	int tags_fd = creat(tagsistant.tags, S_IRUSR|S_IWUSR);
-	if (tags_fd) close(tags_fd);
+	struct stat tags_st;
+	if (-1 == stat(tagsistant.tags, &tags_st)) {
+		int tags_fd = creat(tagsistant.tags, S_IRUSR|S_IWUSR);
+		if (tags_fd) close(tags_fd);
+	}
 
 	/* checking file archive directory */
 	tagsistant.archive = g_strdup_printf("%s/archive/", tagsistant.repository);
@@ -493,6 +496,7 @@ int main(int argc, char *argv[])
 	tagsistant_db_init();
 	tagsistant_create_schema();
 	tagsistant_path_resolution_init();
+	tagsistant_reasoner_init();
 	tagsistant_utils_init();
 
 #if FUSE_VERSION <= 25

@@ -71,6 +71,11 @@ struct {
 	gchar *password;
 } dboptions;
 
+#if TAGSISTANT_ENABLE_TAG_ID_CACHE
+/** a map tag_name -> tag_id */
+GHashTable *tagsistant_tag_cache = NULL;
+#endif
+
 /**
  * Initialize libDBI structures
  */
@@ -78,6 +83,10 @@ void tagsistant_db_init()
 {
 	// initialize DBI library
 	dbi_initialize(NULL);
+
+#if TAGSISTANT_ENABLE_TAG_ID_CACHE
+	tagsistant_tag_cache = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+#endif
 
 	// by default, DBI backend provides intersect
 	tagsistant.sql_backend_have_intersect = 1;
@@ -381,10 +390,10 @@ int tagsistant_real_query(
 	}
 
 #if TAGSISTANT_VERBOSE_LOGGING
-	dbg(LOG_INFO, "SQL: [%s] @%s:%d", statement);
+	dbg(LOG_INFO, "SQL: [%s]", statement);
 #endif
 
-	syslog(LOG_INFO, "SQL: %s", statement);
+	tagsistant_dirty_logging(statement);
 
 	// do the query
 	dbi_result result = dbi_conn_query(dbi, statement);
@@ -525,11 +534,24 @@ int tagsistant_return_string(void *return_string, dbi_result result)
 	return (0);
 }
 
-void tagsistant_sql_create_tag(dbi_conn conn, const gchar *tagname)
+/**
+ * Create a tag
+ *
+ * @param conn dbi_conn reference
+ * @param tagname the tag name
+ */
+void tagsistant_sql_create_tag(dbi_conn conn, gchar *tagname)
 {
 	tagsistant_query("insert into tags(tagname) values(\"%s\");", conn, NULL, NULL, tagname);
 }
 
+/**
+ * Is an object tagged by at least one tag?
+ *
+ * @param conn dbi_conn reference
+ * @param inode the object inode
+ * @return true if object is tagged by at least one tag, false otherwise
+ */
 int tagsistant_object_is_tagged(dbi_conn conn, tagsistant_inode inode)
 {
 	tagsistant_inode still_exists = 0;
@@ -541,6 +563,14 @@ int tagsistant_object_is_tagged(dbi_conn conn, tagsistant_inode inode)
 	return ((still_exists) ? 1 : 0);
 }
 
+/**
+ * Is an object tagged by a given tag?
+ *
+ * @param conn dbi_conn reference
+ * @param inode the object inode
+ * @param tag_id the tag ID
+ * @return  true if object is tagged by given tag, false otherwise
+ */
 int tagsistant_object_is_tagged_as(dbi_conn conn, tagsistant_inode inode, tagsistant_inode tag_id)
 {
 	tagsistant_inode is_tagged = 0;
@@ -552,36 +582,83 @@ int tagsistant_object_is_tagged_as(dbi_conn conn, tagsistant_inode inode, tagsis
 	return ((is_tagged) ? 1 : 0);
 }
 
+/**
+ * Remove all the tags applied to an object
+ *
+ * @param conn dbi_conn reference
+ * @param inode the object inode
+ */
 void tagsistant_full_untag_object(dbi_conn conn, tagsistant_inode inode)
 {
 	tagsistant_query("delete from tagging where inode = %d", conn, NULL, NULL, inode);
 }
 
-tagsistant_inode tagsistant_sql_get_tag_id(dbi_conn conn, const gchar *tagname)
+/**
+ * Return the id of a tag
+ *
+ * @param conn dbi_conn reference
+ * @param tagname the tag name
+ * @return the id of the tag
+ */
+tagsistant_inode tagsistant_sql_get_tag_id(dbi_conn conn, gchar *tagname)
 {
-	tagsistant_inode tag_id = 0;
+#if TAGSISTANT_ENABLE_TAG_ID_CACHE
+	// lookup in the cache
+	tagsistant_inode *value = (tagsistant_inode *) g_hash_table_lookup(tagsistant_tag_cache, tagname);
+	if (value) return (*value);
+#endif
 
+	// fetch the tag_id from SQL
+	tagsistant_inode tag_id = 0;
 	tagsistant_query(
 		"select tag_id from tags where tagname = \"%s\" limit 1",
 		conn, tagsistant_return_integer, &tag_id, tagname);
 
+#if TAGSISTANT_ENABLE_TAG_ID_CACHE
+	// save the key and the value in the cache
+	gchar *key = g_strdup(tagname);
+	value = g_new0(tagsistant_inode, 1);
+	*value = tag_id;
+	g_hash_table_insert(tagsistant_tag_cache, key, value);
+#endif
+
 	return (tag_id);
 }
 
-void tagsistant_sql_delete_tag(dbi_conn conn, const gchar *tagname)
+/**
+ * Deletes a tag
+ *
+ * @param conn dbi_conn reference
+ * @param tagname the name of the tag
+ */
+void tagsistant_sql_delete_tag(dbi_conn conn, gchar *tagname)
 {
 	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(conn, tagname);
+
+#if TAGSISTANT_ENABLE_TAG_ID_CACHE
+	g_hash_table_remove(tagsistant_tag_cache, tagname);
+#endif
 
 	tagsistant_query("delete from tags where tagname = \"%s\";", conn, NULL, NULL, tagname);
 	tagsistant_query("delete from tagging where tag_id = \"%d\";", conn, NULL, NULL, tag_id);
 	tagsistant_query("delete from relations where tag1_id = \"%d\" or tag2_id = \"%d\";", conn, NULL, NULL, tag_id, tag_id);
 }
 
-void tagsistant_sql_tag_object(dbi_conn conn, const gchar *tagname, tagsistant_inode inode)
+/**
+ * Tag an object
+ *
+ * @param conn dbi_conn reference
+ * @param tagname the tag name
+ * @param inode the object inode
+ */
+void tagsistant_sql_tag_object(dbi_conn conn, gchar *tagname, tagsistant_inode inode)
 {
-	tagsistant_query("insert into tags(tagname) values(\"%s\");", conn, NULL, NULL, tagname);
 
 	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(conn, tagname);
+	if (!tag_id) {
+		tagsistant_query("insert into tags(tagname) values(\"%s\");", conn, NULL, NULL, tagname);
+		tag_id = tagsistant_sql_get_tag_id(conn, tagname);
+	}
 
 #if TAGSISTANT_VERBOSE_LOGGING
 	dbg(LOG_INFO, "Tagging object %d as %s (%d)", inode, tagname, tag_id);
@@ -590,7 +667,14 @@ void tagsistant_sql_tag_object(dbi_conn conn, const gchar *tagname, tagsistant_i
 	tagsistant_query("insert into tagging(tag_id, inode) values(\"%d\", \"%d\");", conn, NULL, NULL, tag_id, inode);
 }
 
-void tagsistant_sql_untag_object(dbi_conn conn, const gchar *tagname, tagsistant_inode inode)
+/**
+ * Untag an object
+ *
+ * @param conn dbi_conn reference
+ * @param tagname the tag name
+ * @param inode the object inode
+ */
+void tagsistant_sql_untag_object(dbi_conn conn, gchar *tagname, tagsistant_inode inode)
 {
 	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(conn, tagname);
 
@@ -601,7 +685,14 @@ void tagsistant_sql_untag_object(dbi_conn conn, const gchar *tagname, tagsistant
 	tagsistant_query("delete from tagging where tag_id = \"%d\" and inode = \"%d\";", conn, NULL, NULL, tag_id, inode);
 }
 
-void tagsistant_sql_rename_tag(dbi_conn conn, const gchar *tagname, const gchar *oldtagname)
+/**
+ * Rename a tag
+ *
+ * @param conn dbi_conn reference
+ * @param tagname the new name of the tag
+ * @param oldtagname the old name of the tag
+ */
+void tagsistant_sql_rename_tag(dbi_conn conn, gchar *tagname, gchar *oldtagname)
 {
 	tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\";", conn, NULL, NULL, tagname, oldtagname);
 }

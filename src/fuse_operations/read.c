@@ -107,9 +107,12 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 					"\n"
 					" --> Compile flags:\n\n"
 					"  TAGSISTANT_ENABLE_QUERYTREE_CACHE: %d\n"
+					"     TAGSISTANT_ENABLE_TAG_ID_CACHE: %d\n"
+					"    TAGSISTANT_ENABLE_AND_SET_CACHE: %d\n"
+					" TAGSISTANT_RETAG_INTERNAL_SYMLINKS: %d\n"
+					"         TAGSISTANT_VERBOSE_LOGGING: %d\n"
 					"         TAGSISTANT_QUERY_DELIMITER: %c\n"
 					"        TAGSISTANT_ANDSET_DELIMITER: %c\n"
-					"         TAGSISTANT_VERBOSE_LOGGING: %d\n"
 					"         TAGSISTANT_INODE_DELIMITER: '%s'\n\n",
 					tagsistant.mountpoint,
 					tagsistant.repository,
@@ -119,9 +122,12 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 					tagsistant.singlethread,
 					tagsistant.readonly,
 					TAGSISTANT_ENABLE_QUERYTREE_CACHE,
+					TAGSISTANT_ENABLE_TAG_ID_CACHE,
+					TAGSISTANT_ENABLE_AND_SET_CACHE,
+					TAGSISTANT_RETAG_INTERNAL_SYMLINKS,
+					TAGSISTANT_VERBOSE_LOGGING,
 					TAGSISTANT_QUERY_DELIMITER_CHAR,
 					TAGSISTANT_ANDSET_DELIMITER_CHAR,
-					TAGSISTANT_VERBOSE_LOGGING,
 					TAGSISTANT_INODE_DELIMITER);
 				size_t stats_size = strlen(stats_buffer);
 

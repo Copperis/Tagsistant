@@ -1,5 +1,5 @@
 /*
-   Tagsistant (tagfs) -- path_resolution.h
+   Tagsistant (tagfs) -- path_resolution.c
    Copyright (C) 2006-2009 Tx0 <tx0@strumentiresistenti.org>
 
    Transform paths into queries and apply queries to file sets to
@@ -30,6 +30,13 @@ gchar *tagsistant_querytree_types[QTYPE_TOTAL];
  */
 GHashTable *tagsistant_querytree_cache = NULL;
 GRWLock tagsistant_querytree_cache_lock;
+#endif
+
+#if TAGSISTANT_ENABLE_AND_SET_CACHE
+/**
+ * Cache inode resolution from DB
+ */
+GHashTable *tagsistant_and_set_cache = NULL;
 #endif
 
 /**
@@ -90,6 +97,10 @@ void tagsistant_path_resolution_init()
 		NULL,
 		(GDestroyNotify) tagsistant_querytree_cache_destroy_element);
 #endif
+
+#if TAGSISTANT_ENABLE_AND_SET_CACHE
+	tagsistant_and_set_cache = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+#endif
 }
 
 /**
@@ -99,11 +110,12 @@ void tagsistant_path_resolution_init()
  * @param and_set the linked and-set list
  * @return a string like "tag1, tag2, tag3"
  */
-gchar *tagsistant_compile_and_set(ptree_and_node *and_set)
+gchar *tagsistant_compile_and_set(ptree_and_node *and_set, int *total)
 {
 	// TODO valgrind says: check for leaks
 	GString *str = g_string_sized_new(1024);
 	ptree_and_node *and_pointer = and_set;
+	*total = 0;
 
 	/* compile the string */
 	while (and_pointer) {
@@ -121,6 +133,7 @@ gchar *tagsistant_compile_and_set(ptree_and_node *and_set)
 			g_string_append(str, ", ");
 
 		and_pointer = and_pointer->next;
+		*total += 1;
 	}
 
 	/* save a pointer to the result */
@@ -130,6 +143,64 @@ gchar *tagsistant_compile_and_set(ptree_and_node *and_set)
 	g_string_free(str, FALSE);
 
 	return (result);
+}
+
+/**
+ * Try to guess the inode of an object by comparing DB contents
+ * with and and-set of tags
+ *
+ * @param and_set a pointer to a ptree_and_node and-set data structure
+ * @param dbi a libDBI dbi_conn reference
+ * @param objectname the name of the object we are looking up the inode
+ * @return the inode of the object if found, zero otherwise
+ */
+tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, dbi_conn dbi, gchar *objectname)
+{
+	tagsistant_inode inode = 0;
+	int tags_total = 0;
+	gchar *and_set_string = tagsistant_compile_and_set(and_set, &tags_total);
+
+#if TAGSISTANT_ENABLE_AND_SET_CACHE
+	gchar *search_key = g_strdup_printf("%s:%s", objectname, and_set_string);
+
+	// if lookup succeed, returns the inode
+	tagsistant_inode *value = (tagsistant_inode *) g_hash_table_lookup(tagsistant_and_set_cache, search_key);
+	if (value) {
+		g_free_null(search_key);
+		g_free_null(and_set_string);
+		return (*value);
+	}
+#endif
+
+	// lookup the inode in the SQL db
+	tagsistant_query(
+		"select objects.inode from objects "
+			"join tagging on objects.inode = tagging.inode "
+			"join tags on tagging.tag_id = tags.tag_id "
+			"where tags.tagname in (%s) and objects.objectname = \"%s\" "
+			"group by objects.inode "
+				"having count(distinct tags.tagname) = %d",
+		dbi,
+		tagsistant_return_integer,
+		&inode,
+		and_set_string,
+		objectname,
+		tags_total
+	);
+
+#if TAGSISTANT_ENABLE_AND_SET_CACHE
+	if (inode) {
+		tagsistant_inode *value = g_new(tagsistant_inode, 1);
+		*value = inode;
+		g_hash_table_insert(tagsistant_and_set_cache, search_key, value);
+	} else {
+		g_free_null(search_key);
+	}
+#endif
+
+	g_free_null(and_set_string);
+
+	return (inode);
 }
 
 /**
@@ -164,21 +235,29 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
 	// 2. use the object_first_element to guess if its tagged in the provided set of tags
 	ptree_or_node *or_tmp = qtree->tree;
 	while (or_tmp) {
-		gchar *and_set = tagsistant_compile_and_set(or_tmp->and_set);
+		inode = tagsistant_guess_inode_from_and_set(or_tmp->and_set, qtree->dbi, object_first_element);
+
+#if 0
+		int tags_total = 0;
+		gchar *and_set = tagsistant_compile_and_set(or_tmp->and_set, &tags_total);
 
 		tagsistant_query(
 			"select objects.inode from objects "
 				"join tagging on objects.inode = tagging.inode "
 				"join tags on tagging.tag_id = tags.tag_id "
-				"where tags.tagname in (%s) and objects.objectname = \"%s\"",
+				"where tags.tagname in (%s) and objects.objectname = \"%s\" "
+				"group by objects.inode "
+					"having count(distinct tags.tagname) = %d",
 			qtree->dbi,
 			tagsistant_return_integer,
 			&inode,
 			and_set,
-			object_first_element
+			object_first_element,
+			tags_total
 		);
 
 		g_free_null(and_set);
+#endif
 
 		if (inode) {
 			qtree->exists = 1;
@@ -191,116 +270,6 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
 	g_free_null(object_first_element);
 
 	return(qtree->exists);
-}
-
-/************************************************************************************/
-/***                                                                              ***/
-/*** Reasoner                                                                     ***/
-/***                                                                              ***/
-/************************************************************************************/
-
-/**
- * SQL callback. Add new tag derived from reasoning to a ptree_and_node_t structure.
- *
- * @param _reasoning pointer to be casted to reasoning_t* structure
- * @param result dbi_result pointer
- * @return 0 always, due to SQLite policy, may change in the future
- */
-static int tagsistant_add_reasoned_tag(void *_reasoning, dbi_result result)
-{
-	/* point to a reasoning_t structure */
-	tagsistant_reasoning *reasoning = (tagsistant_reasoning *) _reasoning;
-	assert(reasoning);
-	assert(reasoning->start_node);
-	assert(reasoning->current_node);
-	assert(reasoning->added_tags >= 0);
-
-	/* fetch the reasoned tag */
-	const char *reasoned_tag = dbi_result_get_string_idx(result, 1);
-
-	/* check for duplicates */
-	ptree_and_node *and = reasoning->start_node;
-	while (and) {
-		if (strcmp(and->tag, reasoned_tag) == 0) return (0); // duplicate, don't add
-
-		ptree_and_node *related = and->related;
-		while (related && related->tag) {
-			if (strcmp(related->tag, reasoned_tag) == 0) return (0); // duplicate, don't add
-			related = related->related;
-		}
-
-		and = and->next;
-	}
-
-	/* adding tag */
-	ptree_and_node *reasoned = g_new0(ptree_and_node, 1);
-	if (!reasoned) {
-		dbg(LOG_ERR, "Error allocating memory");
-		return (1);
-	}
-
-	reasoned->next = NULL;
-	reasoned->related = NULL;
-	reasoned->tag = g_strdup(reasoned_tag);
-
-	assert(reasoned->tag);
-
-	/* append the reasoned tag */
-	ptree_and_node *related = reasoning->current_node;
-	while (related->related) related = related->related;
-	related->related = reasoned;
-
-	reasoning->added_tags += 1;
-
-//	dbg(LOG_INFO, "Adding related tag %s", reasoned->tag);
-	return(0);
-}
-
-/**
- * Search and add related tags to a ptree_and_node_t,
- * enabling tagsistant_build_filetree to later add more criteria to SQL
- * statements to retrieve files
- *
- * @param reasoning the reasoning structure the tagsistant_reasoner should work on
- * @return number of tags added
- */
-int tagsistant_reasoner(tagsistant_reasoning *reasoning)
-{
-	assert(reasoning);
-	assert(reasoning->current_node);
-	assert(reasoning->current_node->tag);
-	assert(reasoning->conn);
-
-	tagsistant_query(
-		"select tags2.tagname from relations "
-			"join tags as tags1 on tags1.tag_id = relations.tag1_id "
-			"join tags as tags2 on tags2.tag_id = relations.tag2_id "
-			"where tags1.tagname = \"%s\" "
-				/*
-				"and relation = \"is_equivalent\" "
-				"or relation = \"includes\""
-				*/,
-		reasoning->conn,
-		tagsistant_add_reasoned_tag,
-		reasoning,
-		reasoning->current_node->tag);
-
-	tagsistant_query(
-		"select tags1.tagname from relations "
-			"join tags as tags1 on tags1.tag_id = relations.tag1_id "
-			"join tags as tags2 on tags2.tag_id = relations.tag2_id "
-			"where tags2.tagname = \"%s\" and relation = \"is_equivalent\";",
-		reasoning->conn,
-		tagsistant_add_reasoned_tag,
-		reasoning,
-		reasoning->current_node->tag);
-
-	if (reasoning->current_node->related) {
-		reasoning->current_node = reasoning->current_node->related;
-		tagsistant_reasoner(reasoning);
-	}
-
-	return(reasoning->added_tags);
 }
 
 /**
@@ -804,21 +773,30 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 		if (!qtree->inode) {
 			ptree_or_node *or_tmp = qtree->tree;
 			while (or_tmp && !qtree->inode && strlen(qtree->object_path)) {
-				gchar *and_set = tagsistant_compile_and_set(or_tmp->and_set);
+				qtree->inode = tagsistant_guess_inode_from_and_set(or_tmp->and_set, qtree->dbi, *token_ptr);
+
+#if 0
+				int and_total = 0;
+				gchar *and_set = tagsistant_compile_and_set(or_tmp->and_set, &and_total);
 
 				tagsistant_query(
 					"select objects.inode from objects "
 						"join tagging on objects.inode = tagging.inode "
 						"join tags on tagging.tag_id = tags.tag_id "
-						"where tags.tagname in (%s) and objects.objectname = \"%s\"",
+						"where tags.tagname in (%s) and objects.objectname = \"%s\" "
+						"group by objects.inode "
+							"having count(distinct tags.tagname) = %d",
 					qtree->dbi,
 					tagsistant_return_integer,
 					&(qtree->inode),
 					and_set,
-					*token_ptr
+					*token_ptr,
+					and_total
 				);
 
 				g_free_null(and_set);
+#endif
+
 				or_tmp = or_tmp->next;
 			}
 		} else {
@@ -1263,10 +1241,8 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 			}
 		}
 
-//		g_string_append(statement, ";");
-
 #if TAGSISTANT_VERBOSE_LOGGING
-		dbg(LOG_INFO, "SQL: final statement is [%s]", statement->str);
+		dbg(LOG_INFO, "SQL: filetree query [%s]", statement->str);
 #endif
 
 		/* create view */
@@ -1286,10 +1262,8 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 		query = query->next;
 	}
 
-//	g_string_append(view_statement, ";");
-
 #if TAGSISTANT_VERBOSE_LOGGING
-	dbg(LOG_INFO, "SQL view statement: %s", view_statement->str);
+	dbg(LOG_INFO, "SQL view query [%s]", view_statement->str);
 #endif
 
 	/* apply view statement */
