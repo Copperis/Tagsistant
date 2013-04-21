@@ -407,7 +407,7 @@ int tagsistant_real_query(
 		if ((-1 == err) && errmsg) dbg(LOG_ERR, "Error: %s.", errmsg);
 	}
 
-	g_free(statement);
+	g_free_null(statement);
 	return(rows);
 }
 

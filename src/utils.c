@@ -91,7 +91,7 @@ tagsistant_inode tagsistant_inode_extract_from_path(tagsistant_querytree *qtree)
 		gchar *inode_text = g_match_info_fetch(match_info, 1);
 		gchar *backup_inode_text = inode_text;
 		inode = strtoul(inode_text, &backup_inode_text, 10);
-		g_free(inode_text);
+		g_free_null(inode_text);
 
 		/*
 		 * replace the inode and the separator with a blank string,
@@ -291,8 +291,8 @@ void tagsistant_calculate_object_checksum(tagsistant_inode inode, dbi_conn dbi)
 		/* guess if the object is a file or a symlink */
 		struct stat buf;
 		if ((-1 == lstat(path, &buf)) || (!S_ISREG(buf.st_mode) && !S_ISLNK(buf.st_mode))) {
-			g_free(path);
-			g_free(objectname);
+			g_free_null(path);
+			g_free_null(objectname);
 			return;
 		}
 
@@ -319,7 +319,7 @@ void tagsistant_calculate_object_checksum(tagsistant_inode inode, dbi_conn dbi)
 
 				/* destroy the checksum object */
 				g_checksum_free(checksum);
-				g_free(buffer);
+				g_free_null(buffer);
 
 				/* save the string into the objects table */
 				tagsistant_query(
@@ -330,14 +330,14 @@ void tagsistant_calculate_object_checksum(tagsistant_inode inode, dbi_conn dbi)
 				tagsistant_find_duplicated_objects(inode, hex, path, dbi);
 
 				/* free the hex checksum string */
-				g_free(hex);
+				g_free_null(hex);
 			}
 			close(fd);
 		}
-		g_free(path);
+		g_free_null(path);
 	}
 
-	g_free(objectname);
+	g_free_null(objectname);
 }
 
 /**
@@ -426,7 +426,7 @@ GKeyFile *tagsistant_parse_repository_ini()
 
 	// load the key file
 	g_key_file_load_from_file(kf, ini_path, G_KEY_FILE_NONE, &error);
-	g_free(ini_path);
+	g_free_null(ini_path);
 
 	// if no error occurred, return the GKeyFile object
 	if (!error) return (kf);
@@ -459,8 +459,8 @@ void tagsistant_save_repository_ini(GKeyFile *kf)
 		dbg(LOG_ERR, "Unable to write %s: %s", ini_path, strerror(errno));
 	}
 
-	g_free(content);
-	g_free(ini_path);
+	g_free_null(content);
+	g_free_null(ini_path);
 }
 
 /**

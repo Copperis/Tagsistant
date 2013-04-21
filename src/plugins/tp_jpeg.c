@@ -72,7 +72,7 @@ int tagsistant_processor(const tagsistant_querytree *qtree)
 		}
 
 		tagsistant_sql_tag_object(qtree->dbi, exiftag, qtree->inode);
-		g_free(exiftag);
+		g_free_null(exiftag);
 	}
 
 	// ok

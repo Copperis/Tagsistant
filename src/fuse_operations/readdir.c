@@ -84,7 +84,7 @@ static int tagsistant_readdir_on_tags_filler(gchar *name, GList *fh_list, struct
 		if (fh) {
 			gchar *filename = g_strdup_printf("%d%s%s", fh->inode, TAGSISTANT_INODE_DELIMITER, fh->name);
 			ufs->filler(ufs->buf, filename, NULL, 0);
-			g_free(filename);
+			g_free_null(filename);
 		}
 		fh_list = fh_list->next;
 	}

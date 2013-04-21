@@ -45,7 +45,7 @@ char *tagsistant_get_file_mimetype(const char *filename)
 
 	char *ext_space_mixed = g_strdup_printf("%s ", ext); /* trailing space is used later in matching */
 	char *ext_space = g_ascii_strdown(ext_space_mixed, -1); /* trailing space is used later in matching */
-	g_free(ext_space_mixed);
+	g_free_null(ext_space_mixed);
 
 	/* open /etc/mime.types */
 	FILE *f = fopen("/etc/mime.types", "r");
@@ -341,7 +341,7 @@ void tagsistant_plugin_apply_regex(const tagsistant_querytree *qtree, const char
 #endif
 
 		gchar **tokens = g_strsplit_set(raw, " \t,.!?/", 255);
-		g_free(raw);
+		g_free_null(raw);
 
 		int x = 0;
 		while (tokens[x]) {
