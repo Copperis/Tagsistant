@@ -303,7 +303,7 @@ int main(int argc, char *argv[])
 	fuse_opt_add_arg(&args, "-odefer_permissions");
 	gchar *volname = g_strdup_printf("-ovolname=%s", tagsistant.mountpoint);
 	fuse_opt_add_arg(&args, volname);
-	freenull(volname);
+	g_free_null(volname);
 #else
 	/* fuse_opt_add_arg(&args, "-odefault_permissions"); */
 #endif
@@ -369,7 +369,7 @@ int main(int argc, char *argv[])
 	/* checking repository */
 	if (!tagsistant.repository || (strcmp(tagsistant.repository, "") == 0)) {
 		if (strlen(getenv("HOME"))) {
-			freenull(tagsistant.repository);
+			g_free_null(tagsistant.repository);
 			tagsistant.repository = g_strdup_printf("%s/.tagsistant", getenv("HOME"));
 			if (!tagsistant.quiet)
 				fprintf(stderr, " Using default repository %s\n", tagsistant.repository);
@@ -394,9 +394,9 @@ int main(int argc, char *argv[])
 		char *home_path = getenv("HOME");
 		if (home_path != NULL) {
 			char *relative_path = g_strdup(tagsistant.repository + 1);
-			freenull(tagsistant.repository);
+			g_free_null(tagsistant.repository);
 			tagsistant.repository = g_strdup_printf("%s%s", home_path, relative_path);
-			freenull(relative_path);
+			g_free_null(relative_path);
 			dbg(LOG_INFO, "Repository path is %s", tagsistant.repository);
 		} else {
 			dbg(LOG_ERR, "Repository path starts with '~', but $HOME was not available!");
@@ -411,7 +411,7 @@ int main(int argc, char *argv[])
 			dbg(LOG_ERR, "Error getting working directory, will leave repository path as is");
 		} else {
 			gchar *absolute_repository = g_strdup_printf("%s/%s", cwd, tagsistant.repository);
-			freenull(tagsistant.repository);
+			g_free_null(tagsistant.repository);
 			tagsistant.repository = absolute_repository;
 			dbg(LOG_ERR, "Repository path is %s", tagsistant.repository);
 		}
@@ -509,10 +509,10 @@ int main(int argc, char *argv[])
 	tagsistant_plugin_unloader();
 
 	/* free memory to better perfom memory leak profiling */
-	freenull(tagsistant.dboptions);
-	freenull(tagsistant.repository);
-	freenull(tagsistant.archive);
-	freenull(tagsistant.tags);
+	g_free_null(tagsistant.dboptions);
+	g_free_null(tagsistant.repository);
+	g_free_null(tagsistant.archive);
+	g_free_null(tagsistant.tags);
 
 	return(res);
 }

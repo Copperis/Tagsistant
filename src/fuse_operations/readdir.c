@@ -140,7 +140,7 @@ int tagsistant_readdir_on_tags(
 		tagsistant_query("select tagname from tags;", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
 	}
 
-	freenull(ufs);
+	g_free_null(ufs);
 	return (0);
 }
 
@@ -236,7 +236,7 @@ int tagsistant_readdir_on_relations(
 		tagsistant_query("select tagname from tags;", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
 	}
 
-	freenull(ufs);
+	g_free_null(ufs);
 	return (0);
 }
 

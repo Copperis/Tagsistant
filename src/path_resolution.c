@@ -178,7 +178,7 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
 			object_first_element
 		);
 
-		g_free(and_set);
+		g_free_null(and_set);
 
 		if (inode) {
 			qtree->exists = 1;
@@ -188,7 +188,7 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
 		or_tmp = or_tmp->next;
 	}
 
-	g_free(object_first_element);
+	g_free_null(object_first_element);
 
 	return(qtree->exists);
 }
@@ -395,13 +395,13 @@ int tagsistant_querytree_parse_tags (
 #else
 					(void) newtags;
 #endif
-					g_free(reasoning);
+					g_free_null(reasoning);
 				}
 			}
 		}
 
 		// save last tag found
-		freenull(qtree->last_tag);
+		g_free_null(qtree->last_tag);
 		qtree->last_tag = g_strdup(**token_ptr);
 
 		(*token_ptr)++;
@@ -474,7 +474,7 @@ void tagsistant_querytree_set_object_path(tagsistant_querytree *qtree, char *new
 {
 	if (!new_object_path) return;
 
-	if (qtree->object_path) g_free(qtree->object_path);
+	if (qtree->object_path) g_free_null(qtree->object_path);
 	qtree->object_path = g_strdup(new_object_path);
 
 	tagsistant_querytree_rebuild_paths(qtree);
@@ -503,10 +503,10 @@ void tagsistant_querytree_rebuild_paths(tagsistant_querytree *qtree)
 {
 	if (!qtree->inode) return;
 
-	if (qtree->archive_path) g_free(qtree->archive_path);
+	if (qtree->archive_path) g_free_null(qtree->archive_path);
 	qtree->archive_path = g_strdup_printf("%d" TAGSISTANT_INODE_DELIMITER "%s", qtree->inode, qtree->object_path);
 
-	if (qtree->full_archive_path) g_free(qtree->full_archive_path);
+	if (qtree->full_archive_path) g_free_null(qtree->full_archive_path);
 	qtree->full_archive_path = g_strdup_printf("%s%s", tagsistant.archive, qtree->archive_path);
 }
 
@@ -669,8 +669,8 @@ gboolean tagsistant_invalidate_querytree_entry(gpointer key_p, gpointer entry_p,
 	if (strstr(entry->full_path, first_tag) || strstr(entry->full_path, second_tag))
 		matches = TRUE;
 
-	g_free(first_tag);
-	g_free(second_tag);
+	g_free_null(first_tag);
+	g_free_null(second_tag);
 
 	return (matches);
 }
@@ -818,7 +818,7 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 					*token_ptr
 				);
 
-				g_free(and_set);
+				g_free_null(and_set);
 				or_tmp = or_tmp->next;
 			}
 		} else {
@@ -1010,7 +1010,7 @@ void tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
 
 			/* destroy the checksum object */
 			g_checksum_free(checksum);
-			g_free(buffer);
+			g_free_null(buffer);
 
 			/* save the string into the objects table */
 			tagsistant_query(
@@ -1021,7 +1021,7 @@ void tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
 			tagsistant_querytree_find_duplicates(qtree, hex);
 
 			/* free the hex checksum string */
-			g_free(hex);
+			g_free_null(hex);
 		}
 		close(fd);
 	}
@@ -1046,10 +1046,10 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, uint commit_trans
 	/* mark the connection as available */
 	tagsistant_db_connection_release(qtree->dbi);
 
-	freenull(qtree->full_path);
-	freenull(qtree->object_path);
-	freenull(qtree->archive_path);
-	freenull(qtree->full_archive_path);
+	g_free_null(qtree->full_path);
+	g_free_null(qtree->object_path);
+	g_free_null(qtree->archive_path);
+	g_free_null(qtree->full_archive_path);
 
 	if (QTREE_IS_TAGS(qtree)) {
 		ptree_or_node *node = qtree->tree;
@@ -1062,33 +1062,33 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, uint commit_trans
 				while (tag->related) {
 					ptree_and_node *related = tag->related;
 					tag->related = related->related;
-					freenull(related->tag);
-					freenull(related);
+					g_free_null(related->tag);
+					g_free_null(related);
 				}
 
 				// free the ptree_and_node_t node
 				ptree_and_node *next = tag->next;
-				freenull(tag->tag);
-				freenull(tag);
+				g_free_null(tag->tag);
+				g_free_null(tag);
 				tag = next;
 			}
 
 			// free the ptree_or_node_t node
 			ptree_or_node *next = node->next;
-			freenull(node);
+			g_free_null(node);
 			node = next;
 		}
-		freenull(qtree->last_tag);
+		g_free_null(qtree->last_tag);
 	} else if (QTREE_IS_RELATIONS(qtree)) {
-		freenull(qtree->first_tag);
-		freenull(qtree->second_tag);
-		freenull(qtree->relation);
+		g_free_null(qtree->first_tag);
+		g_free_null(qtree->second_tag);
+		g_free_null(qtree->relation);
 	} else if (QTREE_IS_STATS(qtree)) {
-		freenull(qtree->stats_path);
+		g_free_null(qtree->stats_path);
 	}
 
 	// free the structure
-	g_free(qtree);
+	g_free_null(qtree);
 }
 
 /************************************************************************************/
@@ -1120,7 +1120,7 @@ static int tagsistant_add_to_filetree(void *hash_table_pointer, dbi_result resul
 		tagsistant_file_handle *fh_tmp = (tagsistant_file_handle *) list_tmp->data;
 
 		if (fh_tmp && (fh_tmp->inode == inode)) {
-			g_free(name);
+			g_free_null(name);
 			return (0);
 		}
 
@@ -1130,7 +1130,7 @@ static int tagsistant_add_to_filetree(void *hash_table_pointer, dbi_result resul
 	/* fetch query results into tagsistant_file_handle struct */
 	tagsistant_file_handle *fh = g_new0(tagsistant_file_handle, 1);
 	if (!fh) {
-		g_free(name);
+		g_free_null(name);
 		return (0);
 	}
 
@@ -1321,8 +1321,8 @@ void tagsistant_filetree_destroy_value(gpointer fh_p)
 	if (!fh_p) return;
 
 	tagsistant_file_handle *fh = (tagsistant_file_handle *) fh_p;
-	g_free(fh->name);
-	g_free(fh);
+	g_free_null(fh->name);
+	g_free_null(fh);
 }
 
 /**

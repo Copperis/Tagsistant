@@ -30,7 +30,7 @@
  *
  * \param filename file to be processed (just the name, will be looked up in /archive)
  * \return(the string rappresenting MIME type (like "audio/mpeg")); the string is dynamically
- *   allocated and need to be freenull()ed by outside code
+ *   allocated and need to be g_free_null()ed by outside code
  */
 char *tagsistant_get_file_mimetype(const char *filename)
 {
@@ -74,7 +74,7 @@ char *tagsistant_get_file_mimetype(const char *filename)
 				if ((strstr(ext_list, ext) == ext_list) || (strstr(ext_list, ext_space) == ext_list)) {
 					type = g_strdup(line);
 //					dbg(LOG_INFO, "File %s is %s", filename, type);
-					freenull(line);
+					g_free_null(line);
 					goto BREAK_MIME_SEARCH;
 				}
 
@@ -84,12 +84,12 @@ char *tagsistant_get_file_mimetype(const char *filename)
 			}
 		}
 
-		if (line != NULL) freenull(line);
+		g_free_null(line);
 		line = NULL;
 	}
 
 BREAK_MIME_SEARCH:
-	freenull(ext_space);
+	g_free_null(ext_space);
 	fclose(f);
 	return(type);
 }
@@ -171,8 +171,8 @@ int tagsistant_process(tagsistant_querytree *qtree)
 
 STOP_CHAIN_TAGGING:
 
-	freenull(mime_type);
-	freenull(mime_generic);
+	g_free_null(mime_type);
+	g_free_null(mime_generic);
 
 #if TAGSISTANT_VERBOSE_LOGGING
 	dbg(LOG_INFO, "Processing of %s ended.", qtree->full_archive_path);
@@ -243,7 +243,7 @@ void tagsistant_plugin_loader()
 				if (plugin->handle == NULL) {
 					if (!tagsistant.quiet)
 						fprintf(stderr, " *** error dlopen()ing plugin %s: %s ***\n", de->d_name, dlerror());
-					freenull(plugin);
+					g_free_null(plugin);
 				} else {
 					/* search for init function and call it */
 					int (*init_function)() = NULL;
@@ -254,7 +254,7 @@ void tagsistant_plugin_loader()
 						if (!init_res) {
 							/* if init failed, ignore this plugin */
 							dbg(LOG_ERR, " *** error calling plugin_init() on %s ***\n", de->d_name);
-							freenull(plugin);
+							g_free_null(plugin);
 							continue;
 						}
 					}
@@ -264,14 +264,14 @@ void tagsistant_plugin_loader()
 					if (plugin->mime_type == NULL) {
 						if (!tagsistant.quiet)
 							fprintf(stderr, " *** error finding %s processor function: %s ***\n", de->d_name, dlerror());
-						freenull(plugin);
+						g_free_null(plugin);
 					} else {
 						/* search for processor function */
 						plugin->processor = dlsym(plugin->handle, "tagsistant_processor");
 						if (plugin->processor == NULL) {
 							if (!tagsistant.quiet)
 								fprintf(stderr, " *** error finding %s processor function: %s ***\n", de->d_name, dlerror());
-							freenull(plugin);
+							g_free_null(plugin);
 						} else {
 							plugin->free = dlsym(plugin->handle, "tagsistant_plugin_free");
 							if (plugin->free == NULL) {
@@ -288,13 +288,13 @@ void tagsistant_plugin_loader()
 						}
 					}
 				}
-				freenull(pname);
+				g_free_null(pname);
 			}
 			closedir(p);
 		}
 	}
 
-	freenull(tagsistant_plugins);
+	g_free_null(tagsistant_plugins);
 }
 
 void tagsistant_plugin_unloader()
@@ -307,10 +307,10 @@ void tagsistant_plugin_unloader()
 		if (pp->free != NULL) {
 			(pp->free)();
 		}
-		freenull(pp->filename);	/* free plugin filename */
+		g_free_null(pp->filename);	/* free plugin filename */
 		dlclose(pp->handle);	/* unload the plugin */
 		ppnext = pp->next;		/* save next plugin in tagsistant chain */
-		freenull(pp);			/* free this plugin entry in tagsistant chain */
+		g_free_null(pp);			/* free this plugin entry in tagsistant chain */
 		pp = ppnext;			/* point to next plugin in tagsistant chain */
 	}
 }

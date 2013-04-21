@@ -52,7 +52,7 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 		if (-1 != res) {
 			close(res);
 
-			if ((fi->flags&O_WRONLY) || (fi->flags&O_RDWR)) {
+			if ((fi->flags & O_WRONLY) || (fi->flags & O_RDWR)) {
 				// invalidate the checksum
 				tagsistant_query(
 					"update objects set checksum = \"\" where inode = %d",

@@ -193,10 +193,6 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tag
 	// 3. tag the object
 	tagsistant_querytree_traverse(qtree, tagsistant_sql_tag_object, inode);
 
-	// 4. use autotagging plugin stack
-	// the object is empty, how should autotagging be able to extract anything?
-	//	tagsistant_process(qtree);
-
 #if TAGSISTANT_VERBOSE_LOGGING
 	if (force_create) {
 		dbg(LOG_INFO, "Forced creation of object %s", qtree->full_path);

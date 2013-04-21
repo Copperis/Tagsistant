@@ -189,7 +189,7 @@ extern struct tagsistant tagsistant;
  * @param symbol the symbol to free
  * @return
  */
-#define freenull(symbol) {\
+#define g_free_null(symbol) {\
 	if (symbol) {\
 		g_free(symbol);\
 		symbol = NULL;\

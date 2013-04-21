@@ -74,7 +74,7 @@ my $error_stack = "";
 
 start_tagsistant();
 
-print "Doing tests...\n";
+print "Press [ENTER] before each test\n";
 
 # ---------[tagsistant is mounted, do tests]---------------------------- <---
 
@@ -91,8 +91,6 @@ unless ($testbed_ok) {
 	print "Testbed not ok!\n";
 	goto EXITSUITE;
 }
-
-print "Press [ENTER] before each test\n";
 
 out_test('^\.$', '^\.\.$');
 test("ls -a $MP/archive");
@@ -145,7 +143,6 @@ test("diff $MP/tags/t1/@/clutter $MP/tags/t2/@/clutter");
 
 # then we rename a file
 test("mv $MP/tags/t1/@/clutter $MP/tags/t1/@/clutter_renamed");
-print ".....\n"; sleep(30); goto OUT;
 test("ls -la $MP/tags/t1/@/");
 test("stat $MP/tags/t1/@/clutter_renamed");
 
@@ -167,10 +164,6 @@ test("cp /tmp/clutter $MP/tags/t1/@/tobedeleted");
 test("cp /tmp/clutter $MP/tags/t2/@/tobedeleted_fromarchive");
 test("rm $MP/tags/t1/@/tobedeleted");
 test("ls -l $MP/tags/t1/@/tobedeleted", 2); # we specify 2 as exit status 'cause we don't expect to find what we are searching
-my $filename = qx|ls $MP/archive/tobedeleted_fromarchive|;
-test("rm $filename");
-test("ls $MP/tags/t2/@/tobedeleted*", 2); # 2 again
-test("ls $MP/archive/*tobedeleted*", 2); # same reason: the file should be gone
 
 # now we create a file in two directories and than
 # we delete if from just one. we expect the file to
@@ -178,6 +171,7 @@ test("ls $MP/archive/*tobedeleted*", 2); # same reason: the file should be gone
 # from the second and last one and we expect it to
 # desappear from the archive/ as well.
 test("cp /tmp/clutter $MP/tags/t1/t2/@/multifile");
+sleep(60);
 test("stat $MP/tags/t1/@/multifile");
 test("stat $MP/tags/t2/@/multifile");
 test("rm $MP/tags/t2/@/multifile");
@@ -283,7 +277,7 @@ sub stop_tagsistant {
 # Execute a command and check its exit code
 #
 sub test {
-	$a = <STDIN>;
+	# $a = <STDIN>;
 	$tc++;
 
 	#
