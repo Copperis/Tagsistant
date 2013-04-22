@@ -178,8 +178,7 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 			"join tagging on objects.inode = tagging.inode "
 			"join tags on tagging.tag_id = tags.tag_id "
 			"where tags.tagname in (%s) and objects.objectname = \"%s\" "
-			"group by objects.inode "
-				"having count(distinct tags.tagname) = %d",
+			/* "group by objects.inode having count(distinct tags.tagname) = %d " */,
 		dbi,
 		tagsistant_return_integer,
 		&inode,
