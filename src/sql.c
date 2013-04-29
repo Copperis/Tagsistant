@@ -227,8 +227,10 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 	if (!dbi) {
 		// initialize DBI drivers
 		if (TAGSISTANT_DBI_MYSQL_BACKEND == dboptions.backend) {
-			if (!tagsistant_driver_is_available("mysql"))
+			if (!tagsistant_driver_is_available("mysql")) {
+				dbg(LOG_ERR, "MySQL driver not installed");
 				exit (1);
+			}
 
 			// unlucky, MySQL does not provide INTERSECT operator
 			tagsistant.sql_backend_have_intersect = 0;
@@ -248,8 +250,11 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 			dbi_conn_set_option(dbi, "encoding", "UTF-8");
 
 		} else if (TAGSISTANT_DBI_SQLITE_BACKEND == dboptions.backend) {
-			if (!tagsistant_driver_is_available("sqlite3"))
+			if (!tagsistant_driver_is_available("sqlite3")) {
+				fprintf(stderr, "SQLite3 driver not installed\n");
+				dbg(LOG_ERR, "SQLite3 driver not installed");
 				exit(1);
+			}
 
 			// create connection
 			dbi = dbi_conn_new("sqlite3");
