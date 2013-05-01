@@ -65,8 +65,15 @@ extern void tagsistant_db_connection_release(dbi_conn dbi);
  * transactions are started by default in tagsistant_db_connection()
  * and must be closed calling one of the following macros
  */
-#define tagsistant_commit_transaction(dbi_conn) tagsistant_query("commit", dbi_conn, NULL, NULL)
-#define tagsistant_rollback_transaction(dbi_conn) tagsistant_query("rollback", dbi_conn, NULL, NULL)
+#define TAGSISTANT_USE_INTERNAL_TRANSACTIONS 1
+
+#if TAGSISTANT_USE_INTERNAL_TRANSACTIONS
+#	define tagsistant_commit_transaction(dbi_conn) tagsistant_query("commit", dbi_conn, NULL, NULL)
+#	define tagsistant_rollback_transaction(dbi_conn) tagsistant_query("rollback", dbi_conn, NULL, NULL)
+#else
+#	define tagsistant_commit_transaction(dbi_conn) dbi_conn_transaction_commit(dbi_conn)
+#	define tagsistant_rollback_transaction(dbi_conn) dbi_conn_transaction_rollback(dbi_conn)
+#endif /* TAGSISTANT_USE_INTERNAL_TRANSACTIONS */
 
 /***************\
  * SQL QUERIES *

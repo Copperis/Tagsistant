@@ -27,14 +27,14 @@
 
 #ifdef _DEBUG_SYSLOG
 #	include <syslog.h>
-#	define dbg(facility, string, ...) \
-		{ if (!tagsistant.quiet) syslog(facility, string " [@%s:%d]", ##__VA_ARGS__, __FILE__, __LINE__); }
+#	define dbg(family, facility, string, ...) \
+		{ if (!tagsistant.quiet && tagsistant.dbg[family]) syslog(facility, string " [@%s:%d]", ##__VA_ARGS__, __FILE__, __LINE__); }
 #endif
 
 #ifdef _DEBUG_STDERR
 #	include <stdio.h>
-#	define dbg(facility,string,...) \
-		{ if (!tagsistant.quiet) fprintf(stderr,"TS> " string " [@%s:%d]\n", ##__VA_ARGS__, __FILE__, __LINE__); }
+#	define dbg(family, facility,string, ...) \
+		{ if (!tagsistant.quiet && tagsistant.dbg[family]) fprintf(stderr,"TS> " string " [@%s:%d]\n", ##__VA_ARGS__, __FILE__, __LINE__); }
 #endif
 
 #define strlen(string) ((string == NULL) ? 0 : strlen(string))

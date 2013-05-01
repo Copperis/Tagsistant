@@ -140,7 +140,7 @@ enum {
 #define TAGSISTANT_OPT(t, p, v) { t, offsetof(struct tagsistant, p), v }
 
 static struct fuse_opt tagsistant_opts[] = {
-	TAGSISTANT_OPT("-d",				debug,			1),
+	TAGSISTANT_OPT("--debug=%s",		debug,			0),
 	TAGSISTANT_OPT("--repository=%s",	repository,		0),
 	TAGSISTANT_OPT("-f",				foreground,		1),
 	TAGSISTANT_OPT("-s",				singlethread,	1),
@@ -194,7 +194,18 @@ void tagsistant_usage(char *progname)
 		"\n"
 		"    -q                     be quiet\n"
 		"    -r                     mount readonly\n"
-		"    -v                     verbose syslogging\n   "
+		"    -v                     verbose syslogging\n"
+		"    --debug=<profile>      enable specific debugging output:\n"
+		"                             b: boot\n"
+		"                             c: cache\n"
+		"                             f: file tree (readdir)\n"
+		"                             F: FUSE operations (open, read, write, symlink, ...)\n"
+		"                             l: low level\n"
+		"                             p: plugin\n"
+		"                             q: query parsing\n"
+		"                             r: reasoning\n"
+		"                             s: SQL queries\n"
+		"                             2: deduplication\n"
 		"\n" /*fuse options will follow... */
 		, PACKAGE_VERSION, TAGSISTANT_BUILDNUMBER, FUSE_USE_VERSION, progname
 	);
@@ -260,7 +271,7 @@ static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse
  */
 void cleanup(int s)
 {
-	dbg(LOG_ERR, "Got Signal %d", s);
+	dbg('b', LOG_ERR, "Got Signal %d", s);
 	exit(s);
 }
 
@@ -279,12 +290,12 @@ int main(int argc, char *argv[])
 	}
 #endif
 
-#ifdef DEBUG_TO_LOGFILE
-	open_debug_file();	
-#endif
-
 	tagsistant.progname = argv[0];
+	tagsistant.debug = NULL;
+	int i = 0;
+	for (; i < 128; i++) tagsistant.dbg[i] = 0;
 
+	/* parse command line options */
 	if (-1 == fuse_opt_parse(&args, &tagsistant, tagsistant_opts, tagsistant_opt_proc)) {
 		exit(1);
 	}
@@ -307,6 +318,15 @@ int main(int argc, char *argv[])
 #else
 	/* fuse_opt_add_arg(&args, "-odefault_permissions"); */
 #endif
+
+	/* parse debugging profile */
+	if (tagsistant.debug) {
+		char *dbg_ptr = tagsistant.debug;
+		while (*dbg_ptr) {
+			tagsistant.dbg[*dbg_ptr] = 1;
+			dbg_ptr++;
+		}
+	}
 
 	if (tagsistant.singlethread) {
 		if (!tagsistant.quiet)
@@ -397,23 +417,23 @@ int main(int argc, char *argv[])
 			g_free_null(tagsistant.repository);
 			tagsistant.repository = g_strdup_printf("%s%s", home_path, relative_path);
 			g_free_null(relative_path);
-			dbg(LOG_INFO, "Repository path is %s", tagsistant.repository);
+			dbg('b', LOG_INFO, "Repository path is %s", tagsistant.repository);
 		} else {
-			dbg(LOG_ERR, "Repository path starts with '~', but $HOME was not available!");
+			dbg('b', LOG_ERR, "Repository path starts with '~', but $HOME was not available!");
 		}
 	} else 
 
 	/* checking if repository is a relative path */
 	if (tagsistant.repository[0] != '/') {
-		dbg(LOG_ERR, "Repository path is relative [%s]", tagsistant.repository);
+		dbg('b', LOG_ERR, "Repository path is relative [%s]", tagsistant.repository);
 		char *cwd = getcwd(NULL, 0);
 		if (cwd == NULL) {
-			dbg(LOG_ERR, "Error getting working directory, will leave repository path as is");
+			dbg('b', LOG_ERR, "Error getting working directory, will leave repository path as is");
 		} else {
 			gchar *absolute_repository = g_strdup_printf("%s/%s", cwd, tagsistant.repository);
 			g_free_null(tagsistant.repository);
 			tagsistant.repository = absolute_repository;
-			dbg(LOG_ERR, "Repository path is %s", tagsistant.repository);
+			dbg('b', LOG_ERR, "Repository path is %s", tagsistant.repository);
 		}
 	}
 
@@ -449,8 +469,7 @@ int main(int argc, char *argv[])
 	}
 	chmod(tagsistant.archive, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
 
-	if (tagsistant.debug)
-		dbg(LOG_INFO, "Debug is enabled");
+	dbg('b', LOG_INFO, "Debug is enabled: %s", tagsistant.debug);
 
 	umask(0);
 
@@ -475,12 +494,12 @@ int main(int argc, char *argv[])
 	 */
 	tagsistant_manage_repository_ini();
 
-	dbg(LOG_INFO, "Mounting filesystem");
+	dbg('b', LOG_INFO, "Mounting filesystem");
 
-	dbg(LOG_INFO, "Fuse options:");
+	dbg('b', LOG_INFO, "Fuse options:");
 	int fargc = args.argc;
 	while (fargc) {
-		dbg(LOG_INFO, "%.2d: %s", fargc, args.argv[fargc]);
+		dbg('b', LOG_INFO, "%.2d: %s", fargc, args.argv[fargc]);
 		fargc--;
 	}
 

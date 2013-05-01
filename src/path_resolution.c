@@ -292,7 +292,7 @@ int tagsistant_querytree_parse_tags (
 	ptree_or_node *last_or = qtree->tree = g_new0(ptree_or_node, 1);
 	if (qtree->tree == NULL) {
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
-		dbg(LOG_ERR, "Error allocating memory");
+		dbg('q', LOG_ERR, "Error allocating memory");
 		return (0);
 	}
 
@@ -300,9 +300,7 @@ int tagsistant_querytree_parse_tags (
 
 	// state if the query is complete or not
 	qtree->complete = (NULL == g_strstr_len(path, strlen(path), TAGSISTANT_QUERY_DELIMITER)) ? 0 : 1;
-#if TAGSISTANT_VERBOSE_LOGGING
-	dbg(LOG_INFO, "Path %s is %scomplete", path, qtree->complete ? "" : "not ");
-#endif
+	dbg('q', LOG_INFO, "Path %s is %scomplete", path, qtree->complete ? "" : "not ");
 
 	// by default a query is valid until something wrong happens while parsing it
 	qtree->valid = 1;
@@ -317,7 +315,7 @@ int tagsistant_querytree_parse_tags (
 			andcount = 0;
 			ptree_or_node *new_or = g_new0(ptree_or_node, 1);
 			if (new_or == NULL) {
-				dbg(LOG_ERR, "Error allocating memory");
+				dbg('q', LOG_ERR, "Error allocating memory");
 				return (0);
 			}
 			last_or->next = new_or;
@@ -327,7 +325,7 @@ int tagsistant_querytree_parse_tags (
 			/* save next token in new ptree_and_node_t slot */
 			ptree_and_node *and = g_new0(ptree_and_node, 1);
 			if (and == NULL) {
-				dbg(LOG_ERR, "Error allocating memory");
+				dbg('q', LOG_ERR, "Error allocating memory");
 				return (0);
 			}
 			and->tag = g_strdup(**token_ptr);
@@ -340,16 +338,12 @@ int tagsistant_querytree_parse_tags (
 			}
 			last_and = and;
 
-#if TAGSISTANT_VERBOSE_LOGGING
-			dbg(LOG_INFO, "Query tree nodes %.2d.%.2d %s", orcount, andcount, **token_ptr);
-#endif
+			dbg('q', LOG_INFO, "Query tree nodes %.2d.%.2d %s", orcount, andcount, **token_ptr);
 			andcount++;
 
 			/* search related tags */
 			if (do_reasoning) {
-#if TAGSISTANT_VERBOSE_LOGGING
-				dbg(LOG_INFO, "Searching for other tags related to %s", and->tag);
-#endif
+				dbg('q', LOG_INFO, "Searching for other tags related to %s", and->tag);
 
 				tagsistant_reasoning *reasoning = g_malloc(sizeof(tagsistant_reasoning));
 				if (reasoning != NULL) {
@@ -358,11 +352,7 @@ int tagsistant_querytree_parse_tags (
 					reasoning->added_tags = 0;
 					reasoning->conn = qtree->dbi;
 					int newtags = tagsistant_reasoner(reasoning);
-#if TAGSISTANT_VERBOSE_LOGGING
-					dbg(LOG_INFO, "Reasoning added %d tags", newtags);
-#else
-					(void) newtags;
-#endif
+					dbg('q', LOG_INFO, "Reasoning added %d tags", newtags);
 					g_free_null(reasoning);
 				}
 			}
@@ -688,7 +678,7 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 	/* the qtree object has not been found so lets allocate the querytree structure */
 	qtree = g_new0(tagsistant_querytree, 1);
 	if (qtree == NULL) {
-		dbg(LOG_ERR, "Error allocating memory");
+		dbg('q', LOG_ERR, "Error allocating memory");
 		return(NULL);
 	}
 
@@ -699,9 +689,7 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 	/* duplicate the path inside the struct */
 	qtree->full_path = g_strdup(path);
 
-#if TAGSISTANT_VERBOSE_LOGGING
-	dbg(LOG_INFO, "Building querytree for %s", qtree->full_path);
-#endif
+	dbg('q', LOG_INFO, "Building querytree for %s", qtree->full_path);
 
 	/* split the path */
 	gchar **splitted = g_strsplit(path, "/", 512); /* split up to 512 tokens */
@@ -726,7 +714,7 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 //	else if (g_strcmp0(*token_ptr, "retag") == 0)		qtree->type = QTYPE_RETAG;
 	else {
 		qtree->type = QTYPE_MALFORMED;
-		dbg(LOG_ERR, "Malformed or nonexistant path (%s)", path);
+		dbg('q', LOG_ERR, "Malformed or nonexistant path (%s)", path);
 		goto RETURN;
 	}
 
@@ -871,12 +859,10 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 		tagsistant_querytree_check_tagging_consistency(qtree);
 	}
 
-#if TAGSISTANT_VERBOSE_LOGGING
-	dbg(LOG_INFO, "inode = %d", qtree->inode);
-	dbg(LOG_INFO, "object_path = \"%s\"", qtree->object_path);
-	dbg(LOG_INFO, "archive_path = \"%s\"", qtree->archive_path);
-	dbg(LOG_INFO, "full_archive_path = \"%s\"", qtree->full_archive_path);
-#endif
+	dbg('q', LOG_INFO, "inode = %d", qtree->inode);
+	dbg('q', LOG_INFO, "object_path = \"%s\"", qtree->object_path);
+	dbg('q', LOG_INFO, "archive_path = \"%s\"", qtree->archive_path);
+	dbg('q', LOG_INFO, "full_archive_path = \"%s\"", qtree->full_archive_path);
 
 	/*
 	 * guess if query points to an object on disk or not
@@ -890,10 +876,8 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 	) {
 		qtree->points_to_object = 1;
 
-#if TAGSISTANT_VERBOSE_LOGGING
 		if (!qtree->inode)
-			dbg(LOG_INFO, "Qtree path %s points to an object but does NOT contain an inode", qtree->full_path);
-#endif
+			dbg('q', LOG_INFO, "Qtree path %s points to an object but does NOT contain an inode", qtree->full_path);
 	} else {
 		qtree->points_to_object = 0;
 	}
@@ -934,7 +918,7 @@ void tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *he
 	/* if we have just one file, we can return */
 	if (qtree->inode == main_inode) return;
 
-	dbg(LOG_INFO, "Deduplicating %s: %d -> %d", qtree->full_archive_path, qtree->inode, main_inode);
+	dbg('2', LOG_INFO, "Deduplicating %s: %d -> %d", qtree->full_archive_path, qtree->inode, main_inode);
 
 	/* first move all the tags of inode to main_inode */
 	tagsistant_query(
@@ -964,7 +948,7 @@ void tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
 	if ((-1 == lstat(qtree->full_archive_path, &buf)) || (!S_ISREG(buf.st_mode) && !S_ISLNK(buf.st_mode)))
 		return;
 
-	dbg(LOG_INFO, "Checksumming %s", qtree->full_archive_path);
+	dbg('2', LOG_INFO, "Checksumming %s", qtree->full_archive_path);
 
 	/* open the file and read its content */
 	int fd = open(qtree->full_archive_path, O_RDONLY|O_NOATIME);
@@ -1118,7 +1102,7 @@ static int tagsistant_add_to_filetree(void *hash_table_pointer, dbi_result resul
 	// TODO valgrind says: check for leaks
 	g_hash_table_insert(hash_table, name, g_list_prepend(list, fh));
 
-//	dbg(LOG_INFO, "adding (%d,%s) to filetree", fh->inode, fh->name);
+//	dbg('f', LOG_INFO, "adding (%d,%s) to filetree", fh->inode, fh->name);
 
 	return (0);
 }
@@ -1152,7 +1136,7 @@ void tagsistant_filetree_destroy_value_list(gpointer list_pointer);
 GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 {
 	if (query == NULL) {
-		dbg(LOG_ERR, "NULL path_tree_t object provided to %s", __func__);
+		dbg('f', LOG_ERR, "NULL path_tree_t object provided to %s", __func__);
 		return(NULL);
 	}
 
@@ -1240,9 +1224,7 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 			}
 		}
 
-#if TAGSISTANT_VERBOSE_LOGGING
-		dbg(LOG_INFO, "SQL: filetree query [%s]", statement->str);
-#endif
+		dbg('f', LOG_INFO, "SQL: filetree query [%s]", statement->str);
 
 		/* create view */
 		tagsistant_query(statement->str, conn, NULL, NULL);
@@ -1261,9 +1243,7 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 		query = query->next;
 	}
 
-#if TAGSISTANT_VERBOSE_LOGGING
-	dbg(LOG_INFO, "SQL view query [%s]", view_statement->str);
-#endif
+//	dbg('f', LOG_INFO, "SQL view query [%s]", view_statement->str);
 
 	/* apply view statement */
 	GHashTable *file_hash = g_hash_table_new_full(

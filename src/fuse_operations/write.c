@@ -44,7 +44,7 @@ int tagsistant_write(const char *path, const char *buf, size_t size, off_t offse
 	// -- object on disk --
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		if (!qtree->full_archive_path) {
-			dbg(LOG_ERR, "Null qtree->full_archive_path");
+			dbg('F', LOG_ERR, "Null qtree->full_archive_path");
 			TAGSISTANT_ABORT_OPERATION(EFAULT);
 		}
 

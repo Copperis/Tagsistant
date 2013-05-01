@@ -45,7 +45,7 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 	// -- object on disk --
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		if (!qtree->full_archive_path) {
-			dbg(LOG_ERR, "Null qtree->full_archive_path");
+			dbg('F', LOG_ERR, "Null qtree->full_archive_path");
 			TAGSISTANT_ABORT_OPERATION(EFAULT);
 		}
 
@@ -100,10 +100,20 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 					"         mountpoint: %s\n"
 					"    repository path: %s\n"
 					"   database options: %s\n"
-					"              debug: %d\n"
 					"  run in foreground: %d\n"
 					"    single threaded: %d\n"
 					"    mount read-only: %d\n"
+					"              debug: %s\n"
+					"                     [%c] boot\n"
+					"                     [%c] cache\n"
+					"                     [%c] file tree (readdir)\n"
+					"                     [%c] FUSE operations (open, read, write, symlink, ...)\n"
+					"                     [%c] low level\n"
+					"                     [%c] plugin\n"
+					"                     [%c] query parsing\n"
+					"                     [%c] reasoning\n"
+					"                     [%c] SQL queries\n"
+					"                     [%c] deduplication\n"
 					"\n"
 					" --> Compile flags:\n\n"
 					"  TAGSISTANT_ENABLE_QUERYTREE_CACHE: %d\n"
@@ -117,10 +127,20 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 					tagsistant.mountpoint,
 					tagsistant.repository,
 					tagsistant.dboptions,
-					tagsistant.debug,
 					tagsistant.foreground,
 					tagsistant.singlethread,
 					tagsistant.readonly,
+					tagsistant.debug ? tagsistant.debug : "-",
+					tagsistant.dbg['b'] ? 'x' : ' ',
+					tagsistant.dbg['c'] ? 'x' : ' ',
+					tagsistant.dbg['f'] ? 'x' : ' ',
+					tagsistant.dbg['F'] ? 'x' : ' ',
+					tagsistant.dbg['l'] ? 'x' : ' ',
+					tagsistant.dbg['p'] ? 'x' : ' ',
+					tagsistant.dbg['q'] ? 'x' : ' ',
+					tagsistant.dbg['r'] ? 'x' : ' ',
+					tagsistant.dbg['s'] ? 'x' : ' ',
+					tagsistant.dbg['2'] ? 'x' : ' ',
 					TAGSISTANT_ENABLE_QUERYTREE_CACHE,
 					TAGSISTANT_ENABLE_TAG_ID_CACHE,
 					TAGSISTANT_ENABLE_AND_SET_CACHE,

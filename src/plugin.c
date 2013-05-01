@@ -50,7 +50,7 @@ char *tagsistant_get_file_mimetype(const char *filename)
 	/* open /etc/mime.types */
 	FILE *f = fopen("/etc/mime.types", "r");
 	if (f == NULL) {
-		dbg(LOG_ERR, "Can't open /etc/mime.types");
+		dbg('p', LOG_ERR, "Can't open /etc/mime.types");
 		return(type);
 	}
 
@@ -73,7 +73,6 @@ char *tagsistant_get_file_mimetype(const char *filename)
 			while (*ext_list != '\0') {
 				if ((strstr(ext_list, ext) == ext_list) || (strstr(ext_list, ext_space) == ext_list)) {
 					type = g_strdup(line);
-//					dbg(LOG_INFO, "File %s is %s", filename, type);
 					g_free_null(line);
 					goto BREAK_MIME_SEARCH;
 				}
@@ -104,14 +103,12 @@ int tagsistant_process(tagsistant_querytree *qtree)
 {
 	int res = 0, process_res = 0;
 
-#if TAGSISTANT_VERBOSE_LOGGING
-	dbg(LOG_INFO, "Processing file %s", qtree->full_archive_path);
-#endif
+	dbg('p', LOG_INFO, "Processing file %s", qtree->full_archive_path);
 
 	char *mime_type = tagsistant_get_file_mimetype(qtree->full_archive_path);
 
 	if (mime_type == NULL) {
-		dbg(LOG_ERR, "tagsistant_process() wasn't able to guess mime type for %s", qtree->full_archive_path);
+		dbg('p', LOG_ERR, "tagsistant_process() wasn't able to guess mime type for %s", qtree->full_archive_path);
 		return(0);
 	}
 
@@ -131,38 +128,26 @@ int tagsistant_process(tagsistant_querytree *qtree)
 			(strcmp(plugin->mime_type, "*/*") == 0)
 		) {
 			/* call plugin processor */
-#if TAGSISTANT_VERBOSE_LOGGING
-			dbg(LOG_INFO, "Applying plugin %s", plugin->filename);
-#endif
+			dbg('p', LOG_INFO, "Applying plugin %s", plugin->filename);
 			process_res = (plugin->processor)(qtree);
 
 			/* report about processing */
 			switch (process_res) {
 				case TP_ERROR:
-#if TAGSISTANT_VERBOSE_LOGGING
-					dbg(LOG_ERR, "Plugin %s was supposed to apply to %s, but failed!", plugin->filename, qtree->full_archive_path);
-#endif
+					dbg('p', LOG_ERR, "Plugin %s was supposed to apply to %s, but failed!", plugin->filename, qtree->full_archive_path);
 					break;
 				case TP_OK:
-#if TAGSISTANT_VERBOSE_LOGGING
-					dbg(LOG_INFO, "Plugin %s tagged %s", plugin->filename, qtree->full_archive_path);
-#endif
+					dbg('p', LOG_INFO, "Plugin %s tagged %s", plugin->filename, qtree->full_archive_path);
 					break;
 				case TP_STOP:
-#if TAGSISTANT_VERBOSE_LOGGING
-					dbg(LOG_INFO, "Plugin %s stopped chain on %s", plugin->filename, qtree->full_archive_path);
-#endif
+					dbg('p', LOG_INFO, "Plugin %s stopped chain on %s", plugin->filename, qtree->full_archive_path);
 					goto STOP_CHAIN_TAGGING;
 					break;
 				case TP_NULL:
-#if TAGSISTANT_VERBOSE_LOGGING
-					dbg(LOG_INFO, "Plugin %s did not tagged %s", plugin->filename, qtree->full_archive_path);
-#endif
+					dbg('p', LOG_INFO, "Plugin %s did not tagged %s", plugin->filename, qtree->full_archive_path);
 					break;
 				default:
-#if TAGSISTANT_VERBOSE_LOGGING
-					dbg(LOG_ERR, "Plugin %s returned unknown result %d", plugin->filename, process_res);
-#endif
+					dbg('p', LOG_ERR, "Plugin %s returned unknown result %d", plugin->filename, process_res);
 					break;
 			}
 		}
@@ -174,9 +159,7 @@ STOP_CHAIN_TAGGING:
 	g_free_null(mime_type);
 	g_free_null(mime_generic);
 
-#if TAGSISTANT_VERBOSE_LOGGING
-	dbg(LOG_INFO, "Processing of %s ended.", qtree->full_archive_path);
-#endif
+	dbg('p', LOG_INFO, "Processing of %s ended.", qtree->full_archive_path);
 
 	return(res);
 }
@@ -232,7 +215,7 @@ void tagsistant_plugin_loader()
 				tagsistant_plugin_t *plugin = g_new0(tagsistant_plugin_t, 1);
 
 				if (NULL == plugin) {
-					dbg(LOG_ERR, "Error allocating plugin object");
+					dbg('p', LOG_ERR, "Error allocating plugin object");
 					continue;
 				}
 
@@ -253,7 +236,7 @@ void tagsistant_plugin_loader()
 						int init_res = init_function();
 						if (!init_res) {
 							/* if init failed, ignore this plugin */
-							dbg(LOG_ERR, " *** error calling plugin_init() on %s ***\n", de->d_name);
+							dbg('p', LOG_ERR, " *** error calling plugin_init() on %s ***\n", de->d_name);
 							g_free_null(plugin);
 							continue;
 						}
@@ -336,9 +319,7 @@ void tagsistant_plugin_apply_regex(const tagsistant_querytree *qtree, const char
 	/* process the matched entries */
 	while (g_match_info_matches(match_info)) {
 		gchar *raw = g_match_info_fetch(match_info, 1);
-#if TAGSISTANT_VERBOSE_LOGGING
-		dbg(LOG_INFO, "Found raw data: %s", raw);
-#endif
+		dbg('p', LOG_INFO, "Found raw data: %s", raw);
 
 		gchar **tokens = g_strsplit_set(raw, " \t,.!?/", 255);
 		g_free_null(raw);

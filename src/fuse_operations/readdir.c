@@ -111,7 +111,7 @@ int tagsistant_readdir_on_tags(
  	*/
 	struct tagsistant_use_filler_struct *ufs = g_new0(struct tagsistant_use_filler_struct, 1);
 	if (!ufs) {
-		dbg(LOG_ERR, "Error allocating memory");
+		dbg('F', LOG_ERR, "Error allocating memory");
 		*tagsistant_errno = ENOMEM;
 		return (-1);
 	}
@@ -156,7 +156,7 @@ int tagsistant_readdir_on_object(
 	DIR *dp = opendir(qtree->full_archive_path);
 	if (NULL == dp) {
 		*tagsistant_errno = errno;
-		dbg(LOG_ERR, "Unable to readdir(%s)", qtree->full_archive_path);
+		dbg('F', LOG_ERR, "Unable to readdir(%s)", qtree->full_archive_path);
 		return (-1);
 	}
 
@@ -187,7 +187,7 @@ int tagsistant_readdir_on_relations(
 
 	struct tagsistant_use_filler_struct *ufs = g_new0(struct tagsistant_use_filler_struct, 1);
 	if (ufs == NULL) {
-		dbg(LOG_ERR, "Error allocating memory");
+		dbg('F', LOG_ERR, "Error allocating memory");
 		*tagsistant_errno = EBADF;
 		return (-1);
 	}

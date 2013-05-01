@@ -152,7 +152,8 @@ extern gchar *_dyn_strcat(gchar *original, const gchar *newstring);
  * defines command line options for tagsistant mount tool
  */
 struct tagsistant {
-	int debug;			/**< enable debug */
+	char *debug;		/**< debug profile */
+	char dbg[128];		/**< debug flags */
 	int	foreground;		/**< run in foreground */
 	int	singlethread;	/**< single thread? */
 	int	readonly;		/**< mount filesystem readonly */

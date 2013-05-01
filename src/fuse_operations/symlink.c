@@ -83,7 +83,7 @@ int tagsistant_symlink(const char *from, const char *to)
 
 		// if object_path is null, borrow it from original path
 		if (strlen(to_qtree->object_path) == 0) {
-			dbg(LOG_INFO, "Getting object path from %s", from);
+			dbg('F', LOG_INFO, "Getting object path from %s", from);
 			tagsistant_querytree_set_object_path(to_qtree, g_path_get_basename(from));
 		}
 
@@ -106,7 +106,7 @@ int tagsistant_symlink(const char *from, const char *to)
 
 		// nothing to do about tags
 		{
-			dbg(LOG_ERR, "%s is not taggable!", to_qtree->full_path); // ??? why ??? should be taggable!!
+			dbg('F', LOG_ERR, "%s is not taggable!", to_qtree->full_path); // ??? why ??? should be taggable!!
 		}
 
 		// do the real symlink on disk

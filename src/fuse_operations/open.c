@@ -42,7 +42,7 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 	// -- object --
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		if (!qtree->full_archive_path) {
-			dbg(LOG_ERR, "Null qtree->full_archive_path");
+			dbg('F', LOG_ERR, "Null qtree->full_archive_path");
 			TAGSISTANT_ABORT_OPERATION(EFAULT);
 		}
 

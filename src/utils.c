@@ -35,7 +35,7 @@ void open_debug_file()
 	sprintf(debug_file, "/tmp/tagsistant.debug.%d", getpid());
 	tagsistant.debugfd = fopen(debug_file, "w");
 	if (tagsistant.debugfd == NULL)
-		dbg(LOG_ERR, "Can't open logfile %s: %s!", debug_file, strerror(errno));
+		dbg('l', LOG_ERR, "Can't open logfile %s: %s!", debug_file, strerror(errno));
 }
 #endif
 
@@ -105,13 +105,11 @@ tagsistant_inode tagsistant_inode_extract_from_path(tagsistant_querytree *qtree)
 	}
 	g_match_info_free(match_info);
 
-#if TAGSISTANT_VERBOSE_LOGGING
 	if (inode) {
-		dbg(LOG_INFO, "%s has inode %lu", qtree->object_path, (long unsigned int) inode);
+		dbg('l', LOG_INFO, "%s has inode %lu", qtree->object_path, (long unsigned int) inode);
 	} else {
-		dbg(LOG_INFO, "%s does not contain and inode", qtree->object_path);
+		dbg('l', LOG_INFO, "%s does not contain and inode", qtree->object_path);
 	}
-#endif
 
 	return (inode);
 }
@@ -182,7 +180,7 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tag
 	}
 
 	if (!inode) {
-		dbg(LOG_ERR, "Object %s recorded as inode 0!", qtree->object_path);
+		dbg('u', LOG_ERR, "Object %s recorded as inode 0!", qtree->object_path);
 		*tagsistant_errno = EIO;
 		return(-1);
 	}
@@ -193,13 +191,11 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tag
 	// 3. tag the object
 	tagsistant_querytree_traverse(qtree, tagsistant_sql_tag_object, inode);
 
-#if TAGSISTANT_VERBOSE_LOGGING
 	if (force_create) {
-		dbg(LOG_INFO, "Forced creation of object %s", qtree->full_path);
+		dbg('l', LOG_INFO, "Forced creation of object %s", qtree->full_path);
 	} else {
-		dbg(LOG_INFO, "Tried creation of object %s", qtree->full_path);
+		dbg('l', LOG_INFO, "Tried creation of object %s", qtree->full_path);
 	}
-#endif
 
 	return(inode);
 }
@@ -234,7 +230,7 @@ void tagsistant_find_duplicated_objects(tagsistant_inode inode, gchar *hex, gcha
 	/* if we have just one file, we can return */
 	if (inode == main_inode) return;
 
-	dbg(LOG_INFO, "Deduplicating %s: %d -> %d", path, inode, main_inode);
+	dbg('2', LOG_INFO, "Deduplicating %s: %d -> %d", path, inode, main_inode);
 
 	/* first move all the tags of inode to main_inode */
 	tagsistant_query(
@@ -296,7 +292,7 @@ void tagsistant_calculate_object_checksum(tagsistant_inode inode, dbi_conn dbi)
 			return;
 		}
 
-		dbg(LOG_INFO, "Checksumming %s", path);
+		dbg('2', LOG_INFO, "Checksumming %s", path);
 
 		/* open the file and read its content */
 		int fd = open(path, O_RDONLY|O_NOATIME);
@@ -452,11 +448,11 @@ void tagsistant_save_repository_ini(GKeyFile *kf)
 	if (-1 != fd) {
 		int written = write(fd, content, size);
 		if (written == -1) {
-			dbg(LOG_ERR, "Error writing %s: %s", ini_path, strerror(errno));
+			dbg('l', LOG_ERR, "Error writing %s: %s", ini_path, strerror(errno));
 		}
 		close(fd);
 	} else {
-		dbg(LOG_ERR, "Unable to write %s: %s", ini_path, strerror(errno));
+		dbg('l', LOG_ERR, "Unable to write %s: %s", ini_path, strerror(errno));
 	}
 
 	g_free_null(content);
@@ -475,7 +471,7 @@ void tagsistant_manage_repository_ini() {
 		if (g_key_file_has_group(kf, "Tagsistant")) {
 			if (g_key_file_has_key(kf, "Tagsistant", "db", NULL)) {
 				if (tagsistant.dboptions) {
-					dbg(LOG_INFO, "Ignoring command line --db parameter in favor of repository.ini");
+					dbg('b', LOG_INFO, "Ignoring command line --db parameter in favor of repository.ini");
 				}
 				tagsistant.dboptions = g_key_file_get_value(kf, "Tagsistant", "db", NULL);
 			}

@@ -33,26 +33,22 @@ int tagsistant_driver_is_available(const char *driver_name)
 	int driver_found = 0;
 	dbi_driver driver = NULL;
 
-#if TAGSISTANT_VERBOSE_LOGGING
-	dbg(LOG_INFO, "Available drivers:");
-#endif
+	dbg('b', LOG_INFO, "Available drivers:");
 	while ((driver = dbi_driver_list(driver)) != NULL) {
 		counter++;
-#if TAGSISTANT_VERBOSE_LOGGING
-		dbg(LOG_INFO, "  Driver #%d: %s - %s", counter, dbi_driver_get_name(backend), dbi_driver_get_filename(backend));
-#endif
+		dbg('b', LOG_INFO, "  Driver #%d: %s - %s", counter, dbi_driver_get_name(driver), dbi_driver_get_filename(driver));
 		if (g_strcmp0(dbi_driver_get_name(driver), driver_name) == 0) {
 			driver_found = 1;
 		}
 	}
 
 	if (!counter) {
-		dbg(LOG_ERR, "No SQL driver found! Exiting now.");
+		dbg('b', LOG_ERR, "No SQL driver found! Exiting now.");
 		return(0);
 	}
 
 	if (!driver_found) {
-		dbg(LOG_ERR, "No %s driver found!", driver_name);
+		dbg('b', LOG_ERR, "No %s driver found!", driver_name);
 		return(0);
 	}
 
@@ -98,10 +94,10 @@ void tagsistant_db_init()
 		tagsistant.dboptions = g_strdup("sqlite3::::");
 		dboptions.backend_name = g_strdup("sqlite3");
 		dboptions.backend = TAGSISTANT_DBI_SQLITE_BACKEND;
-		dbg(LOG_INFO, "Using default driver: sqlite3");
+		dbg('b', LOG_INFO, "Using default driver: sqlite3");
 	}
 
-	dbg(LOG_INFO, "Database options: %s", tagsistant.dboptions);
+	dbg('b', LOG_INFO, "Database options: %s", tagsistant.dboptions);
 
 	// split database option value up to 5 tokens
 	gchar **_dboptions = g_strsplit(tagsistant.dboptions, ":", 5);
@@ -161,23 +157,23 @@ void tagsistant_db_init()
 
 	g_strfreev(_dboptions);
 
-#if TAGSISTANT_VERBOSE_LOGGING
-	dbg(LOG_INFO, "Database driver: %s", dboptions.backend_name);
+#if 0
+	dbg('b', LOG_INFO, "Database driver: %s", dboptions.backend_name);
 
 	// list configured options
 	const char *option = NULL;
 	int counter = 0;
-	dbg(LOG_INFO, "Connection settings: ");
+	dbg('b', LOG_INFO, "Connection settings: ");
 	while ((option = dbi_conn_get_option_list(tagsistant_dbi_conn, option))	!= NULL ) {
 		counter++;
-		dbg(LOG_INFO, "  Option #%d: %s = %s", counter, option, dbi_conn_get_option(tagsistant_dbi_conn, option));
+		dbg('b', LOG_INFO, "  Option #%d: %s = %s", counter, option, dbi_conn_get_option(tagsistant_dbi_conn, option));
 	}
 
 	// tell if backend have INTERSECT
 	if (tagsistant.sql_backend_have_intersect) {
-		dbg(LOG_INFO, "Database supports INTERSECT operator");
+		dbg('b', LOG_INFO, "Database supports INTERSECT operator");
 	} else {
-		dbg(LOG_INFO, "Database does not support INTERSECT operator");
+		dbg('b', LOG_INFO, "Database does not support INTERSECT operator");
 	}
 #endif
 }
@@ -212,9 +208,7 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 			tagsistant_connection_pool = g_list_delete_link(tagsistant_connection_pool, pool);
 			connections--;
 		} else {
-#if TAGSISTANT_VERBOSE_LOGGING
-			dbg(LOG_INFO, "Reusing DBI connection (currently %d created", connections);
-#endif
+			dbg('s', LOG_INFO, "Reusing DBI connection (currently %d created", connections);
 			tagsistant_connection_pool = g_list_remove_link(tagsistant_connection_pool, pool);
 			g_list_free_1(pool);
 			break;
@@ -228,7 +222,7 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 		// initialize DBI drivers
 		if (TAGSISTANT_DBI_MYSQL_BACKEND == dboptions.backend) {
 			if (!tagsistant_driver_is_available("mysql")) {
-				dbg(LOG_ERR, "MySQL driver not installed");
+				dbg('s', LOG_ERR, "MySQL driver not installed");
 				exit (1);
 			}
 
@@ -238,7 +232,7 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 			// create connection
 			dbi = dbi_conn_new("mysql");
 			if (NULL == dbi) {
-				dbg(LOG_ERR, "Error creating MySQL connection");
+				dbg('s', LOG_ERR, "Error creating MySQL connection");
 				exit (1);
 			}
 
@@ -252,14 +246,14 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 		} else if (TAGSISTANT_DBI_SQLITE_BACKEND == dboptions.backend) {
 			if (!tagsistant_driver_is_available("sqlite3")) {
 				fprintf(stderr, "SQLite3 driver not installed\n");
-				dbg(LOG_ERR, "SQLite3 driver not installed");
+				dbg('s', LOG_ERR, "SQLite3 driver not installed");
 				exit(1);
 			}
 
 			// create connection
 			dbi = dbi_conn_new("sqlite3");
 			if (NULL == dbi) {
-				dbg(LOG_ERR, "Error connecting to SQLite3");
+				dbg('s', LOG_ERR, "Error connecting to SQLite3");
 				exit (1);
 			}
 
@@ -269,25 +263,24 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 
 		} else {
 
-			dbg(LOG_ERR, "No or wrong database family specified!");
+			dbg('s', LOG_ERR, "No or wrong database family specified!");
 			exit (1);
 		}
 
 		// try to connect
 		if (dbi_conn_connect(dbi) < 0) {
 			int error = dbi_conn_error(dbi, NULL);
-			dbg(LOG_ERR, "Could not connect to DB (error %d). Please check the --db settings", error);
+			dbg('s', LOG_ERR, "Could not connect to DB (error %d). Please check the --db settings", error);
 			exit(1);
 		}
 
 		connections++;
 
-#if TAGSISTANT_VERBOSE_LOGGING
-		dbg(LOG_INFO, "SQL connection established");
-#endif
+		dbg('s', LOG_INFO, "SQL connection established");
 	}
 
 	/* start a transaction */
+#if TAGSISTANT_USE_INTERNAL_TRANSACTIONS
 	if (start_transaction) {
 		switch (tagsistant.sql_database_driver) {
 			case TAGSISTANT_DBI_SQLITE_BACKEND:
@@ -299,6 +292,9 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 				break;
 		}
 	}
+#else
+	dbi_conn_transaction_begin(dbi);
+#endif /* TAGSISTANT_USE_INTERNAL_TRANSACTIONS */
 
 	return(dbi);
 }
@@ -313,9 +309,7 @@ void tagsistant_db_connection_release(dbi_conn dbi)
 	g_mutex_lock(&tagsistant_connection_pool_lock);
 	// TODO valgrind says: check for leaks
 	tagsistant_connection_pool = g_list_prepend(tagsistant_connection_pool, dbi);
-#if TAGSISTANT_VERBOSE_LOGGING
-	dbg(LOG_INFO, "Releasing DBI connection (currently %d created", connections);
-#endif
+	dbg('s', LOG_INFO, "Releasing DBI connection (currently %d created", connections);
 	g_mutex_unlock(&tagsistant_connection_pool_lock);
 }
 
@@ -333,8 +327,9 @@ void tagsistant_create_schema()
 			tagsistant_query("create table if not exists objects (inode integer not null primary key autoincrement, objectname text(255) not null, last_autotag timestamp not null default 0, checksum text(40) not null default \"\");", dbi, NULL, NULL);
 			tagsistant_query("create table if not exists tagging (inode integer not null, tag_id integer not null, constraint Tagging_key unique (inode, tag_id));", dbi, NULL, NULL);
 			tagsistant_query("create table if not exists relations(relation_id integer primary key autoincrement not null, tag1_id integer not null, relation varchar not null, tag2_id integer not null);", dbi, NULL, NULL);
-			tagsistant_query("create index if not exists tags_index on tagging (inode, tag_id);", dbi, NULL, NULL);
+//			tagsistant_query("create index if not exists tags_index on tagging (inode, tag_id);", dbi, NULL, NULL);
 			tagsistant_query("create index if not exists relations_index on relations (tag1_id, tag2_id);", dbi, NULL, NULL);
+			tagsistant_query("create index if not exists objectname_index on objects (objectname);", dbi, NULL, NULL);
 			tagsistant_query("create index if not exists relations_type_index on relations (relation);", dbi, NULL, NULL);
 			break;
 
@@ -343,8 +338,9 @@ void tagsistant_create_schema()
 			tagsistant_query("create table if not exists objects (inode integer not null primary key auto_increment, objectname varchar(255) not null, last_autotag timestamp not null default 0, checksum varchar(40) not null default \"\");", dbi, NULL, NULL);
 			tagsistant_query("create table if not exists tagging (inode integer not null, tag_id integer not null, constraint Tagging_key unique key (inode, tag_id));", dbi, NULL, NULL);
 			tagsistant_query("create table if not exists relations(relation_id integer primary key auto_increment not null, tag1_id integer not null, relation varchar(32) not null, tag2_id integer not null);", dbi, NULL, NULL);
-			tagsistant_query("create index tags_index on tagging (inode, tag_id);", dbi, NULL, NULL);
+//			tagsistant_query("create index tags_index on tagging (inode, tag_id);", dbi, NULL, NULL);
 			tagsistant_query("create index relations_index on relations (tag1_id, tag2_id);", dbi, NULL, NULL);
+			tagsistant_query("create index objectname_index on objects (objectname);", dbi, NULL, NULL);
 			tagsistant_query("create index relations_type_index on relations (relation);", dbi, NULL, NULL);
 			break;
 
@@ -376,13 +372,13 @@ int tagsistant_real_query(
 
 	// check if connection has been created
 	if (NULL == dbi) {
-		dbg(LOG_ERR, "ERROR! DBI connection was not initialized!");
+		dbg('s', LOG_ERR, "ERROR! DBI connection was not initialized!");
 		return(0);
 	}
 
 	// check if the connection is alive
 	if (!dbi_conn_ping(dbi) && (dbi_conn_connect(dbi) < 0)) {
-		dbg(LOG_ERR, "ERROR! DBI Connection has gone!");
+		dbg('s', LOG_ERR, "ERROR! DBI Connection has gone!");
 		return(0);
 	}
 
@@ -390,13 +386,11 @@ int tagsistant_real_query(
 
 	// check if statement is not null
 	if (NULL == statement) {
-		dbg(LOG_ERR, "Null SQL statement");
+		dbg('s', LOG_ERR, "Null SQL statement");
 		return(0);
 	}
 
-#if TAGSISTANT_VERBOSE_LOGGING
-	dbg(LOG_INFO, "SQL: [%s]", statement);
-#endif
+	dbg('s', LOG_INFO, "SQL: [%s]", statement);
 
 	tagsistant_dirty_logging(statement);
 
@@ -418,7 +412,7 @@ int tagsistant_real_query(
 		// get the error message
 		const char *errmsg;
 		int err = dbi_conn_error(dbi, &errmsg);
-		if ((-1 == err) && errmsg) dbg(LOG_ERR, "Error: %s.", errmsg);
+		if ((-1 == err) && errmsg) dbg('s', LOG_ERR, "Error: %s.", errmsg);
 	}
 
 	g_free_null(statement);
@@ -496,7 +490,7 @@ int tagsistant_return_integer(void *return_integer, dbi_result result)
 				break;
 		}
 	} else {
-		dbg(LOG_INFO, "tagsistant_return_integer called on non integer field");
+		dbg('s', LOG_INFO, "tagsistant_return_integer called on non integer field");
 		return (0);
 	}
 
@@ -508,9 +502,7 @@ int tagsistant_return_integer(void *return_integer, dbi_result result)
 		*buffer = dbi_result_get_uint_idx(result, 1);
 	*/
 
-#if TAGSISTANT_VERBOSE_LOGGING
-	dbg(LOG_INFO, "Returning integer: %d", *buffer);
-#endif
+	dbg('s', LOG_INFO, "Returning integer: %d", *buffer);
 
 	return (0);
 }
@@ -532,9 +524,7 @@ int tagsistant_return_string(void *return_string, dbi_result result)
 
 	*result_string = dbi_result_get_string_copy_idx(result, 1);
 
-#if TAGSISTANT_VERBOSE_LOGGING
-	dbg(LOG_INFO, "Returning string: %s", *result_string);
-#endif
+	dbg('s', LOG_INFO, "Returning string: %s", *result_string);
 
 	return (0);
 }
@@ -665,9 +655,7 @@ void tagsistant_sql_tag_object(dbi_conn conn, gchar *tagname, tagsistant_inode i
 		tag_id = tagsistant_sql_get_tag_id(conn, tagname);
 	}
 
-#if TAGSISTANT_VERBOSE_LOGGING
-	dbg(LOG_INFO, "Tagging object %d as %s (%d)", inode, tagname, tag_id);
-#endif
+	dbg('s', LOG_INFO, "Tagging object %d as %s (%d)", inode, tagname, tag_id);
 
 	tagsistant_query("insert into tagging(tag_id, inode) values(\"%d\", \"%d\");", conn, NULL, NULL, tag_id, inode);
 }
@@ -683,9 +671,7 @@ void tagsistant_sql_untag_object(dbi_conn conn, gchar *tagname, tagsistant_inode
 {
 	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(conn, tagname);
 
-#if TAGSISTANT_VERBOSE_LOGGING
-	dbg(LOG_INFO, "Untagging object %d from tag %s (%d)", inode, tagname, tag_id);
-#endif
+	dbg('s', LOG_INFO, "Untagging object %d from tag %s (%d)", inode, tagname, tag_id);
 
 	tagsistant_query("delete from tagging where tag_id = \"%d\" and inode = \"%d\";", conn, NULL, NULL, tag_id, inode);
 }

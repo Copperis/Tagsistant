@@ -74,7 +74,7 @@ static int tagsistant_add_reasoned_tag(void *_reasoning, dbi_result result)
 	/* adding tag */
 	ptree_and_node *reasoned = g_new0(ptree_and_node, 1);
 	if (!reasoned) {
-		dbg(LOG_ERR, "Error allocating memory");
+		dbg('r', LOG_ERR, "Error allocating memory");
 		return (1);
 	}
 
@@ -91,9 +91,7 @@ static int tagsistant_add_reasoned_tag(void *_reasoning, dbi_result result)
 
 	reasoning->added_tags += 1;
 
-#if TAGSISTANT_VERBOSE_LOGGING
-	dbg(LOG_INFO, "Adding related tag %s", reasoned->tag);
-#endif
+	dbg('r', LOG_INFO, "Adding related tag %s", reasoned->tag);
 
 	return(0);
 }

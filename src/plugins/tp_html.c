@@ -65,7 +65,7 @@ int tagsistant_processor(const tagsistant_querytree *qtree)
 	int fd = open(qtree->full_archive_path, 0);
 	if (-1 == fd) {
 		int error = errno;
-		dbg(LOG_ERR, "Unable to open %s: %s", qtree->full_archive_path, strerror(error));
+		dbg('p', LOG_ERR, "Unable to open %s: %s", qtree->full_archive_path, strerror(error));
 		return(TP_ERROR);
 	}
 
