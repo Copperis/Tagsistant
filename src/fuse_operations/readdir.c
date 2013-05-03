@@ -106,7 +106,7 @@ int tagsistant_readdir_on_tags(
 	filler(buf, "..", NULL, 0);
 
 	/*
- 	* if path does not terminate by =,
+ 	* if path does not terminate by @,
  	* directory should be filled with tagsdir registered tags
  	*/
 	struct tagsistant_use_filler_struct *ufs = g_new0(struct tagsistant_use_filler_struct, 1);

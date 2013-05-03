@@ -1181,45 +1181,68 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 	while (query != NULL) {
 		ptree_and_node *tag = query->and_set;
 
+		// preallocate 50Kbytes for the string
 		// TODO valgrind says: check for leaks
-		GString *statement = g_string_sized_new(10240);
+		GString *statement = g_string_sized_new(51200);
+
 		g_string_printf(statement, "create view tv%.16" PRIxPTR " as ", (uintptr_t) query);
 		
 		while (tag != NULL) {
-			if (tagsistant.sql_backend_have_intersect) {
-				g_string_append(statement, "select objectname, objects.inode as inode from objects join tagging on tagging.inode = objects.inode join tags on tags.tag_id = tagging.tag_id where tagname = \"");
-				g_string_append(statement, tag->tag);
-				g_string_append(statement, "\"");
-			} else {
-				if (nesting) {
-					g_string_append(statement, " and objects.inode in (select distinct objects.inode from objects inner join tagging on tagging.inode = objects.inode inner join tags on tagging.tag_id = tags.tag_id where tagname = '");
-				} else {
-					g_string_append(statement, " select distinct objectname, objects.inode as inode from objects inner join tagging on tagging.inode = objects.inode inner join tags on tagging.tag_id = tags.tag_id where tagname = '");
-				}
-				g_string_append(statement, tag->tag);
-				g_string_append(statement, "'");	
-				nesting++;
-			}
-			
-			/* add related tags */
+
+			/* create the list of tags (natural or related) to match */
+			GString *tag_and_related = g_string_sized_new(1024);
+			g_string_printf(tag_and_related, "\"%s\"", tag->tag);
 			if (tag->related != NULL) {
 				ptree_and_node *related = tag->related;
 				while (related != NULL) {
-					g_string_append(statement, " or tagname = \"");
-					g_string_append(statement, related->tag);
-					g_string_append(statement, "\"");
+					g_string_append_printf(tag_and_related, ", \"%s\"", related->tag);
 					related = related->related;
 				}
 			}
 
-			if (tagsistant.sql_backend_have_intersect && (tag->next != NULL))
-				g_string_append(statement, " intersect ");
+			if (tagsistant.sql_backend_have_intersect) {
 
+				/* shorter syntax for SQL dialects that provide INTERSECT */
+				g_string_append_printf(statement,
+					"select objectname, objects.inode as inode "
+						"from objects "
+						"join tagging on tagging.inode = objects.inode "
+						"join tags on tags.tag_id = tagging.tag_id "
+						"where tagname in (%s) ", tag_and_related->str);
+
+				if (tag->next != NULL)
+					g_string_append(statement, " intersect ");
+
+			} else {
+
+				/* longer syntax for SQL dialects that do not provide INTERSECT */
+				if (nesting) {
+					g_string_append_printf(statement,
+						" and objects.inode in ("
+							"select distinct objects.inode from objects "
+								"inner join tagging on tagging.inode = objects.inode "
+								"inner join tags on tagging.tag_id = tags.tag_id "
+								"where tagname in (%s) ", tag_and_related->str);
+				} else {
+					g_string_append_printf(statement,
+						" select distinct objectname, objects.inode as inode from objects "
+							"inner join tagging on tagging.inode = objects.inode "
+							"inner join tags on tagging.tag_id = tags.tag_id "
+							"where tagname in (%s) ", tag_and_related->str);
+				}
+
+				/* increment nesting counter, used to match parenthesis later */
+				nesting++;
+			}
+
+			g_string_free(tag_and_related, TRUE);
 			tag = tag->next;
 		}
 
+		/* add closing parenthesis on the end of non-INTERSECT queries */
 		if (!tagsistant.sql_backend_have_intersect) {
 			nesting--; // we need one closed parenthesis less than nested subquery
+
 			while (nesting) {
 				g_string_append(statement, ")");
 				nesting--;
@@ -1276,7 +1299,8 @@ void tagsistant_filetree_destroy_value(gpointer fh_p)
 	if (!fh_p) return;
 
 	tagsistant_file_handle *fh = (tagsistant_file_handle *) fh_p;
-	g_free_null(fh->name);
+	if (fh->inode)
+		g_free_null(fh->name);
 	g_free_null(fh);
 }
 
