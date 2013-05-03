@@ -222,6 +222,7 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 		// initialize DBI drivers
 		if (TAGSISTANT_DBI_MYSQL_BACKEND == dboptions.backend) {
 			if (!tagsistant_driver_is_available("mysql")) {
+				fprintf(stderr, "MySQL driver not installed\n");
 				dbg('s', LOG_ERR, "MySQL driver not installed");
 				exit (1);
 			}

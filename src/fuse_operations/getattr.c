@@ -19,8 +19,6 @@
 
 #include "../tagsistant.h"
 
-
-
 /**
  * lstat equivalent
  *
@@ -82,7 +80,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 	// -- stats --
 	else if (QTREE_IS_STATS(qtree)) {
-		if (g_regex_match_simple("stats/.+", path, 0, 0))
+		if (g_regex_match_simple("stats/(connections|cached_queries|configuration|objects|relations|tags)$", path, 0, 0))
 			lstat_path = tagsistant.tags;
 		else
 			lstat_path = tagsistant.archive;

@@ -253,9 +253,11 @@ int tagsistant_readdir_on_stats(
 
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
-	filler(buf, "connections", NULL, 0);
+#if TAGSISTANT_ENABLE_QUERYTREE_CACHE
 	filler(buf, "cached_queries", NULL, 0);
+#endif /* TAGSISTANT_ENABLE_QUERYTREE_CACHE */
 	filler(buf, "configuration", NULL, 0);
+	filler(buf, "connections", NULL, 0);
 	filler(buf, "objects", NULL, 0);
 	filler(buf, "relations", NULL, 0);
 	filler(buf, "tags", NULL, 0);

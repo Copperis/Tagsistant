@@ -40,7 +40,7 @@
 #define TAGSISTANT_DEDUPLICATION_FREQUENCY 60 // seconds
 
 /** use an hash table to save previously processed querytrees */
-#define TAGSISTANT_ENABLE_QUERYTREE_CACHE 1
+#define TAGSISTANT_ENABLE_QUERYTREE_CACHE 0
 
 /** cache tag IDs? */
 #define TAGSISTANT_ENABLE_TAG_ID_CACHE 0

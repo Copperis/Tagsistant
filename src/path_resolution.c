@@ -53,6 +53,7 @@ void tagsistant_querytree_cache_counter(gpointer key, gpointer value, gpointer u
 	*elements = *elements + 1;
 }
 
+#if TAGSISTANT_ENABLE_QUERYTREE_CACHE
 /**
  * Count the elements contained in the querytree cache
  *
@@ -64,6 +65,7 @@ int tagsistant_querytree_cache_total()
 	g_hash_table_foreach(tagsistant_querytree_cache, tagsistant_querytree_cache_counter, &elements);
 	return (elements);
 }
+#endif /* TAGSISTANT_ENABLE_QUERYTREE_CACHE */
 
 /**
  * Just a wrapper around tagsistant_querytree_destroy() called when

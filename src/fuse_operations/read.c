@@ -77,6 +77,7 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 			}
 		}
 
+#if TAGSISTANT_ENABLE_QUERYTREE_CACHE
 		// -- cached_queries --
 		else if (g_regex_match_simple("/cached_queries$", path, 0, 0)) {
 			if (offset == 0) {
@@ -90,6 +91,7 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 				res = 0;
 			}
 		}
+#endif /* TAGSISTANT_ENABLE_QUERYTREE_CACHE */
 
 		// -- configuration --
 		else if (g_regex_match_simple("/configuration$", path, 0, 0)) {

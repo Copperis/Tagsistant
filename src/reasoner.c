@@ -110,6 +110,7 @@ void tagsistant_reasoner_recursive(tagsistant_reasoning *reasoning)
 	assert(reasoning->current_node->tag);
 	assert(reasoning->conn);
 
+#if 0
 	tagsistant_query(
 		"select tags2.tagname from relations "
 			"join tags as tags1 on tags1.tag_id = relations.tag1_id "
@@ -129,6 +130,23 @@ void tagsistant_reasoner_recursive(tagsistant_reasoning *reasoning)
 		reasoning->conn,
 		tagsistant_add_reasoned_tag,
 		reasoning,
+		reasoning->current_node->tag);
+#endif
+
+	tagsistant_query(
+		"(select tags2.tagname from relations "
+			"join tags as tags1 on tags1.tag_id = relations.tag1_id "
+			"join tags as tags2 on tags2.tag_id = relations.tag2_id "
+			"where tags1.tagname = \"%s\") "
+		"union all"
+		"(select tags1.tagname from relations "
+			"join tags as tags1 on tags1.tag_id = relations.tag1_id "
+			"join tags as tags2 on tags2.tag_id = relations.tag2_id "
+			"where tags2.tagname = \"%s\" and relation = \"is_equivalent\");",
+		reasoning->conn,
+		tagsistant_add_reasoned_tag,
+		reasoning,
+		reasoning->current_node->tag,
 		reasoning->current_node->tag);
 
 	if (reasoning->current_node->related) {
