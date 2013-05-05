@@ -208,7 +208,7 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 			tagsistant_connection_pool = g_list_delete_link(tagsistant_connection_pool, pool);
 			connections--;
 		} else {
-			dbg('s', LOG_INFO, "Reusing DBI connection (currently %d created", connections);
+//			dbg('s', LOG_INFO, "Reusing DBI connection (currently %d created", connections);
 			tagsistant_connection_pool = g_list_remove_link(tagsistant_connection_pool, pool);
 			g_list_free_1(pool);
 			break;
@@ -310,7 +310,7 @@ void tagsistant_db_connection_release(dbi_conn dbi)
 	g_mutex_lock(&tagsistant_connection_pool_lock);
 	// TODO valgrind says: check for leaks
 	tagsistant_connection_pool = g_list_prepend(tagsistant_connection_pool, dbi);
-	dbg('s', LOG_INFO, "Releasing DBI connection (currently %d created", connections);
+//	dbg('s', LOG_INFO, "Releasing DBI connection (currently %d created", connections);
 	g_mutex_unlock(&tagsistant_connection_pool_lock);
 }
 
@@ -601,7 +601,7 @@ tagsistant_inode tagsistant_sql_get_tag_id(dbi_conn conn, gchar *tagname)
 #if TAGSISTANT_ENABLE_TAG_ID_CACHE
 	// lookup in the cache
 	tagsistant_inode *value = (tagsistant_inode *) g_hash_table_lookup(tagsistant_tag_cache, tagname);
-	if (value) return (*value);
+	if (value && *value) return (*value);
 #endif
 
 	// fetch the tag_id from SQL

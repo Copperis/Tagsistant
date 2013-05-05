@@ -238,28 +238,6 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
 	while (or_tmp) {
 		inode = tagsistant_guess_inode_from_and_set(or_tmp->and_set, qtree->dbi, object_first_element);
 
-#if 0
-		int tags_total = 0;
-		gchar *and_set = tagsistant_compile_and_set(or_tmp->and_set, &tags_total);
-
-		tagsistant_query(
-			"select objects.inode from objects "
-				"join tagging on objects.inode = tagging.inode "
-				"join tags on tagging.tag_id = tags.tag_id "
-				"where tags.tagname in (%s) and objects.objectname = \"%s\" "
-				"group by objects.inode "
-					"having count(distinct tags.tagname) = %d",
-			qtree->dbi,
-			tagsistant_return_integer,
-			&inode,
-			and_set,
-			object_first_element,
-			tags_total
-		);
-
-		g_free_null(and_set);
-#endif
-
 		if (inode) {
 			qtree->exists = 1;
 			break;
@@ -763,29 +741,6 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 			ptree_or_node *or_tmp = qtree->tree;
 			while (or_tmp && !qtree->inode && strlen(qtree->object_path)) {
 				qtree->inode = tagsistant_guess_inode_from_and_set(or_tmp->and_set, qtree->dbi, *token_ptr);
-
-#if 0
-				int and_total = 0;
-				gchar *and_set = tagsistant_compile_and_set(or_tmp->and_set, &and_total);
-
-				tagsistant_query(
-					"select objects.inode from objects "
-						"join tagging on objects.inode = tagging.inode "
-						"join tags on tagging.tag_id = tags.tag_id "
-						"where tags.tagname in (%s) and objects.objectname = \"%s\" "
-						"group by objects.inode "
-							"having count(distinct tags.tagname) = %d",
-					qtree->dbi,
-					tagsistant_return_integer,
-					&(qtree->inode),
-					and_set,
-					*token_ptr,
-					and_total
-				);
-
-				g_free_null(and_set);
-#endif
-
 				or_tmp = or_tmp->next;
 			}
 		} else {
@@ -858,7 +813,7 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 		// check if the query is consistent or not
 		// TODO is this really necessary?
 		// Wouldn't be enough to do it explicitly in getattr()?
-		tagsistant_querytree_check_tagging_consistency(qtree);
+//		tagsistant_querytree_check_tagging_consistency(qtree);
 	}
 
 	dbg('q', LOG_INFO, "inode = %d", qtree->inode);

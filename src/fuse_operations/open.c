@@ -52,7 +52,9 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 		if (-1 != res) {
 			close(res);
 
-			if ((fi->flags & O_WRONLY) || (fi->flags & O_RDWR)) {
+			tagsistant_querytree_check_tagging_consistency(qtree);
+
+			if ((QTREE_IS_TAGGABLE(qtree) && ((fi->flags & O_WRONLY) || (fi->flags & O_RDWR)))) {
 				// invalidate the checksum
 				tagsistant_invalidate_object_checksum(qtree->inode, qtree->dbi);
 			}

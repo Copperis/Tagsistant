@@ -44,10 +44,12 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 	// -- tags --
 	// -- archive
 	else if (QTREE_POINTS_TO_OBJECT(qtree)) {
+		tagsistant_querytree_check_tagging_consistency(qtree);
+
 		if (QTREE_IS_TAGGABLE(qtree)) {
 			// create a new directory inside tagsistant.archive directory
 			// and tag it with all the tags in the qtree
-			res = tagsistant_create_and_tag_object(qtree, &tagsistant_errno);
+			res = tagsistant_force_create_and_tag_object(qtree, &tagsistant_errno);
 			if (-1 == res) goto TAGSISTANT_EXIT_OPERATION;
 		}
 
@@ -80,6 +82,9 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 				// invalidate the cache entries which involves one of the tags related
 				tagsistant_invalidate_querytree_cache(qtree);
 #endif
+
+				tagsistant_invalidate_reasoning_cache(qtree->first_tag);
+				tagsistant_invalidate_reasoning_cache(qtree->second_tag);
 			} else {
 				res = -1;
 				tagsistant_errno = EFAULT;

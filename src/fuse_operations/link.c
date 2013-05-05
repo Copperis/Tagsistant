@@ -59,6 +59,8 @@ int tagsistant_link(const char *from, const char *to)
 			tagsistant_querytree_set_object_path(to_qtree, g_path_get_basename(from));
 		}
 
+		tagsistant_querytree_check_tagging_consistency(to_qtree);
+
 		// if qtree is taggable, do it
 		if (QTREE_IS_TAGGABLE(to_qtree)) {
 			dbg('F', LOG_INFO, "LINK : Creating %s", to_qtree->object_path);

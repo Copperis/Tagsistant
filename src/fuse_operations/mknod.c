@@ -46,6 +46,8 @@ int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 
 	// -- tags --
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+		tagsistant_querytree_check_tagging_consistency(qtree);
+
 		if (QTREE_IS_TAGGABLE(qtree)) {
 			res = tagsistant_force_create_and_tag_object(qtree, &tagsistant_errno);
 		}

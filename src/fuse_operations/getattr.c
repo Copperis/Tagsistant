@@ -42,6 +42,8 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	
 	// -- object on disk --
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+		tagsistant_querytree_check_tagging_consistency(qtree);
+
 		if (qtree->full_archive_path && (qtree->exists || QTREE_IS_ARCHIVE(qtree))) {
 			lstat_path = qtree->full_archive_path;
 		} else {
@@ -94,12 +96,6 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	// do the real lstat()
 	res = lstat(lstat_path, stbuf);
 	tagsistant_errno = errno;
-
-	// delete non existent objects
-	if (0 && qtree->is_taggable && res == -1 && tagsistant_errno == ENOENT) {
-		tagsistant_query("delete from objects where inode = %d", qtree->dbi, NULL, NULL, qtree->inode);
-		tagsistant_query("delete from tagging where inode = %d", qtree->dbi, NULL, NULL, qtree->inode);
-	}
 
 	// postprocessing output
 	if (QTREE_IS_TAGS(qtree)) {

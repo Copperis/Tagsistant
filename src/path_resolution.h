@@ -250,14 +250,19 @@ extern void						tagsistant_querytree_set_object_path(tagsistant_querytree *qtre
 extern void						tagsistant_querytree_set_inode(tagsistant_querytree *qtree, tagsistant_inode inode);
 extern void						tagsistant_querytree_rebuild_paths(tagsistant_querytree *qtree);
 extern tagsistant_query_type	tagsistant_querytree_guess_type(gchar **token_ptr);
+extern int						tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree);
+
 extern void						tagsistant_querytree_deduplicate(tagsistant_querytree *qtree);
 extern int						tagsistant_querytree_cache_total();
+
 extern void						tagsistant_invalidate_querytree_cache(tagsistant_querytree *qtree);
 
 extern tagsistant_inode			tagsistant_inode_extract_from_path(tagsistant_querytree *qtree);
 extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_querytree *qtree);
 
-extern int						tagsistant_reasoner(tagsistant_reasoning *reasoning);
+#define tagsistant_reasoner(reasoning) tagsistant_reasoner_inner(reasoning, 1)
+extern int						tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int do_caching);
+extern void						tagsistant_invalidate_reasoning_cache(gchar *tag);
 
 // filetree functions
 extern GHashTable *				tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn);

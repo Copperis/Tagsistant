@@ -94,6 +94,14 @@ int tagsistant_rmdir(const char *path)
 				tagsistant_query(
 					"delete from relations where tag1_id = \"%d\" and tag2_id = \"%d\" and relation = \"%s\"",
 					qtree->dbi, NULL, NULL, tag1_id, tag2_id, qtree->relation);
+
+#if TAGSISTANT_ENABLE_QUERYTREE_CACHE
+				// invalidate the cache entries which involves one of the tags related
+				tagsistant_invalidate_querytree_cache(qtree);
+#endif
+
+				tagsistant_invalidate_reasoning_cache(qtree->first_tag);
+				tagsistant_invalidate_reasoning_cache(qtree->second_tag);
 			} else {
 				res = -1;
 				tagsistant_errno = EFAULT;
