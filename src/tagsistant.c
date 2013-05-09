@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- tagsistant.c
-   Copyright (C) 2006-2009 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
 
    Tagsistant (tagfs) mount binary written using FUSE userspace library.
 
@@ -381,7 +381,7 @@ int main(int argc, char *argv[])
 	if (!tagsistant.quiet)
 		fprintf(stderr,
 		" Tagsistant (tagfs) v.%s Build: %s FUSE_USE_VERSION: %d\n"
-		" (c) 2006-2009 Tx0 <tx0@strumentiresistenti.org>\n"
+		" (c) 2006-2013 Tx0 <tx0@strumentiresistenti.org>\n"
 		" For license informations, see %s -h\n\n"
 		, PACKAGE_VERSION, TAGSISTANT_BUILDNUMBER, FUSE_USE_VERSION, tagsistant.progname
 	);
