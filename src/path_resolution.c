@@ -1052,19 +1052,18 @@ static int tagsistant_add_to_filetree(void *hash_table_pointer, dbi_result resul
 		return (0);
 	}
 
-	fh->name = name;
+	g_strlcpy(fh->name, name, 1024);
 	fh->inode = inode;
+	g_free_null(name);
 
 	/* add the new element */
 	// TODO valgrind says: check for leaks
-	g_hash_table_insert(hash_table, name, g_list_prepend(list, fh));
+	g_hash_table_insert(hash_table, g_strdup(fh->name), g_list_prepend(list, fh));
 
 //	dbg('f', LOG_INFO, "adding (%d,%s) to filetree", fh->inode, fh->name);
 
 	return (0);
 }
-
-void tagsistant_filetree_destroy_value_list(gpointer list_pointer);
 
 /**
  * build a linked list of filenames that apply to querytree
@@ -1226,11 +1225,7 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 //	dbg('f', LOG_INFO, "SQL view query [%s]", view_statement->str);
 
 	/* apply view statement */
-	GHashTable *file_hash = g_hash_table_new_full(
-		g_str_hash,
-		g_str_equal,
-		NULL,
-		(GDestroyNotify) tagsistant_filetree_destroy_value_list);
+	GHashTable *file_hash = g_hash_table_new(g_str_hash, g_str_equal);
 
 	tagsistant_query(view_statement->str, conn, tagsistant_add_to_filetree, file_hash);
 
@@ -1249,13 +1244,8 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 /**
  * Destroy a tagsistant_file_handle
  */
-void tagsistant_filetree_destroy_value(gpointer fh_p)
+void tagsistant_filetree_destroy_value(tagsistant_file_handle *fh)
 {
-	if (!fh_p) return;
-
-	tagsistant_file_handle *fh = (tagsistant_file_handle *) fh_p;
-	if (fh->inode)
-		g_free_null(fh->name);
 	g_free_null(fh);
 }
 
@@ -1264,10 +1254,11 @@ void tagsistant_filetree_destroy_value(gpointer fh_p)
  * This will free the GList data structure by first calling
  * tagsistant_filetree_destroy_value() on each linked node.
  */
-void tagsistant_filetree_destroy_value_list(gpointer list_p)
+void tagsistant_filetree_destroy_value_list(gchar *key, GList *list, gpointer data)
 {
-	if (!list_p) return;
+	(void) data;
 
-	GList *list = (GList *) list_p;
-	g_list_free_full(list, tagsistant_filetree_destroy_value);
+	g_free_null(key);
+
+	if (list) g_list_free_full(list, (GDestroyNotify) g_free /* was tagsistant_filetree_destroy_value */);
 }

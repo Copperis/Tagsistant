@@ -196,7 +196,7 @@ typedef struct querytree {
  * file_handle in /usr/include/bits/fcntl.h on Fedora 15
  */
 typedef struct {
-	char *name;					/** object filename */
+	char name[1024];			/** object filename */
 	tagsistant_inode inode;		/** object inode */
 } tagsistant_file_handle;
 
@@ -267,3 +267,4 @@ extern void						tagsistant_invalidate_reasoning_cache(gchar *tag);
 // filetree functions
 extern GHashTable *				tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn);
 extern void 					tagsistant_filetree_destroy(GHashTable *hash_table);
+extern void					tagsistant_filetree_destroy_value_list(gchar *key, GList *list_p, gpointer data);
