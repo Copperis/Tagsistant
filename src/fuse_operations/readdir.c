@@ -105,6 +105,8 @@ int tagsistant_readdir_on_tags(
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
 
+	static gchar *tagsistant_check_tags_path_regex = "/[" TAGSISTANT_ANDSET_DELIMITER TAGSISTANT_QUERY_DELIMITER "]$";
+
 	/*
  	* if path does not terminate by @,
  	* directory should be filled with tagsdir registered tags
@@ -131,8 +133,8 @@ int tagsistant_readdir_on_tags(
 
 	} else {
 
-		// add operators if path is not "/tags", to avoid "/tags/+" and "/tags/="
-		if (g_strcmp0(path, "/tags") != 0) {
+		// add operators if path is not "/tags", to avoid "/tags/+" and "/tags/@"
+		if ((!g_regex_match_simple(tagsistant_check_tags_path_regex, path, G_REGEX_EXTENDED, 0)) && g_strcmp0(path, "/tags")) {
 			filler(buf, TAGSISTANT_ANDSET_DELIMITER, NULL, 0);
 			filler(buf, TAGSISTANT_QUERY_DELIMITER, NULL, 0);
 		}

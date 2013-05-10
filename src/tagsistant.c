@@ -195,7 +195,7 @@ void tagsistant_usage(char *progname)
 		"    -q                     be quiet\n"
 		"    -r                     mount readonly\n"
 		"    -v                     verbose syslogging\n"
-		"    --debug=<profile>      enable specific debugging output:\n"
+		"    --debug=bcfFlpqrs2     enable specific debugging output:\n"
 		"                             b: boot\n"
 		"                             c: cache\n"
 		"                             f: file tree (readdir)\n"
