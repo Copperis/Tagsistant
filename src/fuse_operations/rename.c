@@ -28,7 +28,7 @@
  */
 int tagsistant_rename(const char *from, const char *to)
 {
-    int res = 0, tagsistant_errno = 0, do_rename = 1;
+    int res = 0, tagsistant_errno = 0;
 
 	TAGSISTANT_START("RENAME %s as %s", from, to);
 
@@ -58,7 +58,7 @@ int tagsistant_rename(const char *from, const char *to)
 
 	// -- object on disk (/archive and complete /tags) --
 	if (QTREE_POINTS_TO_OBJECT(from_qtree)) {
-		if (QTREE_IS_TAGGABLE(from_qtree)) {
+		if (QTREE_IS_TAGGABLE(from_qtree) && QTREE_IS_TAGGABLE(to_qtree)) {
 			// 0. preserve original inode
 			tagsistant_querytree_set_inode(to_qtree, from_qtree->inode);
 
@@ -76,14 +76,12 @@ int tagsistant_rename(const char *from, const char *to)
 			// 3. adds all the tags from "to" path
 			tagsistant_querytree_traverse(to_qtree, tagsistant_sql_tag_object, from_qtree->inode);
 		} else {
-			do_rename = 0;
+			TAGSISTANT_ABORT_OPERATION(EXDEV);
 		}
 
 		// do the real rename
-		if (do_rename) {
-			res = rename(from_qtree->full_archive_path, to_qtree->full_archive_path);
-			tagsistant_errno = errno;
-		}
+		res = rename(from_qtree->full_archive_path, to_qtree->full_archive_path);
+		tagsistant_errno = errno;
 
 	} else if (QTREE_IS_ROOT(from_qtree)) {
 		TAGSISTANT_ABORT_OPERATION(EPERM);

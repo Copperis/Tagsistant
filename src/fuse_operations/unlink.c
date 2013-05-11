@@ -40,6 +40,8 @@ int tagsistant_unlink(const char *path)
 
 	// -- objects on disk --
 	if (QTREE_IS_TAGS(qtree)) {
+		tagsistant_querytree_check_tagging_consistency(qtree);
+
 		if (QTREE_IS_TAGGABLE(qtree)) {
 			/*
 			 * if object is pointed by a tags/ query, then untag it

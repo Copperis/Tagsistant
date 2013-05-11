@@ -40,6 +40,8 @@ int tagsistant_release(const char *path, struct fuse_file_info *fi)
 	if (QTREE_IS_MALFORMED(qtree))
 		TAGSISTANT_ABORT_OPERATION(ENOENT);
 
+	tagsistant_querytree_check_tagging_consistency(qtree);
+
 	// -- object --
 	if (QTREE_IS_TAGGABLE(qtree)) {
 		// run the autotagging plugin stack

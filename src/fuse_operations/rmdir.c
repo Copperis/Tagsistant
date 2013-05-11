@@ -46,6 +46,8 @@ int tagsistant_rmdir(const char *path)
 	// tags/tag/@/dir/delete_this_dir
 	//
 	if (QTREE_IS_TAGS(qtree)) {
+		tagsistant_querytree_check_tagging_consistency(qtree);
+
 		if (!QTREE_IS_COMPLETE(qtree)) {
 			// -- tags but incomplete (means: delete a tag) --
 			tagsistant_querytree_traverse(qtree, tagsistant_sql_delete_tag);
