@@ -482,6 +482,12 @@ void tagsistant_manage_repository_ini() {
 	if (!kf) kf = g_key_file_new();
 
 	// fill the GKeyFile object with command line values
+	if (!tagsistant.dboptions) tagsistant.dboptions = g_strdup("sqlite3::::");
+	if (!strlen(tagsistant.dboptions)) {
+		g_free_null(tagsistant.dboptions);
+		tagsistant.dboptions = g_strdup("sqlite3::::");
+	}
+
 	g_key_file_set_value(kf, "Tagsistant", "db", tagsistant.dboptions);
 	g_key_file_set_value(kf, "Tagsistant", "mountpoint", tagsistant.mountpoint);
 	g_key_file_set_value(kf, "Tagsistant", "repository", tagsistant.repository);

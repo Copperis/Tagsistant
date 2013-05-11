@@ -12,8 +12,9 @@ Package: tagsistant
 Architecture: any
 # Depends: ${shlibs:Depends}, ${misc:Depends}
 Depends: libglib2.0 (>= 2.32.3), libdbi1 (>= 0.8.4), libdbd-mysql (>= 0.8.3), libdbd-sqlite3 (>= 0.8.3), libfuse2 (>= 2.8.6)
-Description: Tagsistant is a semantic filesystem using directories as tags
- to organize files. Files can then be searched using complex queries. Tags
- can be organized by relations (t1 includes t2, or t1 is_equivalent t2). A
- deduplication layer reduces disk allocation. A stack of external plugins
- provides a (basic) autotagging facility.
+Description: Semantic filesystem with reasoning capabilities and autotagging plugins
+ Tagsistant is a semantic filesystem using directories as tags.
+ Files can then be searched using complex queries. Tags can be
+ organized by relations (t1 includes t2, or t1 is_equivalent t2).
+ A deduplication layer reduces disk allocation. A stack of external
+ plugins provides a (basic) autotagging facility.
