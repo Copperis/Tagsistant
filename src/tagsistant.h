@@ -43,13 +43,13 @@
 #define TAGSISTANT_ENABLE_QUERYTREE_CACHE 0
 
 /** cache tag IDs? */
-#define TAGSISTANT_ENABLE_TAG_ID_CACHE 0
+#define TAGSISTANT_ENABLE_TAG_ID_CACHE 1
 
 /** cache inode resolution queries? */
-#define TAGSISTANT_ENABLE_AND_SET_CACHE 0
+#define TAGSISTANT_ENABLE_AND_SET_CACHE 1
 
 /** cache reasoner queries? */
-#define TAGSISTANT_ENABLE_REASONER_CACHE 0
+#define TAGSISTANT_ENABLE_REASONER_CACHE 1
 
 /** enable verbose logging, useful during debugging only */
 #define TAGSISTANT_VERBOSE_LOGGING 0

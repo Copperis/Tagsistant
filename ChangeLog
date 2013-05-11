@@ -1,3 +1,54 @@
+0.6 rc5:
+  - Fixed a bug in src/fuse_operations/readdir.c which caused the inclusion
+    of '@' and '+' even after a '+/' ending path.
+
+  - fixed a bug in mkdir() which used tagsistant_create_and_tag_object() in
+    place of tagsistant_force_create_and_tag_object()
+
+  - reduced reasoner SQL queries
+
+  - enabled some caches, properly working
+
+  - tagsistant_querytree_check_tagging_consistency() moved from
+    tagsistant_querytree_new() to fuse_operations, where appropriated:
+      getattr.c
+	  link.c
+	  mkdir.c
+	  mknod.c
+	  open.c
+	  symlink.c
+
+  - mknod() created new files using provided mode_t permissions. If user
+    was not granted write permission, following open() and write() calls
+    would fail. I've forced S_IWUSR in mknod() mode_t permissions to fix
+    the situation.
+
+  - If requested DBD driver is not available, a message is printed
+
+  - Debugging output uses --debug=<profile> switch, where <profile> is a
+    string containing any combination of the following flags:
+
+	  b: boot
+	  c: cache
+	  f: file tree (readdir)
+	  F: FUSE operations (open, read, write, symlink, ...)
+	  l: low level
+	  p: plugin
+	  q: query parsing
+	  r: reasoning
+	  s: SQL queries
+	  2: deduplication
+
+  - Implemented tag_id cache.
+  
+  - Implemented inode resolution by objectname and and_set cache.
+  
+  - Moved resoning code to reasoner.c
+
+  - Deleted some dead code.
+
+  - Avoided some transactions where no SQL insert/update were involved.
+
 0.6 rc4:
   - When a tagsistant_querytree object was fetch from the cache, the
     transaction_started field were not set accordingly to
@@ -12,7 +63,12 @@
       objects: how many objects are tagged
       relations: how many relations are established
       tags: how many tags have been created
-  - 
+
+  - repository.ini file implementation
+
+  - removed any warning at compile time
+
+  - code cleanup
     
 0.6 rc3:
   - Queries are cached. Since a lot of time is spent by

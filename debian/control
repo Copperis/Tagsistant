@@ -1,0 +1,19 @@
+Source: tagsistant
+Section: utils
+Priority: optional
+Maintainer: Tx0 <tx0@tagsistant.net>
+Build-Depends: debhelper (>= 8.0.0), autotools-dev, libpcre3-dev, libc6-dev, libglib2.0-dev, libdbi-dev, libfuse-dev
+Standards-Version: 3.9.2
+Homepage: http://www.tagsistant.net
+#Vcs-Git: git://git.debian.org/collab-maint/tagsistant.git
+#Vcs-Browser: http://git.debian.org/?p=collab-maint/tagsistant.git;a=summary
+
+Package: tagsistant
+Architecture: any
+# Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: libglib2.0 (>= 2.32.3), libdbi1 (>= 0.8.4), libdbd-mysql (>= 0.8.3), libdbd-sqlite3 (>= 0.8.3), libfuse2 (>= 2.8.6)
+Description: Tagsistant is a semantic filesystem using directories as tags
+ to organize files. Files can then be searched using complex queries. Tags
+ can be organized by relations (t1 includes t2, or t1 is_equivalent t2). A
+ deduplication layer reduces disk allocation. A stack of external plugins
+ provides a (basic) autotagging facility.
