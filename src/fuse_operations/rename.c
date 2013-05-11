@@ -28,7 +28,7 @@
  */
 int tagsistant_rename(const char *from, const char *to)
 {
-    int res = 0, tagsistant_errno = 0;
+    int res = 0, tagsistant_errno = 0, do_rename = 1;
 
 	TAGSISTANT_START("RENAME %s as %s", from, to);
 
@@ -36,9 +36,11 @@ int tagsistant_rename(const char *from, const char *to)
 
 	from_qtree = tagsistant_querytree_new(from, 1, 0, 1);
 	if (!from_qtree) TAGSISTANT_ABORT_OPERATION(ENOMEM);
+	tagsistant_querytree_check_tagging_consistency(from_qtree);
 
 	to_qtree = tagsistant_querytree_new(to, 1, 0, 0);
 	if (!to_qtree) TAGSISTANT_ABORT_OPERATION(ENOMEM);
+	tagsistant_querytree_check_tagging_consistency(to_qtree);
 
 	// save to_qtree->dbi and set it to from_qtree->dbi
 	dbi_conn tmp_dbi = to_qtree->dbi;
@@ -73,11 +75,15 @@ int tagsistant_rename(const char *from, const char *to)
 
 			// 3. adds all the tags from "to" path
 			tagsistant_querytree_traverse(to_qtree, tagsistant_sql_tag_object, from_qtree->inode);
+		} else {
+			do_rename = 0;
 		}
 
 		// do the real rename
-		res = rename(from_qtree->full_archive_path, to_qtree->full_archive_path);
-		tagsistant_errno = errno;
+		if (do_rename) {
+			res = rename(from_qtree->full_archive_path, to_qtree->full_archive_path);
+			tagsistant_errno = errno;
+		}
 
 	} else if (QTREE_IS_ROOT(from_qtree)) {
 		TAGSISTANT_ABORT_OPERATION(EPERM);
