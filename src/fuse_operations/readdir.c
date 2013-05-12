@@ -105,7 +105,8 @@ int tagsistant_readdir_on_tags(
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
 
-	static gchar *tagsistant_check_tags_path_regex = "/[" TAGSISTANT_ANDSET_DELIMITER TAGSISTANT_QUERY_DELIMITER "]$";
+	static gchar *tagsistant_check_tags_path_regex =
+		"/(" TAGSISTANT_ANDSET_DELIMITER "|" TAGSISTANT_QUERY_DELIMITER "|" TAGSISTANT_QUERY_DELIMITER_NO_REASONING ")$";
 
 	/*
  	* if path does not terminate by @,
@@ -137,6 +138,7 @@ int tagsistant_readdir_on_tags(
 		if ((!g_regex_match_simple(tagsistant_check_tags_path_regex, path, G_REGEX_EXTENDED, 0)) && g_strcmp0(path, "/tags")) {
 			filler(buf, TAGSISTANT_ANDSET_DELIMITER, NULL, 0);
 			filler(buf, TAGSISTANT_QUERY_DELIMITER, NULL, 0);
+			filler(buf, TAGSISTANT_QUERY_DELIMITER_NO_REASONING, NULL, 0);
 		}
 
 		/* parse tagsdir list */
@@ -202,10 +204,8 @@ int tagsistant_readdir_on_relations(
 
 	if (qtree->second_tag) {
 		// nothing
-//		dbg(LOG_INFO, "readdir on /relations/a_tag/relates/another_tag");
 	} else if (qtree->relation) {
 		// list all tags related to first_tag with this relation
-//		dbg(LOG_INFO, "readdir on /relations/a_tag/relates/");
 		tagsistant_query(
 			"select tags.tagname from tags "
 				"join relations on relations.tag2_id = tags.tag_id "
@@ -219,7 +219,6 @@ int tagsistant_readdir_on_relations(
 
 	} else if (qtree->first_tag) {
 		// list all relations
-//		dbg(LOG_INFO, "readdir on /relations/a_tag/");
 		filler(buf, "includes", NULL, 0);
 		filler(buf, "is_equivalent", NULL, 0);
 
@@ -235,7 +234,6 @@ int tagsistant_readdir_on_relations(
 		*/
 	} else {
 		// list all tags
-//		dbg(LOG_INFO, "readdir on /relations");
 		tagsistant_query("select tagname from tags;", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
 	}
 
@@ -293,15 +291,12 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
-//		dbg(LOG_INFO, "readdir on malformed path %s", path);
 		TAGSISTANT_ABORT_OPERATION(ENOENT);
 
 	} else if ((QTREE_POINTS_TO_OBJECT(qtree) && qtree->full_archive_path) || QTREE_IS_ARCHIVE(qtree)) {
-//		dbg(LOG_INFO, "readdir on object %s", path);
 		res = tagsistant_readdir_on_object(qtree, path, buf, filler, &tagsistant_errno);
 
 	} else if (QTREE_IS_ROOT(qtree)) {
-//		dbg(LOG_INFO, "readdir on root %s", path);
 
 		/* insert pseudo directories: tags/ archive/ relations/ and stats/ */
 		filler(buf, ".", NULL, 0);
@@ -313,15 +308,12 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 		filler(buf, "tags", NULL, 0);
 
 	} else if (QTREE_IS_TAGS(qtree)) {
-//		dbg(LOG_INFO, "readdir on tags");
 		res = tagsistant_readdir_on_tags(qtree, path, buf, filler, offset, &tagsistant_errno);
 
 	} else if (QTREE_IS_RELATIONS(qtree)) {
-//		dbg(LOG_INFO, "readdir on relations");
 		res = tagsistant_readdir_on_relations(qtree, path, buf, filler, &tagsistant_errno);
 
 	} else if (QTREE_IS_STATS(qtree) || QTREE_IS_RETAG(qtree)) {
-//		dbg(LOG_INFO, "readdir on relations");
 		res = tagsistant_readdir_on_stats(qtree, path, buf, filler, &tagsistant_errno);
 
 	}

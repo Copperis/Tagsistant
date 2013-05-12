@@ -136,7 +136,11 @@ int tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int do_caching)
 #if TAGSISTANT_ENABLE_REASONER_CACHE
 	GList *cached = NULL;
 	gchar *key = NULL;
-	int found = g_hash_table_lookup_extended(tagsistant_reasoner_cache, reasoning->current_node->tag, &key, &cached);
+	int found = g_hash_table_lookup_extended(
+		tagsistant_reasoner_cache,
+		reasoning->current_node->tag,
+		(gpointer *) &key,
+		(gpointer *) &cached);
 
 	if (found)
 		// the result was cached, just add it

@@ -187,6 +187,9 @@ typedef struct querytree {
 
 	/** last time the cached copy of this querytree has been accessed */
 	gint64 last_access_microsecond;
+
+	/** do reasoning or not? */
+	int do_reasoning;
 } tagsistant_querytree;
 
 /**

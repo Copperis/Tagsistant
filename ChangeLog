@@ -1,3 +1,26 @@
+0.6 rc6:
+  - Implemented no reasoning ending tag "@@" which prevents the reasoner
+    from being called. Only objects with direct tagging will be returned
+	as query results. Very useful while doing housekeeping of the archive,
+	moving files in subtags. A new constant has been defined in tagsistant.h:
+
+	  #define TAGSISTANT_QUERY_DELIMITER_NO_REASONING "@@"
+
+	and its value is reported by stats/configuration.
+	
+  - Added tagsistant_querytree_check_tagging_consistency() call to:
+      src/fuse_operations/rmdir.c
+      src/fuse_operations/release.c
+      src/fuse_operations/flush.c
+      src/fuse_operations/unlink.c
+
+  - Changed tagsistant_rename() to return EXDEV if both from and to paths
+    are not taggable. This will cause calling program to use
+    open-read/write-close cycle to copy files. This is required if you
+    are moving myfiles/tags/t1/@/directory/files* to myfiles/tags/t2/@/
+    because source files* are not tagsistant managed objects (hence
+    is_taggable is 0).
+
 0.6 rc5:
   - Fixed a bug in src/fuse_operations/readdir.c which caused the inclusion
     of '@' and '+' even after a '+/' ending path.

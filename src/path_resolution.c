@@ -279,7 +279,11 @@ int tagsistant_querytree_parse_tags (
 	ptree_and_node *last_and = NULL;
 
 	// state if the query is complete or not
-	qtree->complete = (NULL == g_strstr_len(path, strlen(path), TAGSISTANT_QUERY_DELIMITER)) ? 0 : 1;
+	size_t path_length = strlen(path);
+	if (g_strstr_len(path, path_length, "/" TAGSISTANT_QUERY_DELIMITER)) {
+		qtree->complete = 1;
+		qtree->do_reasoning = g_strstr_len(path, path_length, "/" TAGSISTANT_QUERY_DELIMITER_NO_REASONING) ? 0 : 1;
+	}
 	dbg('q', LOG_INFO, "Path %s is %scomplete", path, qtree->complete ? "" : "not ");
 
 	// by default a query is valid until something wrong happens while parsing it
@@ -322,7 +326,7 @@ int tagsistant_querytree_parse_tags (
 			andcount++;
 
 			/* search related tags */
-			if (do_reasoning) {
+			if (qtree->do_reasoning) {
 				dbg('q', LOG_INFO, "Searching for other tags related to %s", and->tag);
 
 				tagsistant_reasoning *reasoning = g_malloc(sizeof(tagsistant_reasoning));

@@ -103,16 +103,22 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 		if (NULL == qtree->last_tag) {
 			// ok
 		} else if (g_strcmp0(qtree->last_tag, TAGSISTANT_ANDSET_DELIMITER) == 0) {
+
 			// path ends by '+'
 			stbuf->st_ino += 1;
 			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
 			stbuf->st_nlink = 1;
-		} else if (g_strcmp0(qtree->last_tag, TAGSISTANT_QUERY_DELIMITER) == 0) {
-			// path ends by TAGSISTANT_QUERY_DELIMITER_CHAR
+
+		} else if ((g_strcmp0(qtree->last_tag, TAGSISTANT_QUERY_DELIMITER) == 0) ||
+			(g_strcmp0(qtree->last_tag, TAGSISTANT_QUERY_DELIMITER_NO_REASONING) == 0)) {
+
+			// path ends by TAGSISTANT_QUERY_DELIMITER (with or without reasoning)
 			stbuf->st_ino += 2;
 			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
 			stbuf->st_nlink = 1;
+
 		} else {
+
 			tagsistant_inode tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->last_tag);
 			if (tag_id) {
 				// each directory holds 3 inodes: itself/, itself/+, itself/@
@@ -121,6 +127,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 				tagsistant_errno = ENOENT;
 				res = -1;
 			}
+
 		}
 	} else if (QTREE_IS_STATS(qtree) || QTREE_IS_RELATIONS(qtree)) {
 		// mangle inode for relations and stats

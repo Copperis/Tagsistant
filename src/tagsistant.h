@@ -29,6 +29,12 @@
 /** Query delimiter as a single char */
 #define TAGSISTANT_QUERY_DELIMITER_CHAR '@'
 
+/** Query delimiter without reasoning as a string */
+#define TAGSISTANT_QUERY_DELIMITER_NO_REASONING "@@"
+
+/** Query delimiter without reasoning as a single char */
+#define TAGSISTANT_QUERY_DELIMITER_NO_REASONING_CHAR '@'
+
 /** Andset delimiter as a string */
 #define TAGSISTANT_ANDSET_DELIMITER "+"
 
