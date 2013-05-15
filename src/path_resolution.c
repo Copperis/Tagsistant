@@ -895,6 +895,8 @@ void tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *he
 	tagsistant_query(
 		"delete from objects where inode = %d",
 		qtree->dbi, NULL, NULL,	qtree->inode);
+	
+	// TODO! Delete the files from the archive directory!!!!!
 }
 
 /**
