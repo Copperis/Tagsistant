@@ -36,6 +36,7 @@ GRWLock tagsistant_querytree_cache_lock;
 /**
  * Cache inode resolution from DB
  */
+GRWLock tagsistant_and_set_cache_lock;
 GHashTable *tagsistant_and_set_cache = NULL;
 #endif
 
@@ -166,8 +167,11 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 	gchar *search_key = g_strdup_printf("%s:%s", objectname, and_set_string);
 
 	// if lookup succeed, returns the inode
+	g_rw_lock_reader_lock(&tagsistant_and_set_cache_lock);
 	tagsistant_inode *value = (tagsistant_inode *) g_hash_table_lookup(tagsistant_and_set_cache, search_key);
-	if (value) {
+	g_rw_lock_reader_unlock(&tagsistant_and_set_cache_lock);
+
+	if (value && *value) {
 		g_free_null(search_key);
 		g_free_null(and_set_string);
 		return (*value);
@@ -193,7 +197,9 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 	if (inode) {
 		tagsistant_inode *value = g_new(tagsistant_inode, 1);
 		*value = inode;
+		g_rw_lock_writer_lock(&tagsistant_and_set_cache_lock);
 		g_hash_table_insert(tagsistant_and_set_cache, search_key, value);
+		g_rw_lock_writer_lock(&tagsistant_and_set_cache_lock);
 	} else {
 		g_free_null(search_key);
 	}
@@ -909,15 +915,20 @@ void tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *he
 	unlink(qtree->full_archive_path);
 
 #if TAGSISTANT_ENABLE_AND_SET_CACHE
-	/* if the AND_SET cache is enable, update it by saving the new inode */
-	int tags_total;
-	gchar *and_set_string = tagsistant_compile_and_set(qtree->tree->and_set, &tags_total);
-	gchar *search_key = g_strdup_printf("%s:%s", objectname, and_set_string);
-	tagsistant_inode *value = g_new(tagsistant_inode, 1);
-	*value = main_inode;
-	g_hash_table_replace(tagsistant_and_set_cache, search_key, value);
-	g_free_null(and_set_string);
-	// non need to free search_key because it became the new key in the hash table
+	gchar *key = NULL;
+	tagsistant_inode *value = NULL;
+	GHashTableIter iter;
+
+	g_rw_lock_writer_lock(&tagsistant_and_set_cache_lock);
+	g_hash_table_iter_init(&iter, tagsistant_and_set_cache);
+	while (g_hash_table_iter_next(&iter, (gpointer *) &key, (gpointer *) &value)) {
+		if (*value == qtree->inode) {
+			tagsistant_inode *new_value = g_new(tagsistant_inode, 1);
+			*new_value = main_inode;
+			g_hash_table_iter_replace(&iter, new_value);
+		}
+	}
+	g_rw_lock_writer_unlock(&tagsistant_and_set_cache_lock);
 #endif
 }
 
