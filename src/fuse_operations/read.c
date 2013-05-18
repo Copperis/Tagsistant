@@ -36,7 +36,7 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 
 	TAGSISTANT_START("READ on %s [size: %lu offset: %lu]", path, (long unsigned int) size, (long unsigned int) offset);
 
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 1, 0, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree))
@@ -121,6 +121,7 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 					"  TAGSISTANT_ENABLE_QUERYTREE_CACHE: %d\n"
 					"     TAGSISTANT_ENABLE_TAG_ID_CACHE: %d\n"
 					"    TAGSISTANT_ENABLE_AND_SET_CACHE: %d\n"
+					"   TAGSISTANT_ENABLE_REASONER_CACHE: %d\n"
 					" TAGSISTANT_RETAG_INTERNAL_SYMLINKS: %d\n"
 					"         TAGSISTANT_VERBOSE_LOGGING: %d\n"
 					"         TAGSISTANT_QUERY_DELIMITER: %c (to avoid reasoning use: %s)\n"
@@ -146,6 +147,7 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 					TAGSISTANT_ENABLE_QUERYTREE_CACHE,
 					TAGSISTANT_ENABLE_TAG_ID_CACHE,
 					TAGSISTANT_ENABLE_AND_SET_CACHE,
+					TAGSISTANT_ENABLE_REASONER_CACHE,
 					TAGSISTANT_RETAG_INTERNAL_SYMLINKS,
 					TAGSISTANT_VERBOSE_LOGGING,
 					TAGSISTANT_QUERY_DELIMITER_CHAR,

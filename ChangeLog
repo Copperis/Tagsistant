@@ -1,3 +1,10 @@
+0.6:
+  - Removed do_reasoning argument from tagsistant_querytree_new(), being
+    obsoleted by the '@@' operator.
+
+  - Solved two bugs in deduplication which prevented real unlink() of the
+    file from disk and leaved the old inode stored in AND_SET cache.
+
 0.6 rc6:
   - Implemented no reasoning ending tag "@@" which prevents the reasoner
     from being called. Only objects with direct tagging will be returned

@@ -26,7 +26,10 @@
 #include <unistd.h>
 
 GRegex *tagsistant_inode_extract_from_path_regex = NULL;
+
+#if TAGSISTANT_ENABLE_DEDUPLICATOR
 GThread *deduplication_thread = NULL;
+#endif
 
 #ifdef DEBUG_TO_LOGFILE
 void open_debug_file()
@@ -395,8 +398,8 @@ void tagsistant_utils_init()
 	/* compile regular expressions */
 	tagsistant_inode_extract_from_path_regex = g_regex_new("^([0-9]+)" TAGSISTANT_INODE_DELIMITER, 0, 0, NULL);
 	
-	/* start deduplication thread */
 #if TAGSISTANT_ENABLE_DEDUPLICATOR
+	/* start deduplication thread */
 	deduplication_thread = g_thread_new("deduplication", tagsistant_deduplicator, NULL);
 #endif
 }

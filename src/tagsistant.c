@@ -323,7 +323,7 @@ int main(int argc, char *argv[])
 	if (tagsistant.debug) {
 		char *dbg_ptr = tagsistant.debug;
 		while (*dbg_ptr) {
-			tagsistant.dbg[*dbg_ptr] = 1;
+			tagsistant.dbg[(int) *dbg_ptr] = 1;
 			dbg_ptr++;
 		}
 	}

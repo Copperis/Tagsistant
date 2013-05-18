@@ -35,7 +35,7 @@ int tagsistant_write(const char *path, const char *buf, size_t size, off_t offse
 
 	TAGSISTANT_START("WRITE on %s [size: %lu offset: %lu]", path, (unsigned long) size, (long unsigned int) offset);
 
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 1, 0, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree))

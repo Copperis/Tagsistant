@@ -263,8 +263,7 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
 int tagsistant_querytree_parse_tags (
 		tagsistant_querytree *qtree,
 		const char *path,
-		gchar ***token_ptr,
-		int do_reasoning)
+		gchar ***token_ptr)
 {
 	unsigned int orcount = 0, andcount = 0;
 
@@ -643,7 +642,7 @@ void tagsistant_invalidate_querytree_cache(tagsistant_querytree *qtree)
  * @param path the path to be converted in a logical query
  * @param do_reasoning if true, use the reasoner
  */
-tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasoning, int assign_inode, int start_transaction)
+tagsistant_querytree *tagsistant_querytree_new(const char *path, int assign_inode, int start_transaction)
 {
 	int tagsistant_errno;
 	tagsistant_querytree *qtree = NULL;
@@ -707,7 +706,7 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 
 	/* do selective parsing of the query */
 	if (QTREE_IS_TAGS(qtree)) {
-		if (!tagsistant_querytree_parse_tags(qtree, path, &token_ptr, do_reasoning)) goto RETURN;
+		if (!tagsistant_querytree_parse_tags(qtree, path, &token_ptr)) goto RETURN;
 	} else if (QTREE_IS_RELATIONS(qtree)) {
 		tagsistant_querytree_parse_relations(qtree, &token_ptr);
 	} else if (QTREE_IS_STATS(qtree)) {
@@ -814,10 +813,20 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int do_reasonin
 		if (strlen(qtree->object_path))
 			qtree->points_to_object = qtree->valid = qtree->complete = 1;
 
-		// check if the query is consistent or not
-		// TODO is this really necessary?
-		// Wouldn't be enough to do it explicitly in getattr()?
-//		tagsistant_querytree_check_tagging_consistency(qtree);
+		/*
+		 * checking if the query is consistent or not has been
+		 * moved where the check matters:
+		 *
+		 *   flushc(), getattr(), link(), mkdir(), mknod(), open(),
+		 *   release(), rename(), rmdir(), symlink(), unlink()
+		 *
+		 * Despite it may seems odd to place an explicit call on all
+		 * that methods, the main reason to move this call outside of
+		 * here is to avoid it in highly frequent calls, namely read()
+		 * and write()! The performance improvement is huge, especially
+		 * when reading and writing big files.
+		 */
+		// tagsistant_querytree_check_tagging_consistency(qtree);
 	}
 
 	dbg('q', LOG_INFO, "inode = %d", qtree->inode);
@@ -891,12 +900,25 @@ void tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *he
 		"delete from tagging where inode = %d",
 		qtree->dbi,	NULL, NULL,	qtree->inode);
 
-	/* and finally unlink the removable inode */
+	/* unlink the removable inode */
 	tagsistant_query(
 		"delete from objects where inode = %d",
 		qtree->dbi, NULL, NULL,	qtree->inode);
-	
-	// TODO! Delete the files from the archive directory!!!!!
+
+	/* and finally delete it from the archive directory */
+	unlink(qtree->full_archive_path);
+
+#if TAGSISTANT_ENABLE_AND_SET_CACHE
+	/* if the AND_SET cache is enable, update it by saving the new inode */
+	int tags_total;
+	gchar *and_set_string = tagsistant_compile_and_set(qtree->tree->and_set, &tags_total);
+	gchar *search_key = g_strdup_printf("%s:%s", objectname, and_set_string);
+	tagsistant_inode *value = g_new(tagsistant_inode, 1);
+	*value = main_inode;
+	g_hash_table_replace(tagsistant_and_set_cache, search_key, value);
+	g_free_null(and_set_string);
+	// non need to free search_key because it became the new key in the hash table
+#endif
 }
 
 /**

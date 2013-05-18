@@ -41,8 +41,8 @@ int tagsistant_link(const char *from, const char *to)
 		// dbg(LOG_INFO, "%s is internal to %s, trimmed to %s", from, tagsistant.mountpoint, _from);
 	}
 
-	tagsistant_querytree *from_qtree = tagsistant_querytree_new(_from, 1, 0, 1);
-	tagsistant_querytree *to_qtree = tagsistant_querytree_new(to, 1, 0, 0);
+	tagsistant_querytree *from_qtree = tagsistant_querytree_new(_from, 0, 1);
+	tagsistant_querytree *to_qtree = tagsistant_querytree_new(to, 0, 0);
 
 	from_qtree->is_external = (from == _from) ? 1 : 0;
 
