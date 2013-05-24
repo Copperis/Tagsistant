@@ -105,8 +105,8 @@ int tagsistant_readdir_on_tags(
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
 
-	static gchar *tagsistant_check_tags_path_regex =
-		"/(" TAGSISTANT_ANDSET_DELIMITER "|" TAGSISTANT_QUERY_DELIMITER "|" TAGSISTANT_QUERY_DELIMITER_NO_REASONING ")$";
+	static gchar tagsistant_check_tags_path_regex[] =
+		"/(\\" TAGSISTANT_ANDSET_DELIMITER "|\\" TAGSISTANT_QUERY_DELIMITER "|\\" TAGSISTANT_QUERY_DELIMITER_NO_REASONING ")$";
 
 	/*
  	* if path does not terminate by @,
