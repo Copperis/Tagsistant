@@ -28,6 +28,9 @@
 /* Define to 1 if you have the `dbi' library (-ldbi). */
 #undef HAVE_LIBDBI
 
+/* Define to 1 if you have the `extractor' library (-lextractor). */
+#undef HAVE_LIBEXTRACTOR
+
 /* Define to 1 if you have the `fuse' library (-lfuse). */
 #undef HAVE_LIBFUSE
 

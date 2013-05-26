@@ -34,19 +34,10 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-@PLG_JPEG_TRUE@am__append_1 = libtagsistant_jpeg-0.1.la
-@PLG_AUDIO_TRUE@am__append_2 = libtagsistant_ogg-0.1.la libtagsistant_mp3-0.1.la
-@PLG_HTML_TRUE@am__append_3 = libtagsistant_html-0.1.la
-@PLG_XML_TRUE@am__append_4 = libtagsistant_xml-0.1.la
-@PLG_GIF_TRUE@am__append_5 = libtagsistant_gif-0.1.la
-@PLG_PNG_TRUE@am__append_6 = libtagsistant_png-0.1.la
 subdir = src/plugins
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
-	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
-	$(top_srcdir)/m4/ltversion.m4 $(top_srcdir)/m4/lt~obsolete.m4 \
-	$(top_srcdir)/configure.ac
+am__aclocal_m4_deps = $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -92,82 +83,68 @@ libtagsistant_generic_0_1_la_LINK = $(LIBTOOL) --tag=CC \
 	$(libtagsistant_generic_0_1_la_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
 libtagsistant_gif_0_1_la_LIBADD =
-am__libtagsistant_gif_0_1_la_SOURCES_DIST = ../tagsistant.h tp_gif.c
-@PLG_GIF_TRUE@am_libtagsistant_gif_0_1_la_OBJECTS =  \
-@PLG_GIF_TRUE@	libtagsistant_gif_0_1_la-tp_gif.lo
+am_libtagsistant_gif_0_1_la_OBJECTS =  \
+	libtagsistant_gif_0_1_la-tp_gif.lo
 libtagsistant_gif_0_1_la_OBJECTS =  \
 	$(am_libtagsistant_gif_0_1_la_OBJECTS)
 libtagsistant_gif_0_1_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) \
 	$(libtagsistant_gif_0_1_la_CFLAGS) $(CFLAGS) \
 	$(libtagsistant_gif_0_1_la_LDFLAGS) $(LDFLAGS) -o $@
-@PLG_GIF_TRUE@am_libtagsistant_gif_0_1_la_rpath = -rpath $(libdir)
 libtagsistant_html_0_1_la_LIBADD =
-am__libtagsistant_html_0_1_la_SOURCES_DIST = ../tagsistant.h tp_html.c
-@PLG_HTML_TRUE@am_libtagsistant_html_0_1_la_OBJECTS =  \
-@PLG_HTML_TRUE@	libtagsistant_html_0_1_la-tp_html.lo
+am_libtagsistant_html_0_1_la_OBJECTS =  \
+	libtagsistant_html_0_1_la-tp_html.lo
 libtagsistant_html_0_1_la_OBJECTS =  \
 	$(am_libtagsistant_html_0_1_la_OBJECTS)
 libtagsistant_html_0_1_la_LINK = $(LIBTOOL) --tag=CC \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
 	$(libtagsistant_html_0_1_la_CFLAGS) $(CFLAGS) \
 	$(libtagsistant_html_0_1_la_LDFLAGS) $(LDFLAGS) -o $@
-@PLG_HTML_TRUE@am_libtagsistant_html_0_1_la_rpath = -rpath $(libdir)
 libtagsistant_jpeg_0_1_la_LIBADD =
-am__libtagsistant_jpeg_0_1_la_SOURCES_DIST = ../tagsistant.h tp_jpeg.c
-@PLG_JPEG_TRUE@am_libtagsistant_jpeg_0_1_la_OBJECTS =  \
-@PLG_JPEG_TRUE@	libtagsistant_jpeg_0_1_la-tp_jpeg.lo
+am_libtagsistant_jpeg_0_1_la_OBJECTS =  \
+	libtagsistant_jpeg_0_1_la-tp_jpeg.lo
 libtagsistant_jpeg_0_1_la_OBJECTS =  \
 	$(am_libtagsistant_jpeg_0_1_la_OBJECTS)
 libtagsistant_jpeg_0_1_la_LINK = $(LIBTOOL) --tag=CC \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
 	$(libtagsistant_jpeg_0_1_la_CFLAGS) $(CFLAGS) \
 	$(libtagsistant_jpeg_0_1_la_LDFLAGS) $(LDFLAGS) -o $@
-@PLG_JPEG_TRUE@am_libtagsistant_jpeg_0_1_la_rpath = -rpath $(libdir)
 libtagsistant_mp3_0_1_la_LIBADD =
-am__libtagsistant_mp3_0_1_la_SOURCES_DIST = ../tagsistant.h tp_mp3.c
-@PLG_AUDIO_TRUE@am_libtagsistant_mp3_0_1_la_OBJECTS =  \
-@PLG_AUDIO_TRUE@	libtagsistant_mp3_0_1_la-tp_mp3.lo
+am_libtagsistant_mp3_0_1_la_OBJECTS =  \
+	libtagsistant_mp3_0_1_la-tp_mp3.lo
 libtagsistant_mp3_0_1_la_OBJECTS =  \
 	$(am_libtagsistant_mp3_0_1_la_OBJECTS)
 libtagsistant_mp3_0_1_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) \
 	$(libtagsistant_mp3_0_1_la_CFLAGS) $(CFLAGS) \
 	$(libtagsistant_mp3_0_1_la_LDFLAGS) $(LDFLAGS) -o $@
-@PLG_AUDIO_TRUE@am_libtagsistant_mp3_0_1_la_rpath = -rpath $(libdir)
 libtagsistant_ogg_0_1_la_LIBADD =
-am__libtagsistant_ogg_0_1_la_SOURCES_DIST = ../tagsistant.h tp_ogg.c
-@PLG_AUDIO_TRUE@am_libtagsistant_ogg_0_1_la_OBJECTS =  \
-@PLG_AUDIO_TRUE@	libtagsistant_ogg_0_1_la-tp_ogg.lo
+am_libtagsistant_ogg_0_1_la_OBJECTS =  \
+	libtagsistant_ogg_0_1_la-tp_ogg.lo
 libtagsistant_ogg_0_1_la_OBJECTS =  \
 	$(am_libtagsistant_ogg_0_1_la_OBJECTS)
 libtagsistant_ogg_0_1_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) \
 	$(libtagsistant_ogg_0_1_la_CFLAGS) $(CFLAGS) \
 	$(libtagsistant_ogg_0_1_la_LDFLAGS) $(LDFLAGS) -o $@
-@PLG_AUDIO_TRUE@am_libtagsistant_ogg_0_1_la_rpath = -rpath $(libdir)
 libtagsistant_png_0_1_la_LIBADD =
-am__libtagsistant_png_0_1_la_SOURCES_DIST = ../tagsistant.h tp_png.c
-@PLG_PNG_TRUE@am_libtagsistant_png_0_1_la_OBJECTS =  \
-@PLG_PNG_TRUE@	libtagsistant_png_0_1_la-tp_png.lo
+am_libtagsistant_png_0_1_la_OBJECTS =  \
+	libtagsistant_png_0_1_la-tp_png.lo
 libtagsistant_png_0_1_la_OBJECTS =  \
 	$(am_libtagsistant_png_0_1_la_OBJECTS)
 libtagsistant_png_0_1_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) \
 	$(libtagsistant_png_0_1_la_CFLAGS) $(CFLAGS) \
 	$(libtagsistant_png_0_1_la_LDFLAGS) $(LDFLAGS) -o $@
-@PLG_PNG_TRUE@am_libtagsistant_png_0_1_la_rpath = -rpath $(libdir)
 libtagsistant_xml_0_1_la_LIBADD =
-am__libtagsistant_xml_0_1_la_SOURCES_DIST = ../tagsistant.h tp_xml.c
-@PLG_XML_TRUE@am_libtagsistant_xml_0_1_la_OBJECTS =  \
-@PLG_XML_TRUE@	libtagsistant_xml_0_1_la-tp_xml.lo
+am_libtagsistant_xml_0_1_la_OBJECTS =  \
+	libtagsistant_xml_0_1_la-tp_xml.lo
 libtagsistant_xml_0_1_la_OBJECTS =  \
 	$(am_libtagsistant_xml_0_1_la_OBJECTS)
 libtagsistant_xml_0_1_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) \
 	$(libtagsistant_xml_0_1_la_CFLAGS) $(CFLAGS) \
 	$(libtagsistant_xml_0_1_la_LDFLAGS) $(LDFLAGS) -o $@
-@PLG_XML_TRUE@am_libtagsistant_xml_0_1_la_rpath = -rpath $(libdir)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -190,13 +167,13 @@ SOURCES = $(libtagsistant_generic_0_1_la_SOURCES) \
 	$(libtagsistant_png_0_1_la_SOURCES) \
 	$(libtagsistant_xml_0_1_la_SOURCES)
 DIST_SOURCES = $(libtagsistant_generic_0_1_la_SOURCES) \
-	$(am__libtagsistant_gif_0_1_la_SOURCES_DIST) \
-	$(am__libtagsistant_html_0_1_la_SOURCES_DIST) \
-	$(am__libtagsistant_jpeg_0_1_la_SOURCES_DIST) \
-	$(am__libtagsistant_mp3_0_1_la_SOURCES_DIST) \
-	$(am__libtagsistant_ogg_0_1_la_SOURCES_DIST) \
-	$(am__libtagsistant_png_0_1_la_SOURCES_DIST) \
-	$(am__libtagsistant_xml_0_1_la_SOURCES_DIST)
+	$(libtagsistant_gif_0_1_la_SOURCES) \
+	$(libtagsistant_html_0_1_la_SOURCES) \
+	$(libtagsistant_jpeg_0_1_la_SOURCES) \
+	$(libtagsistant_mp3_0_1_la_SOURCES) \
+	$(libtagsistant_ogg_0_1_la_SOURCES) \
+	$(libtagsistant_png_0_1_la_SOURCES) \
+	$(libtagsistant_xml_0_1_la_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -313,32 +290,34 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-lib_LTLIBRARIES = libtagsistant_generic-0.1.la $(am__append_1) \
-	$(am__append_2) $(am__append_3) $(am__append_4) \
-	$(am__append_5) $(am__append_6)
+lib_LTLIBRARIES = libtagsistant_generic-0.1.la \
+	libtagsistant_jpeg-0.1.la libtagsistant_ogg-0.1.la \
+	libtagsistant_mp3-0.1.la libtagsistant_html-0.1.la \
+	libtagsistant_xml-0.1.la libtagsistant_gif-0.1.la \
+	libtagsistant_png-0.1.la
 libtagsistant_generic_0_1_la_SOURCES = ../tagsistant.h tp_generic.c
 libtagsistant_generic_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0`
-@PLG_JPEG_TRUE@libtagsistant_jpeg_0_1_la_SOURCES = ../tagsistant.h tp_jpeg.c
-@PLG_JPEG_TRUE@libtagsistant_jpeg_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0 libexif`
-@PLG_JPEG_TRUE@libtagsistant_jpeg_0_1_la_LDFLAGS = `pkg-config --libs glib-2.0 libexif`
-@PLG_AUDIO_TRUE@libtagsistant_ogg_0_1_la_SOURCES = ../tagsistant.h tp_ogg.c
-@PLG_AUDIO_TRUE@libtagsistant_ogg_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0 taglib_c taglib`
-@PLG_AUDIO_TRUE@libtagsistant_ogg_0_1_la_LDFLAGS = `pkg-config --libs glib-2.0 taglib_c taglib`
-@PLG_AUDIO_TRUE@libtagsistant_mp3_0_1_la_SOURCES = ../tagsistant.h tp_mp3.c
-@PLG_AUDIO_TRUE@libtagsistant_mp3_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0 taglib_c taglib`
-@PLG_AUDIO_TRUE@libtagsistant_mp3_0_1_la_LDFLAGS = `pkg-config --libs glib-2.0 taglib_c taglib`
-@PLG_HTML_TRUE@libtagsistant_html_0_1_la_SOURCES = ../tagsistant.h tp_html.c
-@PLG_HTML_TRUE@libtagsistant_html_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0`
-@PLG_HTML_TRUE@libtagsistant_html_0_1_la_LDFLAGS = `pkg-config --libs glib-2.0`
-@PLG_XML_TRUE@libtagsistant_xml_0_1_la_SOURCES = ../tagsistant.h tp_xml.c
-@PLG_XML_TRUE@libtagsistant_xml_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0`
-@PLG_XML_TRUE@libtagsistant_xml_0_1_la_LDFLAGS = `pkg-config --libs glib-2.0`
-@PLG_GIF_TRUE@libtagsistant_gif_0_1_la_SOURCES = ../tagsistant.h tp_gif.c
-@PLG_GIF_TRUE@libtagsistant_gif_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0`
-@PLG_GIF_TRUE@libtagsistant_gif_0_1_la_LDFLAGS = `pkg-config --libs glib-2.0`
-@PLG_PNG_TRUE@libtagsistant_png_0_1_la_SOURCES = ../tagsistant.h tp_png.c
-@PLG_PNG_TRUE@libtagsistant_png_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0`
-@PLG_PNG_TRUE@libtagsistant_png_0_1_la_LDFLAGS = `pkg-config --libs glib-2.0`
+libtagsistant_jpeg_0_1_la_SOURCES = ../tagsistant.h tp_jpeg.c
+libtagsistant_jpeg_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0`
+libtagsistant_jpeg_0_1_la_LDFLAGS = `pkg-config --libs glib-2.0`
+libtagsistant_ogg_0_1_la_SOURCES = ../tagsistant.h tp_ogg.c
+libtagsistant_ogg_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0`
+libtagsistant_ogg_0_1_la_LDFLAGS = `pkg-config --libs glib-2.0`
+libtagsistant_mp3_0_1_la_SOURCES = ../tagsistant.h tp_mp3.c
+libtagsistant_mp3_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0`
+libtagsistant_mp3_0_1_la_LDFLAGS = `pkg-config --libs glib-2.0`
+libtagsistant_html_0_1_la_SOURCES = ../tagsistant.h tp_html.c
+libtagsistant_html_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0`
+libtagsistant_html_0_1_la_LDFLAGS = `pkg-config --libs glib-2.0`
+libtagsistant_xml_0_1_la_SOURCES = ../tagsistant.h tp_xml.c
+libtagsistant_xml_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0`
+libtagsistant_xml_0_1_la_LDFLAGS = `pkg-config --libs glib-2.0`
+libtagsistant_gif_0_1_la_SOURCES = ../tagsistant.h tp_gif.c
+libtagsistant_gif_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0`
+libtagsistant_gif_0_1_la_LDFLAGS = `pkg-config --libs glib-2.0`
+libtagsistant_png_0_1_la_SOURCES = ../tagsistant.h tp_png.c
+libtagsistant_png_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0`
+libtagsistant_png_0_1_la_LDFLAGS = `pkg-config --libs glib-2.0`
 all: all-am
 
 .SUFFIXES:
@@ -407,19 +386,19 @@ clean-libLTLIBRARIES:
 libtagsistant_generic-0.1.la: $(libtagsistant_generic_0_1_la_OBJECTS) $(libtagsistant_generic_0_1_la_DEPENDENCIES) $(EXTRA_libtagsistant_generic_0_1_la_DEPENDENCIES) 
 	$(libtagsistant_generic_0_1_la_LINK) -rpath $(libdir) $(libtagsistant_generic_0_1_la_OBJECTS) $(libtagsistant_generic_0_1_la_LIBADD) $(LIBS)
 libtagsistant_gif-0.1.la: $(libtagsistant_gif_0_1_la_OBJECTS) $(libtagsistant_gif_0_1_la_DEPENDENCIES) $(EXTRA_libtagsistant_gif_0_1_la_DEPENDENCIES) 
-	$(libtagsistant_gif_0_1_la_LINK) $(am_libtagsistant_gif_0_1_la_rpath) $(libtagsistant_gif_0_1_la_OBJECTS) $(libtagsistant_gif_0_1_la_LIBADD) $(LIBS)
+	$(libtagsistant_gif_0_1_la_LINK) -rpath $(libdir) $(libtagsistant_gif_0_1_la_OBJECTS) $(libtagsistant_gif_0_1_la_LIBADD) $(LIBS)
 libtagsistant_html-0.1.la: $(libtagsistant_html_0_1_la_OBJECTS) $(libtagsistant_html_0_1_la_DEPENDENCIES) $(EXTRA_libtagsistant_html_0_1_la_DEPENDENCIES) 
-	$(libtagsistant_html_0_1_la_LINK) $(am_libtagsistant_html_0_1_la_rpath) $(libtagsistant_html_0_1_la_OBJECTS) $(libtagsistant_html_0_1_la_LIBADD) $(LIBS)
+	$(libtagsistant_html_0_1_la_LINK) -rpath $(libdir) $(libtagsistant_html_0_1_la_OBJECTS) $(libtagsistant_html_0_1_la_LIBADD) $(LIBS)
 libtagsistant_jpeg-0.1.la: $(libtagsistant_jpeg_0_1_la_OBJECTS) $(libtagsistant_jpeg_0_1_la_DEPENDENCIES) $(EXTRA_libtagsistant_jpeg_0_1_la_DEPENDENCIES) 
-	$(libtagsistant_jpeg_0_1_la_LINK) $(am_libtagsistant_jpeg_0_1_la_rpath) $(libtagsistant_jpeg_0_1_la_OBJECTS) $(libtagsistant_jpeg_0_1_la_LIBADD) $(LIBS)
+	$(libtagsistant_jpeg_0_1_la_LINK) -rpath $(libdir) $(libtagsistant_jpeg_0_1_la_OBJECTS) $(libtagsistant_jpeg_0_1_la_LIBADD) $(LIBS)
 libtagsistant_mp3-0.1.la: $(libtagsistant_mp3_0_1_la_OBJECTS) $(libtagsistant_mp3_0_1_la_DEPENDENCIES) $(EXTRA_libtagsistant_mp3_0_1_la_DEPENDENCIES) 
-	$(libtagsistant_mp3_0_1_la_LINK) $(am_libtagsistant_mp3_0_1_la_rpath) $(libtagsistant_mp3_0_1_la_OBJECTS) $(libtagsistant_mp3_0_1_la_LIBADD) $(LIBS)
+	$(libtagsistant_mp3_0_1_la_LINK) -rpath $(libdir) $(libtagsistant_mp3_0_1_la_OBJECTS) $(libtagsistant_mp3_0_1_la_LIBADD) $(LIBS)
 libtagsistant_ogg-0.1.la: $(libtagsistant_ogg_0_1_la_OBJECTS) $(libtagsistant_ogg_0_1_la_DEPENDENCIES) $(EXTRA_libtagsistant_ogg_0_1_la_DEPENDENCIES) 
-	$(libtagsistant_ogg_0_1_la_LINK) $(am_libtagsistant_ogg_0_1_la_rpath) $(libtagsistant_ogg_0_1_la_OBJECTS) $(libtagsistant_ogg_0_1_la_LIBADD) $(LIBS)
+	$(libtagsistant_ogg_0_1_la_LINK) -rpath $(libdir) $(libtagsistant_ogg_0_1_la_OBJECTS) $(libtagsistant_ogg_0_1_la_LIBADD) $(LIBS)
 libtagsistant_png-0.1.la: $(libtagsistant_png_0_1_la_OBJECTS) $(libtagsistant_png_0_1_la_DEPENDENCIES) $(EXTRA_libtagsistant_png_0_1_la_DEPENDENCIES) 
-	$(libtagsistant_png_0_1_la_LINK) $(am_libtagsistant_png_0_1_la_rpath) $(libtagsistant_png_0_1_la_OBJECTS) $(libtagsistant_png_0_1_la_LIBADD) $(LIBS)
+	$(libtagsistant_png_0_1_la_LINK) -rpath $(libdir) $(libtagsistant_png_0_1_la_OBJECTS) $(libtagsistant_png_0_1_la_LIBADD) $(LIBS)
 libtagsistant_xml-0.1.la: $(libtagsistant_xml_0_1_la_OBJECTS) $(libtagsistant_xml_0_1_la_DEPENDENCIES) $(EXTRA_libtagsistant_xml_0_1_la_DEPENDENCIES) 
-	$(libtagsistant_xml_0_1_la_LINK) $(am_libtagsistant_xml_0_1_la_rpath) $(libtagsistant_xml_0_1_la_OBJECTS) $(libtagsistant_xml_0_1_la_LIBADD) $(LIBS)
+	$(libtagsistant_xml_0_1_la_LINK) -rpath $(libdir) $(libtagsistant_xml_0_1_la_OBJECTS) $(libtagsistant_xml_0_1_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)

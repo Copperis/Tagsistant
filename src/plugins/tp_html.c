@@ -20,39 +20,24 @@
 */
 
 #include "../tagsistant.h"
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
 
 /* declaring mime type */
 char mime_type[] = "text/html";
 
-/* flags used by regex compiler */
-#define _RX_COMPILE_FLAGS G_REGEX_CASELESS|G_REGEX_MULTILINE|G_REGEX_DOTALL|G_REGEX_EXTENDED|G_REGEX_OPTIMIZE
-
-/* mutex used by processor */
-GMutex *processor_mutex = NULL;
-
-/* regex collection */
-GRegex *_rx_title = NULL;
-GRegex *_rx_keywords = NULL;
+/* regex */
+static GRegex *rx = NULL;
 
 /* exported init function */
 int tagsistant_plugin_init()
 {
-	/* initialize mutex */
-	processor_mutex = g_mutex_new();
-
 	/* initialize regular expressions */
-	_rx_title = g_regex_new("<title>([^<]+)</title>", _RX_COMPILE_FLAGS, 0, NULL);
-	_rx_keywords = g_regex_new("<meta name=[\"']keywords['\"] content=['\"]([^'\"]+)[\"']/?>", _RX_COMPILE_FLAGS, 0, NULL);
+	rx = g_regex_new("^(author|date|language)$", TAGSISTANT_RX_COMPILE_FLAGS, 0, NULL);
 
 	return(1);
 }
 
 /* exported processor function */
-int tagsistant_processor(const tagsistant_querytree *qtree)
+int tagsistant_processor(const tagsistant_querytree *qtree, EXTRACTOR_KeywordList *keywords)
 {
 	/* default tagging */
 	tagsistant_sql_tag_object(qtree->dbi, "document", qtree->inode);
@@ -60,25 +45,7 @@ int tagsistant_processor(const tagsistant_querytree *qtree)
 	tagsistant_sql_tag_object(qtree->dbi, "html", qtree->inode);
 
 	/* apply regular expressions to document content */
-
-	/* 1. open document */
-	int fd = open(qtree->full_archive_path, 0);
-	if (-1 == fd) {
-		int error = errno;
-		dbg('p', LOG_ERR, "Unable to open %s: %s", qtree->full_archive_path, strerror(error));
-		return(TP_ERROR);
-	}
-
-	/* 2. read 64K of document content */
-	char buf[65535];
-	int r = read(fd, buf, 65535);
-	(void) r;
-
-	/* 3. look for matching portions */
-	tagsistant_plugin_apply_regex(qtree, buf, processor_mutex, _rx_title);
-	tagsistant_plugin_apply_regex(qtree, buf, processor_mutex, _rx_keywords);
-
-	close(fd);
+	tagsistant_plugin_iterator(qtree, keywords, rx);
 
 	return(TP_STOP);
 }
@@ -87,7 +54,7 @@ int tagsistant_processor(const tagsistant_querytree *qtree)
 void tagsistant_plugin_free()
 {
 	/* unreference regular expressions */
-	g_regex_unref(_rx_title);
+	g_regex_unref(rx);
 }
 
 /* vim:ts=4:autoindent:nocindent:syntax=c */

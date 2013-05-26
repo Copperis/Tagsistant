@@ -50,7 +50,7 @@ typedef struct tagsistant_plugin {
 	 *   by other plugins is allowed) or 2 on successful processing (no further
 	 *   processing required).
 	 */
-	int (*processor)(tagsistant_querytree *qtree);
+	int (*processor)(tagsistant_querytree *qtree, EXTRACTOR_KeywordList *keywords);
 
 	/**
 	 * hook to g_free allocated resources
@@ -60,3 +60,10 @@ typedef struct tagsistant_plugin {
 	/** next plugin in linked list */
 	struct tagsistant_plugin *next;
 } tagsistant_plugin_t;
+
+/* flags suggested to compile regular expressions passed to tagsistant_plugin_iterator */
+#define TAGSISTANT_RX_COMPILE_FLAGS G_REGEX_CASELESS|G_REGEX_EXTENDED|G_REGEX_OPTIMIZE
+
+extern void tagsistant_plugin_iterator(const tagsistant_querytree *qtree, EXTRACTOR_KeywordList *keywords, GRegex *regex);
+extern const gchar *tagsistant_plugin_get_keyword_value(gchar *keyword, EXTRACTOR_KeywordList *keywords);
+extern void tagsistant_plugin_tag_by_date(const tagsistant_querytree *qtree, const gchar *date);

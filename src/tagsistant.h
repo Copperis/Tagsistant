@@ -144,6 +144,7 @@
 
 #include <fuse.h>
 #include "compat/fuse_opt.h"
+#include <extractor.h>
 
 /**
  * each object is identified by a unique number of type tagsistant_id

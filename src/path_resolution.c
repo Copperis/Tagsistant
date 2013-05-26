@@ -989,7 +989,7 @@ void tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
  *
  * @param qtree the tagsistant_querytree_t to be destroyed
  */
-void tagsistant_querytree_destroy(tagsistant_querytree *qtree, uint commit_transaction)
+void tagsistant_querytree_destroy(tagsistant_querytree *qtree, guint commit_transaction)
 {
 	if (!qtree) return;
 

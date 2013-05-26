@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 # AC_PREREQ(2.65)
-AC_INIT([tagsistant],[0.6],[tx0@strumentiresistenti.org])
+AC_INIT([tagsistant],[0.7],[tx0@strumentiresistenti.org])
 # AC_CANONICAL_TARGET
 AM_INIT_AUTOMAKE([foreign])
 AC_COPYRIGHT([tagsistant is (C) Tx0 <tx0@strumentiresistenti.org>])
@@ -96,29 +96,12 @@ AC_CHECK_LIB([dbi],[dbi_conn_new],,[
 	AC_MSG_FAILURE(["libdbi not found"])
 ])
 
-AC_CHECK_LIB([exif],[exif_data_new_from_file],[plg_jpeg=true],[plg_jpeg=false])
-AM_CONDITIONAL([PLG_JPEG], [test x$plg_jpeg = xtrue])
-
-AC_CHECK_LIB([implement_me],[implement_me],[plg_doc=true],[plg_doc=false])
-AM_CONDITIONAL([PLG_DOC], [test x$plg_doc = xtrue])
-
-AC_CHECK_LIB([implement_me],[implement_me],[plg_rtf=true],[plg_rtf=false])
-AM_CONDITIONAL([PLG_RTF], [test x$plg_rtf = xtrue])
-
-AC_CHECK_LIB([tag_c],[taglib_file_new],[plg_audio=true],[plg_audio=false])
-AM_CONDITIONAL([PLG_AUDIO], [test x$plg_audio = xtrue])
-
-AC_CHECK_LIB([glib-2.0],[g_regex_new],[plg_html=true],[plg_html=false])
-AM_CONDITIONAL([PLG_HTML], [test x$plg_html = xtrue])
-
-AC_CHECK_LIB([implement_me],[implement_me],[plg_xml=true],[plg_xml=false])
-AM_CONDITIONAL([PLG_XML], [test x$plg_xml = xtrue])
-
-AC_CHECK_LIB([implement_me],[implement_me],[plg_gif=true],[plg_gif=false])
-AM_CONDITIONAL([PLG_GIF], [test x$plg_gif = xtrue])
-
-AC_CHECK_LIB([implement_me],[implement_me],[plg_png=true],[plg_png=false])
-AM_CONDITIONAL([PLG_PNG], [test x$plg_png = xtrue])
+AC_CHECK_LIB([extractor],[EXTRACTOR_loadDefaultLibraries],,[
+	echo "libextractor is a universal metadata extractor. Tagsistant uses it"
+	echo "to autotag your files."
+	echo "More info at http://http://www.gnu.org/software/libextractor"
+	AC_MSG_FAILURE(["libextractor not found"])
+])
 
 echo $host .. $target
 case $host in
@@ -130,43 +113,6 @@ case $host in
 		AC_SUBST([LDFLAGS],["${LDFLAGS} -flat_namespace -force_flat_namespace"])
 		;;
 esac
-
-echo Supported plugins:
-if test "x$plg_audio" = "xtrue"; then
-	echo " AUDIO: OK"
-else
-	echo " AUDIO: not supported (More info at http://developer.kde.org/~wheeler/taglib.html)"
-fi
-if test "x$plg_doc" = "xtrue"; then
-	echo "   DOC: OK"
-else
-	echo "   DOC: not supported (More info at http://www.google.it/)"
-fi
-if test "x$plg_html" = "xtrue"; then
-	echo "  HTML: OK"
-else
-	echo "  HTML: not supported (More info at http://developer.gnome.org/glib/)"
-fi
-if test "x$plg_jpeg" = "xtrue"; then
-	echo "  JPEG: OK"
-else
-	echo "  JPEG: not supported (More info at http://libexif.sourceforge.net/)"
-fi
-if test "x$plg_png" = "xtrue"; then
-	echo "   PNG: OK"
-else
-	echo "   PNG: not supported (More info at http://www.google.it/)"
-fi
-if test "x$plg_rtf" = "xtrue"; then
-	echo "   RTF: OK"
-else
-	echo "   RTF: not supported (More info at http://www.google.it/)"
-fi
-if test "x$plg_xml" = "xtrue"; then
-	echo "   XML: OK"
-else
-	echo "   XML: not supported (More info at http://www.google.it/)"
-fi
 
 AC_OUTPUT
 

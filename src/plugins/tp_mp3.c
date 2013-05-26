@@ -20,30 +20,36 @@
 */
 
 #include "../tagsistant.h"
-#define DEFAULT_TAG "audio"
 
 /* declaring mime type */
 char mime_type[] = "audio/mpeg";
 
+static GRegex *rx;
+
 /* exported init function */
 int tagsistant_plugin_init()
 {
+	rx = g_regex_new("^(year|album|artist)$", TAGSISTANT_RX_COMPILE_FLAGS, 0, NULL);
+
 	return(1);
 }
 
 /* exported processor function */
-int tagsistant_processor(const tagsistant_querytree *qtree)
+int tagsistant_processor(const tagsistant_querytree *qtree, EXTRACTOR_KeywordList *keywords)
 {
-#if TAGSISTANT_VERBOSE_LOGGING
-	dbg(LOG_INFO, "Tagging %s as %s", qtree->full_archive_path, DEFAULT_TAG);
-#endif
-	// sql_tag_object(DEFAULT_TAG, qtree->inode)
+	/* default tagging */
+	tagsistant_sql_tag_object(qtree->dbi, "audio", qtree->inode);
+
+	/* applying regular expression */
+	tagsistant_plugin_iterator(qtree, keywords, rx);
+
 	return(TP_STOP);
 }
 
 /* exported finalize function */
 void tagsistant_plugin_free()
 {
+	g_regex_unref(rx);
 }
 
 // vim:ts=4:autoindent:nocindent:syntax=c

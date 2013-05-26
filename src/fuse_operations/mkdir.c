@@ -38,7 +38,7 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
-		TAGSISTANT_ABORT_OPERATION(ENOENT);
+		TAGSISTANT_ABORT_OPERATION(EROFS);
 	}
 
 	// -- tags --

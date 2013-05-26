@@ -24,24 +24,27 @@
 /* declaring mime type */
 char mime_type[] = "*/*";
 
+/* the regular expression used to match the tags to be considered */
+GRegex *rx;
+
 /* exported init function */
 int tagsistant_plugin_init()
 {
-//	dbg(LOG_INFO, "Plugin generic loaded, nice to meet you!");
+	rx = g_regex_new("", TAGSISTANT_RX_COMPILE_FLAGS, 0, NULL);
 	return(1);
 }
 
 /* exported processor function */
-int tagsistant_processor(tagsistant_querytree *qtree)
+int tagsistant_processor(tagsistant_querytree *qtree, EXTRACTOR_KeywordList *keywords)
 {
-	(void) qtree;
+	tagsistant_plugin_iterator(qtree, keywords, rx);
 	return(TP_NULL);
 }
 
 /* exported finalize function */
 void tagsistant_plugin_free()
 {
-//	dbg(LOG_INFO, "Plugin generic gets unloaded, see you!");
+	g_regex_unref(rx);
 }
 
 // vim:ts=4:autoindent:nocindent:syntax=c

@@ -25,6 +25,17 @@
  * PLUGIN SUPPORT *
 \******************/
 
+#if EXTRACTOR_VERSION & 0x00050000 // libextractor 0.5.x
+static EXTRACTOR_ExtractorList *elist;
+#endif
+
+static GRegex *tagsistant_rx_date;
+
+#ifndef errno
+#define errno
+#endif
+
+#if 0 /* this code is obsolete */
 /**
  * guess the MIME type of passed filename
  *
@@ -92,6 +103,7 @@ BREAK_MIME_SEARCH:
 	fclose(f);
 	return(type);
 }
+#endif
 
 /**
  * process a file using plugin chain
@@ -101,25 +113,48 @@ BREAK_MIME_SEARCH:
  */
 int tagsistant_process(tagsistant_querytree *qtree)
 {
-	int res = 0, process_res = 0;
+#if EXTRACTOR_VERSION & 0x00050000 // libextractor 0.5.x
+	int res = 0;
+	const gchar *mime_type = NULL;
+	gchar *mime_generic = NULL;
 
 	dbg('p', LOG_INFO, "Processing file %s", qtree->full_archive_path);
 
-	char *mime_type = tagsistant_get_file_mimetype(qtree->full_archive_path);
+	/*
+	 * Extract the keywords and remove duplicated ones
+	 */
+	EXTRACTOR_KeywordList *keywords = EXTRACTOR_getKeywords(elist, qtree->full_archive_path);
+	keywords = EXTRACTOR_removeDuplicateKeywords (keywords, 0);
 
-	if (mime_type == NULL) {
-		dbg('p', LOG_ERR, "tagsistant_process() wasn't able to guess mime type for %s", qtree->full_archive_path);
-		return(0);
+	/*
+	 *  loop through the keywords extracted to get the MIME type
+	 */
+	EXTRACTOR_KeywordList *keyword_pointer = keywords;
+	while (keyword_pointer) {
+		if (EXTRACTOR_MIMETYPE == keyword_pointer->keywordType) {
+			mime_type = EXTRACTOR_getKeywordTypeAsString(keyword_pointer->keywordType);
+			break;
+		}
+		keyword_pointer = keyword_pointer->next;
 	}
 
-	char *mime_generic = g_strdup(mime_type);
-	char *slash = index(mime_generic, '/');
-	slash++;
-	*slash = '*';
-	slash++;
-	*slash = '\0';
+	/* tag by date */
+	const gchar *date = tagsistant_plugin_get_keyword_value("date", keywords);
+	if (date) tagsistant_plugin_tag_by_date(qtree, date);
 
-	/* apply plugins in order */
+	/*
+	 * guess the generic MIME type
+	 */
+	mime_generic = g_strdup(mime_type);
+	gchar *slash = index(mime_generic, '/');
+	if (slash) {
+		slash++; *slash = '*';
+		slash++; *slash = '\0';
+	}
+
+	/*
+	 *  apply plugins in order
+	 */
 	tagsistant_plugin_t *plugin = tagsistant.plugins;
 	while (plugin != NULL) {
 		if (
@@ -129,10 +164,10 @@ int tagsistant_process(tagsistant_querytree *qtree)
 		) {
 			/* call plugin processor */
 			dbg('p', LOG_INFO, "Applying plugin %s", plugin->filename);
-			process_res = (plugin->processor)(qtree);
+			res = (plugin->processor)(qtree, keywords);
 
 			/* report about processing */
-			switch (process_res) {
+			switch (res) {
 				case TP_ERROR:
 					dbg('p', LOG_ERR, "Plugin %s was supposed to apply to %s, but failed!", plugin->filename, qtree->full_archive_path);
 					break;
@@ -147,7 +182,7 @@ int tagsistant_process(tagsistant_querytree *qtree)
 					dbg('p', LOG_INFO, "Plugin %s did not tagged %s", plugin->filename, qtree->full_archive_path);
 					break;
 				default:
-					dbg('p', LOG_ERR, "Plugin %s returned unknown result %d", plugin->filename, process_res);
+					dbg('p', LOG_ERR, "Plugin %s returned unknown result %d", plugin->filename, res);
 					break;
 			}
 		}
@@ -156,12 +191,122 @@ int tagsistant_process(tagsistant_querytree *qtree)
 
 STOP_CHAIN_TAGGING:
 
-	g_free_null(mime_type);
+//	g_free_null(mime_type); /* mustn't be freed because it's static code from libextractor */
 	g_free_null(mime_generic);
 
 	dbg('p', LOG_INFO, "Processing of %s ended.", qtree->full_archive_path);
 
+	/* free the keyword structure */
+	EXTRACTOR_freeKeywords(keywords);
+
 	return(res);
+#else
+	return(0);
+#endif
+}
+
+/**
+ * Iterate over a set of keywords. For each keyword matching
+ * regular expression regex, construct a tag as "keyword_name:keyword_value"
+ * and tags the qtree object.
+ *
+ * @param qtree the querytree object to tag
+ * @param keyworkd a EXTRACTOR_KeywordList * list of keywords
+ * @param regex a precompiled GRegex object to match against each keyword
+ */
+void tagsistant_plugin_iterator(const tagsistant_querytree *qtree, EXTRACTOR_KeywordList *keywords, GRegex *regex)
+{
+	/*
+	 * loop through the keywords to tag the file
+	 */
+	EXTRACTOR_KeywordList *keyword_pointer = keywords;
+	while (keyword_pointer) {
+
+		/* if the keyword name matches the filter regular expression... */
+		if (g_regex_match(regex, EXTRACTOR_getKeywordTypeAsString(keyword_pointer->keywordType), 0, NULL)) {
+
+			/* ... build a tag which is "keyword_name:keyword_value" ... */
+			gchar *tag = g_strdup_printf("%s:%s",
+				EXTRACTOR_getKeywordTypeAsString(keyword_pointer->keywordType),
+				keyword_pointer->keyword);
+
+			/* ... turn each slash and space in a dash */
+			gchar *tpointer = tag;
+			while (*tpointer) {
+				if (*tpointer == '/' || *tpointer == ' ') *tpointer = '-';
+				tpointer++;
+			}
+
+			/* ... then tag the file ... */
+			tagsistant_sql_tag_object(qtree->dbi, tag, qtree->inode);
+
+			/* ... cleanup and step over */
+			g_free_null(tag);
+			keyword_pointer = keyword_pointer->next;
+		}
+	}
+}
+
+/**
+ * Return the value of a keyword from a keyword list, if available.
+ *
+ * @param keyword the keyword to fetch
+ * @param keywords the linked list of EXTRACTOR_KeywordList object
+ * @return the value of the keyword. This is a pointer to the original value and must not be modified or freed
+ */
+const gchar *tagsistant_plugin_get_keyword_value(gchar *keyword, EXTRACTOR_KeywordList *keywords)
+{
+	EXTRACTOR_KeywordList *keyword_pointer = keywords;
+	while (keyword_pointer) {
+		if (g_strcmp0(keyword, EXTRACTOR_getKeywordTypeAsString(keyword_pointer->keywordType)) == 0) {
+			return (keyword_pointer->keyword);
+		}
+		keyword_pointer = keyword_pointer->next;
+	}
+	return (NULL);
+}
+
+/**
+ * Tag a querytree by date.
+ *
+ * @param qtree the querytree object to tag
+ * @param date a constant string in format "YYYY:MM:DD HH:MM:SS"
+ */
+void tagsistant_plugin_tag_by_date(const tagsistant_querytree *qtree, const gchar *date)
+{
+	GMatchInfo *match_info;
+	GError *error;
+
+	if (g_regex_match_full(tagsistant_rx_date, date, -1, 0, 0, &match_info, &error)) {
+		gchar *tag = g_strdup_printf("year:%s", g_match_info_fetch(match_info, 1));
+		tagsistant_sql_tag_object(qtree->dbi, tag, qtree->inode);
+		g_free(tag);
+
+		tag = g_strdup_printf("month:%s", g_match_info_fetch(match_info, 1));
+		tagsistant_sql_tag_object(qtree->dbi, tag, qtree->inode);
+		g_free(tag);
+
+		tag = g_strdup_printf("day:%s", g_match_info_fetch(match_info, 1));
+		tagsistant_sql_tag_object(qtree->dbi, tag, qtree->inode);
+		g_free(tag);
+
+		tag = g_strdup_printf("hour:%s", g_match_info_fetch(match_info, 1));
+		tagsistant_sql_tag_object(qtree->dbi, tag, qtree->inode);
+		g_free(tag);
+
+		tag = g_strdup_printf("minute:%s", g_match_info_fetch(match_info, 1));
+		tagsistant_sql_tag_object(qtree->dbi, tag, qtree->inode);
+		g_free(tag);
+
+#if 0
+		tag = g_strdup_printf("second:%s", g_match_info_fetch(match_info, 1));
+		tagsistant_sql_tag_object(qtree->dbi, tag, qtree->inode);
+		g_free(tag);
+#endif
+
+	}
+
+	g_match_info_unref(match_info);
 }
 
 /**
@@ -169,15 +314,22 @@ STOP_CHAIN_TAGGING:
  */
 void tagsistant_plugin_loader()
 {
+#if EXTRACTOR_VERSION & 0x00050000 // libextractor 0.5.x
+	elist =  EXTRACTOR_loadDefaultLibraries();
+#endif
+
+	/* init some useful regex */
+	tagsistant_rx_date = g_regex_new(
+		"^([0-9][0-9][0-9][0-9]):([0-9][0-9]):([0-9][0-9]) ([0-9][0-9]):([0-9][0-9]):([0-9][0-9])$",
+		TAGSISTANT_RX_COMPILE_FLAGS, 0, NULL);
+
 	char *tagsistant_plugins = NULL;
 	if (getenv("TAGSISTANT_PLUGINS") != NULL) {
 		tagsistant_plugins = g_strdup(getenv("TAGSISTANT_PLUGINS"));
-		if (!tagsistant.quiet)
-			fprintf(stderr, " Using user defined plugin dir: %s\n", tagsistant_plugins);
+		if (!tagsistant.quiet) fprintf(stderr, " Using user defined plugin dir: %s\n", tagsistant_plugins);
 	} else {
 		tagsistant_plugins = g_strdup(PLUGINS_DIR);
-		if (!tagsistant.quiet)
-			fprintf(stderr, " Using default plugin dir: %s\n", tagsistant_plugins);
+		if (!tagsistant.quiet) fprintf(stderr, " Using default plugin dir: %s\n", tagsistant_plugins);
 	}
 
 	struct stat st;
@@ -210,8 +362,10 @@ void tagsistant_plugin_loader()
 				if ((needle == NULL) || (needle != de->d_name + strlen(de->d_name) - strlen(PLUGIN_EXT)))
 					continue;
 
-				/* file is a tagsistant plugin (beginning by right prefix) and is processed */
-				/* allocate new plugin object */
+				/*
+				 * file is a tagsistant plugin (beginning by right prefix) and
+				 * is processed allocate new plugin object
+				 */
 				tagsistant_plugin_t *plugin = g_new0(tagsistant_plugin_t, 1);
 
 				if (NULL == plugin) {
@@ -280,6 +434,9 @@ void tagsistant_plugin_loader()
 	g_free_null(tagsistant_plugins);
 }
 
+/**
+ * Unloads all the plugins and disposes the regular expressions
+ */
 void tagsistant_plugin_unloader()
 {
 	/* unregistering plugins */
@@ -291,11 +448,13 @@ void tagsistant_plugin_unloader()
 			(pp->free)();
 		}
 		g_free_null(pp->filename);	/* free plugin filename */
-		dlclose(pp->handle);	/* unload the plugin */
-		ppnext = pp->next;		/* save next plugin in tagsistant chain */
+		dlclose(pp->handle);		/* unload the plugin */
+		ppnext = pp->next;			/* save next plugin in tagsistant chain */
 		g_free_null(pp);			/* free this plugin entry in tagsistant chain */
-		pp = ppnext;			/* point to next plugin in tagsistant chain */
+		pp = ppnext;				/* point to next plugin in tagsistant chain */
 	}
+
+	g_regex_unref(tagsistant_rx_date);
 }
 
 /**

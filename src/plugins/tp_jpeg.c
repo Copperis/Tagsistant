@@ -20,63 +20,29 @@
 */
 
 #include "../tagsistant.h"
-#include <stdio.h>
-#include <string.h>
-#include <libexif/exif-data.h>
-#define DEFAULT_TAG "image"
 
 /* declaring mime type */
 char mime_type[] = "image/jpeg";
 
+/* regex */
+GRegex *rx = NULL;
+
 /* exported init function */
 int tagsistant_plugin_init()
 {
+	rx = g_regex_new("^(size|orientation)$", TAGSISTANT_RX_COMPILE_FLAGS, 0, NULL);
+
 	return(1);
 }
 
-#define leave_processor() {\
-	exif_mnote_data_unref(mn);\
-	exif_data_unref(ed);\
-	return(TP_STOP);\
-}
-
 /* exported processor function */
-int tagsistant_processor(const tagsistant_querytree *qtree)
+int tagsistant_processor(const tagsistant_querytree *qtree, EXTRACTOR_KeywordList *keywords)
 {
-	ExifData *ed = NULL;
-	ExifMnoteData *mn = NULL;
+	/* default tagging */
+	tagsistant_sql_tag_object(qtree->dbi, "image", qtree->inode);
 
-	// doing basic tagging
-	tagsistant_sql_tag_object(qtree->dbi, DEFAULT_TAG, qtree->inode);
-
-	// doing extended tagging using libexif
-	ed = exif_data_new_from_file(qtree->full_archive_path);
-	if (!ed) leave_processor();
-
-	mn = exif_data_get_mnote_data(ed);
-	if (!mn) leave_processor();
-
-	// loop through tags
-	int tag_count = exif_mnote_data_count(mn);
-	int i;
-	for (i = 0; i < tag_count; ++i) {
-		char buf[1024];
-		gchar *exiftag = g_strdup_printf("%s:%s", exif_mnote_data_get_title(mn, i), exif_mnote_data_get_value(mn, i, buf, 1024));
-		g_strstrip(exiftag);
-		char *c = exiftag;
-		while (*c != '\0') {
-			if (*c == ' ') {
-				*c = '_';
-			}
-			c++;
-		}
-
-		tagsistant_sql_tag_object(qtree->dbi, exiftag, qtree->inode);
-		g_free_null(exiftag);
-	}
-
-	// ok
-	leave_processor();
+	/* applying regular expression */
+	tagsistant_plugin_iterator(qtree, keywords, rx);
 
 	return( TP_STOP);
 }
@@ -84,6 +50,7 @@ int tagsistant_processor(const tagsistant_querytree *qtree)
 /* exported finalize function */
 void tagsistant_plugin_free()
 {
+	g_regex_unref(rx);
 }
 
 // vim:ts=4:autoindent:nocindent:syntax=c
