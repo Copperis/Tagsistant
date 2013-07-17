@@ -25,7 +25,9 @@
  * PLUGIN SUPPORT *
 \******************/
 
-#if EXTRACTOR_VERSION & 0x00050000 // libextractor 0.5.x
+#if EXTRACTOR_VERSION & 0x00050000      // libextractor 0.5.x
+static EXTRACTOR_ExtractorList *elist;
+#elif EXTRACTOR_VERSION & 0x00060000    // libextractor 0.6.x
 static EXTRACTOR_ExtractorList *elist;
 #endif
 
@@ -33,76 +35,6 @@ static GRegex *tagsistant_rx_date;
 
 #ifndef errno
 #define errno
-#endif
-
-#if 0 /* this code is obsolete */
-/**
- * guess the MIME type of passed filename
- *
- * \param filename file to be processed (just the name, will be looked up in /archive)
- * \return(the string rappresenting MIME type (like "audio/mpeg")); the string is dynamically
- *   allocated and need to be g_free_null()ed by outside code
- */
-char *tagsistant_get_file_mimetype(const char *filename)
-{
-	char *type = NULL;
-
-	/* get file extension */
-	char *ext = rindex(filename, '.');
-	if (ext == NULL) {
-		return(NULL);
-	}
-	ext++;
-
-	char *ext_space_mixed = g_strdup_printf("%s ", ext); /* trailing space is used later in matching */
-	char *ext_space = g_ascii_strdown(ext_space_mixed, -1); /* trailing space is used later in matching */
-	g_free_null(ext_space_mixed);
-
-	/* open /etc/mime.types */
-	FILE *f = fopen("/etc/mime.types", "r");
-	if (f == NULL) {
-		dbg('p', LOG_ERR, "Can't open /etc/mime.types");
-		return(type);
-	}
-
-	/* parse /etc/mime.types */
-	char *line = NULL;
-	size_t len = 0;
-	while (getline(&line, &len, f) != -1) {
-		/* remove line break */
-		if (index(line, '\n') != NULL)
-			*(index(line, '\n')) = '\0';
-
-		/* get the mimetype and the extention list */
-		char *ext_list = index(line, '\t');
-		if (ext_list != NULL) {
-			while (*ext_list == '\t') {
-				*ext_list = '\0';
-				ext_list++;
-			}
-
-			while (*ext_list != '\0') {
-				if ((strstr(ext_list, ext) == ext_list) || (strstr(ext_list, ext_space) == ext_list)) {
-					type = g_strdup(line);
-					g_free_null(line);
-					goto BREAK_MIME_SEARCH;
-				}
-
-				/* advance to next extension */
-				while ((*ext_list != ' ') && (*ext_list != '\0')) ext_list++;
-				if (*ext_list == ' ') ext_list++;
-			}
-		}
-
-		g_free_null(line);
-		line = NULL;
-	}
-
-BREAK_MIME_SEARCH:
-	g_free_null(ext_space);
-	fclose(f);
-	return(type);
-}
 #endif
 
 /**

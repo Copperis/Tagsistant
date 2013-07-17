@@ -12624,21 +12624,54 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_extractor_EXTRACTOR_loadDefaultLibraries" >&5
 $as_echo "$ac_cv_lib_extractor_EXTRACTOR_loadDefaultLibraries" >&6; }
 if test "x$ac_cv_lib_extractor_EXTRACTOR_loadDefaultLibraries" = xyes; then :
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_LIBEXTRACTOR 1
+  use_libextractor='0.5'
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for EXTRACTOR_extract in -lextractor" >&5
+$as_echo_n "checking for EXTRACTOR_extract in -lextractor... " >&6; }
+if ${ac_cv_lib_extractor_EXTRACTOR_extract+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lextractor  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char EXTRACTOR_extract ();
+int
+main ()
+{
+return EXTRACTOR_extract ();
+  ;
+  return 0;
+}
 _ACEOF
-
-  LIBS="-lextractor $LIBS"
-
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_extractor_EXTRACTOR_extract=yes
+else
+  ac_cv_lib_extractor_EXTRACTOR_extract=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_extractor_EXTRACTOR_extract" >&5
+$as_echo "$ac_cv_lib_extractor_EXTRACTOR_extract" >&6; }
+if test "x$ac_cv_lib_extractor_EXTRACTOR_extract" = xyes; then :
+  use_libextractor='0.6'
 else
 
-	echo "libextractor is a universal metadata extractor. Tagsistant uses it"
-	echo "to autotag your files."
-	echo "More info at http://http://www.gnu.org/software/libextractor"
-	{ { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "\"libextractor not found\"
-See \`config.log' for more details" "$LINENO" 5; }
+		use_libextractor=0
+		echo "libextractor is a universal metadata extractor. Tagsistant uses it"
+		echo "to autotag your files."
+		echo "More info at http://http://www.gnu.org/software/libextractor"
+
+fi
 
 fi
 
