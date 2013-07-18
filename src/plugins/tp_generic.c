@@ -25,17 +25,18 @@
 char mime_type[] = "*/*";
 
 /* the regular expression used to match the tags to be considered */
-GRegex *rx;
+GRegex *rx, *rx_date;
 
 /* exported init function */
 int tagsistant_plugin_init()
 {
 	rx = g_regex_new("", TAGSISTANT_RX_COMPILE_FLAGS, 0, NULL);
+	rx_date = g_regex_new("", TAGSISTANT_RX_COMPILE_FLAGS, 0, NULL);
 	return(1);
 }
 
 /* exported processor function */
-int tagsistant_processor(tagsistant_querytree *qtree, EXTRACTOR_KeywordList *keywords)
+int tagsistant_processor(tagsistant_querytree *qtree, tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS])
 {
 	tagsistant_plugin_iterator(qtree, keywords, rx);
 	return(TP_NULL);
@@ -45,6 +46,7 @@ int tagsistant_processor(tagsistant_querytree *qtree, EXTRACTOR_KeywordList *key
 void tagsistant_plugin_free()
 {
 	g_regex_unref(rx);
+	g_regex_unref(rx_date);
 }
 
 // vim:ts=4:autoindent:nocindent:syntax=c

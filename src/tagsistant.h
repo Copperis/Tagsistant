@@ -146,6 +146,15 @@
 #include "compat/fuse_opt.h"
 #include <extractor.h>
 
+/** define libextractor support */
+#if (EXTRACTOR_VERSION & 0x00050000) == 0x00050000
+#	define TAGSISTANT_EXTRACTOR 5          // libextractor 0.5.x
+#elif (EXTRACTOR_VERSION & 0x00060000) == 0x00060000
+#	define TAGSISTANT_EXTRACTOR 6          // libextractor 0.6.x
+#else
+#	define TAGSISTANT_EXTRACTOR 0          // no support for libextractor
+#endif
+
 /**
  * each object is identified by a unique number of type tagsistant_id
  */

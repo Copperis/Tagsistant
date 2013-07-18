@@ -25,10 +25,10 @@
  * PLUGIN SUPPORT *
 \******************/
 
-#if EXTRACTOR_VERSION & 0x00050000      // libextractor 0.5.x
+#if TAGSISTANT_EXTRACTOR == 5
 static EXTRACTOR_ExtractorList *elist;
-#elif EXTRACTOR_VERSION & 0x00060000    // libextractor 0.6.x
-static EXTRACTOR_ExtractorList *elist;
+#elif TAGSISTANT_EXTRACTOR > 5
+static struct EXTRACTOR_PluginList *plist;
 #endif
 
 static GRegex *tagsistant_rx_date;
@@ -36,6 +36,8 @@ static GRegex *tagsistant_rx_date;
 #ifndef errno
 #define errno
 #endif
+
+#if TAGSISTANT_EXTRACTOR == 5
 
 /**
  * process a file using plugin chain
@@ -45,34 +47,45 @@ static GRegex *tagsistant_rx_date;
  */
 int tagsistant_process(tagsistant_querytree *qtree)
 {
-#if EXTRACTOR_VERSION & 0x00050000 // libextractor 0.5.x
 	int res = 0;
-	const gchar *mime_type = NULL;
-	gchar *mime_generic = NULL;
+	const gchar *mime_type = "";
+	gchar *mime_generic = "";
+	tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS];
+
+	/* blank the keyword buffer */
+	memset(keywords, 0, TAGSISTANT_MAX_KEYWORDS * 2 * TAGSISTANT_MAX_KEYWORD_LENGTH);
 
 	dbg('p', LOG_INFO, "Processing file %s", qtree->full_archive_path);
 
 	/*
 	 * Extract the keywords and remove duplicated ones
 	 */
-	EXTRACTOR_KeywordList *keywords = EXTRACTOR_getKeywords(elist, qtree->full_archive_path);
-	keywords = EXTRACTOR_removeDuplicateKeywords (keywords, 0);
+	EXTRACTOR_KeywordList *extracted_keywords = EXTRACTOR_getKeywords(elist, qtree->full_archive_path);
+	extracted_keywords = EXTRACTOR_removeDuplicateKeywords (extracted_keywords, 0);
 
 	/*
-	 *  loop through the keywords extracted to get the MIME type
+	 *  loop through the keywords and feed the keyword buffer
 	 */
-	EXTRACTOR_KeywordList *keyword_pointer = keywords;
-	while (keyword_pointer) {
+	EXTRACTOR_KeywordList *keyword_pointer = extracted_keywords;
+	int c = 0;
+	while (keyword_pointer && c < TAGSISTANT_MAX_KEYWORDS) {
+		sprintf(keywords[c].keyword, "%s", EXTRACTOR_getKeywordTypeAsString(keyword_pointer->keywordType));
+		sprintf(keywords[c].value, "%s", keyword_pointer->keyword);
+
+		/* save the mime type */
 		if (EXTRACTOR_MIMETYPE == keyword_pointer->keywordType) {
 			mime_type = EXTRACTOR_getKeywordTypeAsString(keyword_pointer->keywordType);
-			break;
 		}
-		keyword_pointer = keyword_pointer->next;
-	}
 
-	/* tag by date */
-	const gchar *date = tagsistant_plugin_get_keyword_value("date", keywords);
-	if (date) tagsistant_plugin_tag_by_date(qtree, date);
+#if 0
+		/* tag by date */
+		const gchar *date = tagsistant_plugin_get_keyword_value("date", keywords);
+		if (date) tagsistant_plugin_tag_by_date(qtree, date);
+#endif
+
+		keyword_pointer = keyword_pointer->next;
+		c++;
+	}
 
 	/*
 	 * guess the generic MIME type
@@ -129,12 +142,166 @@ STOP_CHAIN_TAGGING:
 	dbg('p', LOG_INFO, "Processing of %s ended.", qtree->full_archive_path);
 
 	/* free the keyword structure */
-	EXTRACTOR_freeKeywords(keywords);
+	EXTRACTOR_freeKeywords(extracted_keywords);
 
 	return(res);
+}
+
+#elif TAGSISTANT_EXTRACTOR > 5
+
+typedef struct {
+	tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS];
+	int current_keyword;
+	gchar mime_type[1024];
+	gchar generic_mime_type[1024];
+} tagsistant_process_callback_context;
+
+static int tagsistant_process_callback(
+	void *cls, const char *plugin_name, enum EXTRACTOR_MetaType type,
+	enum EXTRACTOR_MetaFormat format, const char *data_mime_type,
+	const char *data, size_t data_len)
+{
+	(void) plugin_name;
+	(void) format;
+	(void) data_mime_type;
+
+	tagsistant_process_callback_context *context = (tagsistant_process_callback_context *) cls;
+	int res = 0;
+
+	/* copy the keyword and its value into the context keywords buffer */
+	if (context->current_keyword < TAGSISTANT_MAX_KEYWORDS) {
+		sprintf(context->keywords[context->current_keyword].keyword, "%s", EXTRACTOR_metatype_to_string(type));
+		memcpy(context->keywords[context->current_keyword].value, data, data_len);
+		context->current_keyword += 1;
+	}
+
+	/* save the mime type */
+	if (EXTRACTOR_METATYPE_MIMETYPE == type) {
+		memset(context->mime_type, 0, 1024);
+		memcpy(context->mime_type, data, data_len);
+
+		/* guess the generic MIME type */
+		memset(context->generic_mime_type, 0, 1024);
+		memcpy(context->generic_mime_type, data, data_len);
+
+		gchar *slash = index(context->generic_mime_type, '/');
+		if (slash) {
+			slash++; *slash = '*';
+			slash++; *slash = '\0';
+		}
+	}
+
+	return (res);
+}
+
+/**
+ * process a file using plugin chain
+ *
+ * \param filename file to be processed (just the name, will be looked up in /archive)
+ * \return(zero on fault, one on success)
+ */
+int tagsistant_process(tagsistant_querytree *qtree)
+{
+	int res = 0;
+
+	dbg('p', LOG_INFO, "Processing file %s", qtree->full_archive_path);
+
+	tagsistant_process_callback_context context;
+	memset(context.keywords, 0, TAGSISTANT_MAX_KEYWORDS * 2 * TAGSISTANT_MAX_KEYWORD_LENGTH);
+	memset(context.mime_type, 0, 1024);
+	memset(context.generic_mime_type, 0, 1024);
+	context.current_keyword = 0;
+
+	/*
+	 * Extract the keywords
+	 */
+	EXTRACTOR_extract(plist, qtree->full_archive_path, NULL, 0, tagsistant_process_callback, (void *) &context);
+
+	/*
+	 *  apply plugins in order
+	 */
+	tagsistant_plugin_t *plugin = tagsistant.plugins;
+	while (plugin != NULL) {
+		if (
+			(strcmp(plugin->mime_type, context.mime_type) == 0) ||
+			(strcmp(plugin->mime_type, context.generic_mime_type) == 0) ||
+			(strcmp(plugin->mime_type, "*/*") == 0)
+		) {
+			/* call plugin processor */
+			dbg('p', LOG_INFO, "Applying plugin %s", plugin->filename);
+			res = (plugin->processor)(qtree, context.keywords);
+
+			/* report about processing */
+			switch (res) {
+				case TP_ERROR:
+					dbg('p', LOG_ERR, "Plugin %s was supposed to apply to %s, but failed!", plugin->filename, qtree->full_archive_path);
+					break;
+				case TP_OK:
+					dbg('p', LOG_INFO, "Plugin %s tagged %s", plugin->filename, qtree->full_archive_path);
+					break;
+				case TP_STOP:
+					dbg('p', LOG_INFO, "Plugin %s stopped chain on %s", plugin->filename, qtree->full_archive_path);
+					goto TAGSISTANT_AUTOTAGGING_EXIT;
+					break;
+				case TP_NULL:
+					dbg('p', LOG_INFO, "Plugin %s did not tagged %s", plugin->filename, qtree->full_archive_path);
+					break;
+				default:
+					dbg('p', LOG_ERR, "Plugin %s returned unknown result %d", plugin->filename, res);
+					break;
+			}
+		}
+		plugin = plugin->next;
+	}
+
+TAGSISTANT_AUTOTAGGING_EXIT:
+	return (res);
+}
+
 #else
+
+/**
+ * process a file using plugin chain
+ *
+ * \param filename file to be processed (just the name, will be looked up in /archive)
+ * \return(zero on fault, one on success)
+ */
+int tagsistant_process(tagsistant_querytree *qtree)
+{
 	return(0);
+}
+
 #endif
+
+/**
+ * Apply a tag if a regular expression matches a retrieved keyword
+ *
+ * @param regex the GRegex regular expression
+ * @param keyword a string with the keyword name
+ * @param value a string with the keyword value
+ * @param qtree the tagsistant_querytree object that could be tagged
+ */
+void tagsistant_keyword_matcher(GRegex *regex, const gchar *keyword, const gchar *value, const tagsistant_querytree *qtree)
+{
+	/* if the keyword name matches the filter regular expression... */
+	if (g_regex_match(regex, keyword, 0, NULL)) {
+
+		/* ... build a tag which is "keyword_name:keyword_value" ... */
+		gchar *tag = g_strdup_printf("%s:%s", keyword, value);
+
+		/* ... turn each slash and space in a dash */
+		gchar *tpointer = tag;
+		while (*tpointer) {
+			if (*tpointer == '/' || *tpointer == ' ') *tpointer = '-';
+			tpointer++;
+		}
+
+		/* ... then tag the file ... */
+		tagsistant_sql_tag_object(qtree->dbi, tag, qtree->inode);
+
+		/* ... and cleanup */
+		g_free_null(tag);
+	}
 }
 
 /**
@@ -146,36 +313,19 @@ STOP_CHAIN_TAGGING:
  * @param keyworkd a EXTRACTOR_KeywordList * list of keywords
  * @param regex a precompiled GRegex object to match against each keyword
  */
-void tagsistant_plugin_iterator(const tagsistant_querytree *qtree, EXTRACTOR_KeywordList *keywords, GRegex *regex)
+void tagsistant_plugin_iterator(const tagsistant_querytree *qtree,
+	tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS], GRegex *regex)
 {
 	/*
 	 * loop through the keywords to tag the file
 	 */
-	EXTRACTOR_KeywordList *keyword_pointer = keywords;
-	while (keyword_pointer) {
+	int c = 0;
+	for (; c < TAGSISTANT_MAX_KEYWORDS; c++) {
+		/* stop looping on the first null keyword */
+		if ('\0' == *(keywords[c].keyword)) break;
 
-		/* if the keyword name matches the filter regular expression... */
-		if (g_regex_match(regex, EXTRACTOR_getKeywordTypeAsString(keyword_pointer->keywordType), 0, NULL)) {
-
-			/* ... build a tag which is "keyword_name:keyword_value" ... */
-			gchar *tag = g_strdup_printf("%s:%s",
-				EXTRACTOR_getKeywordTypeAsString(keyword_pointer->keywordType),
-				keyword_pointer->keyword);
-
-			/* ... turn each slash and space in a dash */
-			gchar *tpointer = tag;
-			while (*tpointer) {
-				if (*tpointer == '/' || *tpointer == ' ') *tpointer = '-';
-				tpointer++;
-			}
-
-			/* ... then tag the file ... */
-			tagsistant_sql_tag_object(qtree->dbi, tag, qtree->inode);
-
-			/* ... cleanup and step over */
-			g_free_null(tag);
-			keyword_pointer = keyword_pointer->next;
-		}
+		/* tag the qtree with the keyword if the regular expression matches */
+		tagsistant_keyword_matcher(regex, keywords[c].keyword, keywords[c].value, qtree);
 	}
 }
 
@@ -186,15 +336,15 @@ void tagsistant_plugin_iterator(const tagsistant_querytree *qtree, EXTRACTOR_Key
  * @param keywords the linked list of EXTRACTOR_KeywordList object
  * @return the value of the keyword. This is a pointer to the original value and must not be modified or freed
  */
-const gchar *tagsistant_plugin_get_keyword_value(gchar *keyword, EXTRACTOR_KeywordList *keywords)
+const gchar *tagsistant_plugin_get_keyword_value(gchar *keyword, tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS])
 {
-	EXTRACTOR_KeywordList *keyword_pointer = keywords;
-	while (keyword_pointer) {
-		if (g_strcmp0(keyword, EXTRACTOR_getKeywordTypeAsString(keyword_pointer->keywordType)) == 0) {
-			return (keyword_pointer->keyword);
+	int c = 0;
+	for (; c < TAGSISTANT_MAX_KEYWORDS; c++) {
+		if (g_strcmp0(keyword, keywords[c].keyword) == 0) {
+			return (keywords[c].value);
 		}
-		keyword_pointer = keyword_pointer->next;
 	}
+
 	return (NULL);
 }
 
@@ -246,8 +396,10 @@ void tagsistant_plugin_tag_by_date(const tagsistant_querytree *qtree, const gcha
  */
 void tagsistant_plugin_loader()
 {
-#if EXTRACTOR_VERSION & 0x00050000 // libextractor 0.5.x
+#if TAGSISTANT_EXTRACTOR == 5 // libextractor 0.5.x
 	elist =  EXTRACTOR_loadDefaultLibraries();
+#else
+	plist = EXTRACTOR_plugin_add_defaults(EXTRACTOR_OPTION_DEFAULT_POLICY);
 #endif
 
 	/* init some useful regex */

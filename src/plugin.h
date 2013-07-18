@@ -27,6 +27,17 @@
 #define TP_STOP		2	/**< this plugin is authoritative for mimetype, stop chaining */
 #define TP_NULL		3	/**< no tagging has been done, but that's not an error */
 
+/* flags suggested to compile regular expressions passed to tagsistant_plugin_iterator */
+#define TAGSISTANT_RX_COMPILE_FLAGS G_REGEX_CASELESS|G_REGEX_EXTENDED|G_REGEX_OPTIMIZE
+
+#define TAGSISTANT_MAX_KEYWORDS 1024
+#define TAGSISTANT_MAX_KEYWORD_LENGTH 256
+
+typedef struct {
+	gchar keyword[TAGSISTANT_MAX_KEYWORD_LENGTH];
+	gchar value[TAGSISTANT_MAX_KEYWORD_LENGTH];
+} tagsistant_keyword;
+
 /**
  * holds a pointer to a processing function
  * exported by a plugin
@@ -50,7 +61,7 @@ typedef struct tagsistant_plugin {
 	 *   by other plugins is allowed) or 2 on successful processing (no further
 	 *   processing required).
 	 */
-	int (*processor)(tagsistant_querytree *qtree, EXTRACTOR_KeywordList *keywords);
+	int (*processor)(tagsistant_querytree *qtree, tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS]);
 
 	/**
 	 * hook to g_free allocated resources
@@ -61,9 +72,10 @@ typedef struct tagsistant_plugin {
 	struct tagsistant_plugin *next;
 } tagsistant_plugin_t;
 
-/* flags suggested to compile regular expressions passed to tagsistant_plugin_iterator */
-#define TAGSISTANT_RX_COMPILE_FLAGS G_REGEX_CASELESS|G_REGEX_EXTENDED|G_REGEX_OPTIMIZE
+extern void tagsistant_plugin_iterator(const tagsistant_querytree *qtree,
+	tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS], GRegex *regex);
 
-extern void tagsistant_plugin_iterator(const tagsistant_querytree *qtree, EXTRACTOR_KeywordList *keywords, GRegex *regex);
-extern const gchar *tagsistant_plugin_get_keyword_value(gchar *keyword, EXTRACTOR_KeywordList *keywords);
+extern const gchar *tagsistant_plugin_get_keyword_value(gchar *keyword,
+	tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS]);
+
 extern void tagsistant_plugin_tag_by_date(const tagsistant_querytree *qtree, const gchar *date);

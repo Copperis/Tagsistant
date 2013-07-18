@@ -37,7 +37,7 @@ int tagsistant_plugin_init()
 }
 
 /* exported processor function */
-int tagsistant_processor(const tagsistant_querytree *qtree, EXTRACTOR_KeywordList *keywords)
+int tagsistant_processor(tagsistant_querytree *qtree, tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS])
 {
 	/* default tagging */
 	tagsistant_sql_tag_object(qtree->dbi, "document", qtree->inode);
