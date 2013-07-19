@@ -98,6 +98,8 @@ int tagsistant_rename(const char *from, const char *to)
 			NULL, NULL,
 			to_qtree->last_tag,
 			from_qtree->last_tag);
+
+		tagsistant_remove_tag_from_cache(from_qtree->last_tag);
 	}
 
 TAGSISTANT_EXIT_OPERATION:
