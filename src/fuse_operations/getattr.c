@@ -97,7 +97,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	res = lstat(lstat_path, stbuf);
 	tagsistant_errno = errno;
 
-	// postprocessing output
+	// post-processing output
 	if (QTREE_IS_TAGS(qtree)) {
 		// dbg(LOG_INFO, "getattr: last tag is %s", qtree->last_tag);
 		if (NULL == qtree->last_tag) {

@@ -89,3 +89,5 @@ extern tagsistant_inode	tagsistant_last_insert_id(dbi_conn conn);
 extern int				tagsistant_object_is_tagged(dbi_conn conn, tagsistant_inode inode);
 extern int				tagsistant_object_is_tagged_as(dbi_conn conn, tagsistant_inode inode, tagsistant_inode tag_id);
 extern void				tagsistant_full_untag_object(dbi_conn conn, tagsistant_inode inode);
+extern void				tagsistant_remove_tag_from_cache(gchar *tagname);
+

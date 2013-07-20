@@ -621,6 +621,13 @@ tagsistant_inode tagsistant_sql_get_tag_id(dbi_conn conn, gchar *tagname)
 	return (tag_id);
 }
 
+void tagsistant_remove_tag_from_cache(gchar *tagname)
+{
+#if TAGSISTANT_ENABLE_TAG_ID_CACHE
+	g_hash_table_remove(tagsistant_tag_cache, tagname);
+#endif
+}
+
 /**
  * Deletes a tag
  *
@@ -630,10 +637,7 @@ tagsistant_inode tagsistant_sql_get_tag_id(dbi_conn conn, gchar *tagname)
 void tagsistant_sql_delete_tag(dbi_conn conn, gchar *tagname)
 {
 	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(conn, tagname);
-
-#if TAGSISTANT_ENABLE_TAG_ID_CACHE
-	g_hash_table_remove(tagsistant_tag_cache, tagname);
-#endif
+	tagsistant_remove_tag_from_cache(tagname);
 
 	tagsistant_query("delete from tags where tagname = \"%s\";", conn, NULL, NULL, tagname);
 	tagsistant_query("delete from tagging where tag_id = \"%d\";", conn, NULL, NULL, tag_id);

@@ -27,11 +27,10 @@
 							<tool id="org.eclipse.linuxtools.cdt.autotools.core.toolchain.tool.autogen.304811420" name="autogen.sh" superClass="org.eclipse.linuxtools.cdt.autotools.core.toolchain.tool.autogen"/>
 							<tool id="org.eclipse.linuxtools.cdt.autotools.core.toolchain.tool.gcc.2105761025" name="GCC C Compiler" superClass="org.eclipse.linuxtools.cdt.autotools.core.toolchain.tool.gcc">
 								<option id="gnu.c.compiler.option.include.paths.1075532560" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath">
-									<listOptionValue builtIn="false" value="/usr/include/asm-generic"/>
-									<listOptionValue builtIn="false" value="/usr/include/glib-2.0/glib"/>
 									<listOptionValue builtIn="false" value="/usr/include/glib-2.0"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/tagsistant-0.7}&quot;"/>
 									<listOptionValue builtIn="false" value="/usr/include/fuse"/>
+									<listOptionValue builtIn="false" value="/usr/include/glib-2.0/glib"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.1496785418" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
