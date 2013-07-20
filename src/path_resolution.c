@@ -178,20 +178,49 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 	}
 #endif
 
+	GString *and_condition = g_string_sized_new(10240);
+	ptree_and_node *and_ptr = and_set;
+	while (and_ptr) {
+		/* chain with previous clause, if any */
+		if (strlen(and_condition->str)) {
+			g_string_append_printf(and_condition, " and ");
+		}
+
+		/* open the new clause, putting the and tag */
+		g_string_append_printf(and_condition, "tags.tagname in (\"%s\"", and_ptr->tag);
+
+		/* iterate on related tags */
+		ptree_and_node *related_ptr = and_ptr->related;
+		while (related_ptr) {
+			g_string_append_printf(and_condition, ", \"%s\"", related_ptr->tag);
+			related_ptr = related_ptr->related;
+		}
+
+		/* close the clause */
+		g_string_append_printf(and_condition, ")");
+
+		/* step on new and tag */
+		and_ptr = and_ptr->next;
+	}
+
 	// lookup the inode in the SQL db
 	tagsistant_query(
 		"select objects.inode from objects "
 			"join tagging on objects.inode = tagging.inode "
 			"join tags on tagging.tag_id = tags.tag_id "
-			"where tags.tagname in (%s) and objects.objectname = \"%s\" "
-			/* "group by objects.inode having count(distinct tags.tagname) = %d " */,
+			"where (%s) and objects.objectname = \"%s\" "
+			"group by objects.inode "
+//			"having count(*) = %d "
+			,
 		dbi,
 		tagsistant_return_integer,
 		&inode,
-		and_set_string,
+		and_condition->str,
 		objectname,
 		tags_total
 	);
+
+	g_string_free(and_condition, TRUE);
 
 #if TAGSISTANT_ENABLE_AND_SET_CACHE
 	if (inode) {

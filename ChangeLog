@@ -1,3 +1,19 @@
+0.7:
+  - libextractor integration. Tagging plugins have been converted to
+    the new API.
+
+  - multiple version of libextractor (0.5.x and >= 0.6.x) are supported.
+    The code for 0.6.x still need some testing. The plugins should check
+	the values returned by libextractor to avoid meaningless tagging
+
+0.6.1:
+  - tag_id cache wasn't invalidated when a tag was renamed. Fixed.
+    Thanks to Chiffa for reporting the bug.
+
+  - tagsistant_guess_inode_from_and_set() didn't check object existence
+    using a proper SQL query. Fixed by adding multiple condition, one
+	for each AND-set, and using group by on object.inode.
+
 0.6:
   - Removed do_reasoning argument from tagsistant_querytree_new(), being
     obsoleted by the '@@' operator.
