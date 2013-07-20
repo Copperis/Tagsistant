@@ -244,7 +244,7 @@ static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse
 	        exit(1);
 	
 	    case KEY_VERSION:
-	        fprintf(stderr, "Tagsistant for Linux 0.4 (prerelease %s)\n", VERSION);
+	    	fprintf(stderr, "\nTagsistant (tagfs) v.%s Build: %s FUSE_USE_VERSION: %d\n", PACKAGE_VERSION, TAGSISTANT_BUILDNUMBER, FUSE_USE_VERSION);
 #if FUSE_VERSION >= 25
 	        fuse_opt_add_arg(outargs, "--version");
 #endif

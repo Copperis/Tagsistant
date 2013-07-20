@@ -53,6 +53,13 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 	// -- relations --
 	else if (QTREE_IS_RELATIONS(qtree)) {
+		/* if first tag does not exist, return ENOENT */
+		if (qtree->first_tag) {
+			tagsistant_inode tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->first_tag);
+			if (!tag_id) TAGSISTANT_ABORT_OPERATION(ENOENT);
+		}
+
+		/* process a full relation */
 		if (qtree->second_tag) {
 			// check if the relation is valid
 			gchar *check_name = NULL;

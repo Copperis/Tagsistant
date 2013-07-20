@@ -6,6 +6,9 @@
     The code for 0.6.x still need some testing. The plugins should check
 	the values returned by libextractor to avoid meaningless tagging
 
+  - getattr() on relations/tag/... returned succesfully even if tag/
+    didn't exist. Fixed.
+
 0.6.1:
   - tag_id cache wasn't invalidated when a tag was renamed. Fixed.
     Thanks to Chiffa for reporting the bug.
