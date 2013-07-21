@@ -304,7 +304,8 @@ int main(int argc, char *argv[])
 //	fuse_opt_add_arg(&args, "-s");
 	fuse_opt_add_arg(&args, "-odirect_io");
 	fuse_opt_add_arg(&args, "-obig_writes");
-	fuse_opt_add_arg(&args, "-omax_write=131072");
+	fuse_opt_add_arg(&args, "-omax_write=32768");
+	fuse_opt_add_arg(&args, "-omax_read=32768");
 	fuse_opt_add_arg(&args, "-ofsname=tagsistant");
 //	fuse_opt_add_arg(&args, "-ofstype=tagsistant");
 //	fuse_opt_add_arg(&args, "-ouse_ino,readdir_ino");

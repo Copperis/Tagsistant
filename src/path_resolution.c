@@ -149,6 +149,93 @@ gchar *tagsistant_compile_and_set(ptree_and_node *and_set, int *total)
 }
 
 /**
+ * Given a linked list of ptree_and_node objects (called an and-set)
+ * return a string with a comma separated list of all the tags.
+ *
+ * @param and_set the linked and-set list
+ * @return a string like "tag1, tag2, tag3"
+ */
+gchar *tagsistant_compile_grouped_and_set(ptree_and_node *and_set, int *total)
+{
+	/*
+	 * 1. scan all the tags and reduce the set to a ordered one
+	 *    without any duplicate
+	 */
+	ptree_and_node *ptr = and_set;
+	GList *and_tags = NULL;
+
+	while (ptr) {
+		/* init a GList with the main tag of this and node */
+		GList *sortable = g_list_append(NULL, ptr->tag);
+
+		/* scan related tags */
+		ptree_and_node *related = ptr->related;
+		while (related) {
+			sortable = g_list_insert_sorted(sortable, related->tag, (GCompareFunc) strcmp);
+			related = related->related;
+		}
+
+		/* remove duplicates and generate the final strings */
+		GString *and_tag = g_string_sized_new(1024);
+		gchar *needle = NULL;
+		GList *sortable_ptr = sortable;
+
+		while (sortable_ptr) {
+			if (!(needle && strcmp(sortable_ptr->data, needle) == 0)) {
+				/* if the string already contains data, chain them with a comma and a space */
+				if (strlen(and_tag->str)) g_string_append(and_tag, ", ");
+
+				/* append the new tag */
+				g_string_append_printf(and_tag, "\"%s\"", (gchar *) sortable_ptr->data);
+
+				/* move the needle for future comparison */
+				needle = (gchar *) sortable_ptr->data;
+			}
+
+			sortable_ptr = sortable_ptr->next;
+		}
+
+		/* save this line in the main stack */
+		/* the call to g_string_free() returns the string and frees the GString object */
+		and_tags = g_list_insert_sorted(and_tags, g_string_free(and_tag, FALSE), (GCompareFunc) strcmp);
+
+		/* free the GList object but not its contents since are part of the ptree_and_node structure */
+		g_list_free(sortable);
+
+		ptr = ptr->next;
+	}
+
+	/*
+	 * 2. compute the query string
+	 */
+	GString *and_condition = g_string_sized_new(10240);
+	GList *and_tags_ptr = and_tags;
+	gchar *needle = NULL;
+	while (and_tags_ptr) {
+		if (!(needle && strcmp(and_tags_ptr->data, needle) == 0)) {
+			/* if the string already contains data, chain them with a comma and a space */
+			if (strlen(and_condition->str)) g_string_append(and_condition, " or ");
+
+			/* append the new sub-clause, putting the and tag */
+			g_string_append_printf(and_condition, "tags.tagname in (%s)", (gchar *) and_tags_ptr->data);
+
+			/* increment the tag counter */
+			*total += 1;
+
+			/* move the needle for future comparison */
+			needle = (gchar *) and_tags_ptr->data;
+		}
+
+		and_tags_ptr = and_tags_ptr->next;
+	}
+
+	/* free the GList object */
+	g_list_free_full(and_tags, g_free);
+
+	return (g_string_free(and_condition, FALSE));
+}
+
+/**
  * Try to guess the inode of an object by comparing DB contents
  * with and and-set of tags
  *
@@ -178,30 +265,8 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 	}
 #endif
 
-	GString *and_condition = g_string_sized_new(10240);
-	ptree_and_node *and_ptr = and_set;
-	while (and_ptr) {
-		/* chain with previous clause, if any */
-		if (strlen(and_condition->str)) {
-			g_string_append_printf(and_condition, " and ");
-		}
-
-		/* open the new clause, putting the and tag */
-		g_string_append_printf(and_condition, "tags.tagname in (\"%s\"", and_ptr->tag);
-
-		/* iterate on related tags */
-		ptree_and_node *related_ptr = and_ptr->related;
-		while (related_ptr) {
-			g_string_append_printf(and_condition, ", \"%s\"", related_ptr->tag);
-			related_ptr = related_ptr->related;
-		}
-
-		/* close the clause */
-		g_string_append_printf(and_condition, ")");
-
-		/* step on new and tag */
-		and_ptr = and_ptr->next;
-	}
+	int grouped_tags_total = 0;
+	gchar *and_condition = tagsistant_compile_grouped_and_set(and_set, &grouped_tags_total);
 
 	// lookup the inode in the SQL db
 	tagsistant_query(
@@ -210,17 +275,17 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 			"join tags on tagging.tag_id = tags.tag_id "
 			"where (%s) and objects.objectname = \"%s\" "
 			"group by objects.inode "
-//			"having count(*) = %d "
+			"having count(*) >= %d "
 			,
 		dbi,
 		tagsistant_return_integer,
 		&inode,
-		and_condition->str,
+		and_condition,
 		objectname,
-		tags_total
+		grouped_tags_total
 	);
 
-	g_string_free(and_condition, TRUE);
+	g_free(and_condition);
 
 #if TAGSISTANT_ENABLE_AND_SET_CACHE
 	if (inode) {
