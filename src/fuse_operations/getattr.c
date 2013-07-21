@@ -138,8 +138,14 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 			}
 
 		}
-	} else if (QTREE_IS_STATS(qtree) || QTREE_IS_RELATIONS(qtree)) {
+	} else if (QTREE_IS_STATS(qtree)) {
+
+		stbuf->st_size = 1024;
+
+	} else if (QTREE_IS_RELATIONS(qtree)) {
+
 		// mangle inode for relations and stats
+
 	}
 
 TAGSISTANT_EXIT_OPERATION:
