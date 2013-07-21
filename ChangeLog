@@ -17,6 +17,12 @@
     using a proper SQL query. Fixed by adding multiple condition, one
 	for each AND-set, and using group by on object.inode.
 
+  - getattr() on relations/tag/... returned succesfully even if tag/
+    didn't exist. Fixed.
+
+  - nonexisting files in stats/ are no longer reported as existing by
+    getattr()
+
 0.6:
   - Removed do_reasoning argument from tagsistant_querytree_new(), being
     obsoleted by the '@@' operator.
