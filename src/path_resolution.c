@@ -148,6 +148,40 @@ gchar *tagsistant_compile_and_set(ptree_and_node *and_set, int *total)
 	return (result);
 }
 
+/*
+ * TODO: The algorithm implemented by this function is very ugly.
+ * There must be a better way to express it.
+ */
+int tagsistant_and_set_includes_and_set(GList *master_list, GList *comparable_list)
+{
+	/*
+	 * If a list is compared to itself, we return 0 to avoid
+	 * deleting every list in the main GList
+	 */
+	if (master_list == comparable_list) return (0);
+
+	/*
+	 * Loop through the lists to check if ALL the elements in the
+	 * master list are contained in the comparable list
+	 */
+	GList *master_ptr = master_list;
+MASTER:
+	while (master_ptr) {
+		GList *comparable_ptr = comparable_list;
+		while (comparable_ptr) {
+			/* if we find a match, break the inner loop */
+			if (strcmp(master_ptr->data, comparable_ptr->data) == 0) {
+				master_ptr = master_ptr->next;
+				goto MASTER;
+			}
+			comparable_ptr = comparable_ptr->next;
+		}
+		return (1);
+	}
+
+	return (0);
+}
+
 /**
  * Given a linked list of ptree_and_node objects (called an and-set)
  * return a string with a comma separated list of all the tags.
@@ -157,81 +191,101 @@ gchar *tagsistant_compile_and_set(ptree_and_node *and_set, int *total)
  */
 gchar *tagsistant_compile_grouped_and_set(ptree_and_node *and_set, int *total)
 {
-	/*
-	 * 1. scan all the tags and reduce the set to a ordered one
-	 *    without any duplicate
-	 */
-	ptree_and_node *ptr = and_set;
-	GList *and_tags = NULL;
+	*total = 0;
 
-	while (ptr) {
+	/*
+	 * 1. scan all the tags and build a GList of ordered GList.
+	 *    Every second-level GList will hold the entire set of
+	 *    tags contained in an and_set node, ordered by name. So
+	 *    if and_set contains {t2, t1, t5, t3, t2, t1}, the
+	 *    corresponding GList will contain {t1, t2, t3, t5} in
+	 *    this order.
+	 */
+	ptree_and_node *and_set_ptr = and_set;
+	GList *tags_list = NULL;
+
+	while (and_set_ptr) {
 		/* init a GList with the main tag of this and node */
-		GList *sortable = g_list_append(NULL, ptr->tag);
+		GList *this_tag = g_list_append(NULL, and_set_ptr->tag);
 
 		/* scan related tags */
-		ptree_and_node *related = ptr->related;
+		ptree_and_node *related = and_set_ptr->related;
 		while (related) {
-			sortable = g_list_insert_sorted(sortable, related->tag, (GCompareFunc) strcmp);
+			/* if the tag is not present in the list, add it */
+			if (g_list_find_custom(this_tag, related->tag, (GCompareFunc) strcmp) == NULL) {
+				this_tag = g_list_insert_sorted(this_tag, related->tag, (GCompareFunc) strcmp);
+			}
+
 			related = related->related;
 		}
 
-		/* remove duplicates and generate the final strings */
-		GString *and_tag = g_string_sized_new(1024);
-		gchar *needle = NULL;
-		GList *sortable_ptr = sortable;
+		/* add the sub-GList (the one with the list of tags) to the main GList */
+		tags_list = g_list_prepend(tags_list, this_tag);
 
-		while (sortable_ptr) {
-			if (!(needle && strcmp(sortable_ptr->data, needle) == 0)) {
-				/* if the string already contains data, chain them with a comma and a space */
-				if (strlen(and_tag->str)) g_string_append(and_tag, ", ");
-
-				/* append the new tag */
-				g_string_append_printf(and_tag, "\"%s\"", (gchar *) sortable_ptr->data);
-
-				/* move the needle for future comparison */
-				needle = (gchar *) sortable_ptr->data;
-			}
-
-			sortable_ptr = sortable_ptr->next;
-		}
-
-		/* save this line in the main stack */
-		/* the call to g_string_free() returns the string and frees the GString object */
-		and_tags = g_list_insert_sorted(and_tags, g_string_free(and_tag, FALSE), (GCompareFunc) strcmp);
-
-		/* free the GList object but not its contents since are part of the ptree_and_node structure */
-		g_list_free(sortable);
-
-		ptr = ptr->next;
+		and_set_ptr = and_set_ptr->next;
 	}
 
 	/*
-	 * 2. compute the query string
+	 * 2. scan all the sets; every one that turns out to be a subset of
+	 *    another will be discarded
+	 */
+	GList *tags_list_ptr = tags_list;
+
+	while (tags_list_ptr) {
+		GList *and_tags_subptr = tags_list;
+		while (and_tags_subptr) {
+			if (tagsistant_and_set_includes_and_set(tags_list_ptr, and_tags_subptr)) {
+				tags_list = g_list_remove_link(tags_list_ptr, and_tags_subptr);
+				g_list_free(and_tags_subptr);
+			}
+			and_tags_subptr = and_tags_subptr->next;
+		}
+		tags_list_ptr = tags_list_ptr->next;
+	}
+
+	/*
+	 * 3. scan tags_list again and format the query string
 	 */
 	GString *and_condition = g_string_sized_new(10240);
-	GList *and_tags_ptr = and_tags;
-	gchar *needle = NULL;
-	while (and_tags_ptr) {
-		if (!(needle && strcmp(and_tags_ptr->data, needle) == 0)) {
-			/* if the string already contains data, chain them with a comma and a space */
-			if (strlen(and_condition->str)) g_string_append(and_condition, " or ");
+	tags_list_ptr = tags_list;
 
-			/* append the new sub-clause, putting the and tag */
-			g_string_append_printf(and_condition, "tags.tagname in (%s)", (gchar *) and_tags_ptr->data);
+	while (tags_list_ptr) {
+		GList *this_tag = (GList *) tags_list_ptr->data;
 
-			/* increment the tag counter */
-			*total += 1;
+		/* if the string already contains data, chain them with an "or" */
+		if (*total > 0) g_string_append(and_condition, " or ");
 
-			/* move the needle for future comparison */
-			needle = (gchar *) and_tags_ptr->data;
+		/* append the new sub-clause, putting the and tag */
+		g_string_append(and_condition, "tags.tagname in (");
+		int tags_total = 0;
+		while (this_tag) {
+			/* if the tag is not the first, chain with a comma and a space */
+			if (tags_total > 0) g_string_append(and_condition, ", ");
+
+			/* add the tag */
+			g_string_append_printf(and_condition, "\"%s\"", (gchar *) this_tag->data);
+
+			/* increment tags count */
+			tags_total++;
+
+			/* go further */
+			this_tag = this_tag->next;
 		}
 
-		and_tags_ptr = and_tags_ptr->next;
+		/* close the and sub-clause and free the corresponding sub-GList */
+		g_string_append(and_condition, ")");
+		g_list_free(this_tag);
+
+		/* increment the tag counter */
+		*total += 1;
+
+		tags_list_ptr = tags_list_ptr->next;
 	}
 
 	/* free the GList object */
-	g_list_free_full(and_tags, g_free);
+	g_list_free(tags_list);
 
+	/* dispose and_condition, but don't free its content, which is returned */
 	return (g_string_free(and_condition, FALSE));
 }
 
@@ -248,9 +302,9 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 {
 	tagsistant_inode inode = 0;
 	int tags_total = 0;
-	gchar *and_set_string = tagsistant_compile_and_set(and_set, &tags_total);
 
 #if TAGSISTANT_ENABLE_AND_SET_CACHE
+	gchar *and_set_string = tagsistant_compile_and_set(and_set, &tags_total);
 	gchar *search_key = g_strdup_printf("%s:%s", objectname, and_set_string);
 
 	// if lookup succeed, returns the inode
@@ -297,9 +351,9 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 	} else {
 		g_free_null(search_key);
 	}
-#endif
 
 	g_free_null(and_set_string);
+#endif
 
 	return (inode);
 }
@@ -787,6 +841,8 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int assign_inod
 	qtree->valid = 0;
 	qtree->complete = 0;
 	qtree->exists = 0;
+	qtree->read_filehandle = 0;
+	qtree->write_filehandle = 0;
 
 	/* guess the type of the query by first token */
 	if ('\0' == **token_ptr)							qtree->type = QTYPE_ROOT;

@@ -48,15 +48,16 @@ int tagsistant_write(const char *path, const char *buf, size_t size, off_t offse
 			TAGSISTANT_ABORT_OPERATION(EFAULT);
 		}
 
-		int fd = open(qtree->full_archive_path, fi->flags|O_WRONLY);
+		if (0 == qtree->write_filehandle)
+			qtree->write_filehandle = open(qtree->full_archive_path, fi->flags|O_WRONLY);
 
-		if (-1 == fd) {
+		if (-1 == qtree->write_filehandle) {
 			TAGSISTANT_ABORT_OPERATION(errno);
 		}
 
-		res = pwrite(fd, buf, size, offset);
+		res = pwrite(qtree->write_filehandle, buf, size, offset);
 		tagsistant_errno = errno;
-		close(fd);
+//		close(qtree->write_filehandle);
 	}
 
 	// -- tags --

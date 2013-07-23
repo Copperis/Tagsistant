@@ -49,15 +49,16 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 			TAGSISTANT_ABORT_OPERATION(EFAULT);
 		}
 
-		int fd = open(qtree->full_archive_path, fi->flags|O_RDONLY);
+		if (0 == qtree->read_filehandle)
+			qtree->read_filehandle = open(qtree->full_archive_path, fi->flags|O_RDONLY);
 
-		if (-1 == fd) {
+		if (-1 == qtree->read_filehandle) {
 			TAGSISTANT_ABORT_OPERATION(errno);
 		}
 
-		res = pread(fd, buf, size, offset);
+		res = pread(qtree->read_filehandle, buf, size, offset);
 		tagsistant_errno = errno;
-		close(fd);
+		// close(fd);
 	}
 
 	// -- stats --
