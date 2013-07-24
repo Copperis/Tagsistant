@@ -191,9 +191,6 @@ typedef struct querytree {
 	/** do reasoning or not? */
 	int do_reasoning;
 
-	/** if the querytree points to an object, tagsistant can cache the filehandles */
-	int read_filehandle;
-	int write_filehandle;
 } tagsistant_querytree;
 
 /**

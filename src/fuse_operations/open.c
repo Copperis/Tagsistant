@@ -46,7 +46,7 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 			TAGSISTANT_ABORT_OPERATION(EFAULT);
 		}
 
-		res = open(qtree->full_archive_path, fi->flags /*|O_RDONLY */);
+		fi->fh = res = open(qtree->full_archive_path, fi->flags /*|O_RDONLY */);
 		tagsistant_errno = errno;
 
 		if (-1 != res) {
@@ -63,7 +63,7 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 
 	// -- stats --
 	else if (QTREE_IS_STATS(qtree)) {
-		res = open(tagsistant.tags, fi->flags|O_RDONLY);
+		fi->fh = res = open(tagsistant.tags, fi->flags|O_RDONLY);
 		tagsistant_errno = errno;
 	}
 

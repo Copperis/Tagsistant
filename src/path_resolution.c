@@ -841,8 +841,6 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int assign_inod
 	qtree->valid = 0;
 	qtree->complete = 0;
 	qtree->exists = 0;
-	qtree->read_filehandle = 0;
-	qtree->write_filehandle = 0;
 
 	/* guess the type of the query by first token */
 	if ('\0' == **token_ptr)							qtree->type = QTYPE_ROOT;
