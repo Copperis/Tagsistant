@@ -58,7 +58,7 @@
 #define TAGSISTANT_ENABLE_REASONER_CACHE 1
 
 /** enable verbose logging, useful during debugging only */
-#define TAGSISTANT_VERBOSE_LOGGING 0
+#define TAGSISTANT_VERBOSE_LOGGING 1
 
 /** the string used to separate inodes from filenames inside archive/ directory */
 #define TAGSISTANT_INODE_DELIMITER "___"
@@ -106,7 +106,6 @@
 #define _POSIX_PTHREAD_SEMANTICS
 
 #include <pthread.h>
-#include "debug.h"
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -163,6 +162,7 @@ typedef uint32_t tagsistant_inode;
 #define dyn_strcat(original, newstring) original = _dyn_strcat(original, newstring)
 extern gchar *_dyn_strcat(gchar *original, const gchar *newstring);
 
+#include "debug.h"
 #include "sql.h"
 #include "path_resolution.h"
 #include "plugin.h"
@@ -222,9 +222,9 @@ extern struct tagsistant tagsistant;
  */
 #if TAGSISTANT_VERBOSE_LOGGING
 
-#	define TAGSISTANT_START(line, ...) { dbg(LOG_INFO, line, ##__VA_ARGS__);
-#	define TAGSISTANT_STOP_OK(line, ...) dbg(LOG_INFO, line, ##__VA_ARGS__);
-#	define TAGSISTANT_STOP_ERROR(line,...) dbg(LOG_ERR, line, ##__VA_ARGS__);
+#	define TAGSISTANT_START(line, ...) dbg('f', LOG_INFO, line, ##__VA_ARGS__);
+#	define TAGSISTANT_STOP_OK(line, ...) dbg('f', LOG_INFO, line, ##__VA_ARGS__);
+#	define TAGSISTANT_STOP_ERROR(line,...) dbg('f', LOG_ERR, line, ##__VA_ARGS__);
 
 #else
 

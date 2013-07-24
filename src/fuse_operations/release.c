@@ -43,9 +43,10 @@ int tagsistant_release(const char *path, struct fuse_file_info *fi)
 	tagsistant_querytree_check_tagging_consistency(qtree);
 
 	// -- object --
-	if (QTREE_IS_TAGGABLE(qtree)) {
-		// run the autotagging plugin stack
-		tagsistant_process(qtree);
+	if (QTREE_IS_TAGGABLE(qtree) && fi->fh) {
+		dbg('F', LOG_INFO, "Uncaching %lu = open(%s)", fi->fh, path);
+		close(fi->fh);
+		fi->fh = 0;
 	}
 
 TAGSISTANT_EXIT_OPERATION:

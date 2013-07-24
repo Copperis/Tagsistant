@@ -22,17 +22,15 @@
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
+#include <stdio.h>
+#include <syslog.h>
 
 #undef _DEBUG_STDERR
 
 #ifdef _DEBUG_SYSLOG
-#	include <syslog.h>
 #	define dbg(family, facility, string, ...) \
 		{ if (!tagsistant.quiet && tagsistant.dbg[family]) syslog(facility, string " [@%s:%d]", ##__VA_ARGS__, __FILE__, __LINE__); }
-#endif
-
-#ifdef _DEBUG_STDERR
-#	include <stdio.h>
+#else
 #	define dbg(family, facility,string, ...) \
 		{ if (!tagsistant.quiet && tagsistant.dbg[family]) fprintf(stderr,"TS> " string " [@%s:%d]\n", ##__VA_ARGS__, __FILE__, __LINE__); }
 #endif

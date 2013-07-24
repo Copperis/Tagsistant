@@ -54,7 +54,7 @@ int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 
 		if (qtree->inode) {
 #if TAGSISTANT_VERBOSE_LOGGING
-			dbg(LOG_INFO, "NEW object on disk: mknod(%s) [inode: %d]", qtree->full_archive_path, qtree->inode);
+			dbg('F', LOG_INFO, "NEW object on disk: mknod(%s) [inode: %d]", qtree->full_archive_path, qtree->inode);
 #endif
 			res = mknod(qtree->full_archive_path, mode|S_IWUSR, rdev);
 			tagsistant_errno = errno;

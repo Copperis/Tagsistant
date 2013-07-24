@@ -49,9 +49,11 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 			TAGSISTANT_ABORT_OPERATION(EFAULT);
 		}
 
-		int fh = fi->fh || open(qtree->full_archive_path, fi->flags|O_RDONLY);
+		int fh = (fi->fh) ? fi->fh : open(qtree->full_archive_path, fi->flags|O_RDONLY);
+		dbg('F', LOG_INFO, "Writing to FH:%d", fh);
 		res = pread(fh, buf, size, offset);
 		tagsistant_errno = errno;
+		// close(fh);
 	}
 
 	// -- stats --

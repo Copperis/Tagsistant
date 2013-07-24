@@ -51,12 +51,20 @@ int tagsistant_flush(const char *path, struct fuse_file_info *fi)
 			qtree->dbi, tagsistant_return_integer, &modified, qtree->inode);
 
 		if (modified) {
+			dbg('F', LOG_INFO, "Running autotagging and deduplication on %s", qtree->object_path);
+
 			// run the autotagging plugin stack
 			tagsistant_process(qtree);
 
 			// deduplicate the object
 			tagsistant_querytree_deduplicate(qtree);
 		}
+	}
+
+	if (fi->fh) {
+		dbg('F', LOG_INFO, "Uncaching %lu = open(%s)", fi->fh, path);
+		close(fi->fh);
+		fi->fh = 0;
 	}
 
 TAGSISTANT_EXIT_OPERATION:

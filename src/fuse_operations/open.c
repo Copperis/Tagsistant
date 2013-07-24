@@ -46,24 +46,32 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 			TAGSISTANT_ABORT_OPERATION(EFAULT);
 		}
 
-		fi->fh = res = open(qtree->full_archive_path, fi->flags /*|O_RDONLY */);
+		res = open(qtree->full_archive_path, fi->flags /*|O_RDONLY */);
 		tagsistant_errno = errno;
 
 		if (-1 != res) {
-			close(res);
+			fi->fh = res;
+			dbg('F', LOG_INFO, "Caching %lu = open(%s)", fi->fh, path);
 
 			tagsistant_querytree_check_tagging_consistency(qtree);
 
-			if ((QTREE_IS_TAGGABLE(qtree) && ((fi->flags & O_WRONLY) || (fi->flags & O_RDWR)))) {
-				// invalidate the checksum
-				tagsistant_invalidate_object_checksum(qtree->inode, qtree->dbi);
+			if (QTREE_IS_TAGGABLE(qtree)) {
+				if ((fi->flags & O_WRONLY) || (fi->flags & O_RDWR)) {
+					// invalidate the checksum
+					tagsistant_invalidate_object_checksum(qtree->inode, qtree->dbi);
+				} else {
+					fi->keep_cache = 1;
+				}
 			}
+		} else {
+			fi->fh = 0;
 		}
 	}
 
 	// -- stats --
 	else if (QTREE_IS_STATS(qtree)) {
-		fi->fh = res = open(tagsistant.tags, fi->flags|O_RDONLY);
+		res = open(tagsistant.tags, fi->flags|O_RDONLY);
+		fi->fh = (-1 == res) ? 0 : res;
 		tagsistant_errno = errno;
 	}
 
