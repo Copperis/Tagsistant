@@ -50,15 +50,9 @@ int tagsistant_flush(const char *path, struct fuse_file_info *fi)
 			"select inode from objects where inode = %d and checksum = \"\"",
 			qtree->dbi, tagsistant_return_integer, &modified, qtree->inode);
 
-		if (modified) {
-			dbg('F', LOG_INFO, "Running autotagging and deduplication on %s", qtree->object_path);
-
-			// run the autotagging plugin stack
-			tagsistant_process(qtree);
-
-			// deduplicate the object
-			tagsistant_querytree_deduplicate(qtree);
-		}
+		// schedule deduplication and autotagging for this file
+		if (modified)
+			g_async_queue_push(tagsistant_dedup_autotag_queue, g_strdup(path));
 	}
 
 	if (fi->fh) {

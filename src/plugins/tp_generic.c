@@ -39,7 +39,7 @@ int tagsistant_plugin_init()
 int tagsistant_processor(tagsistant_querytree *qtree, tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS])
 {
 	tagsistant_plugin_iterator(qtree, keywords, rx);
-	return(TP_NULL);
+	return(TP_OK);
 }
 
 /* exported finalize function */

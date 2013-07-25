@@ -47,6 +47,10 @@ static GRegex *tagsistant_rx_date;
  */
 int tagsistant_process(tagsistant_querytree *qtree)
 {
+#if TAGSISTANT_DISABLE_AUTOTAGGING
+	return (TP_STOP);
+#endif
+
 	int res = 0;
 	const gchar *mime_type = "";
 	gchar *mime_generic = "";
@@ -202,6 +206,10 @@ static int tagsistant_process_callback(
  */
 int tagsistant_process(tagsistant_querytree *qtree)
 {
+#if TAGSISTANT_DISABLE_AUTOTAGGING
+	return (TP_STOP);
+#endif
+
 	int res = 0;
 
 	dbg('p', LOG_INFO, "Processing file %s", qtree->full_archive_path);

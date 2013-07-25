@@ -256,7 +256,7 @@ extern void						tagsistant_querytree_rebuild_paths(tagsistant_querytree *qtree)
 extern tagsistant_query_type	tagsistant_querytree_guess_type(gchar **token_ptr);
 extern int						tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree);
 
-extern void						tagsistant_querytree_deduplicate(tagsistant_querytree *qtree);
+extern int						tagsistant_querytree_deduplicate(tagsistant_querytree *qtree);
 extern int						tagsistant_querytree_cache_total();
 
 extern void						tagsistant_invalidate_querytree_cache(tagsistant_querytree *qtree);

@@ -1029,8 +1029,9 @@ RETURN:
  * @param inode the object inode
  * @param hex the checksum string
  * @param dbi DBI connection handle
+ * @return true if autotagging is requested, false otherwise
  */
-void tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *hex)
+int tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *hex)
 {
 	tagsistant_inode main_inode = 0;
 
@@ -1039,8 +1040,13 @@ void tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *he
 		"select inode from objects where checksum = \"%s\" order by inode limit 1",
 		qtree->dbi,	tagsistant_return_integer, &main_inode,	hex);
 
+	if (!main_inode) {
+		dbg('2', LOG_ERR, "Inode 0 returned for checksum %s", hex);
+		return (1);
+	}
+
 	/* if we have just one file, we can return */
-	if (qtree->inode == main_inode) return;
+	if (qtree->inode == main_inode) return (1);
 
 	dbg('2', LOG_INFO, "Deduplicating %s: %d -> %d", qtree->full_archive_path, qtree->inode, main_inode);
 
@@ -1078,23 +1084,31 @@ void tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *he
 	}
 	g_rw_lock_writer_unlock(&tagsistant_and_set_cache_lock);
 #endif
+
+	return (0);
 }
 
 /**
  * Deduplicate the object pointed by the querytree
  *
  * @param qtree the querytree object
+ * @return true if autotagging is required, false otherwise
  */
-void tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
+int tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
 {
+	int do_autotagging = 0;
+
 	/* guess if the object is a file or a symlink */
 	struct stat buf;
 	if ((-1 == lstat(qtree->full_archive_path, &buf)) || (!S_ISREG(buf.st_mode) && !S_ISLNK(buf.st_mode)))
-		return;
+		return (do_autotagging);
 
 	dbg('2', LOG_INFO, "Checksumming %s", qtree->full_archive_path);
 
-	/* open the file and read its content */
+	/* we'll return a 'do autotagging' condition even if a problem arise in computing file checksum */
+	do_autotagging = 1;
+
+	/* open the file and read its content to compute is checksum */
 	int fd = open(qtree->full_archive_path, O_RDONLY|O_NOATIME);
 	if (-1 != fd) {
 		GChecksum *checksum = g_checksum_new(G_CHECKSUM_SHA1);
@@ -1123,13 +1137,15 @@ void tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
 				qtree->dbi, NULL, NULL, hex, qtree->inode);
 
 			/* look for duplicated objects */
-			tagsistant_querytree_find_duplicates(qtree, hex);
+			do_autotagging = tagsistant_querytree_find_duplicates(qtree, hex);
 
 			/* free the hex checksum string */
 			g_free_null(hex);
 		}
 		close(fd);
 	}
+
+	return (do_autotagging);
 }
 
 /**

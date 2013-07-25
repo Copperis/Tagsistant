@@ -35,15 +35,14 @@
 /** Query delimiter without reasoning as a single char */
 #define TAGSISTANT_QUERY_DELIMITER_NO_REASONING_CHAR '@'
 
-/** Andset delimiter as a string */
+/** And-set delimiter as a string */
 #define TAGSISTANT_ANDSET_DELIMITER "+"
 
-/** Andset delimiter as a single char */
+/** And-set delimiter as a single char */
 #define TAGSISTANT_ANDSET_DELIMITER_CHAR '+'
 
-/** deduplicator has been replaced by a call in fuse_operations/flush.c */
-#define TAGSISTANT_ENABLE_DEDUPLICATOR 0
-#define TAGSISTANT_DEDUPLICATION_FREQUENCY 60 // seconds
+/** the string used to separate inodes from filenames inside archive/ directory */
+#define TAGSISTANT_INODE_DELIMITER "___"
 
 /** use an hash table to save previously processed querytrees */
 #define TAGSISTANT_ENABLE_QUERYTREE_CACHE 0
@@ -57,22 +56,11 @@
 /** cache reasoner queries? */
 #define TAGSISTANT_ENABLE_REASONER_CACHE 1
 
+/** disable the autotagging plugin stack? */
+#define TAGSISTANT_DISABLE_AUTOTAGGING 1
+
 /** enable verbose logging, useful during debugging only */
-#define TAGSISTANT_VERBOSE_LOGGING 1
-
-/** the string used to separate inodes from filenames inside archive/ directory */
-#define TAGSISTANT_INODE_DELIMITER "___"
-
-/**
- * if tagsistant_symlink is called with two internal
- * paths, it should add the tags from the destination
- * path to the object pointed by source path (1), or
- * should create a new symlink (0)?
- *
- * NOTE: choosing 1 breaks support of Nautilus and
- * probably other file managers
- */
-#define TAGSISTANT_RETAG_INTERNAL_SYMLINKS 0
+#define TAGSISTANT_VERBOSE_LOGGING 0
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -203,6 +191,9 @@ struct tagsistant {
 /** where global values are stored */
 extern struct tagsistant tagsistant;
 
+/** the asynchronous queue used to pass files to the deduplication/autotagging thread */
+extern GAsyncQueue *tagsistant_dedup_autotag_queue;
+
 /**
  * g_free() a symbol only if it's not NULL
  *
@@ -264,3 +255,8 @@ extern int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, i
 extern void tagsistant_manage_repository_ini();
 
 #include "fuse_operations/operations.h"
+
+#ifndef O_NOATIME
+#define O_NOATIME	01000000
+#endif
+
