@@ -21,6 +21,8 @@
 
 #include "tagsistant.h"
 
+GMutex tagsistant_query_mutex;
+
 /**
  * check if requested driver is provided by local DBI installation
  * 
@@ -79,6 +81,8 @@ void tagsistant_db_init()
 {
 	// initialize DBI library
 	dbi_initialize(NULL);
+
+	g_mutex_init(&tagsistant_query_mutex);
 
 #if TAGSISTANT_ENABLE_TAG_ID_CACHE
 	tagsistant_tag_cache = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
@@ -377,8 +381,11 @@ int tagsistant_real_query(
 		return(0);
 	}
 
+	g_mutex_lock(&tagsistant_query_mutex);
+
 	// check if the connection is alive
 	if (!dbi_conn_ping(dbi) && (dbi_conn_connect(dbi) < 0)) {
+		g_mutex_unlock(&tagsistant_query_mutex);
 		dbg('s', LOG_ERR, "ERROR! DBI Connection has gone!");
 		return(0);
 	}
@@ -387,6 +394,7 @@ int tagsistant_real_query(
 
 	// check if statement is not null
 	if (NULL == statement) {
+		g_mutex_unlock(&tagsistant_query_mutex);
 		dbg('s', LOG_ERR, "Null SQL statement");
 		return(0);
 	}
@@ -415,6 +423,8 @@ int tagsistant_real_query(
 		int err = dbi_conn_error(dbi, &errmsg);
 		if ((-1 == err) && errmsg) dbg('s', LOG_ERR, "Error: %s.", errmsg);
 	}
+
+	g_mutex_unlock(&tagsistant_query_mutex);
 
 	g_free_null(statement);
 	return(rows);
@@ -625,6 +635,8 @@ void tagsistant_remove_tag_from_cache(gchar *tagname)
 {
 #if TAGSISTANT_ENABLE_TAG_ID_CACHE
 	g_hash_table_remove(tagsistant_tag_cache, tagname);
+#else
+	(void) tagname;
 #endif
 }
 

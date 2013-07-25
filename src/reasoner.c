@@ -197,5 +197,7 @@ void tagsistant_invalidate_reasoning_cache(gchar *tag)
 {
 #if TAGSISTANT_ENABLE_REASONER_CACHE
 	g_hash_table_remove(tagsistant_reasoner_cache, tag);
+#else
+	(void) tag;
 #endif
 }

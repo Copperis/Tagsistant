@@ -301,9 +301,10 @@ gchar *tagsistant_compile_grouped_and_set(ptree_and_node *and_set, int *total)
 tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, dbi_conn dbi, gchar *objectname)
 {
 	tagsistant_inode inode = 0;
-	int tags_total = 0;
 
 #if TAGSISTANT_ENABLE_AND_SET_CACHE
+	int tags_total = 0;
+
 	gchar *and_set_string = tagsistant_compile_and_set(and_set, &tags_total);
 	gchar *search_key = g_strdup_printf("%s:%s", objectname, and_set_string);
 
@@ -794,7 +795,9 @@ void tagsistant_invalidate_querytree_cache(tagsistant_querytree *qtree)
  * should be then merged in a unique list of filenames.
  *
  * @param path the path to be converted in a logical query
- * @param do_reasoning if true, use the reasoner
+ * @param assign_inode if the path has not an associated inode, assign one (used in mknod() and such)
+ * @param start_transaction do a "start transaction" on the DB connection
+ * @return a tagsistant_querytree object
  */
 tagsistant_querytree *tagsistant_querytree_new(const char *path, int assign_inode, int start_transaction)
 {
@@ -1050,7 +1053,7 @@ int tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *hex
 
 	dbg('2', LOG_INFO, "Deduplicating %s: %d -> %d", qtree->full_archive_path, qtree->inode, main_inode);
 
-	/* first move all the tags of inode to main_inode */
+	/* first move all the tags of qtree->inode to main_inode */
 	tagsistant_query(
 		"update tagging set inode = %d where inode = %d",
 		qtree->dbi,	NULL, NULL,	main_inode,	qtree->inode);
@@ -1118,13 +1121,12 @@ int tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
 
 		if (checksum && buffer) {
 			/* feed the checksum object */
+			int length = 0;
 			do {
-				int length = read(fd, buffer, 65535);
+				length = read(fd, buffer, 65535);
 				if (length > 0)
 					g_checksum_update(checksum, buffer, length);
-				else
-					break;
-			} while (1);
+			} while (length);
 
 			/* get the hexadecimal checksum string */
 			gchar *hex = g_strdup(g_checksum_get_string(checksum));

@@ -58,7 +58,7 @@ int tagsistant_flush(const char *path, struct fuse_file_info *fi)
 	}
 
 	if (fi->fh) {
-		dbg('F', LOG_INFO, "Uncaching %llu = open(%s)", fi->fh, path);
+		dbg('F', LOG_INFO, "Uncaching %" PRIu64 " = open(%s)", fi->fh, path);
 		close(fi->fh);
 		fi->fh = 0;
 	}
