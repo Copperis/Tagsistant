@@ -222,19 +222,22 @@ void tagsistant_dedup_and_autotag_thread(gpointer data) {
 		// get a path from the queue
 		gchar *path = (gchar *) g_async_queue_pop(tagsistant_dedup_autotag_queue);
 
+		// process the path only if it's not null
 		if (path && strlen(path)) {
-
 			// build the querytree from the path
-			tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0);
+			tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1);
 
+#if TAGSISTANT_ENABLE_DEDUPLICATION
 			// deduplicate the object
-			dbg('F', LOG_INFO, "Running deduplication on %s", qtree->object_path);
 			if (tagsistant_querytree_deduplicate(qtree)) {
-
+#endif
+#if TAGSISTANT_ENABLE_AUTOTAGGING
 				// run the autotagging plugin stack
-				dbg('F', LOG_INFO, "Running autotagging on %s", qtree->object_path);
 				tagsistant_process(qtree);
+#endif
+#if TAGSISTANT_ENABLE_DEDUPLICATION
 			}
+#endif
 
 			// destroy the querytree
 			tagsistant_querytree_destroy(qtree, 1);

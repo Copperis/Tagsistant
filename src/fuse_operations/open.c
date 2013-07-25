@@ -51,7 +51,7 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 
 		if (-1 != res) {
 			fi->fh = res;
-			dbg('F', LOG_INFO, "Caching %lu = open(%s)", fi->fh, path);
+			dbg('F', LOG_INFO, "Caching %llu = open(%s)", fi->fh, path);
 
 			tagsistant_querytree_check_tagging_consistency(qtree);
 

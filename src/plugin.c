@@ -42,19 +42,17 @@ static GRegex *tagsistant_rx_date;
 /**
  * process a file using plugin chain
  *
- * \param filename file to be processed (just the name, will be looked up in /archive)
- * \return(zero on fault, one on success)
+ * @param filename file to be processed (just the name, will be looked up in /archive)
+ * @return zero on fault, one on success
  */
 int tagsistant_process(tagsistant_querytree *qtree)
 {
-#if TAGSISTANT_DISABLE_AUTOTAGGING
-	return (TP_STOP);
-#endif
-
 	int res = 0;
 	const gchar *mime_type = "";
 	gchar *mime_generic = "";
 	tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS];
+
+	dbg('p', LOG_INFO, "Running autotagging on %s", qtree->object_path);
 
 	/* blank the keyword buffer */
 	memset(keywords, 0, TAGSISTANT_MAX_KEYWORDS * 2 * TAGSISTANT_MAX_KEYWORD_LENGTH);
@@ -206,10 +204,6 @@ static int tagsistant_process_callback(
  */
 int tagsistant_process(tagsistant_querytree *qtree)
 {
-#if TAGSISTANT_DISABLE_AUTOTAGGING
-	return (TP_STOP);
-#endif
-
 	int res = 0;
 
 	dbg('p', LOG_INFO, "Processing file %s", qtree->full_archive_path);

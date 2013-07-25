@@ -1096,6 +1096,8 @@ int tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *hex
  */
 int tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
 {
+	dbg('2', LOG_INFO, "Running deduplication on %s", qtree->object_path);
+
 	int do_autotagging = 0;
 
 	/* guess if the object is a file or a symlink */

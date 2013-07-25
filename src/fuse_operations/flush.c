@@ -51,12 +51,14 @@ int tagsistant_flush(const char *path, struct fuse_file_info *fi)
 			qtree->dbi, tagsistant_return_integer, &modified, qtree->inode);
 
 		// schedule deduplication and autotagging for this file
-		if (modified)
+		if (modified) {
+			dbg('2', LOG_INFO, "Scheduling %s for deduplication", path);
 			g_async_queue_push(tagsistant_dedup_autotag_queue, g_strdup(path));
+		}
 	}
 
 	if (fi->fh) {
-		dbg('F', LOG_INFO, "Uncaching %lu = open(%s)", fi->fh, path);
+		dbg('F', LOG_INFO, "Uncaching %llu = open(%s)", fi->fh, path);
 		close(fi->fh);
 		fi->fh = 0;
 	}

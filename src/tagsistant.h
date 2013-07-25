@@ -56,8 +56,11 @@
 /** cache reasoner queries? */
 #define TAGSISTANT_ENABLE_REASONER_CACHE 1
 
-/** disable the autotagging plugin stack? */
-#define TAGSISTANT_DISABLE_AUTOTAGGING 1
+/** enable deduplication? */
+#define TAGSISTANT_ENABLE_DEDUPLICATION 0
+
+/** enable the autotagging plugin stack? */
+#define TAGSISTANT_ENABLE_AUTOTAGGING 0
 
 /** enable verbose logging, useful during debugging only */
 #define TAGSISTANT_VERBOSE_LOGGING 0

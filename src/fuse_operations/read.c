@@ -119,6 +119,8 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 					"     TAGSISTANT_ENABLE_TAG_ID_CACHE: %d\n"
 					"    TAGSISTANT_ENABLE_AND_SET_CACHE: %d\n"
 					"   TAGSISTANT_ENABLE_REASONER_CACHE: %d\n"
+					"      TAGSISTANT_ENABLE_AUTOTAGGING: %d\n"
+//					"    TAGSISTANT_ENABLE_DEDUPLICATION: %d\n"
 					"         TAGSISTANT_VERBOSE_LOGGING: %d\n"
 					"         TAGSISTANT_QUERY_DELIMITER: %c (to avoid reasoning use: %s)\n"
 					"        TAGSISTANT_ANDSET_DELIMITER: %c\n"
@@ -144,6 +146,8 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 					TAGSISTANT_ENABLE_TAG_ID_CACHE,
 					TAGSISTANT_ENABLE_AND_SET_CACHE,
 					TAGSISTANT_ENABLE_REASONER_CACHE,
+					TAGSISTANT_ENABLE_AUTOTAGGING,
+//					TAGSISTANT_ENABLE_DEDUPLICATION,
 					TAGSISTANT_VERBOSE_LOGGING,
 					TAGSISTANT_QUERY_DELIMITER_CHAR,
 					TAGSISTANT_QUERY_DELIMITER_NO_REASONING,
