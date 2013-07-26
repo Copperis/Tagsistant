@@ -51,18 +51,18 @@ am_tagsistant_OBJECTS = tagsistant-tagsistant.$(OBJEXT) \
 	tagsistant-path_resolution.$(OBJEXT) \
 	tagsistant-reasoner.$(OBJEXT) tagsistant-fuse_opt.$(OBJEXT) \
 	tagsistant-sql.$(OBJEXT) tagsistant-utils.$(OBJEXT) \
-	tagsistant-plugin.$(OBJEXT) tagsistant-access.$(OBJEXT) \
-	tagsistant-chmod.$(OBJEXT) tagsistant-chown.$(OBJEXT) \
-	tagsistant-getattr.$(OBJEXT) tagsistant-link.$(OBJEXT) \
-	tagsistant-mkdir.$(OBJEXT) tagsistant-mknod.$(OBJEXT) \
-	tagsistant-open.$(OBJEXT) tagsistant-read.$(OBJEXT) \
-	tagsistant-readdir.$(OBJEXT) tagsistant-readlink.$(OBJEXT) \
-	tagsistant-rename.$(OBJEXT) tagsistant-rmdir.$(OBJEXT) \
-	tagsistant-statfs.$(OBJEXT) tagsistant-statvfs.$(OBJEXT) \
-	tagsistant-symlink.$(OBJEXT) tagsistant-truncate.$(OBJEXT) \
-	tagsistant-unlink.$(OBJEXT) tagsistant-utime.$(OBJEXT) \
-	tagsistant-write.$(OBJEXT) tagsistant-flush.$(OBJEXT) \
-	tagsistant-release.$(OBJEXT)
+	tagsistant-plugin.$(OBJEXT) tagsistant-deduplication.$(OBJEXT) \
+	tagsistant-access.$(OBJEXT) tagsistant-chmod.$(OBJEXT) \
+	tagsistant-chown.$(OBJEXT) tagsistant-getattr.$(OBJEXT) \
+	tagsistant-link.$(OBJEXT) tagsistant-mkdir.$(OBJEXT) \
+	tagsistant-mknod.$(OBJEXT) tagsistant-open.$(OBJEXT) \
+	tagsistant-read.$(OBJEXT) tagsistant-readdir.$(OBJEXT) \
+	tagsistant-readlink.$(OBJEXT) tagsistant-rename.$(OBJEXT) \
+	tagsistant-rmdir.$(OBJEXT) tagsistant-statfs.$(OBJEXT) \
+	tagsistant-statvfs.$(OBJEXT) tagsistant-symlink.$(OBJEXT) \
+	tagsistant-truncate.$(OBJEXT) tagsistant-unlink.$(OBJEXT) \
+	tagsistant-utime.$(OBJEXT) tagsistant-write.$(OBJEXT) \
+	tagsistant-flush.$(OBJEXT) tagsistant-release.$(OBJEXT)
 tagsistant_OBJECTS = $(am_tagsistant_OBJECTS)
 tagsistant_LDADD = $(LDADD)
 tagsistant_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
@@ -251,6 +251,7 @@ tagsistant_SOURCES = tagsistant.c\
 	utils.c\
 	plugin.c\
 	plugin.h\
+	deduplication.c\
 	buildnumber.h\
 	fuse_operations/operations.h\
 	fuse_operations/access.c\
@@ -368,6 +369,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-access.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-chmod.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-chown.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-deduplication.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-flush.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-fuse_opt.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-getattr.Po@am__quote@
@@ -513,6 +515,20 @@ tagsistant-plugin.obj: plugin.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='plugin.c' object='tagsistant-plugin.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -c -o tagsistant-plugin.obj `if test -f 'plugin.c'; then $(CYGPATH_W) 'plugin.c'; else $(CYGPATH_W) '$(srcdir)/plugin.c'; fi`
+
+tagsistant-deduplication.o: deduplication.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -MT tagsistant-deduplication.o -MD -MP -MF $(DEPDIR)/tagsistant-deduplication.Tpo -c -o tagsistant-deduplication.o `test -f 'deduplication.c' || echo '$(srcdir)/'`deduplication.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/tagsistant-deduplication.Tpo $(DEPDIR)/tagsistant-deduplication.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='deduplication.c' object='tagsistant-deduplication.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -c -o tagsistant-deduplication.o `test -f 'deduplication.c' || echo '$(srcdir)/'`deduplication.c
+
+tagsistant-deduplication.obj: deduplication.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -MT tagsistant-deduplication.obj -MD -MP -MF $(DEPDIR)/tagsistant-deduplication.Tpo -c -o tagsistant-deduplication.obj `if test -f 'deduplication.c'; then $(CYGPATH_W) 'deduplication.c'; else $(CYGPATH_W) '$(srcdir)/deduplication.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/tagsistant-deduplication.Tpo $(DEPDIR)/tagsistant-deduplication.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='deduplication.c' object='tagsistant-deduplication.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -c -o tagsistant-deduplication.obj `if test -f 'deduplication.c'; then $(CYGPATH_W) 'deduplication.c'; else $(CYGPATH_W) '$(srcdir)/deduplication.c'; fi`
 
 tagsistant-access.o: fuse_operations/access.c
 @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -MT tagsistant-access.o -MD -MP -MF $(DEPDIR)/tagsistant-access.Tpo -c -o tagsistant-access.o `test -f 'fuse_operations/access.c' || echo '$(srcdir)/'`fuse_operations/access.c

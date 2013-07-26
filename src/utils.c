@@ -27,10 +27,6 @@
 
 GRegex *tagsistant_inode_extract_from_path_regex = NULL;
 
-#if TAGSISTANT_ENABLE_DEDUPLICATOR
-GThread *deduplication_thread = NULL;
-#endif
-
 #ifdef DEBUG_TO_LOGFILE
 void open_debug_file()
 {
@@ -203,48 +199,9 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tag
 	return(inode);
 }
 
-/****************************************************************************/
-/***                                                                      ***/
-/***   Checksumming and deduplication support                             ***/
-/***                                                                      ***/
-/****************************************************************************/
-
-GThread *tagsistant_dedup_autotag_thread = NULL;
-GAsyncQueue *tagsistant_dedup_autotag_queue = NULL;
-
-/**
- * This is the kernel of the autotagging and deduplication thread.
- */
-void tagsistant_dedup_and_autotag_thread(gpointer data) {
-	(void) data;
-
-	while (1) {
-		// get a path from the queue
-		gchar *path = (gchar *) g_async_queue_pop(tagsistant_dedup_autotag_queue);
-
-		// process the path only if it's not null
-		if (path && strlen(path)) {
-			// build the querytree from the path
-			tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1);
-
-#if TAGSISTANT_ENABLE_DEDUPLICATION
-			// deduplicate the object
-			if (tagsistant_querytree_deduplicate(qtree)) {
-#endif
-#if TAGSISTANT_ENABLE_AUTOTAGGING
-				// run the autotagging plugin stack
-				tagsistant_process(qtree);
-#endif
-#if TAGSISTANT_ENABLE_DEDUPLICATION
-			}
-#endif
-
-			// destroy the querytree
-			tagsistant_querytree_destroy(qtree, 1);
-			g_free(path);
-		}
-	}
-}
+extern GThread *tagsistant_dedup_autotag_thread;
+extern GAsyncQueue *tagsistant_dedup_autotag_queue;
+extern void tagsistant_dedup_and_autotag_thread(gpointer data);
 
 /**
  * Initialize all the utilities
@@ -253,16 +210,18 @@ void tagsistant_utils_init()
 {
 	/* compile regular expressions */
 	tagsistant_inode_extract_from_path_regex = g_regex_new("^([0-9]+)" TAGSISTANT_INODE_DELIMITER, 0, 0, NULL);
-	
+
 	/* init the asynchronous queue */
 	tagsistant_dedup_autotag_queue = g_async_queue_new();
-	g_async_queue_ref(tagsistant_dedup_autotag_queue);
 
 	/* start deduplication thread */
 	tagsistant_dedup_autotag_thread = g_thread_new(
 		"deduplication",
 		(GThreadFunc) tagsistant_dedup_and_autotag_thread,
 		NULL);
+
+	/* increase reference count for both objects */
+	g_async_queue_ref(tagsistant_dedup_autotag_queue);
 	g_thread_ref(tagsistant_dedup_autotag_thread);
 }
 
