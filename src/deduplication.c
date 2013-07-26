@@ -31,8 +31,10 @@
 /***                                                                      ***/
 /****************************************************************************/
 
+#if TAGSISTANT_ENABLE_DEDUPLICATION || TAGSISTANT_ENABLE_AUTOTAGGING
 GThread *tagsistant_dedup_autotag_thread = NULL;
 GAsyncQueue *tagsistant_dedup_autotag_queue = NULL;
+#endif
 
 /**
  * Cache inode resolution from DB
@@ -174,6 +176,7 @@ int tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
 void tagsistant_dedup_and_autotag_thread(gpointer data) {
 	(void) data;
 
+#if TAGSISTANT_ENABLE_DEDUPLICATION || TAGSISTANT_ENABLE_AUTOTAGGING
 	while (1) {
 		// get a path from the queue
 		gchar *path = (gchar *) g_async_queue_pop(tagsistant_dedup_autotag_queue);
@@ -181,7 +184,6 @@ void tagsistant_dedup_and_autotag_thread(gpointer data) {
 		// process the path only if it's not null
 		if (path && strlen(path)) {
 
-#if TAGSISTANT_ENABLE_DEDUPLICATION || TAGSISTANT_ENABLE_AUTOTAGGING
 			// build the querytree from the path
 			tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1);
 #endif
@@ -203,10 +205,10 @@ void tagsistant_dedup_and_autotag_thread(gpointer data) {
 #if TAGSISTANT_ENABLE_DEDUPLICATION || TAGSISTANT_ENABLE_AUTOTAGGING
 			// destroy the querytree
 			tagsistant_querytree_destroy(qtree, 1);
-#endif
 
 		}
 
 		g_free_null(path);
 	}
+#endif
 }

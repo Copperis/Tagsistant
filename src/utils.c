@@ -211,6 +211,7 @@ void tagsistant_utils_init()
 	/* compile regular expressions */
 	tagsistant_inode_extract_from_path_regex = g_regex_new("^([0-9]+)" TAGSISTANT_INODE_DELIMITER, 0, 0, NULL);
 
+#if TAGSISTANT_ENABLE_DEDUPLICATION || TAGSISTANT_ENABLE_AUTOTAGGING
 	/* init the asynchronous queue */
 	tagsistant_dedup_autotag_queue = g_async_queue_new();
 
@@ -223,6 +224,7 @@ void tagsistant_utils_init()
 	/* increase reference count for both objects */
 	g_async_queue_ref(tagsistant_dedup_autotag_queue);
 	g_thread_ref(tagsistant_dedup_autotag_thread);
+#endif
 }
 
 /****************************************************************************/

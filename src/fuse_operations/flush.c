@@ -44,6 +44,7 @@ int tagsistant_flush(const char *path, struct fuse_file_info *fi)
 
 	// -- object --
 	if (QTREE_IS_TAGGABLE(qtree)) {
+#if TAGSISTANT_ENABLE_DEDUPLICATION || TAGSISTANT_ENABLE_AUTOTAGGING
 		// check if the file has been modified
 		int modified = 0;
 		tagsistant_query(
@@ -55,6 +56,7 @@ int tagsistant_flush(const char *path, struct fuse_file_info *fi)
 			dbg('2', LOG_INFO, "Scheduling %s for deduplication", path);
 			g_async_queue_push(tagsistant_dedup_autotag_queue, g_strdup(path));
 		}
+#endif
 	}
 
 	if (fi->fh) {
