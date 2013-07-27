@@ -290,6 +290,41 @@ gchar *tagsistant_compile_grouped_and_set(ptree_and_node *and_set, int *total)
 }
 
 /**
+ * Invalidate a tagsistant_and_set_cache entry
+ *
+ * @param objectname the key of the object to be invalidated
+ */
+void tagsistant_invalidate_and_set_cache_entries(tagsistant_querytree *qtree)
+{
+#if TAGSISTANT_ENABLE_AND_SET_CACHE
+	ptree_or_node *ptr = qtree->tree;
+	while (ptr) {
+		int tags_total = 0;
+
+		// compute the key
+		gchar *and_set_string = tagsistant_compile_and_set(ptr->and_set, &tags_total);
+		gchar *search_key = g_strdup_printf("%s:%s", qtree->object_path, and_set_string);
+
+		// if lookup succeed, removes the entry
+		g_rw_lock_writer_lock(&tagsistant_and_set_cache_lock);
+		if (g_hash_table_remove(tagsistant_and_set_cache, search_key)) {
+			dbg('F', LOG_INFO, "Cache entry %s invalidated", search_key);
+		} else {
+			dbg('F', LOG_INFO, "Cache entry %s not found!", search_key);
+		}
+		g_rw_lock_writer_unlock(&tagsistant_and_set_cache_lock);
+
+		// free memory
+		g_free(search_key);
+		g_free(and_set_string);
+
+		// next or node
+		ptr = ptr->next;
+	}
+#endif
+}
+
+/**
  * Try to guess the inode of an object by comparing DB contents
  * with and and-set of tags
  *
@@ -835,7 +870,10 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int assign_inod
 	gchar **splitted = g_strsplit(path, "/", 512); /* split up to 512 tokens */
 	gchar **token_ptr = splitted + 1; /* first element is always "" since path begins with '/' */
 
-	/* set default values */
+	/*
+	 * set default values
+	 * TODO: can this be avoided since we use g_new0() to create the struct?
+	 */
 	qtree->inode = 0;
 	qtree->type = 0;
 	qtree->points_to_object = 0;
@@ -844,6 +882,8 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int assign_inod
 	qtree->valid = 0;
 	qtree->complete = 0;
 	qtree->exists = 0;
+	qtree->do_reasoning = 0;
+	qtree->schedule_for_unlink = 0;
 
 	/* guess the type of the query by first token */
 	if ('\0' == **token_ptr)							qtree->type = QTYPE_ROOT;
@@ -1035,6 +1075,10 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, guint commit_tran
 {
 	if (!qtree) return;
 
+	/* if scheduled for unlink, unlink it */
+	if (qtree->schedule_for_unlink)
+		unlink(qtree->full_archive_path);
+
 	if (qtree->transaction_started) {
 		if (commit_transaction)
 			tagsistant_commit_transaction(qtree->dbi);
@@ -1045,6 +1089,7 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, guint commit_tran
 	/* mark the connection as available */
 	tagsistant_db_connection_release(qtree->dbi);
 
+	/* free the paths */
 	g_free_null(qtree->full_path);
 	g_free_null(qtree->object_path);
 	g_free_null(qtree->archive_path);

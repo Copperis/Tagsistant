@@ -59,6 +59,13 @@ int tagsistant_rmdir(const char *path)
 			 */
 			tagsistant_querytree_traverse(qtree, tagsistant_sql_untag_object, qtree->inode);
 
+#if TAGSISTANT_ENABLE_AND_SET_CACHE
+			/*
+			 * invalidate the and_set cache
+			 */
+			tagsistant_invalidate_and_set_cache_entries(qtree);
+#endif
+
 			/*
 			 * ...then check if it's tagged elsewhere...
 			 * ...if still tagged, then avoid real unlink(): the object must survive!

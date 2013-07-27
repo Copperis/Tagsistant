@@ -191,6 +191,12 @@ typedef struct querytree {
 	/** do reasoning or not? */
 	int do_reasoning;
 
+	/**
+	 * if true, the object pointed will be deleted from the archive
+	 * directory by tagsistant_querytree_destroy()
+	 */
+	int schedule_for_unlink;
+
 } tagsistant_querytree;
 
 /**
@@ -260,6 +266,7 @@ extern int						tagsistant_querytree_deduplicate(tagsistant_querytree *qtree);
 extern int						tagsistant_querytree_cache_total();
 
 extern void						tagsistant_invalidate_querytree_cache(tagsistant_querytree *qtree);
+extern void						tagsistant_invalidate_and_set_cache_entries(tagsistant_querytree *qtree);
 
 extern tagsistant_inode			tagsistant_inode_extract_from_path(tagsistant_querytree *qtree);
 extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_querytree *qtree);
@@ -271,4 +278,4 @@ extern void						tagsistant_invalidate_reasoning_cache(gchar *tag);
 // filetree functions
 extern GHashTable *				tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn);
 extern void 					tagsistant_filetree_destroy(GHashTable *hash_table);
-extern void					tagsistant_filetree_destroy_value_list(gchar *key, GList *list_p, gpointer data);
+extern void						tagsistant_filetree_destroy_value_list(gchar *key, GList *list_p, gpointer data);

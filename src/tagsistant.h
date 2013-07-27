@@ -57,7 +57,7 @@
 #define TAGSISTANT_ENABLE_REASONER_CACHE 1
 
 /** enable deduplication? */
-#define TAGSISTANT_ENABLE_DEDUPLICATION 0
+#define TAGSISTANT_ENABLE_DEDUPLICATION 1
 
 /** enable the autotagging plugin stack? */
 #define TAGSISTANT_ENABLE_AUTOTAGGING 0

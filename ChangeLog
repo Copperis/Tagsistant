@@ -12,6 +12,11 @@
   - tagsistant_open(), tagsistant_read() and tagsistant_write() now
     reuse the filehandle by saving it in fuse_file_info.fh field.
 
+  - created tagsistant_invalidate_and_set_cache_entries() and used in
+    tagsistant_querytree_find_duplicates(), tagsistant_unlink(),
+	tagsistant_rmdir() and tagsistant_rename() to properly delete
+	cache entries.
+
 0.6.1:
   - tag_id cache wasn't invalidated when a tag was renamed. Fixed.
     Thanks to Chiffa for reporting the bug.

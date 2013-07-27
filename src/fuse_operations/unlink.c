@@ -49,13 +49,22 @@ int tagsistant_unlink(const char *path)
 			 */
 			tagsistant_querytree_traverse(qtree, tagsistant_sql_untag_object, qtree->inode);
 
+#if TAGSISTANT_ENABLE_AND_SET_CACHE
+			/*
+			 * invalidate the and_set cache
+			 */
+			tagsistant_invalidate_and_set_cache_entries(qtree);
+#endif
+
 			/*
 			 * ...then check if it's tagged elsewhere...
 			 * ...if still tagged, then avoid real unlink(): the object must survive!
 			 * ...otherwise we can delete it from the objects table
 			 */
 			if (!tagsistant_object_is_tagged(qtree->dbi, qtree->inode))
-				tagsistant_query("delete from objects where inode = %d", qtree->dbi, NULL, NULL, qtree->inode);
+				tagsistant_query(
+					"delete from objects where inode = %d",
+					qtree->dbi, NULL, NULL, qtree->inode);
 			else
 				do_unlink = 0;
 		}

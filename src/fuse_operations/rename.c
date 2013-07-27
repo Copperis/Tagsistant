@@ -75,6 +75,14 @@ int tagsistant_rename(const char *from, const char *to)
 
 			// 3. adds all the tags from "to" path
 			tagsistant_querytree_traverse(to_qtree, tagsistant_sql_tag_object, from_qtree->inode);
+
+#if TAGSISTANT_ENABLE_AND_SET_CACHE
+			/*
+			 * invalidate the and_set cache
+			 */
+			tagsistant_invalidate_and_set_cache_entries(from_qtree);
+#endif
+
 		} else {
 			TAGSISTANT_ABORT_OPERATION(EXDEV);
 		}

@@ -44,6 +44,9 @@ extern GRWLock tagsistant_and_set_cache_lock;
 extern GHashTable *tagsistant_and_set_cache;
 #endif
 
+#define TAGSISTANT_DO_AUTOTAGGING 1
+#define TAGSISTANT_DONT_DO_AUTOTAGGING 0
+
 /**
  * deduplication function called by tagsistant_calculate_object_checksum
  *
@@ -61,13 +64,20 @@ int tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *hex
 		"select inode from objects where checksum = \"%s\" order by inode limit 1",
 		qtree->dbi,	tagsistant_return_integer, &main_inode,	hex);
 
+	/*
+	 * if main_inode is zero, something gone wrong, we must
+	 * return here, but auto-tagging can be performed
+	 */
 	if (!main_inode) {
 		dbg('2', LOG_ERR, "Inode 0 returned for checksum %s", hex);
-		return (1);
+		return (TAGSISTANT_DO_AUTOTAGGING);
 	}
 
-	/* if we have just one file, we can return */
-	if (qtree->inode == main_inode) return (1);
+	/*
+	 * if this is the only copy of the file, we can
+	 * return and auto-tagging can be performed
+	 */
+	if (qtree->inode == main_inode) return (TAGSISTANT_DO_AUTOTAGGING);
 
 	dbg('2', LOG_INFO, "Deduplicating %s: %d -> %d", qtree->full_archive_path, qtree->inode, main_inode);
 
@@ -87,26 +97,17 @@ int tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *hex
 		qtree->dbi, NULL, NULL,	qtree->inode);
 
 	/* and finally delete it from the archive directory */
-	unlink(qtree->full_archive_path);
+	qtree->schedule_for_unlink = 1;
 
 #if TAGSISTANT_ENABLE_AND_SET_CACHE
-	gchar *key = NULL;
-	tagsistant_inode *value = NULL;
-	GHashTableIter iter;
-
-	g_rw_lock_writer_lock(&tagsistant_and_set_cache_lock);
-	g_hash_table_iter_init(&iter, tagsistant_and_set_cache);
-	while (g_hash_table_iter_next(&iter, (gpointer *) &key, (gpointer *) &value)) {
-		if (*value == qtree->inode) {
-			tagsistant_inode *new_value = g_new(tagsistant_inode, 1);
-			*new_value = main_inode;
-			g_hash_table_iter_replace(&iter, new_value);
-		}
-	}
-	g_rw_lock_writer_unlock(&tagsistant_and_set_cache_lock);
+	/*
+	 * invalidate the and_set cache
+	 */
+	tagsistant_invalidate_and_set_cache_entries(qtree);
 #endif
 
-	return (0);
+	// don't do autotagging, the file has gone
+	return (TAGSISTANT_DONT_DO_AUTOTAGGING);
 }
 
 /**
@@ -119,7 +120,7 @@ int tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
 {
 	dbg('2', LOG_INFO, "Running deduplication on %s", qtree->object_path);
 
-	int do_autotagging = 0;
+	int do_autotagging = TAGSISTANT_DONT_DO_AUTOTAGGING;
 
 	/* guess if the object is a file or a symlink */
 	struct stat buf;
@@ -129,7 +130,7 @@ int tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
 	dbg('2', LOG_INFO, "Checksumming %s", qtree->full_archive_path);
 
 	/* we'll return a 'do autotagging' condition even if a problem arise in computing file checksum */
-	do_autotagging = 1;
+	do_autotagging = TAGSISTANT_DO_AUTOTAGGING;
 
 	/* open the file and read its content to compute is checksum */
 	int fd = open(qtree->full_archive_path, O_RDONLY|O_NOATIME);
@@ -142,8 +143,7 @@ int tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
 			int length = 0;
 			do {
 				length = read(fd, buffer, 65535);
-				if (length > 0)
-					g_checksum_update(checksum, buffer, length);
+				g_checksum_update(checksum, buffer, length);
 			} while (length);
 
 			/* get the hexadecimal checksum string */
@@ -205,7 +205,6 @@ void tagsistant_dedup_and_autotag_thread(gpointer data) {
 #if TAGSISTANT_ENABLE_DEDUPLICATION || TAGSISTANT_ENABLE_AUTOTAGGING
 			// destroy the querytree
 			tagsistant_querytree_destroy(qtree, 1);
-
 		}
 
 		g_free_null(path);

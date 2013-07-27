@@ -199,9 +199,11 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tag
 	return(inode);
 }
 
+#if TAGSISTANT_ENABLE_DEDUPLICATION || TAGSISTANT_ENABLE_AUTOTAGGING
 extern GThread *tagsistant_dedup_autotag_thread;
 extern GAsyncQueue *tagsistant_dedup_autotag_queue;
 extern void tagsistant_dedup_and_autotag_thread(gpointer data);
+#endif
 
 /**
  * Initialize all the utilities
