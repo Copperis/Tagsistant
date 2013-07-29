@@ -50,11 +50,22 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 		}
 
 		int fh = fi->fh;
-		if (!fh) fh = open(qtree->full_archive_path, fi->flags|O_RDONLY);
+		if (fh <= 0) fi->fh = fh = open(qtree->full_archive_path, fi->flags|O_RDONLY);
+		if (fh <= 0) TAGSISTANT_ABORT_OPERATION(errno);
+
 		dbg('F', LOG_INFO, "Reading from FH:%d", fh);
 
 		res = pread(fh, buf, size, offset);
 		tagsistant_errno = errno;
+
+		if (-1 == res) {
+			close(fh);
+			fi->fh = fh = open(qtree->full_archive_path, fi->flags|O_RDONLY);
+			if (fh) {
+				res = pread(fh, buf, size, offset);
+				tagsistant_errno = errno;
+			}
+		}
 	}
 
 	// -- stats --
