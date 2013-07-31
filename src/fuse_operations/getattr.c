@@ -140,7 +140,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 		}
 	} else if (QTREE_IS_STATS(qtree)) {
 
-		stbuf->st_size = 1024;
+		stbuf->st_size = TAGSISTANT_STATS_BUFFER;
 
 	} else if (QTREE_IS_RELATIONS(qtree)) {
 

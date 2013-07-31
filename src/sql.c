@@ -500,18 +500,13 @@ int tagsistant_return_integer(void *return_integer, dbi_result result)
 					*buffer = dbi_result_get_char_idx(result, 1);
 				break;
 		}
-	} else {
-		dbg('s', LOG_INFO, "tagsistant_return_integer called on non integer field");
+	} else if (type == DBI_TYPE_DECIMAL) {
 		return (0);
+	} else if (type == DBI_TYPE_STRING) {
+		const gchar *int_string = dbi_result_get_string_idx(result, 1);
+		*buffer = atoi(int_string);
+		dbg('s', LOG_INFO, "tagsistant_return_integer called on non integer field");
 	}
-
-
-	/*
-	if (tagsistant.sql_database_driver == TAGSISTANT_DBI_SQLITE_BACKEND)
-		*buffer = dbi_result_get_ulonglong_idx(result, 1);
-	else
-		*buffer = dbi_result_get_uint_idx(result, 1);
-	*/
 
 	dbg('s', LOG_INFO, "Returning integer: %d", *buffer);
 

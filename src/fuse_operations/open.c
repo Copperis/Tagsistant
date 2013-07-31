@@ -50,8 +50,12 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 		tagsistant_errno = errno;
 
 		if (-1 != res) {
-			fi->fh = res;
+#if TAGSISTANT_ENABLE_FILE_HANDLE_CACHING
+			tagsistant_set_file_handle(fi, res);
 			dbg('F', LOG_INFO, "Caching %" PRIu64 " = open(%s)", fi->fh, path);
+#else
+			close(res);
+#endif
 
 			tagsistant_querytree_check_tagging_consistency(qtree);
 
@@ -64,15 +68,16 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 				}
 			}
 		} else {
-			fi->fh = 0;
+			tagsistant_set_file_handle(fi, 0);
 		}
 	}
 
 	// -- stats --
 	else if (QTREE_IS_STATS(qtree)) {
 		res = open(tagsistant.tags, fi->flags|O_RDONLY);
-		fi->fh = (-1 == res) ? 0 : res;
+		tagsistant_set_file_handle(fi, res);
 		tagsistant_errno = errno;
+		fi->keep_cache = 0;
 	}
 
 	// -- tags --

@@ -36,14 +36,6 @@ GThread *tagsistant_dedup_autotag_thread = NULL;
 GAsyncQueue *tagsistant_dedup_autotag_queue = NULL;
 #endif
 
-/**
- * Cache inode resolution from DB
- */
-#if TAGSISTANT_ENABLE_AND_SET_CACHE
-extern GRWLock tagsistant_and_set_cache_lock;
-extern GHashTable *tagsistant_and_set_cache;
-#endif
-
 #define TAGSISTANT_DO_AUTOTAGGING 1
 #define TAGSISTANT_DONT_DO_AUTOTAGGING 0
 

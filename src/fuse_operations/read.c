@@ -19,6 +19,8 @@
 
 #include "../tagsistant.h"
 
+void tagsistant_read_stats_configuration(gchar stats_buffer[TAGSISTANT_STATS_BUFFER]);
+
 /**
  * read() equivalent
  *
@@ -31,8 +33,8 @@
  */
 int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
-    int res = 0, tagsistant_errno = 0;
-    gchar stats_buffer[1024];
+    int res = 0, tagsistant_errno = 0, fh = 0;
+    gchar stats_buffer[TAGSISTANT_STATS_BUFFER];
 
 	TAGSISTANT_START("READ on %s [size: %lu offset: %lu]", path, (long unsigned int) size, (long unsigned int) offset);
 
@@ -49,180 +51,94 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 			TAGSISTANT_ABORT_OPERATION(EFAULT);
 		}
 
-		int fh = fi->fh;
-		if (fh <= 0) fi->fh = fh = open(qtree->full_archive_path, fi->flags|O_RDONLY);
-		if (fh <= 0) TAGSISTANT_ABORT_OPERATION(errno);
-
-		dbg('F', LOG_INFO, "Reading from FH:%d", fh);
-
-		res = pread(fh, buf, size, offset);
-		tagsistant_errno = errno;
-
-		if (-1 == res) {
-			close(fh);
-			fi->fh = fh = open(qtree->full_archive_path, fi->flags|O_RDONLY);
-			if (fh) {
-				res = pread(fh, buf, size, offset);
-				tagsistant_errno = errno;
-			}
+#if TAGSISTANT_ENABLE_FILE_HANDLE_CACHING
+		if (fi->fh) {
+			tagsistant_get_file_handle(fi, fh);
+			res = pread(fh, buf, size, offset);
+			tagsistant_errno = errno;
 		}
+
+		if ((-1 == res) || (0 == fh)) {
+			if (fh) close(fh);
+			fh = open(qtree->full_archive_path, fi->flags|O_RDONLY);
+
+			if (fh)	res = pread(fh, buf, size, offset);
+			else res = -1;
+			tagsistant_errno = errno;
+		}
+
+		tagsistant_set_file_handle(fi, fh);
+#else
+		fh = open(qtree->full_archive_path, fi->flags|O_RDONLY);
+		if (fh) {
+			res = pread(fh, buf, size, offset);
+			tagsistant_errno = errno;
+			close(fh);
+		} else {
+			TAGSISTANT_ABORT_OPERATION(errno);
+		}
+#endif
 	}
 
 	// -- stats --
 	else if (QTREE_IS_STATS(qtree)) {
-		memset(stats_buffer, 0, 1024);
+		memset(stats_buffer, 0, TAGSISTANT_STATS_BUFFER);
 
 		// -- connections --
 		if (g_regex_match_simple("/connections$", path, 0, 0)) {
-			if (offset == 0) {
-				sprintf(stats_buffer, "# of MySQL open connections: %d\n", connections);
-				size_t stats_size = strlen(stats_buffer);
-
-				memcpy(buf, stats_buffer, stats_size);
-				res = stats_size;
-			} else {
-				res = 0;
-			}
+			sprintf(stats_buffer, "# of MySQL open connections: %d\n", connections);
 		}
 
 #if TAGSISTANT_ENABLE_QUERYTREE_CACHE
 		// -- cached_queries --
 		else if (g_regex_match_simple("/cached_queries$", path, 0, 0)) {
-			if (offset == 0) {
-				int entries = tagsistant_querytree_cache_total();
-				sprintf(stats_buffer, "# of cached queries: %d\n", entries);
-				size_t stats_size = strlen(stats_buffer);
-
-				memcpy(buf, stats_buffer, stats_size);
-				res = stats_size;
-			} else {
-				res = 0;
-			}
+			int entries = tagsistant_querytree_cache_total();
+			sprintf(stats_buffer, "# of cached queries: %d\n", entries);
 		}
 #endif /* TAGSISTANT_ENABLE_QUERYTREE_CACHE */
 
 		// -- configuration --
 		else if (g_regex_match_simple("/configuration$", path, 0, 0)) {
-			if (offset == 0) {
-				sprintf(stats_buffer,
-					"\n"
-					" --> Command line options:\n\n"
-					"         mountpoint: %s\n"
-					"    repository path: %s\n"
-					"   database options: %s\n"
-					"  run in foreground: %d\n"
-					"    single threaded: %d\n"
-					"    mount read-only: %d\n"
-					"              debug: %s\n"
-					"                     [%c] boot\n"
-					"                     [%c] cache\n"
-					"                     [%c] file tree (readdir)\n"
-					"                     [%c] FUSE operations (open, read, write, symlink, ...)\n"
-					"                     [%c] low level\n"
-					"                     [%c] plugin\n"
-					"                     [%c] query parsing\n"
-					"                     [%c] reasoning\n"
-					"                     [%c] SQL queries\n"
-					"                     [%c] deduplication\n"
-					"\n"
-					" --> Compile flags:\n\n"
-					"  TAGSISTANT_ENABLE_QUERYTREE_CACHE: %d\n"
-					"     TAGSISTANT_ENABLE_TAG_ID_CACHE: %d\n"
-					"    TAGSISTANT_ENABLE_AND_SET_CACHE: %d\n"
-					"   TAGSISTANT_ENABLE_REASONER_CACHE: %d\n"
-					"      TAGSISTANT_ENABLE_AUTOTAGGING: %d\n"
-//					"    TAGSISTANT_ENABLE_DEDUPLICATION: %d\n"
-					"         TAGSISTANT_VERBOSE_LOGGING: %d\n"
-					"         TAGSISTANT_QUERY_DELIMITER: %c (to avoid reasoning use: %s)\n"
-					"        TAGSISTANT_ANDSET_DELIMITER: %c\n"
-					"         TAGSISTANT_INODE_DELIMITER: '%s'\n\n",
-					tagsistant.mountpoint,
-					tagsistant.repository,
-					tagsistant.dboptions,
-					tagsistant.foreground,
-					tagsistant.singlethread,
-					tagsistant.readonly,
-					tagsistant.debug ? tagsistant.debug : "-",
-					tagsistant.dbg['b'] ? 'x' : ' ',
-					tagsistant.dbg['c'] ? 'x' : ' ',
-					tagsistant.dbg['f'] ? 'x' : ' ',
-					tagsistant.dbg['F'] ? 'x' : ' ',
-					tagsistant.dbg['l'] ? 'x' : ' ',
-					tagsistant.dbg['p'] ? 'x' : ' ',
-					tagsistant.dbg['q'] ? 'x' : ' ',
-					tagsistant.dbg['r'] ? 'x' : ' ',
-					tagsistant.dbg['s'] ? 'x' : ' ',
-					tagsistant.dbg['2'] ? 'x' : ' ',
-					TAGSISTANT_ENABLE_QUERYTREE_CACHE,
-					TAGSISTANT_ENABLE_TAG_ID_CACHE,
-					TAGSISTANT_ENABLE_AND_SET_CACHE,
-					TAGSISTANT_ENABLE_REASONER_CACHE,
-					TAGSISTANT_ENABLE_AUTOTAGGING,
-//					TAGSISTANT_ENABLE_DEDUPLICATION,
-					TAGSISTANT_VERBOSE_LOGGING,
-					TAGSISTANT_QUERY_DELIMITER_CHAR,
-					TAGSISTANT_QUERY_DELIMITER_NO_REASONING,
-					TAGSISTANT_ANDSET_DELIMITER_CHAR,
-					TAGSISTANT_INODE_DELIMITER);
-				size_t stats_size = strlen(stats_buffer);
-
-				memcpy(buf, stats_buffer, stats_size);
-				res = stats_size;
-			} else {
-				res = 0;
-			}
+			tagsistant_read_stats_configuration(stats_buffer);
 		}
 
 		// -- objects --
 		else if (g_regex_match_simple("/objects$", path, 0, 0)) {
-			if (offset == 0) {
-				int entries = 0;
-				tagsistant_query("select count(1) as entries from objects", qtree->dbi, tagsistant_return_integer, &entries);
-				sprintf(stats_buffer, "# of objects: %d\n", entries);
-				size_t stats_size = strlen(stats_buffer);
-
-				memcpy(buf, stats_buffer, stats_size);
-				res = stats_size;
-			} else {
-				res = 0;
-			}
+			int entries = 0;
+			tagsistant_query("select count(1) from objects", qtree->dbi, tagsistant_return_integer, &entries);
+			sprintf(stats_buffer, "# of objects: %d\n", entries);
 		}
 
 		// -- tags --
 		else if (g_regex_match_simple("/tags$", path, 0, 0)) {
-			if (offset == 0) {
-				int entries = 2;
-				tagsistant_query("select count(1) as entries from tags", qtree->dbi, tagsistant_return_integer, &entries);
-				sprintf(stats_buffer, "# of tags: %d\n", entries);
-				size_t stats_size = strlen(stats_buffer);
-
-				memcpy(buf, stats_buffer, stats_size);
-				res = stats_size;
-			} else {
-				res = 0;
-			}
+			int entries = 2;
+			tagsistant_query("select count(1) from tags", qtree->dbi, tagsistant_return_integer, &entries);
+			sprintf(stats_buffer, "# of tags: %d\n", entries);
 		}
 
 		// -- relations --
 		else if (g_regex_match_simple("/relations$", path, 0, 0)) {
-			if (offset == 0) {
-				int entries = 0;
-				tagsistant_query("select count(1) as entries from relations", qtree->dbi, tagsistant_return_integer, &entries);
-				sprintf(stats_buffer, "# of relations: %d\n", entries);
-				size_t stats_size = strlen(stats_buffer);
-
-				memcpy(buf, stats_buffer, stats_size);
-				res = stats_size;
-			} else {
-				res = 0;
-			}
+			int entries = 0;
+			tagsistant_query("select count(1) from relations", qtree->dbi, tagsistant_return_integer, &entries);
+			sprintf(stats_buffer, "# of relations: %d\n", entries);
 		}
 
+		size_t stats_size = strlen(stats_buffer);
+		if ((size_t) offset <= stats_size) {
+			gchar *start = stats_buffer + offset;
+			size_t available = stats_size - offset;
+			size_t real_size = (size > available) ? available : size;
+
+			memcpy(buf, start, real_size);
+			res = (int) real_size;
+		}
 	}
 
 	// -- tags --
 	// -- relations --
 	else TAGSISTANT_ABORT_OPERATION(EINVAL);
+
+	printf("%d", res);
 
 TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
@@ -236,3 +152,68 @@ TAGSISTANT_EXIT_OPERATION:
 	return ((res == -1) ? -tagsistant_errno : res);
 }
 
+void tagsistant_read_stats_configuration(gchar stats_buffer[TAGSISTANT_STATS_BUFFER])
+{
+	snprintf(stats_buffer, TAGSISTANT_STATS_BUFFER,
+		"\n"
+		" --> Command line options:\n\n"
+		"         mountpoint: %s\n"
+		"    repository path: %s\n"
+		"   database options: %s\n"
+		"  run in foreground: %d\n"
+		"    single threaded: %d\n"
+		"    mount read-only: %d\n"
+		"              debug: %s\n"
+		"                     [%c] boot\n"
+		"                     [%c] cache\n"
+		"                     [%c] file tree (readdir)\n"
+		"                     [%c] FUSE operations (open, read, write, symlink, ...)\n"
+		"                     [%c] low level\n"
+		"                     [%c] plugin\n"
+		"                     [%c] query parsing\n"
+		"                     [%c] reasoning\n"
+		"                     [%c] SQL queries\n"
+		"                     [%c] deduplication\n"
+		"\n"
+		" --> Compile flags:\n\n"
+		"  TAGSISTANT_ENABLE_QUERYTREE_CACHE: %d\n"
+		"     TAGSISTANT_ENABLE_TAG_ID_CACHE: %d\n"
+		"    TAGSISTANT_ENABLE_AND_SET_CACHE: %d\n"
+		"   TAGSISTANT_ENABLE_REASONER_CACHE: %d\n"
+		"      TAGSISTANT_ENABLE_AUTOTAGGING: %d\n"
+		"    TAGSISTANT_ENABLE_DEDUPLICATION: %d\n"
+		"         TAGSISTANT_VERBOSE_LOGGING: %d\n"
+		"         TAGSISTANT_QUERY_DELIMITER: %c (to avoid reasoning use: %s)\n"
+		"        TAGSISTANT_ANDSET_DELIMITER: %c\n"
+		"         TAGSISTANT_INODE_DELIMITER: '%s'\n"
+		"\n",
+		tagsistant.mountpoint,
+		tagsistant.repository,
+		tagsistant.dboptions,
+		tagsistant.foreground,
+		tagsistant.singlethread,
+		tagsistant.readonly,
+		tagsistant.debug ? tagsistant.debug : "-",
+		tagsistant.dbg['b'] ? 'x' : ' ',
+		tagsistant.dbg['c'] ? 'x' : ' ',
+		tagsistant.dbg['f'] ? 'x' : ' ',
+		tagsistant.dbg['F'] ? 'x' : ' ',
+		tagsistant.dbg['l'] ? 'x' : ' ',
+		tagsistant.dbg['p'] ? 'x' : ' ',
+		tagsistant.dbg['q'] ? 'x' : ' ',
+		tagsistant.dbg['r'] ? 'x' : ' ',
+		tagsistant.dbg['s'] ? 'x' : ' ',
+		tagsistant.dbg['2'] ? 'x' : ' ',
+		TAGSISTANT_ENABLE_QUERYTREE_CACHE,
+		TAGSISTANT_ENABLE_TAG_ID_CACHE,
+		TAGSISTANT_ENABLE_AND_SET_CACHE,
+		TAGSISTANT_ENABLE_REASONER_CACHE,
+		TAGSISTANT_ENABLE_AUTOTAGGING,
+		TAGSISTANT_ENABLE_DEDUPLICATION,
+		TAGSISTANT_VERBOSE_LOGGING,
+		TAGSISTANT_QUERY_DELIMITER_CHAR,
+		TAGSISTANT_QUERY_DELIMITER_NO_REASONING,
+		TAGSISTANT_ANDSET_DELIMITER_CHAR,
+		TAGSISTANT_INODE_DELIMITER
+	);
+}

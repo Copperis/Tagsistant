@@ -62,8 +62,14 @@
 /** enable the autotagging plugin stack? */
 #define TAGSISTANT_ENABLE_AUTOTAGGING 0
 
+/** enable filehandle caching between open(), read(), write() and release() calls */
+#define TAGSISTANT_ENABLE_FILE_HANDLE_CACHING 1
+
 /** enable verbose logging, useful during debugging only */
 #define TAGSISTANT_VERBOSE_LOGGING 0
+
+/** the maximum length of the buffer used to store dynamic /stats files */
+#define TAGSISTANT_STATS_BUFFER 2048
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -263,3 +269,10 @@ extern void tagsistant_manage_repository_ini();
 #define O_NOATIME	01000000
 #endif
 
+#if TAGSISTANT_ENABLE_FILE_HANDLE_CACHING
+#	define tagsistant_set_file_handle(fi, fh_value) fi->fh = (unsigned long) fh_value
+#	define tagsistant_get_file_handle(fi, fh_variable) fh_variable = (long) fi->fh
+#else
+#	define tagsistant_set_file_handle(fi, fh_value) ()
+#	define tagsistant_get_file_handle(fi, fh_variable) ()
+#endif
