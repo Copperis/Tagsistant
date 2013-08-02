@@ -235,6 +235,8 @@ void tagsistant_utils_init()
 /***                                                                      ***/
 /****************************************************************************/
 
+GKeyFile *tagsistant_ini = NULL;
+
 #define tagsistant_get_repository_ini_path() g_strdup_printf("%s/repository.ini", tagsistant.repository)
 
 /**
@@ -275,7 +277,7 @@ void tagsistant_save_repository_ini(GKeyFile *kf)
 	int fd = open(ini_path, O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR);
 	if (-1 != fd) {
 		int written = write(fd, content, size);
-		if (written == -1) {
+		if (-1 == written) {
 			dbg('l', LOG_ERR, "Error writing %s: %s", ini_path, strerror(errno));
 		}
 		close(fd);
@@ -287,6 +289,10 @@ void tagsistant_save_repository_ini(GKeyFile *kf)
 	g_free_null(ini_path);
 }
 
+#define tagsistant_set_init_default(kf, section, key, value) \
+	if (!g_key_file_has_key(kf, section, key, NULL))\
+		g_key_file_set_value(kf, section, key, value);
+
 /**
  * Read the repository.ini file, compare its content with
  * provided command line arguments and than saves back the
@@ -294,20 +300,21 @@ void tagsistant_save_repository_ini(GKeyFile *kf)
  */
 void tagsistant_manage_repository_ini() {
 	// read the repository.ini file from disk
-	GKeyFile *kf = tagsistant_parse_repository_ini();
-	if (kf) {
-		if (g_key_file_has_group(kf, "Tagsistant")) {
-			if (g_key_file_has_key(kf, "Tagsistant", "db", NULL)) {
+	tagsistant_ini = tagsistant_parse_repository_ini();
+
+	if (tagsistant_ini) {
+		if (g_key_file_has_group(tagsistant_ini, "Tagsistant")) {
+			if (g_key_file_has_key(tagsistant_ini, "Tagsistant", "db", NULL)) {
 				if (tagsistant.dboptions) {
 					dbg('b', LOG_INFO, "Ignoring command line --db parameter in favor of repository.ini");
 				}
-				tagsistant.dboptions = g_key_file_get_value(kf, "Tagsistant", "db", NULL);
+				tagsistant.dboptions = g_key_file_get_value(tagsistant_ini, "Tagsistant", "db", NULL);
 			}
 		}
 	}
 
 	// if repository.ini has not been laded, create an empty GKeyFile object
-	if (!kf) kf = g_key_file_new();
+	if (!tagsistant_ini) tagsistant_ini = g_key_file_new();
 
 	// fill the GKeyFile object with command line values
 	if (!tagsistant.dboptions) tagsistant.dboptions = g_strdup("sqlite3::::");
@@ -316,11 +323,19 @@ void tagsistant_manage_repository_ini() {
 		tagsistant.dboptions = g_strdup("sqlite3::::");
 	}
 
-	g_key_file_set_value(kf, "Tagsistant", "db", tagsistant.dboptions);
-	g_key_file_set_value(kf, "Tagsistant", "mountpoint", tagsistant.mountpoint);
-	g_key_file_set_value(kf, "Tagsistant", "repository", tagsistant.repository);
+	g_key_file_set_value(tagsistant_ini, "Tagsistant", "db", tagsistant.dboptions);
+	g_key_file_set_value(tagsistant_ini, "Tagsistant", "mountpoint", tagsistant.mountpoint);
+	g_key_file_set_value(tagsistant_ini, "Tagsistant", "repository", tagsistant.repository);
+
+	// set default plugin filters
+	tagsistant_set_init_default(tagsistant_ini, "mime:application/xml",	"filter", "^(author|date|language)$");
+	tagsistant_set_init_default(tagsistant_ini, "mime:image/gif",		"filter", "^(size|orientation)$");
+	tagsistant_set_init_default(tagsistant_ini, "mime:text/html",		"filter", "^(author|date|language)$");
+	tagsistant_set_init_default(tagsistant_ini, "mime:image/jpeg",		"filter", "^(size|orientation)$");
+	tagsistant_set_init_default(tagsistant_ini, "mime:image/png",		"filter", "^(size|orientation)$");
+	tagsistant_set_init_default(tagsistant_ini, "mime:application/ogg",	"filter", "^(year|album|artist)$");
+	tagsistant_set_init_default(tagsistant_ini, "mime:audio/mpeg",		"filter", "^(year|album|artist)$");
 
 	// save and free the GKeyFile object
-	tagsistant_save_repository_ini(kf);
-	g_key_file_free(kf);
+	tagsistant_save_repository_ini(tagsistant_ini);
 }

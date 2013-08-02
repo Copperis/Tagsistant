@@ -17,6 +17,10 @@
 	tagsistant_rmdir() and tagsistant_rename() to properly delete
 	cache entries.
 
+  - the plugins save their filter regexp in the repository.ini file
+    each in its own section named [mime:mime/type] where mime/type
+	is the mime-type processed by the plugin.
+
 0.6.1:
   - tag_id cache wasn't invalidated when a tag was renamed. Fixed.
     Thanks to Chiffa for reporting the bug.

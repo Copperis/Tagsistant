@@ -29,7 +29,10 @@ static GRegex *rx;
 /* exported init function */
 int tagsistant_plugin_init()
 {
-	rx = g_regex_new("^(year|album|artist)$", TAGSISTANT_RX_COMPILE_FLAGS, 0, NULL);
+	gchar *pattern = tagsistant_get_ini_entry("mime:audio/mpeg", "filter");
+	if (!pattern) pattern = "^(year|album|artist)$";
+
+	rx = g_regex_new(pattern, TAGSISTANT_RX_COMPILE_FLAGS, 0, NULL);
 
 	return(1);
 }

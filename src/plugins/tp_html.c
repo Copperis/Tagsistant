@@ -31,7 +31,10 @@ static GRegex *rx = NULL;
 int tagsistant_plugin_init()
 {
 	/* initialize regular expressions */
-	rx = g_regex_new("^(author|date|language)$", TAGSISTANT_RX_COMPILE_FLAGS, 0, NULL);
+	gchar *pattern = tagsistant_get_ini_entry("mime:image/html", "filter");
+	if (!pattern) pattern = "^(author|date|language)$";
+
+	rx = g_regex_new(pattern, TAGSISTANT_RX_COMPILE_FLAGS, 0, NULL);
 
 	return(1);
 }
