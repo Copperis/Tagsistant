@@ -381,21 +381,20 @@ int tagsistant_real_query(
 		return(0);
 	}
 
+	// format the statement
+	gchar *statement = g_strdup_vprintf(format, ap);
+	if (NULL == statement) {
+		dbg('s', LOG_ERR, "Null SQL statement");
+		return(0);
+	}
+
+	// lock the connection mutex
 	g_mutex_lock(&tagsistant_query_mutex);
 
 	// check if the connection is alive
 	if (!dbi_conn_ping(dbi) && (dbi_conn_connect(dbi) < 0)) {
 		g_mutex_unlock(&tagsistant_query_mutex);
 		dbg('s', LOG_ERR, "ERROR! DBI Connection has gone!");
-		return(0);
-	}
-
-	gchar *statement = g_strdup_vprintf(format, ap);
-
-	// check if statement is not null
-	if (NULL == statement) {
-		g_mutex_unlock(&tagsistant_query_mutex);
-		dbg('s', LOG_ERR, "Null SQL statement");
 		return(0);
 	}
 
@@ -419,9 +418,9 @@ int tagsistant_real_query(
 		dbi_result_free(result);
 	} else {
 		// get the error message
-		const char *errmsg;
+		const char *errmsg = NULL;
 		int err = dbi_conn_error(dbi, &errmsg);
-		if ((-1 == err) && errmsg) dbg('s', LOG_ERR, "Error: %s.", errmsg);
+		if (errmsg) dbg('s', LOG_ERR, "Error: %s.", errmsg);
 	}
 
 	g_mutex_unlock(&tagsistant_query_mutex);
