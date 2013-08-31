@@ -40,7 +40,7 @@ extern void tagsistant_create_schema();
 
 /* execute SQL statements auto formatting the SQL string and adding file:line coords */
 #define tagsistant_query(format, conn, callback, firstarg, ...) \
-	tagsistant_real_query(conn, format, callback, firstarg, ## __VA_ARGS__)
+	tagsistant_real_query(conn, format, callback, __FILE__, __LINE__, firstarg, ## __VA_ARGS__)
 
 /* number of active connections */
 extern int connections;
@@ -50,6 +50,8 @@ extern int tagsistant_real_query(
 		dbi_conn conn,
 		const char *format,
 		int (*callback)(void *, dbi_result),
+		char *file,
+		int line,
 		void *firstarg,
 		...);
 
@@ -75,6 +77,7 @@ extern void tagsistant_db_connection_release(dbi_conn dbi);
 #	define tagsistant_rollback_transaction(dbi_conn) dbi_conn_transaction_rollback(dbi_conn)
 #endif /* TAGSISTANT_USE_INTERNAL_TRANSACTIONS */
 
+
 /***************\
  * SQL QUERIES *
 \***************/
@@ -90,4 +93,3 @@ extern int				tagsistant_object_is_tagged(dbi_conn conn, tagsistant_inode inode)
 extern int				tagsistant_object_is_tagged_as(dbi_conn conn, tagsistant_inode inode, tagsistant_inode tag_id);
 extern void				tagsistant_full_untag_object(dbi_conn conn, tagsistant_inode inode);
 extern void				tagsistant_remove_tag_from_cache(gchar *tagname);
-

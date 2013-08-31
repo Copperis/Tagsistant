@@ -190,6 +190,11 @@ GMutex tagsistant_connection_pool_lock;
 int connections = 0;
 
 /**
+ * Experimental Mutex for SQLite
+ */
+GMutex tagsistant_sqlite_global_lock;
+
+/**
  * Parse command line options, create connection object,
  * start the connection and finally create database schema
  *
@@ -284,9 +289,14 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 		dbg('s', LOG_INFO, "SQL connection established");
 	}
 
+	/* lock the global mutex for SQLite backend */
+	if (tagsistant.sql_database_driver == TAGSISTANT_DBI_SQLITE_BACKEND)
+		g_mutex_lock(&tagsistant_sqlite_global_lock);
+
 	/* start a transaction */
-#if TAGSISTANT_USE_INTERNAL_TRANSACTIONS
 	if (start_transaction) {
+
+#if TAGSISTANT_USE_INTERNAL_TRANSACTIONS
 		switch (tagsistant.sql_database_driver) {
 			case TAGSISTANT_DBI_SQLITE_BACKEND:
 				tagsistant_query("begin transaction", dbi, NULL, NULL);
@@ -296,10 +306,10 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 				tagsistant_query("start transaction", dbi, NULL, NULL);
 				break;
 		}
-	}
 #else
-	dbi_conn_transaction_begin(dbi);
-#endif /* TAGSISTANT_USE_INTERNAL_TRANSACTIONS */
+		dbi_conn_transaction_begin(dbi);
+#endif
+	}
 
 	return(dbi);
 }
@@ -311,10 +321,13 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
  */
 void tagsistant_db_connection_release(dbi_conn dbi)
 {
+	// unlock the global mutex for SQLite backend
+	if (tagsistant.sql_database_driver == TAGSISTANT_DBI_SQLITE_BACKEND)
+		g_mutex_unlock(&tagsistant_sqlite_global_lock);
+
+	// release the connection back to the pool
 	g_mutex_lock(&tagsistant_connection_pool_lock);
-	// TODO valgrind says: check for leaks
 	tagsistant_connection_pool = g_list_prepend(tagsistant_connection_pool, dbi);
-//	dbg('s', LOG_INFO, "Releasing DBI connection (currently %d created", connections);
 	g_mutex_unlock(&tagsistant_connection_pool_lock);
 }
 
@@ -369,6 +382,8 @@ int tagsistant_real_query(
 	dbi_conn dbi,
 	const char *format,
 	int (*callback)(void *, dbi_result),
+	char *file,
+	int line,
 	void *firstarg,
 	...)
 {
@@ -398,7 +413,7 @@ int tagsistant_real_query(
 		return(0);
 	}
 
-	dbg('s', LOG_INFO, "SQL: [%s]", statement);
+	dbg('s', LOG_INFO, "SQL from %s:%d: [%s]", file, line, statement);
 
 	tagsistant_dirty_logging(statement);
 
@@ -419,7 +434,7 @@ int tagsistant_real_query(
 	} else {
 		// get the error message
 		const char *errmsg = NULL;
-		int err = dbi_conn_error(dbi, &errmsg);
+		dbi_conn_error(dbi, &errmsg);
 		if (errmsg) dbg('s', LOG_ERR, "Error: %s.", errmsg);
 	}
 
