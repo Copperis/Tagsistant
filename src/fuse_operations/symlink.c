@@ -43,9 +43,36 @@ int tagsistant_symlink(const char *from, const char *to)
 
 		// if qtree is taggable, do it
 		if (QTREE_IS_TAGGABLE(to_qtree)) {
-			dbg('F', LOG_INFO, "SYMLINK : Creating %s", to_qtree->object_path);
-			res = tagsistant_force_create_and_tag_object(to_qtree, &tagsistant_errno);
-			if (-1 == res) goto TAGSISTANT_EXIT_OPERATION;
+			// 1. check if a symlink pointing to "from" path is already in the DB
+			tagsistant_inode check_inode = 0;
+			tagsistant_query(
+				"select inode from objects where symlink = \"%s\"",
+				to_qtree->dbi,
+				tagsistant_return_integer,
+				&check_inode,
+				from);
+
+			if (check_inode) {
+
+				// 2.1. tag the available symlink with the new tag set
+				dbg('F', LOG_INFO, "SYMLINK : Deduplicating on inode %d", check_inode);
+				tagsistant_querytree_traverse(to_qtree, tagsistant_sql_tag_object, check_inode);
+				goto TAGSISTANT_EXIT_OPERATION;
+
+			} else {
+
+				// 2.1. create a new symlink
+				dbg('F', LOG_INFO, "SYMLINK : Creating %s", to_qtree->object_path);
+				res = tagsistant_force_create_and_tag_object(to_qtree, &tagsistant_errno);
+				if (-1 == res) goto TAGSISTANT_EXIT_OPERATION;
+
+				// 2.2. save the target path for future checks
+				tagsistant_query(
+					"update objects set symlink = \"%s\" where inode = %d",
+					to_qtree->dbi,
+					NULL, NULL,
+					from, to_qtree->inode);
+			}
 		} else
 
 		// nothing to do about tags

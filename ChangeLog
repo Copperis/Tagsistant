@@ -21,6 +21,13 @@
     each in its own section named [mime:mime/type] where mime/type
 	is the mime-type processed by the plugin.
 
+  - added a Mutex for the SQLite backend to solve concurrency problems
+    related to database locks
+
+  - added deduplication for symlinks; if a link to /some/path exists
+    in the repository and a new one is created, the tags of the
+	new one are applied to the existing object
+
 0.6.1:
   - tag_id cache wasn't invalidated when a tag was renamed. Fixed.
     Thanks to Chiffa for reporting the bug.

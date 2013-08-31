@@ -227,13 +227,14 @@ typedef struct {
 #define IS_VALID_RELATION(relation) ((g_strcmp0(relation, "is_equivalent")) == 0 || (g_strcmp0(relation, "includes") == 0))
 
 /**
- * allows for applying a function to all the ptree_and_node_t nodes of
- * a tagstistant_querytree_t structure. the function applied must be declared as:
- *   void function(ptree_and_node *node, ...)
- * while can be of course provided with fixed length argument list
+ * applies a function to all the ptree_and_node_t nodes of
+ * a tagstistant_querytree_t structure. the function applied must be
+ * declared as:
  *
- * @param qtree the tagsistant_querytree_t structure to traverse
- * @param funcpointer the pointer to the function (barely the function name)
+ *   void function(dbi_conn dbi, ptree_and_node *node, ...);
+ *
+ * @param qtree the tagsistant_querytree structure to traverse
+ * @param funcpointer the function pointer
  */
 #define tagsistant_querytree_traverse(qtree, funcpointer, ...) {\
 	if (NULL != qtree) {\

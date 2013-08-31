@@ -342,23 +342,25 @@ void tagsistant_create_schema()
 	switch (tagsistant.sql_database_driver) {
 		case TAGSISTANT_DBI_SQLITE_BACKEND:
 			tagsistant_query("create table if not exists tags (tag_id integer primary key autoincrement not null, tagname varchar(65) unique not null);", dbi, NULL, NULL);
-			tagsistant_query("create table if not exists objects (inode integer not null primary key autoincrement, objectname text(255) not null, last_autotag timestamp not null default 0, checksum text(40) not null default \"\");", dbi, NULL, NULL);
+			tagsistant_query("create table if not exists objects (inode integer not null primary key autoincrement, objectname text(255) not null, last_autotag timestamp not null default 0, checksum text(40) not null default \"\", symlink text(1024) not null default \"\");", dbi, NULL, NULL);
 			tagsistant_query("create table if not exists tagging (inode integer not null, tag_id integer not null, constraint Tagging_key unique (inode, tag_id));", dbi, NULL, NULL);
 			tagsistant_query("create table if not exists relations(relation_id integer primary key autoincrement not null, tag1_id integer not null, relation varchar not null, tag2_id integer not null);", dbi, NULL, NULL);
 //			tagsistant_query("create index if not exists tags_index on tagging (inode, tag_id);", dbi, NULL, NULL);
 			tagsistant_query("create index if not exists relations_index on relations (tag1_id, tag2_id);", dbi, NULL, NULL);
 			tagsistant_query("create index if not exists objectname_index on objects (objectname);", dbi, NULL, NULL);
+			tagsistant_query("create index if not exists symlink_index on objects (symlink, inode);", dbi, NULL, NULL);
 			tagsistant_query("create index if not exists relations_type_index on relations (relation);", dbi, NULL, NULL);
 			break;
 
 		case TAGSISTANT_DBI_MYSQL_BACKEND:
 			tagsistant_query("create table if not exists tags (tag_id integer primary key auto_increment not null, tagname varchar(65) unique not null);", dbi, NULL, NULL);
-			tagsistant_query("create table if not exists objects (inode integer not null primary key auto_increment, objectname varchar(255) not null, last_autotag timestamp not null default 0, checksum varchar(40) not null default \"\");", dbi, NULL, NULL);
+			tagsistant_query("create table if not exists objects (inode integer not null primary key auto_increment, objectname varchar(255) not null, last_autotag timestamp not null default 0, checksum varchar(40) not null default \"\", symlink varchar(1024) not null default \"\");", dbi, NULL, NULL);
 			tagsistant_query("create table if not exists tagging (inode integer not null, tag_id integer not null, constraint Tagging_key unique key (inode, tag_id));", dbi, NULL, NULL);
 			tagsistant_query("create table if not exists relations(relation_id integer primary key auto_increment not null, tag1_id integer not null, relation varchar(32) not null, tag2_id integer not null);", dbi, NULL, NULL);
 //			tagsistant_query("create index tags_index on tagging (inode, tag_id);", dbi, NULL, NULL);
 			tagsistant_query("create index relations_index on relations (tag1_id, tag2_id);", dbi, NULL, NULL);
 			tagsistant_query("create index objectname_index on objects (objectname);", dbi, NULL, NULL);
+			tagsistant_query("create index symlink_index on objects (symlink, inode);", dbi, NULL, NULL);
 			tagsistant_query("create index relations_type_index on relations (relation);", dbi, NULL, NULL);
 			break;
 
