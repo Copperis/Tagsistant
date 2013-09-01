@@ -34,7 +34,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	TAGSISTANT_START("GETATTR on %s", path);
 
 	// build querytree
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree))

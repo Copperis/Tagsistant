@@ -33,7 +33,7 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 	TAGSISTANT_START("OPEN on %s", path);
 
 	// build querytree
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree))

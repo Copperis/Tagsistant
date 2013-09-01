@@ -25,7 +25,7 @@ int tagsistant_symlink(const char *from, const char *to)
 
 	TAGSISTANT_START("SYMLINK %s to %s", from, to);
 
-	tagsistant_querytree *to_qtree = tagsistant_querytree_new(to, 0, 1);
+	tagsistant_querytree *to_qtree = tagsistant_querytree_new(to, 0, 1, 1);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(to_qtree)) TAGSISTANT_ABORT_OPERATION(ENOENT);

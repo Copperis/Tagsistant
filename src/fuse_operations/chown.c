@@ -33,7 +33,7 @@ int tagsistant_chown(const char *path, uid_t uid, gid_t gid)
 
 	TAGSISTANT_START("CHOWN on %s [uid: %d gid: %d]", path, uid, gid);
 
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {

@@ -301,7 +301,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* do some tuning on FUSE options */
-//	fuse_opt_add_arg(&args, "-s");
+	fuse_opt_add_arg(&args, "-s");
 //	fuse_opt_add_arg(&args, "-odirect_io");
 	fuse_opt_add_arg(&args, "-obig_writes");
 	fuse_opt_add_arg(&args, "-omax_write=32768");
@@ -532,7 +532,7 @@ int main(int argc, char *argv[])
 	 */
 	tagsistant_plugin_unloader();
 
-	/* free memory to better perfom memory leak profiling */
+	/* free memory to better perform memory leak profiling */
 	g_free_null(tagsistant.dboptions);
 	g_free_null(tagsistant.repository);
 	g_free_null(tagsistant.archive);

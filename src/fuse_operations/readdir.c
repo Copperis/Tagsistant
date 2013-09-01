@@ -287,7 +287,7 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 	TAGSISTANT_START("READDIR on %s", path);
 
 	// build querytree
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {

@@ -834,7 +834,7 @@ void tagsistant_invalidate_querytree_cache(tagsistant_querytree *qtree)
  * @param start_transaction do a "start transaction" on the DB connection
  * @return a tagsistant_querytree object
  */
-tagsistant_querytree *tagsistant_querytree_new(const char *path, int assign_inode, int start_transaction)
+tagsistant_querytree *tagsistant_querytree_new(const char *path, int assign_inode, int start_transaction, int provide_connection)
 {
 	int tagsistant_errno;
 	tagsistant_querytree *qtree = NULL;
@@ -858,8 +858,12 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int assign_inod
 	}
 
 	/* tie this query to a DBI handle */
-	qtree->dbi = tagsistant_db_connection(start_transaction);
-	qtree->transaction_started = start_transaction;
+	if (provide_connection) {
+		qtree->dbi = tagsistant_db_connection(start_transaction);
+		qtree->transaction_started = start_transaction;
+	} else {
+		qtree->dbi = NULL;
+	}
 
 	/* duplicate the path inside the struct */
 	qtree->full_path = g_strdup(path);
@@ -1079,15 +1083,17 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, guint commit_tran
 	if (qtree->schedule_for_unlink)
 		unlink(qtree->full_archive_path);
 
-	if (qtree->transaction_started) {
-		if (commit_transaction)
-			tagsistant_commit_transaction(qtree->dbi);
-		else
-			tagsistant_rollback_transaction(qtree->dbi);
-	}
+	/* commit the transaction, if any, and mark the connection as available */
+	if (qtree->dbi) {
+		if (qtree->transaction_started) {
+			if (commit_transaction)
+				tagsistant_commit_transaction(qtree->dbi);
+			else
+				tagsistant_rollback_transaction(qtree->dbi);
+		}
 
-	/* mark the connection as available */
-	tagsistant_db_connection_release(qtree->dbi);
+		tagsistant_db_connection_release(qtree->dbi);
+	}
 
 	/* free the paths */
 	g_free_null(qtree->full_path);
