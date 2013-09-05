@@ -275,6 +275,18 @@ void cleanup(int s)
 	exit(s);
 }
 
+/**
+ * Return and entry from the repository.ini file
+ *
+ * @param section the INI section
+ * @param key the INI key
+ * @return the value as a string
+ */
+gchar *tagsistant_get_ini_entry(gchar *section, gchar *key) {
+	if (!tagsistant_ini) return (NULL);
+	return (g_key_file_get_value(tagsistant_ini, section, key, NULL));
+}
+
 extern void tagsistant_show_config();
 
 int main(int argc, char *argv[])

@@ -263,7 +263,7 @@ extern int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, i
 // read and write repository.ini file
 extern GKeyFile *tagsistant_ini;
 extern void tagsistant_manage_repository_ini();
-#define tagsistant_get_ini_entry(section, key) g_key_file_get_value(tagsistant_ini, section, key, NULL)
+extern gchar *tagsistant_get_ini_entry(gchar *section, gchar *key);
 
 #include "fuse_operations/operations.h"
 
