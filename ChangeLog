@@ -33,6 +33,9 @@
 	gets called twice in one operation (rename, symlink, link, ...)
 	one call will avoid the database connection creation
 
+  - fixed building with libextractor 1.x (thanks to rkfg for reporting
+    and to Ivan Kolmycheck for suggesting the fix).
+
 0.6.1:
   - tag_id cache wasn't invalidated when a tag was renamed. Fixed.
     Thanks to Chiffa for reporting the bug.

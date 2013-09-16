@@ -27,7 +27,7 @@
 
 #if TAGSISTANT_EXTRACTOR == 5
 static EXTRACTOR_ExtractorList *elist;
-#elif TAGSISTANT_EXTRACTOR > 5
+#else
 static struct EXTRACTOR_PluginList *plist;
 #endif
 
@@ -149,7 +149,7 @@ STOP_CHAIN_TAGGING:
 	return(res);
 }
 
-#elif TAGSISTANT_EXTRACTOR > 5
+#else
 
 typedef struct {
 	tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS];
@@ -258,19 +258,6 @@ int tagsistant_process(tagsistant_querytree *qtree)
 
 TAGSISTANT_AUTOTAGGING_EXIT:
 	return (res);
-}
-
-#else
-
-/**
- * process a file using plugin chain
- *
- * \param filename file to be processed (just the name, will be looked up in /archive)
- * \return(zero on fault, one on success)
- */
-int tagsistant_process(tagsistant_querytree *qtree)
-{
-	return(0);
 }
 
 #endif
