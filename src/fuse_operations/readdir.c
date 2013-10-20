@@ -61,7 +61,7 @@ static int tagsistant_add_entry_to_dir(void *filler_ptr, dbi_result result)
 	return(ufs->filler(ufs->buf, dir, NULL, 0));
 }
 
-static int tagsistant_readdir_on_tags_filler(gchar *name, GList *fh_list, struct tagsistant_use_filler_struct *ufs)
+static int tagsistant_readdir_on_store_filler(gchar *name, GList *fh_list, struct tagsistant_use_filler_struct *ufs)
 {
 	(void) name;
 
@@ -92,7 +92,7 @@ static int tagsistant_readdir_on_tags_filler(gchar *name, GList *fh_list, struct
 	return (0);
 }
 
-int tagsistant_readdir_on_tags(
+int tagsistant_readdir_on_store(
 		tagsistant_querytree *qtree,
 		const char *path,
 		void *buf,
@@ -128,7 +128,7 @@ int tagsistant_readdir_on_tags(
 
 		// build the filetree
 		GHashTable *hash_table = tagsistant_filetree_new(qtree->tree, qtree->dbi);
-		g_hash_table_foreach(hash_table, (GHFunc) tagsistant_readdir_on_tags_filler, ufs);
+		g_hash_table_foreach(hash_table, (GHFunc) tagsistant_readdir_on_store_filler, ufs);
 		g_hash_table_foreach(hash_table, (GHFunc) tagsistant_filetree_destroy_value_list, NULL);
 		g_hash_table_destroy(hash_table);
 
@@ -241,6 +241,39 @@ int tagsistant_readdir_on_relations(
 	return (0);
 }
 
+int tagsistant_readdir_on_tags(
+		tagsistant_querytree *qtree,
+		const char *path,
+		void *buf,
+		fuse_fill_dir_t filler,
+		int *tagsistant_errno)
+{
+	filler(buf, ".", NULL, 0);
+	filler(buf, "..", NULL, 0);
+
+	struct tagsistant_use_filler_struct *ufs = g_new0(struct tagsistant_use_filler_struct, 1);
+	if (ufs == NULL) {
+		dbg('F', LOG_ERR, "Error allocating memory");
+		*tagsistant_errno = EBADF;
+		return (-1);
+	}
+
+	ufs->filler = filler;
+	ufs->buf = buf;
+	ufs->path = path;
+	ufs->qtree = qtree;
+
+	if (qtree->first_tag) {
+		// nothing
+	} else {
+		// list all tags
+		tagsistant_query("select tagname from tags;", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
+	}
+
+	g_free_null(ufs);
+	return (0);
+}
+
 int tagsistant_readdir_on_stats(
 		tagsistant_querytree *qtree,
 		const char *path,
@@ -305,10 +338,14 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 		filler(buf, "relations", NULL, 0);
 //		filler(buf, "retag", NULL, 0);
 		filler(buf, "stats", NULL, 0);
+		filler(buf, "store", NULL, 0);
 		filler(buf, "tags", NULL, 0);
 
+	} else if (QTREE_IS_STORE(qtree)) {
+		res = tagsistant_readdir_on_store(qtree, path, buf, filler, offset, &tagsistant_errno);
+
 	} else if (QTREE_IS_TAGS(qtree)) {
-		res = tagsistant_readdir_on_tags(qtree, path, buf, filler, offset, &tagsistant_errno);
+		res = tagsistant_readdir_on_tags(qtree, path, buf, filler, &tagsistant_errno);
 
 	} else if (QTREE_IS_RELATIONS(qtree)) {
 		res = tagsistant_readdir_on_relations(qtree, path, buf, filler, &tagsistant_errno);
@@ -322,10 +359,10 @@ TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("READDIR on %s (%s): %d %d: %s", path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
+		return (-tagsistant_errno);
 	} else {
 		TAGSISTANT_STOP_OK("READDIR on %s (%s): OK", path, tagsistant_querytree_type(qtree));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
+		return (0);
 	}
-
-	return((res == -1) ? -tagsistant_errno : 0);
 }

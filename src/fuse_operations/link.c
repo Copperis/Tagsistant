@@ -51,7 +51,7 @@ int tagsistant_link(const char *from, const char *to)
 	if (QTREE_IS_MALFORMED(to_qtree)) TAGSISTANT_ABORT_OPERATION(ENOENT);
 
 	// -- object on disk --
-	if (QTREE_POINTS_TO_OBJECT(to_qtree) || (QTREE_IS_TAGS(to_qtree) && QTREE_IS_COMPLETE(to_qtree))) {
+	if (QTREE_POINTS_TO_OBJECT(to_qtree) || (QTREE_IS_STORE(to_qtree) && QTREE_IS_COMPLETE(to_qtree))) {
 
 		// if object_path is null, borrow it from original path
 		if (strlen(to_qtree->object_path) == 0) {
@@ -79,7 +79,8 @@ int tagsistant_link(const char *from, const char *to)
 		tagsistant_errno = errno;
 	}
 
-	// -- tags (not complete) --
+	// -- store (not complete) --
+	// -- tags --
 	// -- stats --
 	// -- relations --
 	else TAGSISTANT_ABORT_OPERATION(EINVAL);
@@ -89,11 +90,11 @@ TAGSISTANT_EXIT_OPERATION:
 		TAGSISTANT_STOP_ERROR("LINK from %s to %s (%s) (%s): %d %d: %s", from, to, to_qtree->full_archive_path, tagsistant_querytree_type(to_qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(from_qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
 		tagsistant_querytree_destroy(to_qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
+		return (-tagsistant_errno);
 	} else {
 		TAGSISTANT_STOP_OK("LINK from %s to %s (%s): OK", from, to, tagsistant_querytree_type(to_qtree));
 		tagsistant_querytree_destroy(from_qtree, TAGSISTANT_COMMIT_TRANSACTION);
 		tagsistant_querytree_destroy(to_qtree, TAGSISTANT_COMMIT_TRANSACTION);
+		return (0);
 	}
-
-	return((res == -1) ? -tagsistant_errno : 0);
 }

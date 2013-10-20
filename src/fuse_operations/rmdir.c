@@ -39,13 +39,13 @@ int tagsistant_rmdir(const char *path)
 		TAGSISTANT_ABORT_OPERATION(ENOENT);
 	}
 
-	// -- tags --
+	// -- store --
 	// tags/delete_this_tag
 	// tags/delete_this_tag/@/
 	// tags/tag/@/delete_this_dir
 	// tags/tag/@/dir/delete_this_dir
 	//
-	if (QTREE_IS_TAGS(qtree)) {
+	if (QTREE_IS_STORE(qtree)) {
 		tagsistant_querytree_check_tagging_consistency(qtree);
 
 		if (!QTREE_IS_COMPLETE(qtree)) {
@@ -95,8 +95,6 @@ int tagsistant_rmdir(const char *path)
 		// since first level is all available tags
 		// and second level is all available relations
 		if (qtree->second_tag) {
-			// create a new relation between two tags
-			tagsistant_sql_create_tag(qtree->dbi, qtree->second_tag);
 			int tag1_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->first_tag);
 			int tag2_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->second_tag);
 			if (tag1_id && tag2_id && IS_VALID_RELATION(qtree->relation)) {
@@ -112,12 +110,26 @@ int tagsistant_rmdir(const char *path)
 				tagsistant_invalidate_reasoning_cache(qtree->first_tag);
 				tagsistant_invalidate_reasoning_cache(qtree->second_tag);
 			} else {
-				res = -1;
-				tagsistant_errno = EFAULT;
+				TAGSISTANT_ABORT_OPERATION(EFAULT);
 			}
 		} else {
-			res = -1;
-			tagsistant_errno = EROFS;
+			TAGSISTANT_ABORT_OPERATION(EROFS);
+		}
+	}
+
+	// -- tags --
+	else if (QTREE_IS_TAGS(qtree)) {
+		if (qtree->first_tag) {
+			tagsistant_sql_delete_tag(qtree->dbi, qtree->first_tag);
+
+#if TAGSISTANT_ENABLE_QUERYTREE_CACHE
+			// invalidate the cache entries which involves one of the tags related
+			tagsistant_invalidate_querytree_cache(qtree);
+#endif
+
+			tagsistant_invalidate_reasoning_cache(qtree->first_tag);
+		} else {
+			TAGSISTANT_ABORT_OPERATION(EROFS);
 		}
 	}
 
@@ -130,10 +142,10 @@ TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("RMDIR on %s (%s): %d %d: %s", path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
+		return (-tagsistant_errno);
 	} else {
 		TAGSISTANT_STOP_OK("RMDIR on %s (%s): OK", path, tagsistant_querytree_type(qtree));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
+		return (0);
 	}
-
-	return((res == -1) ? -tagsistant_errno : 0);
 }

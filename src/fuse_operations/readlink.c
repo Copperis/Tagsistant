@@ -42,10 +42,10 @@ int tagsistant_readlink(const char *path, char *buf, size_t size)
 		TAGSISTANT_ABORT_OPERATION(ENOENT);
 	}
 
-	if ((QTREE_IS_TAGS(qtree) && QTREE_IS_COMPLETE(qtree)) || QTREE_IS_ARCHIVE(qtree)) {
+	if ((QTREE_IS_STORE(qtree) && QTREE_IS_COMPLETE(qtree)) || QTREE_IS_ARCHIVE(qtree)) {
 		readlink_path = qtree->object_path;
 		readlink_path = qtree->full_archive_path;
-	} else if (QTREE_IS_STATS(qtree) || QTREE_IS_RELATIONS(qtree)) {
+	} else if (QTREE_IS_STATS(qtree) || QTREE_IS_RELATIONS(qtree) || QTREE_IS_TAGS(qtree)) {
 		TAGSISTANT_ABORT_OPERATION(EINVAL);
 	}
 
@@ -60,10 +60,10 @@ TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("READLINK on %s (%s) (%s): %d %d: %s", path, readlink_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
+		return (-tagsistant_errno);
 	} else {
 		TAGSISTANT_STOP_OK("REALINK on %s (%s): OK", path, tagsistant_querytree_type(qtree));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
+		return (0);
 	}
-
-	return((res == -1) ? -tagsistant_errno : 0);
 }

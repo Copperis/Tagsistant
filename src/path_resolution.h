@@ -56,6 +56,7 @@ typedef enum {
 	QTYPE_RETAG,		// experimental path used for object retagging
 	QTYPE_RELATIONS,	// path that's a relation between two or more tags, begins with /relations/
 	QTYPE_STATS,		// path that's a special query for internal status, begins with /stats/
+	QTYPE_STORE,		// where the files are tagged and accessed
 	QTYPE_TOTAL
 } tagsistant_query_type;
 
@@ -78,6 +79,7 @@ extern gchar *tagsistant_querytree_types[QTYPE_TOTAL];
 #define QTREE_IS_RELATIONS(qtree) (QTYPE_RELATIONS == qtree->type)
 #define QTREE_IS_STATS(qtree) (QTYPE_STATS == qtree->type)
 #define QTREE_IS_RETAG(qtree) (QTYPE_RETAG == qtree->type)
+#define QTREE_IS_STORE(qtree) (QTYPE_STORE == qtree->type)
 
 /*
  * if a query points to an object on disk this returns true;

@@ -40,11 +40,11 @@ int tagsistant_statvfs(const char *path, struct statvfs *stbuf)
 
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("STATVFS on %s: %d %d: %s", path, res, tagsistant_errno, strerror(tagsistant_errno));
+		return (-tagsistant_errno);
 	} else {
 		TAGSISTANT_STOP_OK("STATVFS on %s: OK", path);
+		return (0);
 	}
-
-	return((res == -1) ? -tagsistant_errno : 0);
 }
 
 #endif

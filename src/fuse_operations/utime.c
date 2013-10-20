@@ -56,10 +56,10 @@ TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("UTIME %s (%s): %d %d: %s", utime_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
+		return (-tagsistant_errno);
 	} else {
 		TAGSISTANT_STOP_OK("UTIME %s (%s): OK", path, tagsistant_querytree_type(qtree));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
+		return (0);
 	}
-
-	return((res == -1) ? -tagsistant_errno : 0);
 }

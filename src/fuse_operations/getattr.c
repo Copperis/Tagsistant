@@ -97,7 +97,8 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 			TAGSISTANT_ABORT_OPERATION(ENOENT);
 	}
 
-	// -- tags (incomplete) --
+	// -- store (incomplete) --
+	// -- tags --
 	// -- archive (the directory itself) --
 	// -- root --
 	else lstat_path = tagsistant.archive;
@@ -107,7 +108,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	tagsistant_errno = errno;
 
 	// post-processing output
-	if (QTREE_IS_TAGS(qtree)) {
+	if (QTREE_IS_STORE(qtree)) {
 		// dbg(LOG_INFO, "getattr: last tag is %s", qtree->last_tag);
 		if (NULL == qtree->last_tag) {
 			// ok
@@ -133,14 +134,24 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 				// each directory holds 3 inodes: itself/, itself/+, itself/@
 				stbuf->st_ino = tag_id * 3;
 			} else {
-				tagsistant_errno = ENOENT;
-				res = -1;
+				TAGSISTANT_ABORT_OPERATION(ENOENT);
 			}
 
 		}
 	} else if (QTREE_IS_STATS(qtree)) {
 
 		stbuf->st_size = TAGSISTANT_STATS_BUFFER;
+
+	} else if (QTREE_IS_TAGS(qtree)) {
+
+		if (qtree->first_tag) {
+			tagsistant_inode tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->first_tag);
+			if (tag_id) {
+				stbuf->st_ino = tag_id * 3;
+			} else {
+				TAGSISTANT_ABORT_OPERATION(ENOENT);
+			}
+		}
 
 	} else if (QTREE_IS_RELATIONS(qtree)) {
 
@@ -152,10 +163,10 @@ TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("GETATTR on %s (%s) {%s}: %d %d: %s", path, lstat_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
+		return (-tagsistant_errno);
 	} else {
 		TAGSISTANT_STOP_OK("GETATTR on %s (%s): OK", path, tagsistant_querytree_type(qtree));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
+		return (0);
 	}
-
-	return((res == -1) ? -tagsistant_errno : 0);
 }

@@ -91,6 +91,7 @@ void tagsistant_path_resolution_init()
 	tagsistant_querytree_types[QTYPE_TAGS] = g_strdup("QTYPE_TAGS");
 	tagsistant_querytree_types[QTYPE_RELATIONS] = g_strdup("QTYPE_RELATIONS");
 	tagsistant_querytree_types[QTYPE_STATS] = g_strdup("QTYPE_STATS");
+	tagsistant_querytree_types[QTYPE_STORE] = g_strdup("QTYPE_STORE");
 
 #if TAGSISTANT_ENABLE_QUERYTREE_CACHE
 	/* initialize the tagsistant_querytree object cache */
@@ -450,7 +451,7 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
  * @param do_reasoning boolean flag which activate the reasoner if true
  * @return 1 on success, 0 on failure or errors
  */
-int tagsistant_querytree_parse_tags (
+int tagsistant_querytree_parse_store (
 		tagsistant_querytree *qtree,
 		const char *path,
 		gchar ***token_ptr)
@@ -542,6 +543,25 @@ int tagsistant_querytree_parse_tags (
 	// move the pointer one element forward
 	if (**token_ptr && (TAGSISTANT_QUERY_DELIMITER_CHAR == ***token_ptr))
 		(*token_ptr)++;
+
+	return (1);
+}
+
+/**
+ * parse the query portion after relations/
+ *
+ * @param qtree the querytree object
+ * @param token_ptr a pointer to the tokenized path (three stars because we need to move it across the array even in calling function)
+ * @return 1 on success, 0 on failure or errors
+ */
+int tagsistant_querytree_parse_tags (
+	tagsistant_querytree* qtree,
+	gchar ***token_ptr)
+{
+	/* parse a relations query */
+	if (NULL != **token_ptr) {
+		qtree->first_tag = g_strdup(**token_ptr);
+	}
 
 	return (1);
 }
@@ -895,6 +915,7 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int assign_inod
 	else if (g_strcmp0(*token_ptr, "archive") == 0)		qtree->type = QTYPE_ARCHIVE;
 	else if (g_strcmp0(*token_ptr, "relations") == 0)	qtree->type = QTYPE_RELATIONS;
 	else if (g_strcmp0(*token_ptr, "stats") == 0)		qtree->type = QTYPE_STATS;
+	else if (g_strcmp0(*token_ptr, "store") == 0)		qtree->type = QTYPE_STORE;
 //	else if (g_strcmp0(*token_ptr, "retag") == 0)		qtree->type = QTYPE_RETAG;
 	else {
 		qtree->type = QTYPE_MALFORMED;
@@ -906,8 +927,10 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int assign_inod
 	token_ptr++;
 
 	/* do selective parsing of the query */
-	if (QTREE_IS_TAGS(qtree)) {
-		if (!tagsistant_querytree_parse_tags(qtree, path, &token_ptr)) goto RETURN;
+	if (QTREE_IS_STORE(qtree)) {
+		if (!tagsistant_querytree_parse_store(qtree, path, &token_ptr)) goto RETURN;
+	} else if (QTREE_IS_TAGS(qtree)) {
+		if (!tagsistant_querytree_parse_tags(qtree, &token_ptr)) goto RETURN;
 	} else if (QTREE_IS_RELATIONS(qtree)) {
 		tagsistant_querytree_parse_relations(qtree, &token_ptr);
 	} else if (QTREE_IS_STATS(qtree)) {
@@ -930,7 +953,7 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int assign_inod
 			qtree->full_archive_path = g_strdup(tagsistant.archive);
 		}
 
-	} else if (QTREE_IS_TAGS(qtree) && qtree->complete) {
+	} else if (QTREE_IS_STORE(qtree) && qtree->complete) {
 
 		// get the object path name joining the remaining part of tokens
 		qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
@@ -1041,7 +1064,7 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int assign_inod
 	 * and both query is /archive or query is a complete /tags (including = sign)
 	 */
 	if (
-		(QTREE_IS_ARCHIVE(qtree) || (QTREE_IS_TAGS(qtree) && qtree->complete && qtree->object_path))
+		(QTREE_IS_ARCHIVE(qtree) || (QTREE_IS_STORE(qtree) && qtree->complete && qtree->object_path))
 		&&
 		(strlen(qtree->object_path) > 0)
 	) {
@@ -1101,7 +1124,7 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, guint commit_tran
 	g_free_null(qtree->archive_path);
 	g_free_null(qtree->full_archive_path);
 
-	if (QTREE_IS_TAGS(qtree)) {
+	if (QTREE_IS_STORE(qtree)) {
 		ptree_or_node *node = qtree->tree;
 		while (node != NULL) {
 

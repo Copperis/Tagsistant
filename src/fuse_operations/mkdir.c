@@ -58,10 +58,13 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 		tagsistant_errno = errno;
 	}
 
-	// -- tags but incomplete (means: create a new tag) --
-	else if (QTREE_IS_TAGS(qtree)) {
+	// -- tags --
+	else if (QTREE_IS_TAGS(qtree))
+		tagsistant_sql_create_tag(qtree->dbi, qtree->first_tag);
+
+	// -- store but incomplete (means: create a new tag) --
+	else if (QTREE_IS_STORE(qtree))
 		tagsistant_sql_create_tag(qtree->dbi, qtree->last_tag);
-	}
 
 	// -- relations --
 	else if (QTREE_IS_RELATIONS(qtree)) {
@@ -86,12 +89,10 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 				tagsistant_invalidate_reasoning_cache(qtree->first_tag);
 				tagsistant_invalidate_reasoning_cache(qtree->second_tag);
 			} else {
-				res = -1;
-				tagsistant_errno = EFAULT;
+				TAGSISTANT_ABORT_OPERATION(EFAULT);
 			}
 		} else {
-			res = -1;
-			tagsistant_errno = EROFS;
+			TAGSISTANT_ABORT_OPERATION(EROFS);
 		}
 	}
 
@@ -102,11 +103,11 @@ TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("MKDIR on %s (%s): %d %d: %s", path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
+		return (-tagsistant_errno);
 	} else {
 		TAGSISTANT_STOP_OK("MKDIR on %s (%s): OK", path, tagsistant_querytree_type(qtree));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
+		return (0);
 	}
-
-	return((res == -1) ? -tagsistant_errno : 0);
 }
 
