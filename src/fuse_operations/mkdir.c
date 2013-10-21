@@ -59,8 +59,12 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 	}
 
 	// -- tags --
-	else if (QTREE_IS_TAGS(qtree))
+	else if (QTREE_IS_TAGS(qtree)) {
+		if (qtree->second_tag) {
+			TAGSISTANT_ABORT_OPERATION(EROFS);
+		}
 		tagsistant_sql_create_tag(qtree->dbi, qtree->first_tag);
+	}
 
 	// -- store but incomplete (means: create a new tag) --
 	else if (QTREE_IS_STORE(qtree))

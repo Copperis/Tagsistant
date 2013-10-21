@@ -143,8 +143,11 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 		stbuf->st_size = TAGSISTANT_STATS_BUFFER;
 
 	} else if (QTREE_IS_TAGS(qtree)) {
-
 		if (qtree->first_tag) {
+			if (qtree->second_tag) {
+				TAGSISTANT_ABORT_OPERATION(ENOENT);
+			}
+
 			tagsistant_inode tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->first_tag);
 			if (tag_id) {
 				stbuf->st_ino = tag_id * 3;

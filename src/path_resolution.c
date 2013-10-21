@@ -561,6 +561,10 @@ int tagsistant_querytree_parse_tags (
 	/* parse a relations query */
 	if (NULL != **token_ptr) {
 		qtree->first_tag = g_strdup(**token_ptr);
+		(*token_ptr)++;
+		if (NULL != **token_ptr) {
+			qtree->second_tag = g_strdup(**token_ptr);
+		}
 	}
 
 	return (1);
