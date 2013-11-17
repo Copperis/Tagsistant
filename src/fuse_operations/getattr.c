@@ -55,7 +55,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	else if (QTREE_IS_RELATIONS(qtree)) {
 		/* if first tag does not exist, return ENOENT */
 		if (qtree->first_tag) {
-			tagsistant_inode tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->first_tag);
+			tagsistant_inode tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->first_tag, "", "");
 			if (!tag_id) TAGSISTANT_ABORT_OPERATION(ENOENT);
 		}
 
@@ -129,7 +129,12 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 		} else {
 
-			tagsistant_inode tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->last_tag);
+			tagsistant_inode tag_id;
+			if (qtree->namespace) {
+				tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->namespace, qtree->key, qtree->value);
+			} else {
+				tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->last_tag, NULL, NULL);
+			}
 			if (tag_id) {
 				// each directory holds 3 inodes: itself/, itself/+, itself/@
 				stbuf->st_ino = tag_id * 3;
@@ -143,12 +148,11 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 		stbuf->st_size = TAGSISTANT_STATS_BUFFER;
 
 	} else if (QTREE_IS_TAGS(qtree)) {
-		if (qtree->first_tag) {
-			if (qtree->second_tag) {
-				TAGSISTANT_ABORT_OPERATION(ENOENT);
-			}
+		gchar *tagname = qtree->first_tag ? qtree->first_tag : qtree->namespace;
+		if (tagname) {
+			if (qtree->second_tag) TAGSISTANT_ABORT_OPERATION(ENOENT);
 
-			tagsistant_inode tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->first_tag);
+			tagsistant_inode tag_id = tagsistant_sql_get_tag_id(qtree->dbi, tagname, qtree->key, qtree->value);
 			if (tag_id) {
 				stbuf->st_ino = tag_id * 3;
 			} else {

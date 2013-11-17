@@ -95,8 +95,8 @@ int tagsistant_rmdir(const char *path)
 		// since first level is all available tags
 		// and second level is all available relations
 		if (qtree->second_tag) {
-			int tag1_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->first_tag);
-			int tag2_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->second_tag);
+			int tag1_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->first_tag, NULL, NULL);
+			int tag2_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->second_tag, NULL, NULL);
 			if (tag1_id && tag2_id && IS_VALID_RELATION(qtree->relation)) {
 				tagsistant_query(
 					"delete from relations where tag1_id = \"%d\" and tag2_id = \"%d\" and relation = \"%s\"",
@@ -119,18 +119,23 @@ int tagsistant_rmdir(const char *path)
 
 	// -- tags --
 	else if (QTREE_IS_TAGS(qtree)) {
-		if (qtree->first_tag) {
-			tagsistant_sql_delete_tag(qtree->dbi, qtree->first_tag);
-
-#if TAGSISTANT_ENABLE_QUERYTREE_CACHE
-			// invalidate the cache entries which involves one of the tags related
-			tagsistant_invalidate_querytree_cache(qtree);
-#endif
-
-			tagsistant_invalidate_reasoning_cache(qtree->first_tag);
-		} else {
+		if (!qtree->first_tag && !qtree->namespace) {
 			TAGSISTANT_ABORT_OPERATION(EROFS);
 		}
+
+		if (qtree->first_tag) {
+			tagsistant_sql_delete_tag(qtree->dbi, qtree->first_tag, NULL, NULL);
+			tagsistant_invalidate_reasoning_cache(qtree->first_tag);
+		} else if (qtree->namespace) {
+			tagsistant_sql_delete_tag(qtree->dbi, qtree->namespace, qtree->key, qtree->value);
+			tagsistant_invalidate_reasoning_cache(qtree->namespace);
+		}
+
+#if TAGSISTANT_ENABLE_QUERYTREE_CACHE
+		// invalidate the cache entries which involves one of the tags related
+		tagsistant_invalidate_querytree_cache(qtree);
+#endif
+
 	}
 
 	// -- archive

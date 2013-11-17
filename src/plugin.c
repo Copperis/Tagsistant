@@ -276,20 +276,28 @@ void tagsistant_keyword_matcher(GRegex *regex, const gchar *keyword, const gchar
 	if (g_regex_match(regex, keyword, 0, NULL)) {
 
 		/* ... build a tag which is "keyword_name:keyword_value" ... */
-		gchar *tag = g_strdup_printf("%s:%s", keyword, value);
+		gchar *clean_keyword = g_strdup(keyword);
+		gchar *clean_value = g_strdup(value);
 
 		/* ... turn each slash and space in a dash */
-		gchar *tpointer = tag;
+		gchar *tpointer = clean_keyword;
+		while (*tpointer) {
+			if (*tpointer == '/' || *tpointer == ' ') *tpointer = '-';
+			tpointer++;
+		}
+
+		tpointer = clean_value;
 		while (*tpointer) {
 			if (*tpointer == '/' || *tpointer == ' ') *tpointer = '-';
 			tpointer++;
 		}
 
 		/* ... then tag the file ... */
-		tagsistant_sql_tag_object(qtree->dbi, tag, qtree->inode);
+		tagsistant_sql_tag_object(qtree->dbi, "libextractor", clean_keyword, clean_value, qtree->inode);
 
 		/* ... and cleanup */
-		g_free_null(tag);
+		g_free_null(clean_keyword);
+		g_free_null(clean_value);
 	}
 }
 
@@ -349,32 +357,12 @@ void tagsistant_plugin_tag_by_date(const tagsistant_querytree *qtree, const gcha
 	GError *error;
 
 	if (g_regex_match_full(tagsistant_rx_date, date, -1, 0, 0, &match_info, &error)) {
-		gchar *tag = g_strdup_printf("year:%s", g_match_info_fetch(match_info, 1));
-		tagsistant_sql_tag_object(qtree->dbi, tag, qtree->inode);
-		g_free(tag);
-
-		tag = g_strdup_printf("month:%s", g_match_info_fetch(match_info, 1));
-		tagsistant_sql_tag_object(qtree->dbi, tag, qtree->inode);
-		g_free(tag);
-
-		tag = g_strdup_printf("day:%s", g_match_info_fetch(match_info, 1));
-		tagsistant_sql_tag_object(qtree->dbi, tag, qtree->inode);
-		g_free(tag);
-
-		tag = g_strdup_printf("hour:%s", g_match_info_fetch(match_info, 1));
-		tagsistant_sql_tag_object(qtree->dbi, tag, qtree->inode);
-		g_free(tag);
-
-		tag = g_strdup_printf("minute:%s", g_match_info_fetch(match_info, 1));
-		tagsistant_sql_tag_object(qtree->dbi, tag, qtree->inode);
-		g_free(tag);
-
-#if 0
-		tag = g_strdup_printf("second:%s", g_match_info_fetch(match_info, 1));
-		tagsistant_sql_tag_object(qtree->dbi, tag, qtree->inode);
-		g_free(tag);
-#endif
-
+		tagsistant_sql_tag_object(qtree->dbi, "time:", "year",   g_match_info_fetch(match_info, 1), qtree->inode);
+		tagsistant_sql_tag_object(qtree->dbi, "time:", "month",  g_match_info_fetch(match_info, 2), qtree->inode);
+		tagsistant_sql_tag_object(qtree->dbi, "time:", "day",    g_match_info_fetch(match_info, 3), qtree->inode);
+		tagsistant_sql_tag_object(qtree->dbi, "time:", "hour",   g_match_info_fetch(match_info, 4), qtree->inode);
+		tagsistant_sql_tag_object(qtree->dbi, "time:", "minute", g_match_info_fetch(match_info, 5), qtree->inode);
+//		tagsistant_sql_tag_object(qtree->dbi, "time:", "second", g_match_info_fetch(match_info, 6), qtree->inode);
 	}
 
 	g_match_info_unref(match_info);
@@ -558,12 +546,11 @@ void tagsistant_plugin_apply_regex(const tagsistant_querytree *qtree, const char
 
 		int x = 0;
 		while (tokens[x]) {
-			if (strlen(tokens[x]) >= 3) tagsistant_sql_tag_object(qtree->dbi, tokens[x], qtree->inode);
+			if (strlen(tokens[x]) >= 3) tagsistant_sql_tag_object(qtree->dbi, tokens[x], NULL, NULL, qtree->inode);
 			x++;
 		}
 
 		g_strfreev(tokens);
-
 		g_match_info_next(match_info, NULL);
 	}
 }

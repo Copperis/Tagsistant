@@ -60,15 +60,22 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 
 	// -- tags --
 	else if (QTREE_IS_TAGS(qtree)) {
-		if (qtree->second_tag) {
-			TAGSISTANT_ABORT_OPERATION(EROFS);
+		if (qtree->first_tag) {
+			if (qtree->second_tag) TAGSISTANT_ABORT_OPERATION(EROFS);
+			tagsistant_sql_create_tag(qtree->dbi, qtree->first_tag, NULL, NULL);
+		} else if (qtree->namespace) {
+			tagsistant_sql_create_tag(qtree->dbi, qtree->namespace, qtree->key, qtree->value);
 		}
-		tagsistant_sql_create_tag(qtree->dbi, qtree->first_tag);
 	}
 
 	// -- store but incomplete (means: create a new tag) --
-	else if (QTREE_IS_STORE(qtree))
-		tagsistant_sql_create_tag(qtree->dbi, qtree->last_tag);
+	else if (QTREE_IS_STORE(qtree)) {
+		if (qtree->last_tag) {
+			tagsistant_sql_create_tag(qtree->dbi, qtree->last_tag, NULL, NULL);
+		} else if (qtree->namespace) {
+			tagsistant_sql_create_tag(qtree->dbi, qtree->namespace, qtree->key, qtree->value);
+		}
+	}
 
 	// -- relations --
 	else if (QTREE_IS_RELATIONS(qtree)) {
@@ -77,9 +84,9 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 		// and second level is all available relations
 		if (qtree->second_tag) {
 			// create a new relation between two tags
-			tagsistant_sql_create_tag(qtree->dbi, qtree->second_tag);
-			int tag1_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->first_tag);
-			int tag2_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->second_tag);
+			tagsistant_sql_create_tag(qtree->dbi, qtree->second_tag, NULL, NULL);
+			int tag1_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->first_tag, "", "");
+			int tag2_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->second_tag, "", "");
 			if (tag1_id && tag2_id && IS_VALID_RELATION(qtree->relation)) {
 				tagsistant_query(
 					"insert into relations (tag1_id, tag2_id, relation) values (%d, %d, \"%s\")",

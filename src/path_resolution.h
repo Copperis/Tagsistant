@@ -20,12 +20,38 @@
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
+enum {
+	TAGSISTANT_NONE,
+	TAGSISTANT_EQUAL_TO,
+	TAGSISTANT_CONTAINS,
+	TAGSISTANT_GREATER_THAN,
+	TAGSISTANT_SMALLER_THAN,
+	TAGSISTANT_UNDEFINED_OPERATOR
+} tagsistant_query_operators;
+
+#define TAGSISTANT_EQUALS_TO_OPERATOR    "eq"
+#define TAGSISTANT_CONTAINS_OPERATOR     "inc"
+#define TAGSISTANT_GREATER_THAN_OPERATOR "gt"
+#define TAGSISTANT_SMALLER_THAN_OPERATOR "lt"
+
 /**
  * defines an AND token in a query path
  */
 typedef struct ptree_and_node {
 	/** the name of this token */
 	char *tag;
+
+	/** the namespace **/
+	char *namespace;
+
+	/** the key **/
+	char *key;
+
+	/** the operator **/
+	int operator;
+
+	/** the value **/
+	char *value;
 
 	/** list of all related tags **/
 	struct ptree_and_node *related;
@@ -175,6 +201,12 @@ typedef struct querytree {
 	/** the second tag in a relations/ query */
 	gchar *second_tag;
 
+	/** the triple tag **/
+	gchar *namespace;
+	gchar *key;
+	int    operator;
+	gchar *value;
+
 	/** the relation in a relations/ query */
 	gchar *relation;
 
@@ -244,7 +276,11 @@ typedef struct {
 		while (NULL != ptx) {\
 			ptree_and_node *andptx = ptx->and_set;\
 			while (NULL != andptx) {\
-				funcpointer(qtree->dbi, andptx->tag, ##__VA_ARGS__);\
+				if (andptx->tag) {\
+					funcpointer(qtree->dbi, andptx->tag, NULL, NULL, ##__VA_ARGS__);\
+				} else {\
+					funcpointer(qtree->dbi, andptx->namespace, andptx->key, andptx->value, ##__VA_ARGS__);\
+				}\
 				andptx = andptx->next;\
 			}\
 			ptx = ptx->next;\
@@ -268,17 +304,15 @@ extern int						tagsistant_querytree_check_tagging_consistency(tagsistant_queryt
 extern int						tagsistant_querytree_deduplicate(tagsistant_querytree *qtree);
 extern int						tagsistant_querytree_cache_total();
 
+// caching functions
 extern void						tagsistant_invalidate_querytree_cache(tagsistant_querytree *qtree);
 extern void						tagsistant_invalidate_and_set_cache_entries(tagsistant_querytree *qtree);
 
+// inode functions
 extern tagsistant_inode			tagsistant_inode_extract_from_path(tagsistant_querytree *qtree);
 extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_querytree *qtree);
 
-#define tagsistant_reasoner(reasoning) tagsistant_reasoner_inner(reasoning, 1)
+// reasoner functions
+#define 						tagsistant_reasoner(reasoning) tagsistant_reasoner_inner(reasoning, 1)
 extern int						tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int do_caching);
 extern void						tagsistant_invalidate_reasoning_cache(gchar *tag);
-
-// filetree functions
-extern GHashTable *				tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn);
-extern void 					tagsistant_filetree_destroy(GHashTable *hash_table);
-extern void						tagsistant_filetree_destroy_value_list(gchar *key, GList *list_p, gpointer data);

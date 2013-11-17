@@ -41,7 +41,7 @@ int tagsistant_plugin_init()
 int tagsistant_processor(tagsistant_querytree *qtree, tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS])
 {
 	/* default tagging */
-	tagsistant_sql_tag_object(qtree->dbi, "image", qtree->inode);
+	tagsistant_sql_tag_object(qtree->dbi, "image", NULL, NULL, qtree->inode);
 
 	/* applying regular expression */
 	tagsistant_plugin_iterator(qtree, keywords, rx);

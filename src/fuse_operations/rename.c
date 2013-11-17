@@ -107,7 +107,11 @@ int tagsistant_rename(const char *from, const char *to)
 			to_qtree->last_tag,
 			from_qtree->last_tag);
 
-		tagsistant_remove_tag_from_cache(from_qtree->last_tag);
+		if (from_qtree->value) {
+			tagsistant_remove_tag_from_cache(from_qtree->namespace, from_qtree->key, from_qtree->value);
+		} else {
+			tagsistant_remove_tag_from_cache(from_qtree->last_tag, NULL, NULL);
+		}
 	} else if (QTREE_IS_TAGS(from_qtree) && QTREE_IS_TAGS(to_qtree)) {
 		tagsistant_query(
 			"update tags set tagname = \"%s\" "
@@ -117,7 +121,11 @@ int tagsistant_rename(const char *from, const char *to)
 			to_qtree->last_tag,
 			from_qtree->last_tag);
 
-		tagsistant_remove_tag_from_cache(from_qtree->last_tag);
+		if (from_qtree->value) {
+			tagsistant_remove_tag_from_cache(from_qtree->namespace, from_qtree->key, from_qtree->value);
+		} else {
+			tagsistant_remove_tag_from_cache(from_qtree->last_tag, NULL, NULL);
+		}
 	}
 
 TAGSISTANT_EXIT_OPERATION:

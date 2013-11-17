@@ -43,9 +43,9 @@ int tagsistant_plugin_init()
 int tagsistant_processor(tagsistant_querytree *qtree, tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS])
 {
 	/* default tagging */
-	tagsistant_sql_tag_object(qtree->dbi, "document", qtree->inode);
-	tagsistant_sql_tag_object(qtree->dbi, "webpage", qtree->inode);
-	tagsistant_sql_tag_object(qtree->dbi, "html", qtree->inode);
+	tagsistant_sql_tag_object(qtree->dbi, "document", NULL, NULL, qtree->inode);
+	tagsistant_sql_tag_object(qtree->dbi, "webpage", NULL, NULL, qtree->inode);
+	tagsistant_sql_tag_object(qtree->dbi, "html", NULL, NULL, qtree->inode);
 
 	/* apply regular expressions to document content */
 	tagsistant_plugin_iterator(qtree, keywords, rx);

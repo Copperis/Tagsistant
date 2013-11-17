@@ -502,7 +502,40 @@ int tagsistant_querytree_parse_store (
 				dbg('q', LOG_ERR, "Error allocating memory");
 				return (0);
 			}
-			and->tag = g_strdup(**token_ptr);
+
+			/*
+			 * check if the tag token ends with a colon (:)
+			 * if so, this tag is a triple tag and requires special
+			 * parsing
+			 */
+			if (g_regex_match_simple(":$", **token_ptr, 0, 0)) {
+				and->namespace = g_strdup(**token_ptr);
+				qtree->namespace = g_strdup(**token_ptr);
+				if (*(*token_ptr + 1)) {
+					(*token_ptr)++;
+					and->key = g_strdup(**token_ptr);
+					qtree->key = g_strdup(**token_ptr);
+					if (*(*token_ptr + 1)) {
+						(*token_ptr)++;
+						if (strcmp(**token_ptr, TAGSISTANT_GREATER_THAN_OPERATOR) == 0) {
+							qtree->operator = and->operator = TAGSISTANT_GREATER_THAN;
+						} else if (strcmp(**token_ptr, TAGSISTANT_SMALLER_THAN_OPERATOR) == 0) {
+							qtree->operator = and->operator = TAGSISTANT_SMALLER_THAN;
+						} else if (strcmp(**token_ptr, TAGSISTANT_EQUALS_TO_OPERATOR) == 0) {
+							qtree->operator = and->operator = TAGSISTANT_EQUAL_TO;
+						} else if (strcmp(**token_ptr, TAGSISTANT_CONTAINS_OPERATOR) == 0) {
+							qtree->operator = and->operator = TAGSISTANT_CONTAINS;
+						}
+						if (*(*token_ptr + 1)) {
+							(*token_ptr)++;
+							and->value = g_strdup(**token_ptr);
+							qtree->value = g_strdup(**token_ptr);
+						}
+					}
+				}
+			} else {
+				and->tag = g_strdup(**token_ptr);
+			}
 			and->next = NULL;
 			and->related = NULL;
 			if (last_and == NULL) {
@@ -516,7 +549,7 @@ int tagsistant_querytree_parse_store (
 			andcount++;
 
 			/* search related tags */
-			if (qtree->do_reasoning) {
+			if (qtree->do_reasoning && and->tag) {
 				dbg('q', LOG_INFO, "Searching for other tags related to %s", and->tag);
 
 				tagsistant_reasoning *reasoning = g_malloc(sizeof(tagsistant_reasoning));
@@ -558,12 +591,27 @@ int tagsistant_querytree_parse_tags (
 	tagsistant_querytree* qtree,
 	gchar ***token_ptr)
 {
-	/* parse a relations query */
-	if (NULL != **token_ptr) {
-		qtree->first_tag = g_strdup(**token_ptr);
-		(*token_ptr)++;
-		if (NULL != **token_ptr) {
-			qtree->second_tag = g_strdup(**token_ptr);
+	if (**token_ptr) {
+		if (g_regex_match_simple(":$", **token_ptr, 0, 0)) {
+			qtree->first_tag = qtree->second_tag = qtree->last_tag = NULL;
+
+			qtree->namespace = g_strdup(**token_ptr);
+			if (*(*token_ptr + 1)) {
+				(*token_ptr)++;
+				qtree->key = g_strdup(**token_ptr);
+				if (*(*token_ptr + 1)) {
+					(*token_ptr)++;
+					qtree->value = g_strdup(**token_ptr);
+				}
+			}
+		} else {
+			qtree->namespace = qtree->key = qtree->value = NULL;
+
+			qtree->first_tag = g_strdup(**token_ptr);
+			(*token_ptr)++;
+			if (**token_ptr) {
+				qtree->second_tag = g_strdup(**token_ptr);
+			}
 		}
 	}
 
@@ -1098,6 +1146,19 @@ RETURN:
 }
 
 /**
+ * Quick macro to free a ptree_and_node object
+ *
+ * @param andnode a ptree_and_node to be freed
+ */
+#define ptree_and_node_destroy(andnode) {\
+	g_free_null(andnode->tag);\
+	g_free_null(andnode->namespace);\
+	g_free_null(andnode->key);\
+	g_free_null(andnode->value);\
+	g_free_null(andnode);\
+}
+
+/**
  * destroy a tagsistant_querytree_t structure
  *
  * @param qtree the tagsistant_querytree_t to be destroyed
@@ -1138,15 +1199,13 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, guint commit_tran
 				// walk related tags
 				while (tag->related) {
 					ptree_and_node *related = tag->related;
-					tag->related = related->related;
-					g_free_null(related->tag);
-					g_free_null(related);
+					tag->related = tag->related->related;
+					ptree_and_node_destroy(related);
 				}
 
 				// free the ptree_and_node_t node
 				ptree_and_node *next = tag->next;
-				g_free_null(tag->tag);
-				g_free_null(tag);
+				ptree_and_node_destroy(tag);
 				tag = next;
 			}
 
@@ -1156,6 +1215,13 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, guint commit_tran
 			node = next;
 		}
 		g_free_null(qtree->last_tag);
+		g_free_null(qtree->namespace);
+		g_free_null(qtree->key);
+		g_free_null(qtree->value);
+	} else if (QTREE_IS_TAGS(qtree)) {
+		g_free_null(qtree->namespace);
+		g_free_null(qtree->key);
+		g_free_null(qtree->value);
 	} else if (QTREE_IS_RELATIONS(qtree)) {
 		g_free_null(qtree->first_tag);
 		g_free_null(qtree->second_tag);
@@ -1166,258 +1232,4 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, guint commit_tran
 
 	// free the structure
 	g_free_null(qtree);
-}
-
-/************************************************************************************/
-/***                                                                              ***/
-/*** FileTree translation                                                         ***/
-/***                                                                              ***/
-/************************************************************************************/
-
-/**
- * add a file to the file tree (callback function)
- */
-static int tagsistant_add_to_filetree(void *hash_table_pointer, dbi_result result)
-{
-	/* Cast the hash table */
-	GHashTable *hash_table = (GHashTable *) hash_table_pointer;
-
-	/* fetch query results */
-	gchar *name = dbi_result_get_string_copy_idx(result, 1);
-	if (!name) return (0);
-
-	tagsistant_inode inode = dbi_result_get_uint_idx(result, 2);
-
-	/* lookup the GList object */
-	GList *list = g_hash_table_lookup(hash_table, name);
-
-	/* look for duplicates due to reasoning results */
-	GList *list_tmp = list;
-	while (list_tmp) {
-		tagsistant_file_handle *fh_tmp = (tagsistant_file_handle *) list_tmp->data;
-
-		if (fh_tmp && (fh_tmp->inode == inode)) {
-			g_free_null(name);
-			return (0);
-		}
-
-		list_tmp = list_tmp->next;
-	}
-
-	/* fetch query results into tagsistant_file_handle struct */
-	tagsistant_file_handle *fh = g_new0(tagsistant_file_handle, 1);
-	if (!fh) {
-		g_free_null(name);
-		return (0);
-	}
-
-	g_strlcpy(fh->name, name, 1024);
-	fh->inode = inode;
-	g_free_null(name);
-
-	/* add the new element */
-	// TODO valgrind says: check for leaks
-	g_hash_table_insert(hash_table, g_strdup(fh->name), g_list_prepend(list, fh));
-
-//	dbg('f', LOG_INFO, "adding (%d,%s) to filetree", fh->inode, fh->name);
-
-	return (0);
-}
-
-/**
- * build a linked list of filenames that apply to querytree
- * query expressed in query. querytree translate as follows
- * while using SQLite:
- * 
- *   1. each ptree_and_node_t list converted in a INTERSECT
- *   multi-SELECT query, and is saved as a VIEW. The name of
- *   the view is the string tv%.8X where %.8X is the memory
- *   location of the ptree_or_node_t to which the list is
- *   linked.
- *   
- *   2. a global select is built using all the views previously
- *   created joined by UNION operators. a sqlite3_exec call
- *   applies it using add_to_filetree() as callback function.
- *   
- *   3. all the views are removed with a DROP VIEW query.
- *
- * MySQL does not feature the INTERSECT operator. So each
- * ptree_and_node_t list is converted to a set of nested
- * queries. Steps 2 and 3 apply unchanged.
- *
- * @param query the ptree_or_node_t* query structure to
- * be resolved.
- */
-GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
-{
-	if (query == NULL) {
-		dbg('f', LOG_ERR, "NULL path_tree_t object provided to %s", __func__);
-		return(NULL);
-	}
-
-	/* save a working pointer to the query */
-	ptree_or_node *query_dup = query;
-
-	//
-	// MySQL does not support intersect!
-	// So we must find an alternative way.
-	// Some hints:
-	//
-	// 1. select distinct objectname, objects.inode as inode from objects
-	//    join tagging on tagging.inode = objects.inode
-	//    join tags on tagging.tag_id = tags.tag_id
-	//    where tags.tagname in ("t1", "t2", "t3");
-	//
-	// Main problem with 1. is that it finds all the objects tagged
-	// at least with one of the tags listed, not what the AND-set
-	// means
-	//
-	// 2. select distinct objects.inode from objects
-	//    inner join tagging on tagging.inode = objects.inode
-	//    inner join tags on tagging.tag_id = tags.tag_id
-	//    where tagname = 't1' and objects.inode in (
-	//      select distinct objects.inode from objects
-	//      inner join tagging on tagging.inode = objects.inode
-	//      inner join tags on tagging.tag_id = tags.tag_id
-	//      where tagname = 't2' and objects.inode in (
-	//        select distinct objects.inode from objects
-	//        inner join tagging on tagging.inode = objects.inode
-	//        inner join tags on tagging.tag_id = tags.tag_id
-	//        where tagname = 't3'
-	//      )
-	//    )
-	//
-	// That's the longest and less readable form but seems to work.
-	//
-
-	int nesting = 0;
-	while (query != NULL) {
-		ptree_and_node *tag = query->and_set;
-
-		// preallocate 50Kbytes for the string
-		// TODO valgrind says: check for leaks
-		GString *statement = g_string_sized_new(51200);
-
-		g_string_printf(statement, "create view tv%.16" PRIxPTR " as ", (uintptr_t) query);
-		
-		while (tag != NULL) {
-
-			/* create the list of tags (natural or related) to match */
-			GString *tag_and_related = g_string_sized_new(1024);
-			g_string_printf(tag_and_related, "\"%s\"", tag->tag);
-			if (tag->related != NULL) {
-				ptree_and_node *related = tag->related;
-				while (related != NULL) {
-					g_string_append_printf(tag_and_related, ", \"%s\"", related->tag);
-					related = related->related;
-				}
-			}
-
-			if (tagsistant.sql_backend_have_intersect) {
-
-				/* shorter syntax for SQL dialects that provide INTERSECT */
-				g_string_append_printf(statement,
-					"select objectname, objects.inode as inode "
-						"from objects "
-						"join tagging on tagging.inode = objects.inode "
-						"join tags on tags.tag_id = tagging.tag_id "
-						"where tagname in (%s) ", tag_and_related->str);
-
-				if (tag->next != NULL)
-					g_string_append(statement, " intersect ");
-
-			} else {
-
-				/* longer syntax for SQL dialects that do not provide INTERSECT */
-				if (nesting) {
-					g_string_append_printf(statement,
-						" and objects.inode in ("
-							"select distinct objects.inode from objects "
-								"inner join tagging on tagging.inode = objects.inode "
-								"inner join tags on tagging.tag_id = tags.tag_id "
-								"where tagname in (%s) ", tag_and_related->str);
-				} else {
-					g_string_append_printf(statement,
-						" select distinct objectname, objects.inode as inode from objects "
-							"inner join tagging on tagging.inode = objects.inode "
-							"inner join tags on tagging.tag_id = tags.tag_id "
-							"where tagname in (%s) ", tag_and_related->str);
-				}
-
-				/* increment nesting counter, used to match parenthesis later */
-				nesting++;
-			}
-
-			g_string_free(tag_and_related, TRUE);
-			tag = tag->next;
-		}
-
-		/* add closing parenthesis on the end of non-INTERSECT queries */
-		if (!tagsistant.sql_backend_have_intersect) {
-			nesting--; // we need one closed parenthesis less than nested subquery
-
-			while (nesting) {
-				g_string_append(statement, ")");
-				nesting--;
-			}
-		}
-
-		dbg('f', LOG_INFO, "SQL: filetree query [%s]", statement->str);
-
-		/* create view */
-		tagsistant_query(statement->str, conn, NULL, NULL);
-		g_string_free(statement,TRUE);
-		query = query->next;
-	}
-
-	/* format view statement */
-	GString *view_statement = g_string_sized_new(10240);
-	query = query_dup;
-	while (query != NULL) {
-		g_string_append_printf(view_statement, "select objectname, inode from tv%.16" PRIxPTR, (uintptr_t) query);
-		
-		if (query->next != NULL) g_string_append(view_statement, " union ");
-		
-		query = query->next;
-	}
-
-//	dbg('f', LOG_INFO, "SQL view query [%s]", view_statement->str);
-
-	/* apply view statement */
-	GHashTable *file_hash = g_hash_table_new(g_str_hash, g_str_equal);
-
-	tagsistant_query(view_statement->str, conn, tagsistant_add_to_filetree, file_hash);
-
-	/* free the SQL statement */
-	g_string_free(view_statement, TRUE);
-
-	/* drop the views */
-	while (query_dup) {
-		tagsistant_query("drop view tv%.16" PRIxPTR, conn, NULL, NULL, (uintptr_t) query_dup);
-		query_dup = query_dup->next;
-	}
-
-	return(file_hash);
-}
-
-/**
- * Destroy a tagsistant_file_handle
- */
-void tagsistant_filetree_destroy_value(tagsistant_file_handle *fh)
-{
-	g_free_null(fh);
-}
-
-/**
- * Destroy a filetree element GList list of tagsistant_file_handle.
- * This will free the GList data structure by first calling
- * tagsistant_filetree_destroy_value() on each linked node.
- */
-void tagsistant_filetree_destroy_value_list(gchar *key, GList *list, gpointer data)
-{
-	(void) data;
-
-	g_free_null(key);
-
-	if (list) g_list_free_full(list, (GDestroyNotify) g_free /* was tagsistant_filetree_destroy_value */);
 }

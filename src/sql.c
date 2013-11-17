@@ -341,11 +341,39 @@ void tagsistant_create_schema()
 	// create database schema
 	switch (tagsistant.sql_database_driver) {
 		case TAGSISTANT_DBI_SQLITE_BACKEND:
-			tagsistant_query("create table if not exists tags (tag_id integer primary key autoincrement not null, tagname varchar(65) unique not null);", dbi, NULL, NULL);
-			tagsistant_query("create table if not exists objects (inode integer not null primary key autoincrement, objectname text(255) not null, last_autotag timestamp not null default 0, checksum text(40) not null default \"\", symlink text(1024) not null default \"\");", dbi, NULL, NULL);
-			tagsistant_query("create table if not exists tagging (inode integer not null, tag_id integer not null, constraint Tagging_key unique (inode, tag_id));", dbi, NULL, NULL);
-			tagsistant_query("create table if not exists relations(relation_id integer primary key autoincrement not null, tag1_id integer not null, relation varchar not null, tag2_id integer not null);", dbi, NULL, NULL);
-//			tagsistant_query("create index if not exists tags_index on tagging (inode, tag_id);", dbi, NULL, NULL);
+			tagsistant_query(
+				"create table if not exists tags ("
+					"tag_id integer primary key autoincrement not null, "
+					"tagname varchar(65) not null, "
+					"key varchar(65) not null default \"\", "
+					"value varchar(65) not null default \"\", "
+					"constraint Tag_key unique (tagname, key, value));",
+				dbi, NULL, NULL);
+
+			tagsistant_query(
+				"create table if not exists objects ("
+					"inode integer not null primary key autoincrement, "
+					"objectname text(255) not null, "
+					"last_autotag timestamp not null default 0, "
+					"checksum text(40) not null default \"\", "
+					"symlink text(1024) not null default \"\");",
+				dbi, NULL, NULL);
+
+			tagsistant_query(
+				"create table if not exists tagging ("
+					"inode integer not null, "
+					"tag_id integer not null, "
+					"constraint Tagging_key unique (inode, tag_id));",
+				dbi, NULL, NULL);
+
+			tagsistant_query(
+				"create table if not exists relations ("
+					"relation_id integer primary key autoincrement not null, "
+					"tag1_id integer not null, "
+					"relation varchar not null, "
+					"tag2_id integer not null);",
+				dbi, NULL, NULL);
+
 			tagsistant_query("create index if not exists relations_index on relations (tag1_id, tag2_id);", dbi, NULL, NULL);
 			tagsistant_query("create index if not exists objectname_index on objects (objectname);", dbi, NULL, NULL);
 			tagsistant_query("create index if not exists symlink_index on objects (symlink, inode);", dbi, NULL, NULL);
@@ -353,11 +381,39 @@ void tagsistant_create_schema()
 			break;
 
 		case TAGSISTANT_DBI_MYSQL_BACKEND:
-			tagsistant_query("create table if not exists tags (tag_id integer primary key auto_increment not null, tagname varchar(65) unique not null);", dbi, NULL, NULL);
-			tagsistant_query("create table if not exists objects (inode integer not null primary key auto_increment, objectname varchar(255) not null, last_autotag timestamp not null default 0, checksum varchar(40) not null default \"\", symlink varchar(1024) not null default \"\");", dbi, NULL, NULL);
-			tagsistant_query("create table if not exists tagging (inode integer not null, tag_id integer not null, constraint Tagging_key unique key (inode, tag_id));", dbi, NULL, NULL);
-			tagsistant_query("create table if not exists relations(relation_id integer primary key auto_increment not null, tag1_id integer not null, relation varchar(32) not null, tag2_id integer not null);", dbi, NULL, NULL);
-//			tagsistant_query("create index tags_index on tagging (inode, tag_id);", dbi, NULL, NULL);
+			tagsistant_query(
+				"create table if not exists tags ("
+					"tag_id integer primary key auto_increment not null, "
+					"tagname varchar(65) not null, "
+					"key varchar(65) not null, "
+					"value varchar(65) not null, "
+					"constraint Tag_key unique key (tagname, key, value);",
+				dbi, NULL, NULL);
+
+			tagsistant_query(
+				"create table if not exists objects ("
+					"inode integer not null primary key auto_increment, "
+					"objectname varchar(255) not null, "
+					"last_autotag timestamp not null default 0, "
+					"checksum varchar(40) not null default \"\", "
+					"symlink varchar(1024) not null default \"\");",
+				dbi, NULL, NULL);
+
+			tagsistant_query(
+				"create table if not exists tagging ("
+					"inode integer not null, "
+					"tag_id integer not null, "
+					"constraint Tagging_key unique key (inode, tag_id));",
+				dbi, NULL, NULL);
+
+			tagsistant_query(
+				"create table if not exists relations ("
+					"relation_id integer primary key auto_increment not null, "
+					"tag1_id integer not null, "
+					"relation varchar(32) not null, "
+					"tag2_id integer not null);",
+				dbi, NULL, NULL);
+
 			tagsistant_query("create index relations_index on relations (tag1_id, tag2_id);", dbi, NULL, NULL);
 			tagsistant_query("create index objectname_index on objects (objectname);", dbi, NULL, NULL);
 			tagsistant_query("create index symlink_index on objects (symlink, inode);", dbi, NULL, NULL);
@@ -552,14 +608,21 @@ int tagsistant_return_string(void *return_string, dbi_result result)
 }
 
 /**
- * Create a tag
+ * Creates a (partial) triple tag
  *
  * @param conn dbi_conn reference
- * @param tagname the tag name
+ * @param namespace the namespace of the triple tag
+ * @param the optional key of the triple tag
+ * @param the optional value of the triple tag
  */
-void tagsistant_sql_create_tag(dbi_conn conn, gchar *tagname)
+void tagsistant_sql_create_tag(dbi_conn conn, gchar *namespace, gchar *key, gchar *value)
 {
-	tagsistant_query("insert into tags(tagname) values(\"%s\");", conn, NULL, NULL, tagname);
+	if (!namespace) return;
+
+	gchar *_key = key ? key : "";
+	gchar *_value = value ? value : "";
+
+	tagsistant_query("insert into tags(tagname, key, value) values (\"%s\", \"%s\", \"%s\");", conn, NULL, NULL, namespace, _key, _value);
 }
 
 /**
@@ -614,38 +677,64 @@ void tagsistant_full_untag_object(dbi_conn conn, tagsistant_inode inode)
  * Return the id of a tag
  *
  * @param conn dbi_conn reference
- * @param tagname the tag name
+ * @param tagname the tag name or the namespace of a triple tag
+ * @param key the key of a triple tag
+ * @param value the value of a triple tag
  * @return the id of the tag
  */
-tagsistant_inode tagsistant_sql_get_tag_id(dbi_conn conn, gchar *tagname)
+tagsistant_inode tagsistant_sql_get_tag_id(dbi_conn conn, gchar *tagname, gchar *key, gchar *value)
 {
+	gchar *_key = key ? key : "";
+	gchar *_value = value ? value : "";
+
 #if TAGSISTANT_ENABLE_TAG_ID_CACHE
+	gchar *tag_key = tagsistant_make_tag_key(tagname, _key, _value);
+
 	// lookup in the cache
-	tagsistant_inode *value = (tagsistant_inode *) g_hash_table_lookup(tagsistant_tag_cache, tagname);
-	if (value && *value) return (*value);
+	tagsistant_inode *tag_value = (tagsistant_inode *) g_hash_table_lookup(tagsistant_tag_cache, tagname);
+
+	if (tag_value && *tag_value) {
+		g_free(tag_key);
+		return (*tag_value);
+	}
 #endif
 
 	// fetch the tag_id from SQL
 	tagsistant_inode tag_id = 0;
-	tagsistant_query(
-		"select tag_id from tags where tagname = \"%s\" limit 1",
-		conn, tagsistant_return_integer, &tag_id, tagname);
+	if (value)
+		tagsistant_query(
+			"select tag_id from tags where tagname = \"%s\" and key = \"%s\" and value = \"%s\" limit 1",
+			conn, tagsistant_return_integer, &tag_id, tagname, _key, _value);
+	else if (key)
+		tagsistant_query(
+			"select tag_id from tags where tagname = \"%s\" and key = \"%s\" limit 1",
+			conn, tagsistant_return_integer, &tag_id, tagname, _key);
+	else
+		tagsistant_query(
+			"select tag_id from tags where tagname = \"%s\" limit 1",
+			conn, tagsistant_return_integer, &tag_id, tagname);
 
 #if TAGSISTANT_ENABLE_TAG_ID_CACHE
 	// save the key and the value in the cache
-	gchar *key = g_strdup(tagname);
-	value = g_new0(tagsistant_inode, 1);
-	*value = tag_id;
-	g_hash_table_insert(tagsistant_tag_cache, key, value);
+	if (tag_id) {
+		tag_value = g_new0(tagsistant_inode, 1);
+		*tag_value = tag_id;
+		g_hash_table_insert(tagsistant_tag_cache, tag_key, tag_value);
+	}
 #endif
 
 	return (tag_id);
 }
 
-void tagsistant_remove_tag_from_cache(gchar *tagname)
+void tagsistant_remove_tag_from_cache(gchar *tagname, gchar *key, gchar *value)
 {
+	gchar *_key = key ? key : "";
+	gchar *_value = value ? value : "";
+
 #if TAGSISTANT_ENABLE_TAG_ID_CACHE
-	g_hash_table_remove(tagsistant_tag_cache, tagname);
+	gchar *tag_key = tagsistant_make_tag_key(tagname, _key, _value);
+	g_hash_table_remove(tagsistant_tag_cache, tag_key);
+	g_free(tag_key);
 #else
 	(void) tagname;
 #endif
@@ -655,14 +744,19 @@ void tagsistant_remove_tag_from_cache(gchar *tagname)
  * Deletes a tag
  *
  * @param conn dbi_conn reference
- * @param tagname the name of the tag
+ * @param tagname the name of the tag or the namespace of a triple tag
+ * @param key the key of a triple tag
+ * @param value the value of a triple tag
  */
-void tagsistant_sql_delete_tag(dbi_conn conn, gchar *tagname)
+void tagsistant_sql_delete_tag(dbi_conn conn, gchar *tagname, gchar *key, gchar *value)
 {
-	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(conn, tagname);
-	tagsistant_remove_tag_from_cache(tagname);
+	gchar *_key = key ? key : "";
+	gchar *_value = value ? value : "";
 
-	tagsistant_query("delete from tags where tagname = \"%s\";", conn, NULL, NULL, tagname);
+	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(conn, tagname, _key, _value);
+	tagsistant_remove_tag_from_cache(tagname, _key, _value);
+
+	tagsistant_query("delete from tags where tagname = \"%s\" and key = \"%s\" and value = \"%s\";", conn, NULL, NULL, tagname, _key, _value);
 	tagsistant_query("delete from tagging where tag_id = \"%d\";", conn, NULL, NULL, tag_id);
 	tagsistant_query("delete from relations where tag1_id = \"%d\" or tag2_id = \"%d\";", conn, NULL, NULL, tag_id, tag_id);
 }
@@ -674,16 +768,22 @@ void tagsistant_sql_delete_tag(dbi_conn conn, gchar *tagname)
  * @param tagname the tag name
  * @param inode the object inode
  */
-void tagsistant_sql_tag_object(dbi_conn conn, gchar *tagname, tagsistant_inode inode)
+void tagsistant_sql_tag_object(dbi_conn conn, gchar *tagname, gchar *key, gchar *value, tagsistant_inode inode)
 {
+	gchar *_key = key ? key : "";
+	gchar *_value = value ? value : "";
 
-	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(conn, tagname);
+	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(conn, tagname, _key, _value);
 	if (!tag_id) {
-		tagsistant_query("insert into tags(tagname) values(\"%s\");", conn, NULL, NULL, tagname);
-		tag_id = tagsistant_sql_get_tag_id(conn, tagname);
+		tagsistant_sql_create_tag(conn, tagname, _key, _value);
+		tag_id = tagsistant_sql_get_tag_id(conn, tagname, _key, _value);
 	}
 
-	dbg('s', LOG_INFO, "Tagging object %d as %s (%d)", inode, tagname, tag_id);
+	if (value) {
+		dbg('s', LOG_INFO, "Tagging object %d as %s:%s=%s (%d)", inode, tagname, _key, _value, tag_id);
+	} else {
+		dbg('s', LOG_INFO, "Tagging object %d as %s (%d)", inode, tagname, tag_id);
+	}
 
 	tagsistant_query("insert into tagging(tag_id, inode) values(\"%d\", \"%d\");", conn, NULL, NULL, tag_id, inode);
 }
@@ -695,11 +795,18 @@ void tagsistant_sql_tag_object(dbi_conn conn, gchar *tagname, tagsistant_inode i
  * @param tagname the tag name
  * @param inode the object inode
  */
-void tagsistant_sql_untag_object(dbi_conn conn, gchar *tagname, tagsistant_inode inode)
+void tagsistant_sql_untag_object(dbi_conn conn, gchar *tagname, gchar *key, gchar *value, tagsistant_inode inode)
 {
-	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(conn, tagname);
+	gchar *_key = key ? key : "";
+	gchar *_value = value ? value : "";
 
-	dbg('s', LOG_INFO, "Untagging object %d from tag %s (%d)", inode, tagname, tag_id);
+	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(conn, tagname, _key, _value);
+
+	if (value) {
+		dbg('s', LOG_INFO, "Untagging object %d from tag %s:%s=%s (%d)", inode, tagname, _key, _value, tag_id);
+	} else {
+		dbg('s', LOG_INFO, "Untagging object %d from tag %s (%d)", inode, tagname, tag_id);
+	}
 
 	tagsistant_query("delete from tagging where tag_id = \"%d\" and inode = \"%d\";", conn, NULL, NULL, tag_id, inode);
 }
