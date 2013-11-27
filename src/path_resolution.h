@@ -20,6 +20,9 @@
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 */
 
+/**
+ * Triple tag operators
+ */
 enum {
 	TAGSISTANT_NONE,
 	TAGSISTANT_EQUAL_TO,

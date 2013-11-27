@@ -562,8 +562,29 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 				}
 				g_string_append(tag_condition, ")");
 			} else if (tag->namespace && tag->key && tag->value) {
-				g_string_printf(tag_condition, "tagname = \"%s\" and key = \"%s\" and value = \"%s\"",
-					tag->namespace, tag->key, tag->value);
+				switch (tag->operator) {
+					case TAGSISTANT_CONTAINS:
+						g_string_printf(tag_condition,
+							"tagname = \"%s\" and key = \"%s\" and value like \"%%s%\"",
+							tag->namespace, tag->key, tag->value);
+						break;
+					case TAGSISTANT_GREATER_THAN:
+						g_string_printf(tag_condition,
+							"tagname = \"%s\" and key = \"%s\" and value > \"%s\"",
+							tag->namespace, tag->key, tag->value);
+						break;
+					case TAGSISTANT_SMALLER_THAN:
+						g_string_printf(tag_condition,
+							"tagname = \"%s\" and key = \"%s\" and value < \"%s\"",
+							tag->namespace, tag->key, tag->value);
+						break;
+					case TAGSISTANT_EQUAL_TO:
+					default:
+						g_string_printf(tag_condition,
+							"tagname = \"%s\" and key = \"%s\" and value = \"%s\"",
+							tag->namespace, tag->key, tag->value);
+						break;
+				}
 			}
 
 			if (tagsistant.sql_backend_have_intersect) {
