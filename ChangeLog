@@ -1,3 +1,9 @@
+0.8:
+  - Triple tags (a.k.a. machine tags) first implementation!
+
+  - renamed the tags/ directory as store/ and created a new tags/
+    directory to allow a cleaner tag management from file managers
+
 0.7:
   - libextractor integration. Tagging plugins have been converted to
     the new API.

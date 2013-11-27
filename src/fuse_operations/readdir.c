@@ -549,14 +549,21 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 		while (tag != NULL) {
 
 			/* create the list of tags (natural or related) to match */
-			GString *tag_and_related = g_string_sized_new(1024);
-			g_string_printf(tag_and_related, "\"%s\"", tag->tag);
-			if (tag->related != NULL) {
-				ptree_and_node *related = tag->related;
-				while (related != NULL) {
-					g_string_append_printf(tag_and_related, ", \"%s\"", related->tag);
-					related = related->related;
+			GString *tag_condition = g_string_sized_new(1024);
+
+			if (tag->tag) {
+				g_string_printf(tag_condition, "tagname in (\"%s\"", tag->tag);
+				if (tag->related != NULL) {
+					ptree_and_node *related = tag->related;
+					while (related != NULL) {
+						g_string_append_printf(tag_condition, ", \"%s\"", related->tag);
+						related = related->related;
+					}
 				}
+				g_string_append(tag_condition, ")");
+			} else if (tag->namespace && tag->key && tag->value) {
+				g_string_printf(tag_condition, "tagname = \"%s\" and key = \"%s\" and value = \"%s\"",
+					tag->namespace, tag->key, tag->value);
 			}
 
 			if (tagsistant.sql_backend_have_intersect) {
@@ -567,7 +574,7 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 						"from objects "
 						"join tagging on tagging.inode = objects.inode "
 						"join tags on tags.tag_id = tagging.tag_id "
-						"where tagname in (%s) ", tag_and_related->str);
+						"where %s ", tag_condition->str);
 
 				if (tag->next != NULL)
 					g_string_append(statement, " intersect ");
@@ -581,20 +588,20 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 							"select distinct objects.inode from objects "
 								"inner join tagging on tagging.inode = objects.inode "
 								"inner join tags on tagging.tag_id = tags.tag_id "
-								"where tagname in (%s) ", tag_and_related->str);
+								"where %s ", tag_condition->str);
 				} else {
 					g_string_append_printf(statement,
 						" select distinct objectname, objects.inode as inode from objects "
 							"inner join tagging on tagging.inode = objects.inode "
 							"inner join tags on tagging.tag_id = tags.tag_id "
-							"where tagname in (%s) ", tag_and_related->str);
+							"where %s ", tag_condition->str);
 				}
 
 				/* increment nesting counter, used to match parenthesis later */
 				nesting++;
 			}
 
-			g_string_free(tag_and_related, TRUE);
+			g_string_free(tag_condition, TRUE);
 			tag = tag->next;
 		}
 

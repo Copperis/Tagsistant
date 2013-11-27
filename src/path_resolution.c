@@ -103,7 +103,7 @@ void tagsistant_path_resolution_init()
 #endif
 
 #if TAGSISTANT_ENABLE_AND_SET_CACHE
-	tagsistant_and_set_cache = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+	tagsistant_and_set_cache = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
 #endif
 }
 
@@ -114,40 +114,35 @@ void tagsistant_path_resolution_init()
  * @param and_set the linked and-set list
  * @return a string like "tag1, tag2, tag3"
  */
-gchar *tagsistant_compile_and_set(ptree_and_node *and_set, int *total)
+gchar *tagsistant_compile_and_set(gchar *objectname, ptree_and_node *and_set)
 {
 	// TODO valgrind says: check for leaks
-	GString *str = g_string_sized_new(1024);
-	ptree_and_node *and_pointer = and_set;
-	*total = 0;
+	GString *str = g_string_sized_new(10240);
+	g_string_append_printf(str, "%s>>>", objectname);
 
 	/* compile the string */
+	ptree_and_node *and_pointer = and_set;
 	while (and_pointer) {
-		g_string_append_printf(str, "\"%s\"", and_pointer->tag);
+		if (and_pointer->tag) {
+			g_string_append(str, and_pointer->tag);
 
-		/* look for related tags too */
-		ptree_and_node *related = and_pointer->related;
-		while (related) {
-			g_string_append_printf(str, ",\"%s\"", related->tag);
-			related = related->related;
+			/* look for related tags too */
+			ptree_and_node *related = and_pointer->related;
+			while (related) {
+				g_string_append_printf(str, ",%s", related->tag);
+				related = related->related;
+			}
+		} else if (and_pointer->namespace && and_pointer->key && and_pointer->value) {
+			g_string_append_printf(str, "%s%s=%s", and_pointer->namespace, and_pointer->key, and_pointer->value);
 		}
-
-		/* check to avoid terminating the line with a ',' */
-		if (and_pointer->next)
-			g_string_append(str, ", ");
-
 		and_pointer = and_pointer->next;
-		*total += 1;
 	}
 
-	/* save a pointer to the result */
-	gchar *result = str->str;
-
-	/* destroy the GString but not its content */
-	g_string_free(str, FALSE);
-
-	return (result);
+	/* destroy the GString but not its content, which is returned */
+	return (g_string_free(str, FALSE));
 }
+
+#if 0
 
 /*
  * TODO: The algorithm implemented by this function is very ugly.
@@ -207,7 +202,12 @@ gchar *tagsistant_compile_grouped_and_set(ptree_and_node *and_set, int *total)
 
 	while (and_set_ptr) {
 		/* init a GList with the main tag of this and node */
-		GList *this_tag = g_list_append(NULL, and_set_ptr->tag);
+		GList *this_tag = NULL;
+
+		if (and_set_ptr->tag)
+			g_list_append(NULL, g_strdup(and_set_ptr->tag));
+		else
+			g_list_append(NULL, g_strdup_printf("%s:%s=%s", and_set_ptr->namespace, and_set_ptr->key, and_set_ptr->value));
 
 		/* scan related tags */
 		ptree_and_node *related = and_set_ptr->related;
@@ -290,6 +290,8 @@ gchar *tagsistant_compile_grouped_and_set(ptree_and_node *and_set, int *total)
 	return (g_string_free(and_condition, FALSE));
 }
 
+#endif
+
 /**
  * Invalidate a tagsistant_and_set_cache entry
  *
@@ -300,11 +302,8 @@ void tagsistant_invalidate_and_set_cache_entries(tagsistant_querytree *qtree)
 #if TAGSISTANT_ENABLE_AND_SET_CACHE
 	ptree_or_node *ptr = qtree->tree;
 	while (ptr) {
-		int tags_total = 0;
-
 		// compute the key
-		gchar *and_set_string = tagsistant_compile_and_set(ptr->and_set, &tags_total);
-		gchar *search_key = g_strdup_printf("%s:%s", qtree->object_path, and_set_string);
+		gchar *search_key = tagsistant_compile_and_set(qtree->object_path, ptr->and_set);
 
 		// if lookup succeed, removes the entry
 		g_rw_lock_writer_lock(&tagsistant_and_set_cache_lock);
@@ -317,7 +316,6 @@ void tagsistant_invalidate_and_set_cache_entries(tagsistant_querytree *qtree)
 
 		// free memory
 		g_free(search_key);
-		g_free(and_set_string);
 
 		// next or node
 		ptr = ptr->next;
@@ -339,57 +337,101 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 	tagsistant_inode inode = 0;
 
 #if TAGSISTANT_ENABLE_AND_SET_CACHE
-	int tags_total = 0;
-
-	gchar *and_set_string = tagsistant_compile_and_set(and_set, &tags_total);
-	gchar *search_key = g_strdup_printf("%s:%s", objectname, and_set_string);
+	/* check if the query has been already answered and cached */
+	gchar *search_key = tagsistant_compile_and_set(objectname, and_set);
 
 	// if lookup succeed, returns the inode
 	g_rw_lock_reader_lock(&tagsistant_and_set_cache_lock);
 	tagsistant_inode *value = (tagsistant_inode *) g_hash_table_lookup(tagsistant_and_set_cache, search_key);
 	g_rw_lock_reader_unlock(&tagsistant_and_set_cache_lock);
 
-	if (value && *value) {
+	if (value) {
 		g_free_null(search_key);
-		g_free_null(and_set_string);
-		return (*value);
+		return (GPOINTER_TO_UINT(value));
 	}
 #endif
 
-	int grouped_tags_total = 0;
-	gchar *and_condition = tagsistant_compile_grouped_and_set(and_set, &grouped_tags_total);
+	/* lookup the inode into the database */
+	ptree_and_node *and_set_ptr = and_set;
+	while (and_set_ptr) {
+		inode = 0;
 
-	// lookup the inode in the SQL db
-	tagsistant_query(
-		"select objects.inode from objects "
-			"join tagging on objects.inode = tagging.inode "
-			"join tags on tagging.tag_id = tags.tag_id "
-			"where (%s) and objects.objectname = \"%s\" "
-			"group by objects.inode "
-			"having count(*) >= %d "
-			,
-		dbi,
-		tagsistant_return_integer,
-		&inode,
-		and_condition,
-		objectname,
-		grouped_tags_total
-	);
+		/* check the flat tag  first*/
+		if (and_set_ptr->tag) {
+			tagsistant_query(
+				"select objects.inode from objects "
+					"join tagging on objects.inode = tagging.inode "
+					"join tags on tagging.tag_id = tags.tag_id "
+					"where tags.tagname = \"%s\" "
+					"and objects.objectname = \"%s\" ",
+				dbi,
+				tagsistant_return_integer,
+				&inode,
+				and_set_ptr->tag,
+				objectname
+			);
 
-	g_free(and_condition);
+			/* the main tag has not returned an inode, we check every related tags */
+			if (!inode) {
+				and_set_ptr = and_set_ptr->related;
+				while (and_set_ptr && !inode) {
+					tagsistant_query(
+						"select objects.inode from objects "
+							"join tagging on objects.inode = tagging.inode "
+							"join tags on tagging.tag_id = tags.tag_id "
+							"where tags.tagname = \"%s\" "
+							"and objects.objectname = \"%s\" ",
+						dbi,
+						tagsistant_return_integer,
+						&inode,
+						and_set_ptr->tag,
+						objectname
+					);
+					and_set_ptr = and_set_ptr->related;
+				}
+
+				/* if the inode was not found, we must abort the lookup */
+				if (!inode) goto BREAK_LOOKUP;
+			}
+		} else
+
+		/* or check the triple tag, if it is one */
+		if (and_set_ptr->namespace && and_set_ptr->key && and_set_ptr->value) {
+			tagsistant_query(
+				"select objects.inode from objects "
+					"join tagging on objects.inode = tagging.inode "
+					"join tags on tagging.tag_id = tags.tag_id "
+					"where tags.tagname = \"%s\" "
+					"and tags.key = \"%s\" "
+					"and tags.value = \"%s\" "
+					"and objects.objectname = \"%s\" ",
+				dbi,
+				tagsistant_return_integer,
+				&inode,
+				and_set_ptr->namespace,
+				and_set_ptr->key,
+				and_set_ptr->value,
+				objectname
+			);
+
+			/* if the inode was not found, we must abort the lookup */
+			if (!inode) goto BREAK_LOOKUP;
+		}
+
+		and_set_ptr = and_set_ptr->next;
+	}
+
+BREAK_LOOKUP:
 
 #if TAGSISTANT_ENABLE_AND_SET_CACHE
+	/* cache a result if one has been found */
 	if (inode) {
-		tagsistant_inode *value = g_new(tagsistant_inode, 1);
-		*value = inode;
 		g_rw_lock_writer_lock(&tagsistant_and_set_cache_lock);
-		g_hash_table_insert(tagsistant_and_set_cache, search_key, value);
+		g_hash_table_insert(tagsistant_and_set_cache, search_key, GUINT_TO_POINTER(inode));
 		g_rw_lock_writer_lock(&tagsistant_and_set_cache_lock);
 	} else {
 		g_free_null(search_key);
 	}
-
-	g_free_null(and_set_string);
 #endif
 
 	return (inode);
