@@ -51,6 +51,19 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 		}
 	}
 
+	// -- alias --
+	else if (QTREE_IS_ALIAS(qtree)) {
+		if (qtree->alias) {
+			int exists = tagsistant_sql_alias_exists(qtree->dbi, qtree->alias);
+			if (!exists) {
+				TAGSISTANT_ABORT_OPERATION(ENOENT);
+			}
+			lstat_path = tagsistant.tags;
+		} else {
+			lstat_path = tagsistant.archive;
+		}
+	}
+
 	// -- relations --
 	else if (QTREE_IS_RELATIONS(qtree)) {
 		/* if first tag does not exist, return ENOENT */
@@ -111,7 +124,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	if (QTREE_IS_STORE(qtree)) {
 		// dbg(LOG_INFO, "getattr: last tag is %s", qtree->last_tag);
 		if (NULL == qtree->last_tag) {
-			// ok
+			// OK
 		} else if (g_strcmp0(qtree->last_tag, TAGSISTANT_ANDSET_DELIMITER) == 0) {
 
 			// path ends by '+'
@@ -126,6 +139,13 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 			stbuf->st_ino += 2;
 			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
 			stbuf->st_nlink = 1;
+
+		} else if (g_regex_match_simple("^" TAGSISTANT_ALIAS_IDENTIFIER, qtree->last_tag, 0, 0)) {
+			gchar *alias_name = qtree->last_tag + 1;
+			int exists = tagsistant_sql_alias_exists(qtree->dbi, alias_name);
+			if (!exists) {
+				TAGSISTANT_ABORT_OPERATION(ENOENT);
+			}
 
 		} else {
 
@@ -143,6 +163,10 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 			}
 
 		}
+	} else if (QTREE_IS_ALIAS(qtree) && qtree->alias) {
+
+		stbuf->st_size = tagsistant_sql_alias_get_length(qtree->dbi, qtree->alias);
+
 	} else if (QTREE_IS_STATS(qtree)) {
 
 		stbuf->st_size = TAGSISTANT_STATS_BUFFER;

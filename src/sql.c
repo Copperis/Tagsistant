@@ -374,10 +374,17 @@ void tagsistant_create_schema()
 					"tag2_id integer not null);",
 				dbi, NULL, NULL);
 
+			tagsistant_query(
+				"create table if not exists aliases ("
+					"alias varchar(65) primary key not null, "
+					"query varchar(%d) not null);",
+				dbi, NULL, NULL, TAGSISTANT_ALIAS_MAX_LENGTH);
+
 			tagsistant_query("create index if not exists relations_index on relations (tag1_id, tag2_id);", dbi, NULL, NULL);
 			tagsistant_query("create index if not exists objectname_index on objects (objectname);", dbi, NULL, NULL);
 			tagsistant_query("create index if not exists symlink_index on objects (symlink, inode);", dbi, NULL, NULL);
 			tagsistant_query("create index if not exists relations_type_index on relations (relation);", dbi, NULL, NULL);
+			tagsistant_query("create index if not exists aliases_index on aliases (alias);", dbi, NULL, NULL);
 			break;
 
 		case TAGSISTANT_DBI_MYSQL_BACKEND:
@@ -414,10 +421,17 @@ void tagsistant_create_schema()
 					"tag2_id integer not null);",
 				dbi, NULL, NULL);
 
+			tagsistant_query(
+				"create table if not exists aliases ("
+					"alias varchar(65) primary key not null, "
+					"query varchar(%d) not null);",
+				dbi, NULL, NULL, TAGSISTANT_ALIAS_MAX_LENGTH);
+
 			tagsistant_query("create index relations_index on relations (tag1_id, tag2_id);", dbi, NULL, NULL);
 			tagsistant_query("create index objectname_index on objects (objectname);", dbi, NULL, NULL);
 			tagsistant_query("create index symlink_index on objects (symlink, inode);", dbi, NULL, NULL);
 			tagsistant_query("create index relations_type_index on relations (relation);", dbi, NULL, NULL);
+			tagsistant_query("create index aliases_index on aliases (alias);", dbi, NULL, NULL);
 			break;
 
 		default:
@@ -821,4 +835,97 @@ void tagsistant_sql_untag_object(dbi_conn conn, gchar *tagname, gchar *key, gcha
 void tagsistant_sql_rename_tag(dbi_conn conn, gchar *tagname, gchar *oldtagname)
 {
 	tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\";", conn, NULL, NULL, tagname, oldtagname);
+}
+
+/**
+ * Check the existence of an alias
+ *
+ * @param conn dbi_conn reference
+ * @param alias the alias to be looked up in the DB
+ * @return 1 if found, 0 otherwise
+ */
+int tagsistant_sql_alias_exists(dbi_conn conn, gchar *alias)
+{
+	int exists = 0;
+	tagsistant_query(
+		"select 1 from aliases where alias = \"%s\"",
+		conn, tagsistant_return_integer, &exists, alias);
+	return (exists);
+}
+
+/**
+ * Create an alias
+ *
+ * @param conn dbi_conn reference
+ * @param alias the alias to be created
+ */
+void tagsistant_sql_alias_create(dbi_conn conn, gchar *alias)
+{
+	if (tagsistant_sql_alias_exists(conn, alias)) return;
+	tagsistant_query(
+		"insert into aliases (alias, query) values (\"%s\", \"\")",
+		conn, NULL, NULL, alias);
+}
+
+/**
+ * Delete an alias
+ *
+ * @param conn dbi_conn reference
+ * @param alias the alias to be deleted
+ */
+void tagsistant_sql_alias_delete(dbi_conn conn, gchar *alias)
+{
+	tagsistant_query(
+		"delete from aliases where alias = \"%s\"",
+		conn, NULL, NULL, alias);
+}
+
+/**
+ * Set the query bookmarked by an alias
+ *
+ * @param conn dbi_conn reference
+ * @param alias the alias to be set
+ * @param query the query bookmarked by the alias
+ */
+void tagsistant_sql_alias_set(dbi_conn conn, gchar *alias, gchar *query)
+{
+	tagsistant_query(
+		"update aliases set query = \"%s\" where alias = \"%s\"",
+		conn, NULL, NULL, query, alias);
+}
+
+/**
+ * Get the query bookmarked by an alias
+ *
+ * @param conn the dbi_conn reference
+ * @param alias the alias to be looked up in the DB
+ * @return the value as a string (must be freed in the calling function)
+ */
+gchar *tagsistant_sql_alias_get(dbi_conn conn, gchar *alias)
+{
+	gchar *value = NULL;
+
+	tagsistant_query(
+		"select query from aliases where alias = \"%s\"",
+		conn, tagsistant_return_string, &value, alias);
+
+	return (value);
+}
+
+/**
+ * Get the length of an alias
+ *
+ * @param conn the dbi_conn reference
+ * @param alias the alias to be measured
+ * @return the length of the alias
+ */
+size_t tagsistant_sql_alias_get_length(dbi_conn conn, gchar *alias)
+{
+	size_t length = 0;
+
+	gchar *value = tagsistant_sql_alias_get(conn, alias);
+	length = strlen(value);
+	g_free(value);
+
+	return (length);
 }

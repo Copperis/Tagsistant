@@ -92,6 +92,7 @@ void tagsistant_path_resolution_init()
 	tagsistant_querytree_types[QTYPE_RELATIONS] = g_strdup("QTYPE_RELATIONS");
 	tagsistant_querytree_types[QTYPE_STATS] = g_strdup("QTYPE_STATS");
 	tagsistant_querytree_types[QTYPE_STORE] = g_strdup("QTYPE_STORE");
+	tagsistant_querytree_types[QTYPE_ALIAS] = g_strdup("QTYPE_ALIAS");
 
 #if TAGSISTANT_ENABLE_QUERYTREE_CACHE
 	/* initialize the tagsistant_querytree object cache */
@@ -415,7 +416,11 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 			);
 
 			/* if the inode was not found, we must abort the lookup */
-			if (!inode) goto BREAK_LOOKUP;
+			if (!inode) {
+				// TODO add here the support triple tags aliases
+				// adapt the code from the single tag section
+				if (!inode) goto BREAK_LOOKUP;
+			}
 		}
 
 		and_set_ptr = and_set_ptr->next;
@@ -484,6 +489,72 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
 	return(qtree->exists);
 }
 
+/*
+ * parsing macros to be used in specialized parse functions
+ */
+
+/** get the value of the current token */
+#define __TOKEN **token_ptr
+
+/** get the value of the next token (could be NULL) */
+#define __NEXT_TOKEN *(*token_ptr + 1)
+
+/** move the pointer to the next token */
+#define __SLIDE_TOKEN (*token_ptr)++;
+
+void tagsistant_querytree_set_namespace_key_operator_value(
+	tagsistant_querytree *qtree,
+	const gchar *namespace,
+	const gchar *key,
+	int operator,
+	const gchar *value)
+{
+	g_free_null(qtree->namespace);
+	qtree->namespace = g_strdup(namespace);
+
+	g_free_null(qtree->key);
+	qtree->key = g_strdup(key);
+
+	qtree->operator = operator;
+
+	g_free_null(qtree->value);
+	qtree->value = g_strdup(value);
+}
+
+void tagsistant_querytree_set_key_operator_value(
+	tagsistant_querytree *qtree,
+	const gchar *key,
+	int operator,
+	const gchar *value)
+{
+	g_free_null(qtree->key);
+	qtree->key = g_strdup(key);
+
+	qtree->operator = operator;
+
+	g_free_null(qtree->value);
+	qtree->value = g_strdup(value);
+}
+
+void tagsistant_querytree_set_operator_value(
+	tagsistant_querytree *qtree,
+	int operator,
+	const gchar *value)
+{
+	qtree->operator = operator;
+
+	g_free_null(qtree->value);
+	qtree->value = g_strdup(value);
+}
+
+void tagsistant_querytree_set_value(
+	tagsistant_querytree *qtree,
+	const gchar *value)
+{
+	g_free_null(qtree->value);
+	qtree->value = g_strdup(value);
+}
+
 /**
  * parse the query portion between tags/ and =/
  *
@@ -522,10 +593,10 @@ int tagsistant_querytree_parse_store (
 	qtree->valid = 1;
 
 	// begin parsing
-	while (**token_ptr && (TAGSISTANT_QUERY_DELIMITER_CHAR != ***token_ptr)) {
-		if (strlen(**token_ptr) == 0) {
+	while (__TOKEN && (TAGSISTANT_QUERY_DELIMITER_CHAR != *__TOKEN)) {
+		if (strlen(__TOKEN) == 0) {
 			/* ignore zero length tokens */
-		} else if (strcmp(**token_ptr, TAGSISTANT_ANDSET_DELIMITER) == 0) {
+		} else if (strcmp(__TOKEN, TAGSISTANT_ANDSET_DELIMITER) == 0) {
 			/* open new entry in OR level */
 			orcount++;
 			andcount = 0;
@@ -550,33 +621,33 @@ int tagsistant_querytree_parse_store (
 			 * if so, this tag is a triple tag and requires special
 			 * parsing
 			 */
-			if (g_regex_match_simple(":$", **token_ptr, 0, 0)) {
-				and->namespace = g_strdup(**token_ptr);
-				qtree->namespace = g_strdup(**token_ptr);
-				if (*(*token_ptr + 1)) {
-					(*token_ptr)++;
-					and->key = g_strdup(**token_ptr);
-					qtree->key = g_strdup(**token_ptr);
-					if (*(*token_ptr + 1)) {
-						(*token_ptr)++;
-						if (strcmp(**token_ptr, TAGSISTANT_GREATER_THAN_OPERATOR) == 0) {
-							qtree->operator = and->operator = TAGSISTANT_GREATER_THAN;
-						} else if (strcmp(**token_ptr, TAGSISTANT_SMALLER_THAN_OPERATOR) == 0) {
-							qtree->operator = and->operator = TAGSISTANT_SMALLER_THAN;
-						} else if (strcmp(**token_ptr, TAGSISTANT_EQUALS_TO_OPERATOR) == 0) {
-							qtree->operator = and->operator = TAGSISTANT_EQUAL_TO;
-						} else if (strcmp(**token_ptr, TAGSISTANT_CONTAINS_OPERATOR) == 0) {
-							qtree->operator = and->operator = TAGSISTANT_CONTAINS;
+			if (g_regex_match_simple(":$", __TOKEN, 0, 0)) {
+				and->namespace = g_strdup(__TOKEN);
+				tagsistant_querytree_set_namespace_key_operator_value(qtree, __TOKEN, NULL, 0, NULL);
+				if (__NEXT_TOKEN) {
+					__SLIDE_TOKEN;
+					and->key = g_strdup(__TOKEN);
+					tagsistant_querytree_set_key_operator_value(qtree, __TOKEN, 0, NULL);
+					if (__NEXT_TOKEN) {
+						__SLIDE_TOKEN;
+						if (strcmp(__TOKEN, TAGSISTANT_GREATER_THAN_OPERATOR) == 0) {
+							tagsistant_querytree_set_operator_value(qtree, TAGSISTANT_GREATER_THAN, NULL);
+						} else if (strcmp(__TOKEN, TAGSISTANT_SMALLER_THAN_OPERATOR) == 0) {
+							tagsistant_querytree_set_operator_value(qtree, TAGSISTANT_SMALLER_THAN, NULL);
+						} else if (strcmp(__TOKEN, TAGSISTANT_EQUALS_TO_OPERATOR) == 0) {
+							tagsistant_querytree_set_operator_value(qtree, TAGSISTANT_EQUAL_TO, NULL);
+						} else if (strcmp(__TOKEN, TAGSISTANT_CONTAINS_OPERATOR) == 0) {
+							tagsistant_querytree_set_operator_value(qtree, TAGSISTANT_CONTAINS, NULL);
 						}
-						if (*(*token_ptr + 1)) {
-							(*token_ptr)++;
-							and->value = g_strdup(**token_ptr);
-							qtree->value = g_strdup(**token_ptr);
+						if (__NEXT_TOKEN) {
+							__SLIDE_TOKEN;
+							and->value = g_strdup(__TOKEN);
+							tagsistant_querytree_set_value(qtree, __TOKEN);
 						}
 					}
 				}
 			} else {
-				and->tag = g_strdup(**token_ptr);
+				and->tag = g_strdup(__TOKEN);
 			}
 			and->next = NULL;
 			and->related = NULL;
@@ -587,7 +658,7 @@ int tagsistant_querytree_parse_store (
 			}
 			last_and = and;
 
-			dbg('q', LOG_INFO, "Query tree nodes %.2d.%.2d %s", orcount, andcount, **token_ptr);
+			dbg('q', LOG_INFO, "Query tree nodes %.2d.%.2d %s", orcount, andcount, __TOKEN);
 			andcount++;
 
 			/* search related tags */
@@ -609,15 +680,15 @@ int tagsistant_querytree_parse_store (
 
 		// save last tag found
 		g_free_null(qtree->last_tag);
-		qtree->last_tag = g_strdup(**token_ptr);
+		qtree->last_tag = g_strdup(__TOKEN);
 
-		(*token_ptr)++;
+		__SLIDE_TOKEN;
 	}
 
 	// if last token is TAGSISTANT_QUERY_DELIMITER_CHAR,
 	// move the pointer one element forward
-	if (**token_ptr && (TAGSISTANT_QUERY_DELIMITER_CHAR == ***token_ptr))
-		(*token_ptr)++;
+	if (__TOKEN && (TAGSISTANT_QUERY_DELIMITER_CHAR == *__TOKEN))
+		__SLIDE_TOKEN;
 
 	return (1);
 }
@@ -633,26 +704,26 @@ int tagsistant_querytree_parse_tags (
 	tagsistant_querytree* qtree,
 	gchar ***token_ptr)
 {
-	if (**token_ptr) {
-		if (g_regex_match_simple(":$", **token_ptr, 0, 0)) {
+	if (__TOKEN) {
+		if (g_regex_match_simple(":$", __TOKEN, 0, 0)) {
 			qtree->first_tag = qtree->second_tag = qtree->last_tag = NULL;
 
-			qtree->namespace = g_strdup(**token_ptr);
-			if (*(*token_ptr + 1)) {
-				(*token_ptr)++;
-				qtree->key = g_strdup(**token_ptr);
-				if (*(*token_ptr + 1)) {
-					(*token_ptr)++;
-					qtree->value = g_strdup(**token_ptr);
+			qtree->namespace = g_strdup(__TOKEN);
+			if (__NEXT_TOKEN) {
+				__SLIDE_TOKEN;
+				qtree->key = g_strdup(__TOKEN);
+				if (__NEXT_TOKEN) {
+					__SLIDE_TOKEN;
+					qtree->value = g_strdup(__TOKEN);
 				}
 			}
 		} else {
 			qtree->namespace = qtree->key = qtree->value = NULL;
 
-			qtree->first_tag = g_strdup(**token_ptr);
-			(*token_ptr)++;
-			if (**token_ptr) {
-				qtree->second_tag = g_strdup(**token_ptr);
+			qtree->first_tag = g_strdup(__TOKEN);
+			__SLIDE_TOKEN;
+			if (__TOKEN) {
+				qtree->second_tag = g_strdup(__TOKEN);
 			}
 		}
 	}
@@ -672,16 +743,16 @@ int tagsistant_querytree_parse_relations (
 	gchar ***token_ptr)
 {
 	/* parse a relations query */
-	if (NULL != **token_ptr) {
-		qtree->first_tag = g_strdup(**token_ptr);
-		(*token_ptr)++;
-		if (NULL != **token_ptr) {
-			qtree->relation = g_strdup(**token_ptr);
-			(*token_ptr)++;
-			if (NULL != **token_ptr) {
-				qtree->second_tag = g_strdup(**token_ptr);
+	if (NULL != __TOKEN) {
+		qtree->first_tag = g_strdup(__TOKEN);
+		__SLIDE_TOKEN;
+		if (NULL != __TOKEN) {
+			qtree->relation = g_strdup(__TOKEN);
+			__SLIDE_TOKEN;
+			if (NULL != __TOKEN) {
+				qtree->second_tag = g_strdup(__TOKEN);
 				qtree->complete = 1;
-				(*token_ptr)++;
+				__SLIDE_TOKEN;
 			}
 		}
 	}
@@ -697,14 +768,28 @@ int tagsistant_querytree_parse_relations (
  * @return 1 on success, 0 on failure or errors
  */
 int tagsistant_querytree_parse_stats (
-		tagsistant_querytree* qtree,
-		gchar ***token_ptr)
+	tagsistant_querytree* qtree,
+	gchar ***token_ptr)
 {
-	if (NULL != **token_ptr) {
-		qtree->stats_path = g_strdup(**token_ptr);
+	if (NULL != __TOKEN) {
+		qtree->stats_path = g_strdup(__TOKEN);
 		qtree->complete = 1;
 	}
 
+	return (1);
+}
+
+int tagsistant_querytree_parse_alias(
+	tagsistant_querytree* qtree,
+	gchar ***token_ptr)
+{
+	if (__TOKEN) {
+		qtree->alias = g_strdup(__TOKEN);
+
+		// check if another element is present
+		__SLIDE_TOKEN;
+		if (__TOKEN) qtree->valid = 0;
+	}
 	return (1);
 }
 
@@ -935,6 +1020,87 @@ void tagsistant_invalidate_querytree_cache(tagsistant_querytree *qtree)
 #endif /* TAGSISTANT_ENABLE_QUERYTREE_CACHE */
 
 /**
+ * Alias replacement callback
+ */
+gboolean  tagsistant_expand_path_callback(
+	const GMatchInfo *match_info,
+    GString *result,
+    gpointer user_data)
+{
+	tagsistant_querytree *qtree = (tagsistant_querytree *) user_data;
+
+	// fetch the pattern
+	gchar *pattern = g_match_info_fetch(match_info, 0);
+
+	// the alias is the patter excluded the identifier (thus the + 1)
+	gchar *alias = pattern + 1;
+
+	// load the expansion from the DB
+	gchar *alias_expansion = tagsistant_sql_alias_get(qtree->dbi, alias);
+
+	// replace the alias
+	g_string_append(result, alias_expansion);
+
+	// free allocated memory
+	g_free(alias_expansion);
+	g_free(pattern);
+
+	return FALSE;
+}
+
+/**
+ * expand a path, resolving the aliases
+ */
+gchar *tagsistant_expand_path(tagsistant_querytree *qtree)
+{
+	// duplicate the path to work on it
+	gchar *expanded_path = g_strdup(qtree->full_path);
+
+	// declare a regular expression to detect the aliases
+	GRegex *rx = g_regex_new(TAGSISTANT_ALIAS_IDENTIFIER "([^/]+)", 0, 0, NULL);
+
+	// apply the regular expression
+	GMatchInfo *match_info;
+	while (g_regex_match(rx, expanded_path, 0, &match_info)) {
+		// get the alias found in the path
+		gchar *pattern = g_match_info_fetch(match_info, 0);
+
+		// build the GRegex of the alias
+		GRegex *replace_rx = g_regex_new(pattern, 0, 0, NULL);
+
+		// expand the alias
+		gchar *replaced = g_regex_replace_eval(
+			replace_rx,
+			expanded_path,
+			-1, 0, 0,
+			tagsistant_expand_path_callback,
+			qtree,
+			NULL);
+
+		// update the expanded path
+		g_free(expanded_path);
+		expanded_path = replaced;
+
+		// free allocated memory
+		g_free(pattern);
+		g_regex_unref(replace_rx);
+	}
+
+	// free allocated memory
+	g_match_info_free(match_info);
+	g_regex_unref(rx);
+
+	// remove duplicated slashes
+	GRegex *slash_compressor = g_regex_new("/+", 0, 0, NULL);
+	gchar *simplified_path = g_regex_replace_literal(slash_compressor, expanded_path, -1, 0, "/", 0, NULL);
+	g_free(expanded_path);
+	g_regex_unref(slash_compressor);
+
+	// return the simplified path
+	return (simplified_path);
+}
+
+/**
  * Build query tree from path. A querytree is composed of a linked
  * list of ptree_or_node_t objects. Each or object has a descending
  * linked list of ptree_and_node_t objects. This kind of structure
@@ -982,11 +1148,18 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int assign_inod
 	/* duplicate the path inside the struct */
 	qtree->full_path = g_strdup(path);
 
+	/* expand the path, resolving aliases */
+	if (g_regex_match_simple("/(" TAGSISTANT_QUERY_DELIMITER "|" TAGSISTANT_QUERY_DELIMITER_NO_REASONING ")", qtree->full_path, 0, 0)) {
+		qtree->expanded_full_path = tagsistant_expand_path(qtree);
+	} else {
+		qtree->expanded_full_path = g_strdup(qtree->full_path);
+	}
+
 	dbg('q', LOG_INFO, "Building querytree for %s", qtree->full_path);
 
 	/* split the path */
-	gchar **splitted = g_strsplit(path, "/", 512); /* split up to 512 tokens */
-	gchar **token_ptr = splitted + 1; /* first element is always "" since path begins with '/' */
+	gchar **splitted = g_strsplit(qtree->expanded_full_path, "/", 512); /* split up to 512 tokens */
+	gchar __TOKEN = splitted + 1; /* first element is always "" since path begins with '/' */
 
 	/*
 	 * set default values
@@ -1004,12 +1177,13 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int assign_inod
 	qtree->schedule_for_unlink = 0;
 
 	/* guess the type of the query by first token */
-	if ('\0' == **token_ptr)							qtree->type = QTYPE_ROOT;
+	if ('\0' == __TOKEN)								qtree->type = QTYPE_ROOT;
 	else if (g_strcmp0(*token_ptr, "tags") == 0)		qtree->type = QTYPE_TAGS;
 	else if (g_strcmp0(*token_ptr, "archive") == 0)		qtree->type = QTYPE_ARCHIVE;
 	else if (g_strcmp0(*token_ptr, "relations") == 0)	qtree->type = QTYPE_RELATIONS;
 	else if (g_strcmp0(*token_ptr, "stats") == 0)		qtree->type = QTYPE_STATS;
 	else if (g_strcmp0(*token_ptr, "store") == 0)		qtree->type = QTYPE_STORE;
+	else if (g_strcmp0(*token_ptr, "alias") == 0)		qtree->type = QTYPE_ALIAS;
 //	else if (g_strcmp0(*token_ptr, "retag") == 0)		qtree->type = QTYPE_RETAG;
 	else {
 		qtree->type = QTYPE_MALFORMED;
@@ -1029,6 +1203,8 @@ tagsistant_querytree *tagsistant_querytree_new(const char *path, int assign_inod
 		tagsistant_querytree_parse_relations(qtree, &token_ptr);
 	} else if (QTREE_IS_STATS(qtree)) {
 		tagsistant_querytree_parse_stats(qtree, &token_ptr);
+	} else if (QTREE_IS_ALIAS(qtree)) {
+		tagsistant_querytree_parse_alias(qtree, &token_ptr);
 	}
 
 	/* remaining part is the object pathname */
@@ -1227,6 +1403,7 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, guint commit_tran
 
 	/* free the paths */
 	g_free_null(qtree->full_path);
+	g_free_null(qtree->expanded_full_path);
 	g_free_null(qtree->object_path);
 	g_free_null(qtree->archive_path);
 	g_free_null(qtree->full_archive_path);

@@ -93,6 +93,12 @@ extern int				tagsistant_object_is_tagged(dbi_conn conn, tagsistant_inode inode)
 extern int				tagsistant_object_is_tagged_as(dbi_conn conn, tagsistant_inode inode, tagsistant_inode tag_id);
 extern void				tagsistant_full_untag_object(dbi_conn conn, tagsistant_inode inode);
 extern void				tagsistant_remove_tag_from_cache(gchar *tagname, gchar *key, gchar *value);
+extern int				tagsistant_sql_alias_exists(dbi_conn conn, gchar *alias);
+extern void				tagsistant_sql_alias_create(dbi_conn conn, gchar *alias);
+extern void				tagsistant_sql_alias_delete(dbi_conn conn, gchar *alias);
+extern void				tagsistant_sql_alias_set(dbi_conn conn, gchar *alias, gchar *query);
+extern gchar *			tagsistant_sql_alias_get(dbi_conn conn, gchar *alias);
+extern size_t			tagsistant_sql_alias_get_length(dbi_conn conn, gchar *alias);
 
 /**
  * Prepare a key for saving a tag_id inside the cache

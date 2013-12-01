@@ -49,6 +49,7 @@ int tagsistant_chown(const char *path, uid_t uid, gid_t gid)
 	// -- tags --
 	// -- stats --
 	// -- relations --
+	// -- alias --
 	else TAGSISTANT_ABORT_OPERATION(EROFS);
 
 TAGSISTANT_EXIT_OPERATION:

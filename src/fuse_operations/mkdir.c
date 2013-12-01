@@ -107,8 +107,9 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 		}
 	}
 
-	// -- stats
-	else if (QTREE_IS_STATS(qtree)) TAGSISTANT_ABORT_OPERATION(EROFS);
+	// -- stats --
+	// -- alias --
+	else TAGSISTANT_ABORT_OPERATION(EROFS);
 
 TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {

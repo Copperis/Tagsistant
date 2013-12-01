@@ -80,6 +80,16 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 		fi->keep_cache = 0;
 	}
 
+	// -- alias --
+	else if (QTREE_IS_ALIAS(qtree) && qtree->alias) {
+		if (tagsistant_sql_alias_exists(qtree->dbi, qtree->alias)) {
+			res = 0;
+			tagsistant_errno = 0;
+		} else {
+			TAGSISTANT_ABORT_OPERATION(ENOENT);
+		}
+	}
+
 	// -- tags --
 	// -- relations --
 	else TAGSISTANT_ABORT_OPERATION(EROFS);

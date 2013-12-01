@@ -35,6 +35,9 @@
 /** Query delimiter without reasoning as a single char */
 #define TAGSISTANT_QUERY_DELIMITER_NO_REASONING_CHAR '@'
 
+/** Alias identifier **/
+#define TAGSISTANT_ALIAS_IDENTIFIER "="
+
 /** And-set delimiter as a string */
 #define TAGSISTANT_ANDSET_DELIMITER "+"
 
@@ -70,6 +73,9 @@
 
 /** the maximum length of the buffer used to store dynamic /stats files */
 #define TAGSISTANT_STATS_BUFFER 2048
+
+/** the maximum length of a query bookmarked as an alias */
+#define TAGSISTANT_ALIAS_MAX_LENGTH 1024
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>

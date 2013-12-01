@@ -48,6 +48,7 @@ int tagsistant_chmod(const char *path, mode_t mode)
 	// -- tags --
 	// -- stats --
 	// -- relations --
+	// -- alias --
 	else TAGSISTANT_ABORT_OPERATION(EROFS);
 
 TAGSISTANT_EXIT_OPERATION:

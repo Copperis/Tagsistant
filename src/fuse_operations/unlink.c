@@ -75,6 +75,11 @@ int tagsistant_unlink(const char *path)
 			res = unlink(unlink_path);
 			tagsistant_errno = errno;
 		}
+	} else
+
+	// -- alias --
+	if (QTREE_IS_ALIAS(qtree)) {
+		tagsistant_sql_alias_delete(qtree->dbi, qtree->alias);
 	}
 
 	// -- tags --

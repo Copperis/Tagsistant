@@ -40,10 +40,10 @@ int tagsistant_flush(const char *path, struct fuse_file_info *fi)
 	if (QTREE_IS_MALFORMED(qtree))
 		TAGSISTANT_ABORT_OPERATION(ENOENT);
 
-	tagsistant_querytree_check_tagging_consistency(qtree);
-
 	// -- object --
 	if (QTREE_IS_TAGGABLE(qtree)) {
+		tagsistant_querytree_check_tagging_consistency(qtree);
+
 #if TAGSISTANT_ENABLE_DEDUPLICATION || TAGSISTANT_ENABLE_AUTOTAGGING
 		// check if the file has been modified
 		int modified = 0;
@@ -57,12 +57,12 @@ int tagsistant_flush(const char *path, struct fuse_file_info *fi)
 			g_async_queue_push(tagsistant_dedup_autotag_queue, g_strdup(path));
 		}
 #endif
-	}
 
-	if (fi->fh) {
-		dbg('F', LOG_INFO, "Uncaching %" PRIu64 " = open(%s)", fi->fh, path);
-		close(fi->fh);
-		fi->fh = 0;
+		if (fi->fh) {
+			dbg('F', LOG_INFO, "Uncaching %" PRIu64 " = open(%s)", fi->fh, path);
+			close(fi->fh);
+			fi->fh = 0;
+		}
 	}
 
 TAGSISTANT_EXIT_OPERATION:

@@ -41,11 +41,20 @@ int tagsistant_truncate(const char *path, off_t size)
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		res = truncate(qtree->full_archive_path, size);
 		tagsistant_errno = errno;
+	} else
+
+	// -- alias --
+	if (QTREE_IS_ALIAS(qtree) && qtree->alias) {
+		tagsistant_sql_alias_set(qtree->dbi, qtree->alias, "");
+		res = 0;
+		tagsistant_errno = 0;
 	}
+
 
 	// -- tags --
 	// -- stats --
 	// -- relations --
+	// -- alias (the directory) --
 	else TAGSISTANT_ABORT_OPERATION(EROFS);
 
 TAGSISTANT_EXIT_OPERATION:

@@ -91,10 +91,15 @@ int tagsistant_rename(const char *from, const char *to)
 		res = rename(from_qtree->full_archive_path, to_qtree->full_archive_path);
 		tagsistant_errno = errno;
 
-	} else if (QTREE_IS_ROOT(from_qtree)) {
-		TAGSISTANT_ABORT_OPERATION(EPERM);
+	} else
 
-	} else if (QTREE_IS_STORE(from_qtree) && QTREE_IS_STORE(to_qtree)) {
+	// -- root --
+	if (QTREE_IS_ROOT(from_qtree)) {
+		TAGSISTANT_ABORT_OPERATION(EPERM);
+	} else
+
+	// -- store --
+	if (QTREE_IS_STORE(from_qtree) && QTREE_IS_STORE(to_qtree)) {
 		if (QTREE_IS_COMPLETE(from_qtree)) {
 			TAGSISTANT_ABORT_OPERATION(EPERM);
 		}
@@ -112,7 +117,10 @@ int tagsistant_rename(const char *from, const char *to)
 		} else {
 			tagsistant_remove_tag_from_cache(from_qtree->last_tag, NULL, NULL);
 		}
-	} else if (QTREE_IS_TAGS(from_qtree) && QTREE_IS_TAGS(to_qtree)) {
+	} else
+
+	// -- tags --
+	if (QTREE_IS_TAGS(from_qtree) && QTREE_IS_TAGS(to_qtree)) {
 		tagsistant_query(
 			"update tags set tagname = \"%s\" "
 				"where tagname = \"%s\"",
@@ -126,6 +134,16 @@ int tagsistant_rename(const char *from, const char *to)
 		} else {
 			tagsistant_remove_tag_from_cache(from_qtree->last_tag, NULL, NULL);
 		}
+	} else
+
+	// -- alias --
+	if (QTREE_IS_ALIAS(from_qtree) && QTREE_IS_ALIAS(to_qtree)) {
+		tagsistant_query(
+			"update aliases set alias = \"%s\" where alias = \"%s\"",
+			from_qtree->dbi,
+			NULL, NULL,
+			to_qtree->alias,
+			from_qtree->alias);
 	}
 
 TAGSISTANT_EXIT_OPERATION:

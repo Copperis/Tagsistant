@@ -138,9 +138,10 @@ int tagsistant_rmdir(const char *path)
 
 	}
 
-	// -- archive
-	// -- stats
-	else if (QTREE_IS_STATS(qtree)) TAGSISTANT_ABORT_OPERATION(EROFS);
+	// -- archive --
+	// -- stats --
+	// -- alias --
+	else TAGSISTANT_ABORT_OPERATION(EROFS);
 
 
 TAGSISTANT_EXIT_OPERATION:

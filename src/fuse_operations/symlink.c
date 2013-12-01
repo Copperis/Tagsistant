@@ -90,6 +90,7 @@ int tagsistant_symlink(const char *from, const char *to)
 	// -- tags --
 	// -- stats --
 	// -- relations --
+	// -- alias --
 	else TAGSISTANT_ABORT_OPERATION(EINVAL);
 
 TAGSISTANT_EXIT_OPERATION:

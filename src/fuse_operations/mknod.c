@@ -59,6 +59,11 @@ int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 			res = mknod(qtree->full_archive_path, mode|S_IWUSR, rdev);
 			tagsistant_errno = errno;
 		}
+	} else
+
+	// -- alias --
+	if (QTREE_IS_ALIAS(qtree)) {
+		tagsistant_sql_alias_create(qtree->dbi, qtree->alias);
 	}
 
 	// -- stats --

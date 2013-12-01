@@ -42,12 +42,19 @@ int tagsistant_readlink(const char *path, char *buf, size_t size)
 		TAGSISTANT_ABORT_OPERATION(ENOENT);
 	}
 
+	// -- store (complete) --
+	// -- archive --
 	if ((QTREE_IS_STORE(qtree) && QTREE_IS_COMPLETE(qtree)) || QTREE_IS_ARCHIVE(qtree)) {
 		readlink_path = qtree->object_path;
 		readlink_path = qtree->full_archive_path;
-	} else if (QTREE_IS_STATS(qtree) || QTREE_IS_RELATIONS(qtree) || QTREE_IS_TAGS(qtree)) {
-		TAGSISTANT_ABORT_OPERATION(EINVAL);
 	}
+
+	// -- alias --
+	// -- stats --
+	// -- tags --
+	// -- store (not complete) --
+	// -- relations --
+	else TAGSISTANT_ABORT_OPERATION(EINVAL);
 
 	// do real readlink()
 	res = readlink(readlink_path, buf, size);

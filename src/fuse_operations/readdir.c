@@ -27,6 +27,7 @@ struct tagsistant_use_filler_struct {
 	void *buf;						/**< libfuse buffer to hold readdir results */
 	const char *path;				/**< the path that generates the query */
 	tagsistant_querytree *qtree;	/**< the querytree that originated the readdir() */
+	int is_alias;					/**< set to 1 if entries are aliases and must be prefixed with the alias identifier (=) */
 };
 
 // filetree functions
@@ -70,7 +71,15 @@ static int tagsistant_add_entry_to_dir(void *filler_ptr, dbi_result result)
 		}
 	}
 
-	return(ufs->filler(ufs->buf, dir, NULL, 0));
+	// add the entry as is if it's not an alias
+	if (!ufs->is_alias) return(ufs->filler(ufs->buf, dir, NULL, 0));
+
+	// prepend the alias identified otherwise
+	gchar *entry = g_strdup_printf("=%s", dir);
+	int filler_result = ufs->filler(ufs->buf, entry, NULL, 0);
+	g_free(entry);
+	return (filler_result);
+
 }
 
 static int tagsistant_readdir_on_store_filler(gchar *name, GList *fh_list, struct tagsistant_use_filler_struct *ufs)
@@ -124,6 +133,9 @@ int tagsistant_do_add_operators(tagsistant_querytree *qtree)
 	return (0);
 }
 
+/**
+ * Read the content of the store/ directory
+ */
 int tagsistant_readdir_on_store(
 		tagsistant_querytree *qtree,
 		const char *path,
@@ -152,6 +164,7 @@ int tagsistant_readdir_on_store(
 	ufs->buf = buf;
 	ufs->path = path;
 	ufs->qtree = qtree;
+	ufs->is_alias = 0;
 
 	if (qtree->complete) {
 
@@ -172,6 +185,8 @@ int tagsistant_readdir_on_store(
 
 		if (qtree->value) {
 			tagsistant_query("select distinct tagname from tags;", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
+			ufs->is_alias = 1;
+			tagsistant_query("select alias from aliases;", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
 		} else if (qtree->operator) {
 			tagsistant_query("select distinct value from tags where tagname = \"%s\" and key = \"%s\";", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace, qtree->key);
 		} else if (qtree->key) {
@@ -183,6 +198,8 @@ int tagsistant_readdir_on_store(
 			tagsistant_query("select distinct key from tags where tagname = \"%s\";", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace);
 		} else {
 			tagsistant_query("select distinct tagname from tags;", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
+			ufs->is_alias = 1;
+			tagsistant_query("select alias from aliases;", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
 		}
 	}
 
@@ -190,6 +207,10 @@ int tagsistant_readdir_on_store(
 	return (0);
 }
 
+/**
+ * Read the content of an object from the archive/ directory or from a
+ * complete query on the store/ directory
+ */
 int tagsistant_readdir_on_object(
 		tagsistant_querytree *qtree,
 		const char *path,
@@ -221,6 +242,9 @@ int tagsistant_readdir_on_object(
 	return (0);
 }
 
+/**
+ * Read the content of the relations/ directory
+ */
 int tagsistant_readdir_on_relations(
 		tagsistant_querytree *qtree,
 		const char *path,
@@ -248,7 +272,7 @@ int tagsistant_readdir_on_relations(
 	} else if (qtree->relation) {
 		// list all tags related to first_tag with this relation
 		tagsistant_query(
-			"select tags.tagname from tags "
+			"select distinct tags.tagname from tags "
 				"join relations on relations.tag2_id = tags.tag_id "
 				"join tags as firsttags on firsttags.tag_id = relations.tag1_id "
 				"where firsttags.tagname = '%s' and relation = '%s';",
@@ -275,13 +299,16 @@ int tagsistant_readdir_on_relations(
 		*/
 	} else {
 		// list all tags
-		tagsistant_query("select tagname from tags;", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
+		tagsistant_query("select distinct tagname from tags;", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
 	}
 
 	g_free_null(ufs);
 	return (0);
 }
 
+/**
+ * Read the content of the tags/ directory
+ */
 int tagsistant_readdir_on_tags(
 		tagsistant_querytree *qtree,
 		const char *path,
@@ -321,6 +348,9 @@ int tagsistant_readdir_on_tags(
 	return (0);
 }
 
+/**
+ * Read the content of the stats/ directory
+ */
 int tagsistant_readdir_on_stats(
 		tagsistant_querytree *qtree,
 		const char *path,
@@ -347,6 +377,49 @@ int tagsistant_readdir_on_stats(
 
 	return (0);
 }
+
+/**
+ * Read the content of the alias/ directory
+ */
+int tagsistant_readdir_on_alias(
+		tagsistant_querytree *qtree,
+		const char *path,
+		void *buf,
+		fuse_fill_dir_t filler,
+		int *tagsistant_errno)
+{
+	(void) path;
+	(void) qtree;
+	(void) tagsistant_errno;
+
+	filler(buf, ".", NULL, 0);
+	filler(buf, "..", NULL, 0);
+
+	struct tagsistant_use_filler_struct *ufs = g_new0(struct tagsistant_use_filler_struct, 1);
+	if (ufs == NULL) {
+		dbg('F', LOG_ERR, "Error allocating memory");
+		*tagsistant_errno = EBADF;
+		return (-1);
+	}
+
+	ufs->filler = filler;
+	ufs->buf = buf;
+	ufs->path = path;
+	ufs->qtree = qtree;
+
+	tagsistant_query(
+		"select alias from aliases;",
+		qtree->dbi,
+		tagsistant_add_entry_to_dir,
+		ufs,
+		qtree->namespace,
+		qtree->key);
+
+	g_free(ufs);
+
+	return (0);
+}
+
 
 /**
  * readdir equivalent (in FUSE paradigm)
@@ -381,6 +454,7 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 		/* insert pseudo directories: tags/ archive/ relations/ and stats/ */
 		filler(buf, ".", NULL, 0);
 		filler(buf, "..", NULL, 0);
+		filler(buf, "alias", NULL, 0);
 		filler(buf, "archive", NULL, 0);
 		filler(buf, "relations", NULL, 0);
 //		filler(buf, "retag", NULL, 0);
@@ -399,6 +473,9 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 
 	} else if (QTREE_IS_STATS(qtree) || QTREE_IS_RETAG(qtree)) {
 		res = tagsistant_readdir_on_stats(qtree, path, buf, filler, &tagsistant_errno);
+
+	} else if (QTREE_IS_ALIAS(qtree)) {
+		res = tagsistant_readdir_on_alias(qtree, path, buf, filler, &tagsistant_errno);
 
 	}
 
@@ -565,7 +642,7 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 				switch (tag->operator) {
 					case TAGSISTANT_CONTAINS:
 						g_string_printf(tag_condition,
-							"tagname = \"%s\" and key = \"%s\" and value like \"%%s%\"",
+							"tagname = \"%s\" and key = \"%s\" and value like \"%%%s%%\"",
 							tag->namespace, tag->key, tag->value);
 						break;
 					case TAGSISTANT_GREATER_THAN:

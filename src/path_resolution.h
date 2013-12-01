@@ -86,9 +86,13 @@ typedef enum {
 	QTYPE_RELATIONS,	// path that's a relation between two or more tags, begins with /relations/
 	QTYPE_STATS,		// path that's a special query for internal status, begins with /stats/
 	QTYPE_STORE,		// where the files are tagged and accessed
+	QTYPE_ALIAS,		// where query aliases (bookmarks) are kept
 	QTYPE_TOTAL
 } tagsistant_query_type;
 
+/**
+ * An array of human readable definitions of each query type
+ */
 extern gchar *tagsistant_querytree_types[QTYPE_TOTAL];
 
 /**
@@ -101,14 +105,15 @@ extern gchar *tagsistant_querytree_types[QTYPE_TOTAL];
  * to ease coding, there are some macros to check
  * if a query if of a given type
  */
-#define QTREE_IS_MALFORMED(qtree) (QTYPE_MALFORMED == qtree->type)
-#define QTREE_IS_ROOT(qtree) (QTYPE_ROOT == qtree->type)
-#define QTREE_IS_TAGS(qtree) (QTYPE_TAGS == qtree->type)
-#define QTREE_IS_ARCHIVE(qtree) (QTYPE_ARCHIVE == qtree->type)
-#define QTREE_IS_RELATIONS(qtree) (QTYPE_RELATIONS == qtree->type)
-#define QTREE_IS_STATS(qtree) (QTYPE_STATS == qtree->type)
-#define QTREE_IS_RETAG(qtree) (QTYPE_RETAG == qtree->type)
-#define QTREE_IS_STORE(qtree) (QTYPE_STORE == qtree->type)
+#define QTREE_IS_MALFORMED(qtree)	(QTYPE_MALFORMED == qtree->type)
+#define QTREE_IS_ROOT(qtree)		(QTYPE_ROOT == qtree->type)
+#define QTREE_IS_TAGS(qtree)		(QTYPE_TAGS == qtree->type)
+#define QTREE_IS_ARCHIVE(qtree)		(QTYPE_ARCHIVE == qtree->type)
+#define QTREE_IS_RELATIONS(qtree)	(QTYPE_RELATIONS == qtree->type)
+#define QTREE_IS_STATS(qtree)		(QTYPE_STATS == qtree->type)
+#define QTREE_IS_RETAG(qtree)		(QTYPE_RETAG == qtree->type)
+#define QTREE_IS_STORE(qtree)		(QTYPE_STORE == qtree->type)
+#define QTREE_IS_ALIAS(qtree)		(QTYPE_ALIAS == qtree->type)
 
 /*
  * if a query points to an object on disk this returns true;
@@ -154,6 +159,9 @@ typedef struct querytree {
 	/** the complete path that generated the tree */
 	/** i.e. <MPOINT>/tags/t1/+/t2/=/object/path.txt */
 	gchar *full_path;
+
+	/** the complete path after the alias expansion */
+	gchar *expanded_full_path;
 
 	/** the path of the object, if provided */
 	/** i.e. object/path.txt */
@@ -204,10 +212,16 @@ typedef struct querytree {
 	/** the second tag in a relations/ query */
 	gchar *second_tag;
 
-	/** the triple tag **/
+	/** the triple tag namespace **/
 	gchar *namespace;
+
+	/** the triple tag key **/
 	gchar *key;
+
+	/** the triple tag operator **/
 	int    operator;
+
+	/** the triple tag value **/
 	gchar *value;
 
 	/** the relation in a relations/ query */
@@ -215,6 +229,9 @@ typedef struct querytree {
 
 	/** the path in a stats/ query */
 	gchar *stats_path;
+
+	/** the alias in the alias/ folder */
+	gchar *alias;
 
 	/** libDBI connection handle */
 	dbi_conn dbi;
