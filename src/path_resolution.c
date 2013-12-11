@@ -694,7 +694,7 @@ int tagsistant_querytree_parse_store (
 }
 
 /**
- * parse the query portion after relations/
+ * parse the query portion after tags/
  *
  * @param qtree the querytree object
  * @param token_ptr a pointer to the tokenized path (three stars because we need to move it across the array even in calling function)
@@ -744,6 +744,83 @@ int tagsistant_querytree_parse_relations (
 {
 	/* parse a relations query */
 	if (NULL != __TOKEN) {
+		if (g_regex_match_simple(":$", __TOKEN, 0, 0)) {
+			qtree->namespace = g_strdup(__TOKEN);
+			qtree->key = qtree->value = NULL;
+			qtree->operator = 0;
+
+			if (__NEXT_TOKEN) {
+				__SLIDE_TOKEN;
+
+				qtree->key = g_strdup(__TOKEN);
+
+				if (__NEXT_TOKEN) {
+					__SLIDE_TOKEN;
+
+					if (strcmp(__TOKEN, TAGSISTANT_GREATER_THAN_OPERATOR) == 0) {
+						qtree->operator = TAGSISTANT_GREATER_THAN;
+					} else if (strcmp(__TOKEN, TAGSISTANT_SMALLER_THAN_OPERATOR) == 0) {
+						qtree->operator = TAGSISTANT_SMALLER_THAN;
+					} else if (strcmp(__TOKEN, TAGSISTANT_EQUALS_TO_OPERATOR) == 0) {
+						qtree->operator = TAGSISTANT_EQUAL_TO;
+					} else if (strcmp(__TOKEN, TAGSISTANT_CONTAINS_OPERATOR) == 0) {
+						qtree->operator = TAGSISTANT_CONTAINS;
+					}
+
+					if (__NEXT_TOKEN) {
+						__SLIDE_TOKEN;
+
+						qtree->value = g_strdup(__TOKEN);
+						if (__NEXT_TOKEN) {
+							qtree->relation = g_strdup(__TOKEN);
+							if (__NEXT_TOKEN) {
+								qtree->related_namespace = g_strdup(__TOKEN);
+								qtree->related_key = qtree->related_value = NULL;
+								qtree->related_operator = 0;
+
+								if (__NEXT_TOKEN) {
+									__SLIDE_TOKEN;
+
+									qtree->key = g_strdup(__TOKEN);
+
+									if (__NEXT_TOKEN) {
+										__SLIDE_TOKEN;
+
+										if (strcmp(__TOKEN, TAGSISTANT_GREATER_THAN_OPERATOR) == 0) {
+											qtree->related_operator = TAGSISTANT_GREATER_THAN;
+										} else if (strcmp(__TOKEN, TAGSISTANT_SMALLER_THAN_OPERATOR) == 0) {
+											qtree->related_operator = TAGSISTANT_SMALLER_THAN;
+										} else if (strcmp(__TOKEN, TAGSISTANT_EQUALS_TO_OPERATOR) == 0) {
+											qtree->related_operator = TAGSISTANT_EQUAL_TO;
+										} else if (strcmp(__TOKEN, TAGSISTANT_CONTAINS_OPERATOR) == 0) {
+											qtree->related_operator = TAGSISTANT_CONTAINS;
+										}
+
+										if (__NEXT_TOKEN) {
+											__SLIDE_TOKEN;
+
+											qtree->related_value = g_strdup(__TOKEN);
+
+											if (__NEXT_TOKEN) {
+												qtree->type = QTYPE_MALFORMED;
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+
+
+
+
+
+
+
 		qtree->first_tag = g_strdup(__TOKEN);
 		__SLIDE_TOKEN;
 		if (NULL != __TOKEN) {

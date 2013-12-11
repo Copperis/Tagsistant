@@ -70,10 +70,10 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 
 	// -- store but incomplete (means: create a new tag) --
 	else if (QTREE_IS_STORE(qtree)) {
-		if (qtree->last_tag) {
-			tagsistant_sql_create_tag(qtree->dbi, qtree->last_tag, NULL, NULL);
-		} else if (qtree->namespace) {
+		if (qtree->namespace) {
 			tagsistant_sql_create_tag(qtree->dbi, qtree->namespace, qtree->key, qtree->value);
+		} else if (qtree->last_tag) {
+			tagsistant_sql_create_tag(qtree->dbi, qtree->last_tag, NULL, NULL);
 		}
 	}
 

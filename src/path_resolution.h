@@ -224,6 +224,11 @@ typedef struct querytree {
 	/** the triple tag value **/
 	gchar *value;
 
+	gchar *related_namespace;
+	gchar *related_key;
+	int    related_operator;
+	gchar *related_value;
+
 	/** the relation in a relations/ query */
 	gchar *relation;
 

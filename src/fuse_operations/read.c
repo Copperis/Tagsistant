@@ -154,8 +154,6 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 	// -- relations --
 	else TAGSISTANT_ABORT_OPERATION(EINVAL);
 
-	printf("%d", res);
-
 TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("READ %s (%s) (%s): %d %d: %s", path, qtree->full_archive_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));

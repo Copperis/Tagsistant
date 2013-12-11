@@ -66,38 +66,72 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 	// -- relations --
 	else if (QTREE_IS_RELATIONS(qtree)) {
-		/* if first tag does not exist, return ENOENT */
-		if (qtree->first_tag) {
-			tagsistant_inode tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->first_tag, "", "");
+		/* if ->namespace has a value, this is a triple tag */
+		tagsistant_inode tag_id = 0, related_tag_id = 0;
+
+		if (qtree->namespace) {
+			tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->namespace, qtree->key, qtree->value);
 			if (!tag_id) TAGSISTANT_ABORT_OPERATION(ENOENT);
-		}
 
-		/* process a full relation */
-		if (qtree->second_tag) {
-			// check if the relation is valid
-			gchar *check_name = NULL;
+			if (qtree->related_namespace) {
+				related_tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->related_namespace, qtree->related_key, qtree->related_value);
+				if (!related_tag_id) TAGSISTANT_ABORT_OPERATION(ENOENT);
+			} else if (qtree->second_tag) {
+				related_tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->second_tag, NULL, NULL);
+				if (!related_tag_id) TAGSISTANT_ABORT_OPERATION(ENOENT);
+			}
 
-			tagsistant_query(
-				"select t2.tagname from tags as t2 "
-					"join relations on tag2_id = t2.tag_id "
-					"join tags as t1 on t1.tag_id = relations.tag1_id "
-					"where t1.tagname = '%s' and relation = '%s' and t2.tagname = '%s'",
-				qtree->dbi,
-				tagsistant_return_string,
-				&check_name,
-				qtree->first_tag,
-				qtree->relation,
-				qtree->second_tag);
+			// check the relation
+			if (qtree->relation && (qtree->related_value || qtree->second_tag)) {
+				int relation_is_valid = 0;
+				tagsistant_query(
+					"select 1 from tagging "
+						"where relation = '%s' and "
+							"(tag1_id = %d and tag2_id = %d) or "
+							"(tag2_id = %d and tag1_id = %d)",
+					qtree->dbi,
+					tagsistant_return_integer,
+					&relation_is_valid,
+					qtree->relation,
+					tag_id,
+					related_tag_id,
+					related_tag_id,
+					tag_id);
 
-			if ((NULL == check_name) || (strcmp(qtree->second_tag, check_name) != 0)) {
-				TAGSISTANT_ABORT_OPERATION(ENOENT);
-			} else {
+				if (!relation_is_valid) TAGSISTANT_ABORT_OPERATION(ENOENT);
+			}
+
+			lstat_path = tagsistant.archive;
+
+		} else if (qtree->first_tag) {
+
+			tagsistant_inode tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->first_tag, NULL, NULL);
+			if (!tag_id) TAGSISTANT_ABORT_OPERATION(ENOENT);
+
+			if (qtree->second_tag) {
+				tagsistant_inode related_tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->second_tag, NULL, NULL);
+
+				/* process a full relation */
+				int relation_is_valid = 0;
+				tagsistant_query(
+					"select 1 from tagging "
+						"where relation = '%s' and "
+							"(tag1_id = %d and tag2_id = %d) or "
+							"(tag2_id = %d and tag1_id = %d)",
+					qtree->dbi,
+					tagsistant_return_integer,
+					&relation_is_valid,
+					qtree->relation,
+					tag_id,
+					related_tag_id,
+					related_tag_id,
+					tag_id);
+
+				if (!relation_is_valid) TAGSISTANT_ABORT_OPERATION(ENOENT);
+
 				lstat_path = tagsistant.archive;
 			}
-		} else {
-			lstat_path = tagsistant.archive;
 		}
-
 	}
 
 	// -- stats --
