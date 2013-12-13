@@ -79,11 +79,13 @@ int tagsistant_write(const char *path, const char *buf, size_t size, off_t offse
 			tagsistant_get_file_handle(fi, fh);
 			res = pwrite(fh, buf, size, offset);
 			tagsistant_errno = errno;
+//			fprintf(stderr, "Trying a write on FD %lu\n", fi->fh);
 		}
 
 		if ((-1 == res) || (0 == fh)) {
 			if (fh) close(fh);
 			fh = open(qtree->full_archive_path, fi->flags|O_WRONLY);
+//			fprintf(stderr, "Re-trying a write on FD %lu\n", fi->fh);
 
 			if (fh)	res = pwrite(fh, buf, size, offset);
 			else res = -1;

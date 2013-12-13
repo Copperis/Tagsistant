@@ -282,21 +282,46 @@ int tagsistant_readdir_on_relations(
 			qtree->first_tag,
 			qtree->relation);
 
-	} else if (qtree->first_tag) {
+	} else if (qtree->value) {
+
 		// list all relations
 		filler(buf, "includes", NULL, 0);
 		filler(buf, "is_equivalent", NULL, 0);
 
-		/*
+	} else if (qtree->operator) {
+
 		tagsistant_query(
-			"select relation from relations "
-				"join tags on tags.tag_id = relations.tag1_id "
-				"where tagname = '%s';",
-			qtree->conn,
+			"select distinct value from tags "
+				"where tagname = '%s' and key = '%s'",
+			qtree->dbi,
 			tagsistant_add_entry_to_dir,
 			ufs,
-			qtree->first_tag);
-		*/
+			qtree->namespace,
+			qtree->key);
+
+	} else if (qtree->key) {
+
+		filler(buf, TAGSISTANT_GREATER_THAN_OPERATOR, NULL, 0);
+		filler(buf, TAGSISTANT_SMALLER_THAN_OPERATOR, NULL, 0);
+		filler(buf, TAGSISTANT_EQUALS_TO_OPERATOR, NULL, 0);
+		filler(buf, TAGSISTANT_CONTAINS_OPERATOR, NULL, 0);
+
+	} else if (qtree->namespace) {
+
+		tagsistant_query(
+			"select distinct key from tags "
+				"where tagname = '%s'",
+			qtree->dbi,
+			tagsistant_add_entry_to_dir,
+			ufs,
+			qtree->namespace);
+
+	} else if (qtree->first_tag) {
+
+		// list all relations
+		filler(buf, "includes", NULL, 0);
+		filler(buf, "is_equivalent", NULL, 0);
+
 	} else {
 		// list all tags
 		tagsistant_query("select distinct tagname from tags;", qtree->dbi, tagsistant_add_entry_to_dir, ufs);

@@ -78,7 +78,7 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream)
  */
 tagsistant_inode tagsistant_inode_extract_from_path(tagsistant_querytree *qtree)
 {
-	if (!qtree || !qtree->object_path) return (0);
+	if (!qtree || !qtree->object_path || strlen(qtree->object_path)) return (0);
 
 	tagsistant_inode inode = 0;
 

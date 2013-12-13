@@ -56,11 +56,13 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 			tagsistant_get_file_handle(fi, fh);
 			res = pread(fh, buf, size, offset);
 			tagsistant_errno = errno;
+//			fprintf(stderr, "Trying a read on FD %lu\n", fi->fh);
 		}
 
 		if ((-1 == res) || (0 == fh)) {
 			if (fh) close(fh);
 			fh = open(qtree->full_archive_path, fi->flags|O_RDONLY);
+//			fprintf(stderr, "Re-trying a read on FD %lu\n", fi->fh);
 
 			if (fh)	res = pread(fh, buf, size, offset);
 			else res = -1;

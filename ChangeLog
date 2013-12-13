@@ -4,6 +4,17 @@
   - renamed the tags/ directory as store/ and created a new tags/
     directory to allow a cleaner tag management from file managers
 
+  - Alias first implementation. The user can create files in the
+    alias/ directory. Each file contains a portion of a query.
+	Aliases are listed inside the store/ directory like ordinary
+	tags, but prefixed with an "=" sign. When the user includes
+	the alias in a query it gets expanded.
+
+  - fixed a bug in src/fuse_operations/flush.c which prevented
+    proper file deduplication
+
+  - the same bug caused a "too many open file" error; now fixed
+
 0.7:
   - libextractor integration. Tagging plugins have been converted to
     the new API.

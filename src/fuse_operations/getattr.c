@@ -68,6 +68,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	else if (QTREE_IS_RELATIONS(qtree)) {
 		/* if ->namespace has a value, this is a triple tag */
 		tagsistant_inode tag_id = 0, related_tag_id = 0;
+		lstat_path = tagsistant.archive;
 
 		if (qtree->namespace) {
 			tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->namespace, qtree->key, qtree->value);
@@ -82,7 +83,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 			}
 
 			// check the relation
-			if (qtree->relation && (qtree->related_value || qtree->second_tag)) {
+			if (qtree->relation && related_tag_id) {
 				int relation_is_valid = 0;
 				tagsistant_query(
 					"select 1 from tagging "
@@ -100,8 +101,6 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 				if (!relation_is_valid) TAGSISTANT_ABORT_OPERATION(ENOENT);
 			}
-
-			lstat_path = tagsistant.archive;
 
 		} else if (qtree->first_tag) {
 
@@ -129,7 +128,6 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 				if (!relation_is_valid) TAGSISTANT_ABORT_OPERATION(ENOENT);
 
-				lstat_path = tagsistant.archive;
 			}
 		}
 	}

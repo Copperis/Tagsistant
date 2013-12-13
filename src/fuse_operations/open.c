@@ -53,6 +53,8 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 #if TAGSISTANT_ENABLE_FILE_HANDLE_CACHING
 			tagsistant_set_file_handle(fi, res);
 			dbg('F', LOG_INFO, "Caching %" PRIu64 " = open(%s)", fi->fh, path);
+//			fprintf(stderr, "Opened FD %lu\n", fi->fh);
+
 #else
 			close(res);
 #endif
