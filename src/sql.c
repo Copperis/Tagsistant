@@ -621,6 +621,8 @@ int tagsistant_return_string(void *return_string, dbi_result result)
 	return (0);
 }
 
+#define _safe_string(string) string ? string : ""
+
 /**
  * Creates a (partial) triple tag
  *
@@ -629,14 +631,19 @@ int tagsistant_return_string(void *return_string, dbi_result result)
  * @param the optional key of the triple tag
  * @param the optional value of the triple tag
  */
-void tagsistant_sql_create_tag(dbi_conn conn, gchar *namespace, gchar *key, gchar *value)
+void tagsistant_sql_create_tag(dbi_conn conn, const gchar *namespace, const gchar *key, const gchar *value)
 {
 	if (!namespace) return;
 
-	gchar *_key = key ? key : "";
-	gchar *_value = value ? value : "";
-
-	tagsistant_query("insert into tags(tagname, key, value) values (\"%s\", \"%s\", \"%s\");", conn, NULL, NULL, namespace, _key, _value);
+	tagsistant_query(
+		"insert into tags(tagname, key, value) "
+			"values (\"%s\", \"%s\", \"%s\")",
+		conn,
+		NULL,
+		NULL,
+		namespace,
+		_safe_string(key),
+		_safe_string(value));
 }
 
 /**
@@ -696,13 +703,10 @@ void tagsistant_full_untag_object(dbi_conn conn, tagsistant_inode inode)
  * @param value the value of a triple tag
  * @return the id of the tag
  */
-tagsistant_inode tagsistant_sql_get_tag_id(dbi_conn conn, gchar *tagname, gchar *key, gchar *value)
+tagsistant_inode tagsistant_sql_get_tag_id(dbi_conn conn, const gchar *tagname, const gchar *key, const gchar *value)
 {
-	gchar *_key = key ? key : "";
-	gchar *_value = value ? value : "";
-
 #if TAGSISTANT_ENABLE_TAG_ID_CACHE
-	gchar *tag_key = tagsistant_make_tag_key(tagname, _key, _value);
+	gchar *tag_key = tagsistant_make_tag_key(tagname, _safe_string(key), _safe_string(value));
 
 	// lookup in the cache
 	tagsistant_inode *tag_value = (tagsistant_inode *) g_hash_table_lookup(tagsistant_tag_cache, tagname);
@@ -718,11 +722,11 @@ tagsistant_inode tagsistant_sql_get_tag_id(dbi_conn conn, gchar *tagname, gchar 
 	if (value)
 		tagsistant_query(
 			"select tag_id from tags where tagname = \"%s\" and key = \"%s\" and value = \"%s\" limit 1",
-			conn, tagsistant_return_integer, &tag_id, tagname, _key, _value);
+			conn, tagsistant_return_integer, &tag_id, tagname, _safe_string(key), _safe_string(value));
 	else if (key)
 		tagsistant_query(
 			"select tag_id from tags where tagname = \"%s\" and key = \"%s\" limit 1",
-			conn, tagsistant_return_integer, &tag_id, tagname, _key);
+			conn, tagsistant_return_integer, &tag_id, tagname, _safe_string(key));
 	else
 		tagsistant_query(
 			"select tag_id from tags where tagname = \"%s\" limit 1",
@@ -740,13 +744,10 @@ tagsistant_inode tagsistant_sql_get_tag_id(dbi_conn conn, gchar *tagname, gchar 
 	return (tag_id);
 }
 
-void tagsistant_remove_tag_from_cache(gchar *tagname, gchar *key, gchar *value)
+void tagsistant_remove_tag_from_cache(const gchar *tagname, const gchar *key, const gchar *value)
 {
-	gchar *_key = key ? key : "";
-	gchar *_value = value ? value : "";
-
 #if TAGSISTANT_ENABLE_TAG_ID_CACHE
-	gchar *tag_key = tagsistant_make_tag_key(tagname, _key, _value);
+	gchar *tag_key = tagsistant_make_tag_key(tagname, _safe_string(key), _safe_string(value));
 	g_hash_table_remove(tagsistant_tag_cache, tag_key);
 	g_free(tag_key);
 #else
@@ -762,17 +763,22 @@ void tagsistant_remove_tag_from_cache(gchar *tagname, gchar *key, gchar *value)
  * @param key the key of a triple tag
  * @param value the value of a triple tag
  */
-void tagsistant_sql_delete_tag(dbi_conn conn, gchar *tagname, gchar *key, gchar *value)
+void tagsistant_sql_delete_tag(dbi_conn conn, const gchar *tagname, const gchar *key, const gchar *value)
 {
-	gchar *_key = key ? key : "";
-	gchar *_value = value ? value : "";
+	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(conn, tagname, _safe_string(key), _safe_string(value));
+	tagsistant_remove_tag_from_cache(tagname, _safe_string(key), _safe_string(value));
 
-	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(conn, tagname, _key, _value);
-	tagsistant_remove_tag_from_cache(tagname, _key, _value);
+	tagsistant_query(
+		"delete from tags where tagname = \"%s\" and key = \"%s\" and value = \"%s\";",
+		conn, NULL, NULL, tagname, _safe_string(key), _safe_string(value));
 
-	tagsistant_query("delete from tags where tagname = \"%s\" and key = \"%s\" and value = \"%s\";", conn, NULL, NULL, tagname, _key, _value);
-	tagsistant_query("delete from tagging where tag_id = \"%d\";", conn, NULL, NULL, tag_id);
-	tagsistant_query("delete from relations where tag1_id = \"%d\" or tag2_id = \"%d\";", conn, NULL, NULL, tag_id, tag_id);
+	tagsistant_query(
+		"delete from tagging where tag_id = \"%d\";",
+		conn, NULL, NULL, tag_id);
+
+	tagsistant_query(
+		"delete from relations where tag1_id = \"%d\" or tag2_id = \"%d\";",
+		conn, NULL, NULL, tag_id, tag_id);
 }
 
 /**
@@ -782,10 +788,15 @@ void tagsistant_sql_delete_tag(dbi_conn conn, gchar *tagname, gchar *key, gchar 
  * @param tagname the tag name
  * @param inode the object inode
  */
-void tagsistant_sql_tag_object(dbi_conn conn, gchar *tagname, gchar *key, gchar *value, tagsistant_inode inode)
+void tagsistant_sql_tag_object(
+	dbi_conn conn,
+	const gchar *tagname,
+	const gchar *key,
+	const gchar *value,
+	tagsistant_inode inode)
 {
-	gchar *_key = key ? key : "";
-	gchar *_value = value ? value : "";
+	const gchar *_key = key ? key : "";
+	const gchar *_value = value ? value : "";
 
 	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(conn, tagname, _key, _value);
 	if (!tag_id) {
@@ -809,20 +820,21 @@ void tagsistant_sql_tag_object(dbi_conn conn, gchar *tagname, gchar *key, gchar 
  * @param tagname the tag name
  * @param inode the object inode
  */
-void tagsistant_sql_untag_object(dbi_conn conn, gchar *tagname, gchar *key, gchar *value, tagsistant_inode inode)
+void tagsistant_sql_untag_object(dbi_conn conn, const gchar *tagname, const gchar *key, const gchar *value, tagsistant_inode inode)
 {
-	gchar *_key = key ? key : "";
-	gchar *_value = value ? value : "";
-
-	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(conn, tagname, _key, _value);
+	tagsistant_inode tag_id = tagsistant_sql_get_tag_id(conn, tagname, _safe_string(key), _safe_string(value));
 
 	if (value) {
-		dbg('s', LOG_INFO, "Untagging object %d from tag %s:%s=%s (%d)", inode, tagname, _key, _value, tag_id);
+		dbg('s', LOG_INFO, "Untagging object %d from tag %s:%s=%s (%d)",
+			inode, tagname, _safe_string(key), _safe_string(value), tag_id);
 	} else {
-		dbg('s', LOG_INFO, "Untagging object %d from tag %s (%d)", inode, tagname, tag_id);
+		dbg('s', LOG_INFO, "Untagging object %d from tag %s (%d)",
+			inode, tagname, tag_id);
 	}
 
-	tagsistant_query("delete from tagging where tag_id = \"%d\" and inode = \"%d\";", conn, NULL, NULL, tag_id, inode);
+	tagsistant_query(
+		"delete from tagging where tag_id = \"%d\" and inode = \"%d\";",
+		conn, NULL, NULL, tag_id, inode);
 }
 
 /**
@@ -832,7 +844,7 @@ void tagsistant_sql_untag_object(dbi_conn conn, gchar *tagname, gchar *key, gcha
  * @param tagname the new name of the tag
  * @param oldtagname the old name of the tag
  */
-void tagsistant_sql_rename_tag(dbi_conn conn, gchar *tagname, gchar *oldtagname)
+void tagsistant_sql_rename_tag(dbi_conn conn, const gchar *tagname, const gchar *oldtagname)
 {
 	tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\";", conn, NULL, NULL, tagname, oldtagname);
 }
@@ -844,7 +856,7 @@ void tagsistant_sql_rename_tag(dbi_conn conn, gchar *tagname, gchar *oldtagname)
  * @param alias the alias to be looked up in the DB
  * @return 1 if found, 0 otherwise
  */
-int tagsistant_sql_alias_exists(dbi_conn conn, gchar *alias)
+int tagsistant_sql_alias_exists(dbi_conn conn, const gchar *alias)
 {
 	int exists = 0;
 	tagsistant_query(
@@ -859,7 +871,7 @@ int tagsistant_sql_alias_exists(dbi_conn conn, gchar *alias)
  * @param conn dbi_conn reference
  * @param alias the alias to be created
  */
-void tagsistant_sql_alias_create(dbi_conn conn, gchar *alias)
+void tagsistant_sql_alias_create(dbi_conn conn, const gchar *alias)
 {
 	if (tagsistant_sql_alias_exists(conn, alias)) return;
 	tagsistant_query(
@@ -873,7 +885,7 @@ void tagsistant_sql_alias_create(dbi_conn conn, gchar *alias)
  * @param conn dbi_conn reference
  * @param alias the alias to be deleted
  */
-void tagsistant_sql_alias_delete(dbi_conn conn, gchar *alias)
+void tagsistant_sql_alias_delete(dbi_conn conn, const gchar *alias)
 {
 	tagsistant_query(
 		"delete from aliases where alias = \"%s\"",
@@ -887,7 +899,7 @@ void tagsistant_sql_alias_delete(dbi_conn conn, gchar *alias)
  * @param alias the alias to be set
  * @param query the query bookmarked by the alias
  */
-void tagsistant_sql_alias_set(dbi_conn conn, gchar *alias, gchar *query)
+void tagsistant_sql_alias_set(dbi_conn conn, const gchar *alias, const gchar *query)
 {
 	tagsistant_query(
 		"update aliases set query = \"%s\" where alias = \"%s\"",
@@ -901,7 +913,7 @@ void tagsistant_sql_alias_set(dbi_conn conn, gchar *alias, gchar *query)
  * @param alias the alias to be looked up in the DB
  * @return the value as a string (must be freed in the calling function)
  */
-gchar *tagsistant_sql_alias_get(dbi_conn conn, gchar *alias)
+gchar *tagsistant_sql_alias_get(dbi_conn conn, const gchar *alias)
 {
 	gchar *value = NULL;
 
@@ -919,7 +931,7 @@ gchar *tagsistant_sql_alias_get(dbi_conn conn, gchar *alias)
  * @param alias the alias to be measured
  * @return the length of the alias
  */
-size_t tagsistant_sql_alias_get_length(dbi_conn conn, gchar *alias)
+size_t tagsistant_sql_alias_get_length(dbi_conn conn, const gchar *alias)
 {
 	size_t length = 0;
 

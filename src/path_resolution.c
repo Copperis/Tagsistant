@@ -814,13 +814,7 @@ int tagsistant_querytree_parse_relations (
 			}
 		}
 
-
-
-
-
-
-
-
+#if 0
 		qtree->first_tag = g_strdup(__TOKEN);
 		__SLIDE_TOKEN;
 		if (NULL != __TOKEN) {
@@ -832,6 +826,7 @@ int tagsistant_querytree_parse_relations (
 				__SLIDE_TOKEN;
 			}
 		}
+#endif
 	}
 
 	return (1);
@@ -1189,9 +1184,14 @@ gchar *tagsistant_expand_path(tagsistant_querytree *qtree)
  * @param path the path to be converted in a logical query
  * @param assign_inode if the path has not an associated inode, assign one (used in mknod() and such)
  * @param start_transaction do a "start transaction" on the DB connection
+ * @param provide_connection if true, create a DBI connection
  * @return a tagsistant_querytree object
  */
-tagsistant_querytree *tagsistant_querytree_new(const char *path, int assign_inode, int start_transaction, int provide_connection)
+tagsistant_querytree *tagsistant_querytree_new(
+	const char *path,
+	int assign_inode,
+	int start_transaction,
+	int provide_connection)
 {
 	int tagsistant_errno;
 	tagsistant_querytree *qtree = NULL;

@@ -72,10 +72,14 @@ typedef struct tagsistant_plugin {
 	struct tagsistant_plugin *next;
 } tagsistant_plugin_t;
 
-extern void tagsistant_plugin_iterator(const tagsistant_querytree *qtree,
-	tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS], GRegex *regex);
+extern void tagsistant_plugin_iterator(
+	const tagsistant_querytree *qtree,
+	const gchar *namespace,
+	tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS],
+	GRegex *regex);
 
-extern const gchar *tagsistant_plugin_get_keyword_value(gchar *keyword,
+extern const gchar *tagsistant_plugin_get_keyword_value(
+	gchar *keyword,
 	tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS]);
 
 extern void tagsistant_plugin_tag_by_date(const tagsistant_querytree *qtree, const gchar *date);

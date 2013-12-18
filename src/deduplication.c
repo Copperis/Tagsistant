@@ -112,17 +112,15 @@ int tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
 {
 	dbg('2', LOG_INFO, "Running deduplication on %s", qtree->object_path);
 
-	int do_autotagging = TAGSISTANT_DONT_DO_AUTOTAGGING;
-
 	/* guess if the object is a file or a symlink */
 	struct stat buf;
 	if ((-1 == lstat(qtree->full_archive_path, &buf)) || (!S_ISREG(buf.st_mode) && !S_ISLNK(buf.st_mode)))
-		return (do_autotagging);
+		return (TAGSISTANT_DONT_DO_AUTOTAGGING);
 
 	dbg('2', LOG_INFO, "Checksumming %s", qtree->full_archive_path);
 
 	/* we'll return a 'do autotagging' condition even if a problem arise in computing file checksum */
-	do_autotagging = TAGSISTANT_DO_AUTOTAGGING;
+	int do_autotagging = TAGSISTANT_DO_AUTOTAGGING;
 
 	/* open the file and read its content to compute is checksum */
 	int fd = open(qtree->full_archive_path, O_RDONLY|O_NOATIME);

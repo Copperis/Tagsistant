@@ -44,7 +44,7 @@ int tagsistant_processor(tagsistant_querytree *qtree, tagsistant_keyword keyword
 	tagsistant_sql_tag_object(qtree->dbi, "document", NULL, NULL, qtree->inode);
 
 	/* applying regular expression */
-	tagsistant_plugin_iterator(qtree, keywords, rx);
+	tagsistant_plugin_iterator(qtree, "document:", keywords, rx);
 
 	return(TP_STOP);
 }

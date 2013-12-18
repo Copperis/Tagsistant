@@ -38,7 +38,7 @@ int tagsistant_plugin_init()
 /* exported processor function */
 int tagsistant_processor(tagsistant_querytree *qtree, tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS])
 {
-	tagsistant_plugin_iterator(qtree, keywords, rx);
+	tagsistant_plugin_iterator(qtree, "autotagging:", keywords, rx);
 	return(TP_OK);
 }
 

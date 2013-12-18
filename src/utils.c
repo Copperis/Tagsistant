@@ -78,7 +78,7 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream)
  */
 tagsistant_inode tagsistant_inode_extract_from_path(tagsistant_querytree *qtree)
 {
-	if (!qtree || !qtree->object_path || strlen(qtree->object_path)) return (0);
+	if (!qtree || !qtree->object_path || strlen(qtree->object_path) == 0) return (0);
 
 	tagsistant_inode inode = 0;
 
@@ -88,8 +88,7 @@ tagsistant_inode tagsistant_inode_extract_from_path(tagsistant_querytree *qtree)
 		 * extract the inode
 		 */
 		gchar *inode_text = g_match_info_fetch(match_info, 1);
-		gchar *backup_inode_text = inode_text;
-		inode = strtoul(inode_text, &backup_inode_text, 10);
+		inode = strtoul(inode_text, NULL, 10);
 		g_free_null(inode_text);
 
 		/*

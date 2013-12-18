@@ -37,6 +37,37 @@ static GRegex *tagsistant_rx_date;
 #define errno
 #endif
 
+int tagsistant_run_processor(
+	tagsistant_plugin_t *plugin,
+	tagsistant_querytree *qtree,
+	tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS])
+{
+	/* call plugin processor */
+	dbg('p', LOG_INFO, "Applying plugin %s", plugin->filename);
+	int res = (plugin->processor)(qtree, keywords);
+
+	/* report about processing */
+	switch (res) {
+		case TP_ERROR:
+			dbg('p', LOG_ERR, "Plugin %s was supposed to apply to %s, but failed!", plugin->filename, qtree->full_archive_path);
+			break;
+		case TP_OK:
+			dbg('p', LOG_INFO, "Plugin %s tagged %s", plugin->filename, qtree->full_archive_path);
+			break;
+		case TP_STOP:
+			dbg('p', LOG_INFO, "Plugin %s stopped chain on %s", plugin->filename, qtree->full_archive_path);
+			break;
+		case TP_NULL:
+			dbg('p', LOG_INFO, "Plugin %s did not tagged %s", plugin->filename, qtree->full_archive_path);
+			break;
+		default:
+			dbg('p', LOG_ERR, "Plugin %s returned unknown result %d", plugin->filename, res);
+			break;
+	}
+
+	return (res);
+}
+
 #if TAGSISTANT_EXTRACTOR == 5
 
 /**
@@ -99,39 +130,35 @@ int tagsistant_process(tagsistant_querytree *qtree)
 		slash++; *slash = '\0';
 	}
 
-	/*
-	 *  apply plugins in order
-	 */
+	//
+	//  apply plugins starting from the most matching first (like: image/jpeg)
+	//
 	tagsistant_plugin_t *plugin = tagsistant.plugins;
 	while (plugin != NULL) {
-		if (
-			(strcmp(plugin->mime_type, mime_type) == 0) ||
-			(strcmp(plugin->mime_type, mime_generic) == 0) ||
-			(strcmp(plugin->mime_type, "*/*") == 0)
-		) {
-			/* call plugin processor */
-			dbg('p', LOG_INFO, "Applying plugin %s", plugin->filename);
-			res = (plugin->processor)(qtree, keywords);
+		if (strcmp(plugin->mime_type, mime_type) == 0) {
+			if (TP_STOP == tagsistant_run_processor(plugin, qtree, keywords)) goto STOP_CHAIN_TAGGING;
+		}
+		plugin = plugin->next;
+	}
 
-			/* report about processing */
-			switch (res) {
-				case TP_ERROR:
-					dbg('p', LOG_ERR, "Plugin %s was supposed to apply to %s, but failed!", plugin->filename, qtree->full_archive_path);
-					break;
-				case TP_OK:
-					dbg('p', LOG_INFO, "Plugin %s tagged %s", plugin->filename, qtree->full_archive_path);
-					break;
-				case TP_STOP:
-					dbg('p', LOG_INFO, "Plugin %s stopped chain on %s", plugin->filename, qtree->full_archive_path);
-					goto STOP_CHAIN_TAGGING;
-					break;
-				case TP_NULL:
-					dbg('p', LOG_INFO, "Plugin %s did not tagged %s", plugin->filename, qtree->full_archive_path);
-					break;
-				default:
-					dbg('p', LOG_ERR, "Plugin %s returned unknown result %d", plugin->filename, res);
-					break;
-			}
+	//
+	// mime generic then (like: image / *)
+	//
+	plugin = tagsistant.plugins;
+	while (plugin != NULL) {
+		if (strcmp(plugin->mime_type, mime_generic) == 0) {
+			if (TP_STOP == tagsistant_run_processor(plugin, qtree, keywords)) goto STOP_CHAIN_TAGGING;
+		}
+		plugin = plugin->next;
+	}
+
+	//
+	// mime everything (* / *)
+	//
+	plugin = tagsistant.plugins;
+	while (plugin != NULL) {
+		if (strcmp(plugin->mime_type, "*/*") == 0) {
+			if (TP_STOP == tagsistant_run_processor(plugin, qtree, keywords)) goto STOP_CHAIN_TAGGING;
 		}
 		plugin = plugin->next;
 	}
@@ -222,39 +249,41 @@ int tagsistant_process(tagsistant_querytree *qtree)
 	/*
 	 *  apply plugins in order
 	 */
+	//
+	//  apply plugins starting from the most matching first (like: image/jpeg)
+	//
 	tagsistant_plugin_t *plugin = tagsistant.plugins;
 	while (plugin != NULL) {
-		if (
-			(strcmp(plugin->mime_type, context.mime_type) == 0) ||
-			(strcmp(plugin->mime_type, context.generic_mime_type) == 0) ||
-			(strcmp(plugin->mime_type, "*/*") == 0)
-		) {
-			/* call plugin processor */
-			dbg('p', LOG_INFO, "Applying plugin %s", plugin->filename);
-			res = (plugin->processor)(qtree, context.keywords);
-
-			/* report about processing */
-			switch (res) {
-				case TP_ERROR:
-					dbg('p', LOG_ERR, "Plugin %s was supposed to apply to %s, but failed!", plugin->filename, qtree->full_archive_path);
-					break;
-				case TP_OK:
-					dbg('p', LOG_INFO, "Plugin %s tagged %s", plugin->filename, qtree->full_archive_path);
-					break;
-				case TP_STOP:
-					dbg('p', LOG_INFO, "Plugin %s stopped chain on %s", plugin->filename, qtree->full_archive_path);
-					goto TAGSISTANT_AUTOTAGGING_EXIT;
-					break;
-				case TP_NULL:
-					dbg('p', LOG_INFO, "Plugin %s did not tagged %s", plugin->filename, qtree->full_archive_path);
-					break;
-				default:
-					dbg('p', LOG_ERR, "Plugin %s returned unknown result %d", plugin->filename, res);
-					break;
-			}
+		if (strcmp(plugin->mime_type, mime_type) == 0) {
+			if (TP_STOP == tagsistant_run_processor(plugin, qtree, keywords)) goto STOP_CHAIN_TAGGING;
 		}
 		plugin = plugin->next;
 	}
+
+	//
+	// mime generic then (like: image / *)
+	//
+	plugin = tagsistant.plugins;
+	while (plugin != NULL) {
+		if (strcmp(plugin->mime_type, mime_generic) == 0) {
+			if (TP_STOP == tagsistant_run_processor(plugin, qtree, keywords)) goto STOP_CHAIN_TAGGING;
+		}
+		plugin = plugin->next;
+	}
+
+	//
+	// mime everything (* / *)
+	//
+	plugin = tagsistant.plugins;
+	while (plugin != NULL) {
+		if (strcmp(plugin->mime_type, "*/*") == 0) {
+			if (TP_STOP == tagsistant_run_processor(plugin, qtree, keywords)) goto STOP_CHAIN_TAGGING;
+		}
+		plugin = plugin->next;
+	}
+
+STOP_CHAIN_TAGGING:
+
 
 TAGSISTANT_AUTOTAGGING_EXIT:
 	return (res);
@@ -270,7 +299,12 @@ TAGSISTANT_AUTOTAGGING_EXIT:
  * @param value a string with the keyword value
  * @param qtree the tagsistant_querytree object that could be tagged
  */
-void tagsistant_keyword_matcher(GRegex *regex, const gchar *keyword, const gchar *value, const tagsistant_querytree *qtree)
+void tagsistant_keyword_matcher(
+	GRegex *regex,
+	const gchar *namespace,
+	const gchar *keyword,
+	const gchar *value,
+	const tagsistant_querytree *qtree)
 {
 	/* if the keyword name matches the filter regular expression... */
 	if (g_regex_match(regex, keyword, 0, NULL)) {
@@ -293,7 +327,7 @@ void tagsistant_keyword_matcher(GRegex *regex, const gchar *keyword, const gchar
 		}
 
 		/* ... then tag the file ... */
-		tagsistant_sql_tag_object(qtree->dbi, "libextractor", clean_keyword, clean_value, qtree->inode);
+		tagsistant_sql_tag_object(qtree->dbi, namespace, clean_keyword, clean_value, qtree->inode);
 
 		/* ... and cleanup */
 		g_free_null(clean_keyword);
@@ -310,8 +344,11 @@ void tagsistant_keyword_matcher(GRegex *regex, const gchar *keyword, const gchar
  * @param keyworkd a EXTRACTOR_KeywordList * list of keywords
  * @param regex a precompiled GRegex object to match against each keyword
  */
-void tagsistant_plugin_iterator(const tagsistant_querytree *qtree,
-	tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS], GRegex *regex)
+void tagsistant_plugin_iterator(
+	const tagsistant_querytree *qtree,
+	const gchar *namespace,
+	tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS],
+	GRegex *regex)
 {
 	/*
 	 * loop through the keywords to tag the file
@@ -322,7 +359,7 @@ void tagsistant_plugin_iterator(const tagsistant_querytree *qtree,
 		if ('\0' == *(keywords[c].keyword)) break;
 
 		/* tag the qtree with the keyword if the regular expression matches */
-		tagsistant_keyword_matcher(regex, keywords[c].keyword, keywords[c].value, qtree);
+		tagsistant_keyword_matcher(regex, namespace, keywords[c].keyword, keywords[c].value, qtree);
 	}
 }
 
