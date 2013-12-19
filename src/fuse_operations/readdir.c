@@ -184,22 +184,22 @@ int tagsistant_readdir_on_store(
 		}
 
 		if (qtree->value) {
-			tagsistant_query("select distinct tagname from tags;", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
+			tagsistant_query("select distinct tagname from tags", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
 			ufs->is_alias = 1;
-			tagsistant_query("select alias from aliases;", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
+			tagsistant_query("select alias from aliases", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
 		} else if (qtree->operator) {
-			tagsistant_query("select distinct value from tags where tagname = \"%s\" and key = \"%s\";", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace, qtree->key);
+			tagsistant_query("select distinct value from tags where tagname = \"%s\" and key = \"%s\"", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace, qtree->key);
 		} else if (qtree->key) {
 			filler(buf, TAGSISTANT_EQUALS_TO_OPERATOR, NULL, 0);
 			filler(buf, TAGSISTANT_CONTAINS_OPERATOR, NULL, 0);
 			filler(buf, TAGSISTANT_GREATER_THAN_OPERATOR, NULL, 0);
 			filler(buf, TAGSISTANT_SMALLER_THAN_OPERATOR, NULL, 0);
 		} else if (qtree->namespace) {
-			tagsistant_query("select distinct key from tags where tagname = \"%s\";", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace);
+			tagsistant_query("select distinct key from tags where tagname = \"%s\"", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace);
 		} else {
-			tagsistant_query("select distinct tagname from tags;", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
+			tagsistant_query("select distinct tagname from tags", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
 			ufs->is_alias = 1;
-			tagsistant_query("select alias from aliases;", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
+			tagsistant_query("select alias from aliases", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
 		}
 	}
 
@@ -275,7 +275,7 @@ int tagsistant_readdir_on_relations(
 			"select distinct tags.tagname from tags "
 				"join relations on relations.tag2_id = tags.tag_id "
 				"join tags as firsttags on firsttags.tag_id = relations.tag1_id "
-				"where firsttags.tagname = '%s' and relation = '%s';",
+				"where firsttags.tagname = '%s' and relation = '%s'",
 			qtree->dbi,
 			tagsistant_add_entry_to_dir,
 			ufs,
@@ -324,7 +324,7 @@ int tagsistant_readdir_on_relations(
 
 	} else {
 		// list all tags
-		tagsistant_query("select distinct tagname from tags;", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
+		tagsistant_query("select distinct tagname from tags", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
 	}
 
 	g_free_null(ufs);
@@ -361,12 +361,12 @@ int tagsistant_readdir_on_tags(
 	} else if (qtree->value) {
 		// nothing
 	} else if (qtree->key) {
-		tagsistant_query("select distinct value from tags where tagname = \"%s\" and key = \"%s\";", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace, qtree->key);
+		tagsistant_query("select distinct value from tags where tagname = \"%s\" and key = \"%s\"", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace, qtree->key);
 	} else if (qtree->namespace) {
-		tagsistant_query("select distinct key from tags where tagname = \"%s\";", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace);
+		tagsistant_query("select distinct key from tags where tagname = \"%s\"", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace);
 	} else {
 		// list all tags
-		tagsistant_query("select distinct tagname from tags;", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
+		tagsistant_query("select distinct tagname from tags", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
 	}
 
 	g_free_null(ufs);
@@ -433,7 +433,7 @@ int tagsistant_readdir_on_alias(
 	ufs->qtree = qtree;
 
 	tagsistant_query(
-		"select alias from aliases;",
+		"select alias from aliases",
 		qtree->dbi,
 		tagsistant_add_entry_to_dir,
 		ufs,

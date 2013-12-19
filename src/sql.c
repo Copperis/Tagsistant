@@ -347,7 +347,7 @@ void tagsistant_create_schema()
 					"tagname varchar(65) not null, "
 					"key varchar(65) not null default \"\", "
 					"value varchar(65) not null default \"\", "
-					"constraint Tag_key unique (tagname, key, value));",
+					"constraint Tag_key unique (tagname, key, value))",
 				dbi, NULL, NULL);
 
 			tagsistant_query(
@@ -356,14 +356,14 @@ void tagsistant_create_schema()
 					"objectname text(255) not null, "
 					"last_autotag timestamp not null default 0, "
 					"checksum text(40) not null default \"\", "
-					"symlink text(1024) not null default \"\");",
+					"symlink text(1024) not null default \"\")",
 				dbi, NULL, NULL);
 
 			tagsistant_query(
 				"create table if not exists tagging ("
 					"inode integer not null, "
 					"tag_id integer not null, "
-					"constraint Tagging_key unique (inode, tag_id));",
+					"constraint Tagging_key unique (inode, tag_id))",
 				dbi, NULL, NULL);
 
 			tagsistant_query(
@@ -371,20 +371,20 @@ void tagsistant_create_schema()
 					"relation_id integer primary key autoincrement not null, "
 					"tag1_id integer not null, "
 					"relation varchar not null, "
-					"tag2_id integer not null);",
+					"tag2_id integer not null)",
 				dbi, NULL, NULL);
 
 			tagsistant_query(
 				"create table if not exists aliases ("
 					"alias varchar(65) primary key not null, "
-					"query varchar(%d) not null);",
+					"query varchar(%d) not null)",
 				dbi, NULL, NULL, TAGSISTANT_ALIAS_MAX_LENGTH);
 
-			tagsistant_query("create index if not exists relations_index on relations (tag1_id, tag2_id);", dbi, NULL, NULL);
-			tagsistant_query("create index if not exists objectname_index on objects (objectname);", dbi, NULL, NULL);
-			tagsistant_query("create index if not exists symlink_index on objects (symlink, inode);", dbi, NULL, NULL);
-			tagsistant_query("create index if not exists relations_type_index on relations (relation);", dbi, NULL, NULL);
-			tagsistant_query("create index if not exists aliases_index on aliases (alias);", dbi, NULL, NULL);
+			tagsistant_query("create index if not exists relations_index on relations (tag1_id, tag2_id)", dbi, NULL, NULL);
+			tagsistant_query("create index if not exists objectname_index on objects (objectname)", dbi, NULL, NULL);
+			tagsistant_query("create index if not exists symlink_index on objects (symlink, inode)", dbi, NULL, NULL);
+			tagsistant_query("create index if not exists relations_type_index on relations (relation)", dbi, NULL, NULL);
+			tagsistant_query("create index if not exists aliases_index on aliases (alias)", dbi, NULL, NULL);
 			break;
 
 		case TAGSISTANT_DBI_MYSQL_BACKEND:
@@ -394,7 +394,7 @@ void tagsistant_create_schema()
 					"tagname varchar(65) not null, "
 					"key varchar(65) not null, "
 					"value varchar(65) not null, "
-					"constraint Tag_key unique key (tagname, key, value);",
+					"constraint Tag_key unique key (tagname, key, value)",
 				dbi, NULL, NULL);
 
 			tagsistant_query(
@@ -403,14 +403,14 @@ void tagsistant_create_schema()
 					"objectname varchar(255) not null, "
 					"last_autotag timestamp not null default 0, "
 					"checksum varchar(40) not null default \"\", "
-					"symlink varchar(1024) not null default \"\");",
+					"symlink varchar(1024) not null default \"\")",
 				dbi, NULL, NULL);
 
 			tagsistant_query(
 				"create table if not exists tagging ("
 					"inode integer not null, "
 					"tag_id integer not null, "
-					"constraint Tagging_key unique key (inode, tag_id));",
+					"constraint Tagging_key unique key (inode, tag_id))",
 				dbi, NULL, NULL);
 
 			tagsistant_query(
@@ -418,20 +418,20 @@ void tagsistant_create_schema()
 					"relation_id integer primary key auto_increment not null, "
 					"tag1_id integer not null, "
 					"relation varchar(32) not null, "
-					"tag2_id integer not null);",
+					"tag2_id integer not null)",
 				dbi, NULL, NULL);
 
 			tagsistant_query(
 				"create table if not exists aliases ("
 					"alias varchar(65) primary key not null, "
-					"query varchar(%d) not null);",
+					"query varchar(%d) not null)",
 				dbi, NULL, NULL, TAGSISTANT_ALIAS_MAX_LENGTH);
 
-			tagsistant_query("create index relations_index on relations (tag1_id, tag2_id);", dbi, NULL, NULL);
-			tagsistant_query("create index objectname_index on objects (objectname);", dbi, NULL, NULL);
-			tagsistant_query("create index symlink_index on objects (symlink, inode);", dbi, NULL, NULL);
-			tagsistant_query("create index relations_type_index on relations (relation);", dbi, NULL, NULL);
-			tagsistant_query("create index aliases_index on aliases (alias);", dbi, NULL, NULL);
+			tagsistant_query("create index relations_index on relations (tag1_id, tag2_id)", dbi, NULL, NULL);
+			tagsistant_query("create index objectname_index on objects (objectname)", dbi, NULL, NULL);
+			tagsistant_query("create index symlink_index on objects (symlink, inode)", dbi, NULL, NULL);
+			tagsistant_query("create index relations_type_index on relations (relation)", dbi, NULL, NULL);
+			tagsistant_query("create index aliases_index on aliases (alias)", dbi, NULL, NULL);
 			break;
 
 		default:
@@ -604,7 +604,7 @@ int tagsistant_return_integer(void *return_integer, dbi_result result)
  * Should be called as in:
  *
  *   gchar *string;
- *   tagsistant_query("SQL statement;", return_string, &string); // note the &
+ *   tagsistant_query("SQL statement", return_string, &string); // note the &
  * 
  * @param return_string string pointer cast to void* which holds the string to be returned
  * @param result dbi_result pointer
@@ -769,15 +769,15 @@ void tagsistant_sql_delete_tag(dbi_conn conn, const gchar *tagname, const gchar 
 	tagsistant_remove_tag_from_cache(tagname, _safe_string(key), _safe_string(value));
 
 	tagsistant_query(
-		"delete from tags where tagname = \"%s\" and key = \"%s\" and value = \"%s\";",
+		"delete from tags where tagname = \"%s\" and key = \"%s\" and value = \"%s\"",
 		conn, NULL, NULL, tagname, _safe_string(key), _safe_string(value));
 
 	tagsistant_query(
-		"delete from tagging where tag_id = \"%d\";",
+		"delete from tagging where tag_id = \"%d\"",
 		conn, NULL, NULL, tag_id);
 
 	tagsistant_query(
-		"delete from relations where tag1_id = \"%d\" or tag2_id = \"%d\";",
+		"delete from relations where tag1_id = \"%d\" or tag2_id = \"%d\"",
 		conn, NULL, NULL, tag_id, tag_id);
 }
 
@@ -810,7 +810,7 @@ void tagsistant_sql_tag_object(
 		dbg('s', LOG_INFO, "Tagging object %d as %s (%d)", inode, tagname, tag_id);
 	}
 
-	tagsistant_query("insert into tagging(tag_id, inode) values(\"%d\", \"%d\");", conn, NULL, NULL, tag_id, inode);
+	tagsistant_query("insert into tagging(tag_id, inode) values(\"%d\", \"%d\")", conn, NULL, NULL, tag_id, inode);
 }
 
 /**
@@ -833,7 +833,7 @@ void tagsistant_sql_untag_object(dbi_conn conn, const gchar *tagname, const gcha
 	}
 
 	tagsistant_query(
-		"delete from tagging where tag_id = \"%d\" and inode = \"%d\";",
+		"delete from tagging where tag_id = \"%d\" and inode = \"%d\"",
 		conn, NULL, NULL, tag_id, inode);
 }
 
@@ -846,7 +846,7 @@ void tagsistant_sql_untag_object(dbi_conn conn, const gchar *tagname, const gcha
  */
 void tagsistant_sql_rename_tag(dbi_conn conn, const gchar *tagname, const gchar *oldtagname)
 {
-	tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\";", conn, NULL, NULL, tagname, oldtagname);
+	tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\"", conn, NULL, NULL, tagname, oldtagname);
 }
 
 /**

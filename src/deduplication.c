@@ -119,6 +119,19 @@ int tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
 
 	dbg('2', LOG_INFO, "Checksumming %s", qtree->full_archive_path);
 
+	/* check if object checksum is a zero-length string */
+	gchar *loaded_checksum;
+	tagsistant_query(
+		"select checksum from objects where inode = %d",
+		qtree->dbi,
+		tagsistant_return_string,
+		&loaded_checksum,
+		qtree->inode);
+
+	if (loaded_checksum && strlen(loaded_checksum)) {
+		return (TAGSISTANT_DO_AUTOTAGGING);
+	}
+
 	/* we'll return a 'do autotagging' condition even if a problem arise in computing file checksum */
 	int do_autotagging = TAGSISTANT_DO_AUTOTAGGING;
 
@@ -145,7 +158,7 @@ int tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
 
 			/* save the string into the objects table */
 			tagsistant_query(
-				"update objects set checksum = '%s' where inode = %d;",
+				"update objects set checksum = '%s' where inode = %d",
 				qtree->dbi, NULL, NULL, hex, qtree->inode);
 
 			/* look for duplicated objects */
