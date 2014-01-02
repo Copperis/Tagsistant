@@ -363,11 +363,12 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 				"select objects.inode from objects "
 					"join tagging on objects.inode = tagging.inode "
 					"join tags on tagging.tag_id = tags.tag_id "
-					"where tags.tagname = \"%s\" "
+					"where tags.tagname %s \"%s\" "
 					"and objects.objectname = \"%s\" ",
 				dbi,
 				tagsistant_return_integer,
 				&inode,
+				(and_set_ptr->negate) ? "<>" : "=",
 				and_set_ptr->tag,
 				objectname
 			);
@@ -596,6 +597,8 @@ int tagsistant_querytree_parse_store (
 	while (__TOKEN && (TAGSISTANT_QUERY_DELIMITER_CHAR != *__TOKEN)) {
 		if (strlen(__TOKEN) == 0) {
 			/* ignore zero length tokens */
+		} else if (strcmp(__TOKEN, TAGSISTANT_NEGATE_NEXT_TAG) == 0) {
+			qtree->negate_next_tag = 1;
 		} else if (strcmp(__TOKEN, TAGSISTANT_ANDSET_DELIMITER) == 0) {
 			/* open new entry in OR level */
 			orcount++;
@@ -614,6 +617,11 @@ int tagsistant_querytree_parse_store (
 			if (and == NULL) {
 				dbg('q', LOG_ERR, "Error allocating memory");
 				return (0);
+			}
+
+			if (qtree->negate_next_tag) {
+				qtree->negate_next_tag = 0;
+				and->negate = 1;
 			}
 
 			/*

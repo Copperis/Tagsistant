@@ -41,6 +41,9 @@ enum {
  * defines an AND token in a query path
  */
 typedef struct ptree_and_node {
+	/** this tag should not match? */
+	int negate;
+
 	/** the name of this token */
 	char *tag;
 
@@ -205,6 +208,9 @@ typedef struct querytree {
 
 	/** the query tree in a tags/ query */
 	ptree_or_node *tree;
+
+	/** used during path parsing to specify that next tag should not match */
+	int negate_next_tag;
 
 	/** the first tag in a relations/ query */
 	gchar *first_tag;

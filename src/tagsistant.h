@@ -44,6 +44,12 @@
 /** And-set delimiter as a single char */
 #define TAGSISTANT_ANDSET_DELIMITER_CHAR '+'
 
+/** 'Next tag should not match' indicator */
+#define TAGSISTANT_NEGATE_NEXT_TAG "-"
+
+/** 'Next tag should not match' indicator as a single char */
+#define TAGSISTANT_NEGATE_NEXT_TAG_CHAR '-'
+
 /** the string used to separate inodes from filenames inside archive/ directory */
 #define TAGSISTANT_INODE_DELIMITER "___"
 

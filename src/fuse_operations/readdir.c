@@ -119,8 +119,11 @@ static int tagsistant_readdir_on_store_filler(gchar *name, GList *fh_list, struc
  */
 int tagsistant_do_add_operators(tagsistant_querytree *qtree)
 {
-	gchar tagsistant_check_tags_path_regex[] =
-		"/(\\" TAGSISTANT_ANDSET_DELIMITER "|" TAGSISTANT_QUERY_DELIMITER "|" TAGSISTANT_QUERY_DELIMITER_NO_REASONING ")$";
+	gchar tagsistant_check_tags_path_regex[] = "/(\\"
+		TAGSISTANT_ANDSET_DELIMITER "|"
+		TAGSISTANT_QUERY_DELIMITER "|"
+		TAGSISTANT_QUERY_DELIMITER_NO_REASONING "|"
+		TAGSISTANT_NEGATE_NEXT_TAG ")$";
 
 	if (!g_regex_match_simple(tagsistant_check_tags_path_regex, qtree->full_path, G_REGEX_EXTENDED, 0)) {
 		if (g_strcmp0(qtree->full_path, "/tags")) {
@@ -181,6 +184,7 @@ int tagsistant_readdir_on_store(
 			filler(buf, TAGSISTANT_ANDSET_DELIMITER, NULL, 0);
 			filler(buf, TAGSISTANT_QUERY_DELIMITER, NULL, 0);
 			filler(buf, TAGSISTANT_QUERY_DELIMITER_NO_REASONING, NULL, 0);
+			filler(buf, TAGSISTANT_NEGATE_NEXT_TAG, NULL, 0);
 		}
 
 		if (qtree->value) {
@@ -654,7 +658,17 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 			GString *tag_condition = g_string_sized_new(1024);
 
 			if (tag->tag) {
-				g_string_printf(tag_condition, "tagname in (\"%s\"", tag->tag);
+				if (tag->negate) {
+					g_string_printf(tag_condition,
+						"objects.inode not in ("
+							"select objects.inode "
+							"from objects "
+							"join tagging on tagging.inode = objects.inode "
+							"join tags on tags.tag_id = tagging.tag_id "
+							"where tagname in (\"%s\"", tag->tag);
+				} else {
+					g_string_printf(tag_condition, "tagname in (\"%s\"", tag->tag);
+				}
 				if (tag->related != NULL) {
 					ptree_and_node *related = tag->related;
 					while (related != NULL) {
@@ -662,7 +676,7 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 						related = related->related;
 					}
 				}
-				g_string_append(tag_condition, ")");
+				g_string_append(tag_condition, (tag->negate) ? "))" : ")");
 			} else if (tag->namespace && tag->key && tag->value) {
 				switch (tag->operator) {
 					case TAGSISTANT_CONTAINS:

@@ -157,9 +157,10 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 		// dbg(LOG_INFO, "getattr: last tag is %s", qtree->last_tag);
 		if (NULL == qtree->last_tag) {
 			// OK
-		} else if (g_strcmp0(qtree->last_tag, TAGSISTANT_ANDSET_DELIMITER) == 0) {
+		} else if ((g_strcmp0(qtree->last_tag, TAGSISTANT_ANDSET_DELIMITER) == 0) ||
+			(g_strcmp0(qtree->last_tag, TAGSISTANT_NEGATE_NEXT_TAG) == 0)) {
 
-			// path ends by '+'
+			// path ends by '+' or by '!'
 			stbuf->st_ino += 1;
 			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
 			stbuf->st_nlink = 1;
@@ -223,7 +224,8 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	}
 
 TAGSISTANT_EXIT_OPERATION:
-	if ( res == -1 ) {
+
+if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("GETATTR on %s (%s) {%s}: %d %d: %s", path, lstat_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
 		return (-tagsistant_errno);

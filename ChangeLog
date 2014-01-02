@@ -15,6 +15,14 @@
 
   - the same bug caused a "too many open file" error; now fixed
 
+  - first implementation of the negation operator -/ which subtracts
+    from the result sets all the files that are tagged with the
+	tag following the operator. For example:
+
+	  ~/myfiles/store/t1/t2/-/t3/@@
+	
+	returns the files tagged as t1 and t2 but not tagged as t3.
+
 0.7:
   - libextractor integration. Tagging plugins have been converted to
     the new API.
