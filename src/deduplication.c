@@ -103,7 +103,7 @@ int tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *hex
 }
 
 /**
- * Deduplicate the object pointed by the querytree
+ * Deduplicates the object pointed by the querytree
  *
  * @param qtree the querytree object
  * @return true if autotagging is required, false otherwise

@@ -83,6 +83,9 @@
 /** the maximum length of a query bookmarked as an alias */
 #define TAGSISTANT_ALIAS_MAX_LENGTH 1024
 
+/** the depth of the archive/ hierarchy (each zero adds one level, 10 is the lowest meaningful value) */
+#define TAGSISTANT_ARCHIVE_DEPTH 1000
+
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif

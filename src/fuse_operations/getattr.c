@@ -40,11 +40,21 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	if (QTREE_IS_MALFORMED(qtree))
 		TAGSISTANT_ABORT_OPERATION(ENOENT);
 	
+	if (QTREE_IS_ARCHIVE(qtree)) {
+		if (!g_regex_match_simple(TAGSISTANT_INODE_DELIMITER, qtree->object_path, 0, 0)) {
+			lstat_path = tagsistant.archive;
+		} else if (qtree->full_archive_path) {
+			lstat_path = qtree->full_archive_path;
+		} else {
+			TAGSISTANT_ABORT_OPERATION(ENOENT);
+		}
+	}
+
 	// -- object on disk --
-	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+	else if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		tagsistant_querytree_check_tagging_consistency(qtree);
 
-		if (qtree->full_archive_path && (qtree->exists || QTREE_IS_ARCHIVE(qtree))) {
+		if (qtree->full_archive_path && qtree->exists) {
 			lstat_path = qtree->full_archive_path;
 		} else {
 			TAGSISTANT_ABORT_OPERATION(ENOENT);

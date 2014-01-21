@@ -383,6 +383,7 @@ void tagsistant_create_schema()
 			tagsistant_query("create index if not exists relations_index on relations (tag1_id, tag2_id)", dbi, NULL, NULL);
 			tagsistant_query("create index if not exists objectname_index on objects (objectname)", dbi, NULL, NULL);
 			tagsistant_query("create index if not exists symlink_index on objects (symlink, inode)", dbi, NULL, NULL);
+			tagsistant_query("create index if not exists checksum_index on objects (checksum, inode)", dbi, NULL, NULL);
 			tagsistant_query("create index if not exists relations_type_index on relations (relation)", dbi, NULL, NULL);
 			tagsistant_query("create index if not exists aliases_index on aliases (alias)", dbi, NULL, NULL);
 			break;
@@ -430,6 +431,7 @@ void tagsistant_create_schema()
 			tagsistant_query("create index relations_index on relations (tag1_id, tag2_id)", dbi, NULL, NULL);
 			tagsistant_query("create index objectname_index on objects (objectname)", dbi, NULL, NULL);
 			tagsistant_query("create index symlink_index on objects (symlink, inode)", dbi, NULL, NULL);
+			tagsistant_query("create index checksum_index on objects (checksum, inode)", dbi, NULL, NULL);
 			tagsistant_query("create index relations_type_index on relations (relation)", dbi, NULL, NULL);
 			tagsistant_query("create index aliases_index on aliases (alias)", dbi, NULL, NULL);
 			break;

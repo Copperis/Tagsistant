@@ -23,6 +23,17 @@
 	
 	returns the files tagged as t1 and t2 but not tagged as t3.
 
+  - Added an SQL index on objects(checksum, inode) to speed up
+    deduplication on large file sets
+
+  - Implemented a hierarchical structure under archive/ to avoid
+    to overcrowd it. The last TAGSISTANT_ARCHIVE_DEPTH digits of
+	the object inode are reversed to form the hierarchy. If the
+	depth is set to 1000 (three levels, a level per each zero),
+	the object 87312___file.txt will be saved as:
+	
+	  archive/2/1/3/87312___file.txt
+
 0.7:
   - libextractor integration. Tagging plugins have been converted to
     the new API.

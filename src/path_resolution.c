@@ -557,7 +557,7 @@ void tagsistant_querytree_set_value(
 }
 
 /**
- * parse the query portion between tags/ and =/
+ * parse the query portion between tags/ and @/
  *
  * @param qtree the querytree object
  * @param path the parsed path
@@ -906,18 +906,48 @@ void tagsistant_querytree_set_inode(tagsistant_querytree *qtree, tagsistant_inod
 
 /**
  * rebuild the paths of a tagsistant_querytree object
+ * a path contains a hierarchy of directories which is derived by the
+ * reverse of the object inode. For example, if an object has inode 3987,
+ * its path under archive/ will be:
+ *
+ *   archive/7/8/9/3/3987___object.ext
+ *
+ * This schema is intended to mitigate the archive/ directory overcrowding
+ * when more than tens of thousands of files are stored inside Tagsistant.
  *
  * @param qtree the tagsistant_querytree object
  */
 void tagsistant_querytree_rebuild_paths(tagsistant_querytree *qtree)
 {
-	if (!qtree->inode) return;
+	if (!qtree || !qtree->inode) return;
 
-	if (qtree->archive_path) g_free_null(qtree->archive_path);
+	/* get inode's readable string and point its last char as printable_inode_ptr */
+	gchar *reversed_inode = g_strreverse(g_strdup_printf("%u", qtree->inode % TAGSISTANT_ARCHIVE_DEPTH));
+	GRegex *rx = g_regex_new("(.)", 0, G_REGEX_MATCH_NOTEMPTY, NULL);
+	gchar *relative_path = g_regex_replace(rx, reversed_inode, -1, 0, "/\\1", 0, NULL);
+
+	/* build the full directory path under archive/ */
+	gchar *full_archive_hierarchy = g_strdup_printf("%s%s", tagsistant.archive, relative_path);
+
+	/* make the corresponding archive/ directory */
+	if (-1 == g_mkdir_with_parents(full_archive_hierarchy, 0755)) {
+		dbg('q', LOG_ERR, "Error creating directory %s", full_archive_hierarchy);
+	}
+
+	/* reset the querytree archive path */
+	g_free_null(qtree->archive_path);
 	qtree->archive_path = g_strdup_printf("%d" TAGSISTANT_INODE_DELIMITER "%s", qtree->inode, qtree->object_path);
 
-	if (qtree->full_archive_path) g_free_null(qtree->full_archive_path);
-	qtree->full_archive_path = g_strdup_printf("%s%s", tagsistant.archive, qtree->archive_path);
+	/* reset the querytree full archive path */
+	g_free_null(qtree->full_archive_path);
+	qtree->full_archive_path = g_strdup_printf("%s/%s", full_archive_hierarchy, qtree->archive_path);
+
+	dbg('q', LOG_ERR, "Full archive/ path is  %s", qtree->full_archive_path);
+
+	/* free the string with the archive/ path */
+	g_free(full_archive_hierarchy);
+	g_free(reversed_inode);
+	g_free(relative_path);
 }
 
 #if TAGSISTANT_ENABLE_QUERYTREE_CACHE
@@ -1297,15 +1327,16 @@ tagsistant_querytree *tagsistant_querytree_new(
 
 		qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
 		qtree->inode = tagsistant_inode_extract_from_path(qtree);
-		if (!qtree->inode && assign_inode) {
-			tagsistant_force_create_and_tag_object(qtree, &tagsistant_errno);
-		} else {
+		if (qtree->inode) {
 			tagsistant_querytree_set_inode(qtree, qtree->inode);
 		}
 
 		if (strlen(qtree->object_path) == 0) {
 			qtree->archive_path = g_strdup("");
 			qtree->full_archive_path = g_strdup(tagsistant.archive);
+		} else {
+			qtree->archive_path = g_strdup(qtree->object_path);
+			qtree->full_archive_path = g_strdup_printf("%s/%s", tagsistant.archive, qtree->archive_path);
 		}
 
 	} else if (QTREE_IS_STORE(qtree) && qtree->complete) {
