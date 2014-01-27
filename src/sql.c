@@ -481,8 +481,12 @@ int tagsistant_real_query(
 	g_mutex_lock(&tagsistant_query_mutex);
 
 	// check if the connection is alive
-	if (!dbi_conn_ping(dbi) && (dbi_conn_connect(dbi) < 0)) {
-		g_mutex_unlock(&tagsistant_query_mutex);
+	if (
+		TAGSISTANT_DBI_SQLITE_BACKEND != dboptions.backend		// if we are not connected to SQLite
+		&& !dbi_conn_ping(dbi)									// and the connection wasn't pingable
+		&& dbi_conn_connect(dbi) < 0							// and can't be established
+	) {
+		g_mutex_unlock(&tagsistant_query_mutex);				// then release the mutex and return
 		dbg('s', LOG_ERR, "ERROR! DBI Connection has gone!");
 		return(0);
 	}

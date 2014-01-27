@@ -34,6 +34,11 @@
 	
 	  archive/2/1/3/87312___file.txt
 
+  - removed call to dbi_conn_ping() if SQLite is used as backend.
+    This should avoid a "no table in statement" warning returned
+	by libDBI version provided on some distros (ArchLinux).
+    Thanks to Jeremy Self for reporting.
+
 0.7:
   - libextractor integration. Tagging plugins have been converted to
     the new API.

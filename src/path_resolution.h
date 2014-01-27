@@ -328,7 +328,6 @@ extern void 					tagsistant_querytree_destroy(tagsistant_querytree *qtree, guint
 
 extern void						tagsistant_querytree_set_object_path(tagsistant_querytree *qtree, char *new_object_path);
 extern void						tagsistant_querytree_set_inode(tagsistant_querytree *qtree, tagsistant_inode inode);
-extern void						tagsistant_querytree_rebuild_paths(tagsistant_querytree *qtree);
 extern tagsistant_query_type	tagsistant_querytree_guess_type(gchar **token_ptr);
 extern int						tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree);
 

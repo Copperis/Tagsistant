@@ -874,37 +874,6 @@ int tagsistant_querytree_parse_alias(
 }
 
 /**
- * set the object_path field of a tagsistant_querytree object and
- * then update all the other depending fields
- *
- * @param qtree the tagsistant_querytree object
- * @param path the new object_path which is copied by g_strdup()
- */
-void tagsistant_querytree_set_object_path(tagsistant_querytree *qtree, char *new_object_path)
-{
-	if (!new_object_path) return;
-
-	if (qtree->object_path) g_free_null(qtree->object_path);
-	qtree->object_path = g_strdup(new_object_path);
-
-	tagsistant_querytree_rebuild_paths(qtree);
-}
-
-/**
- * set the object inode and rebuild the paths
- *
- * @param qtree the tagsistant_querytree object
- * @param inode the new inode
- */
-void tagsistant_querytree_set_inode(tagsistant_querytree *qtree, tagsistant_inode inode)
-{
-	if (!qtree || !inode) return;
-
-	qtree->inode = inode;
-	tagsistant_querytree_rebuild_paths(qtree);
-}
-
-/**
  * rebuild the paths of a tagsistant_querytree object
  * a path contains a hierarchy of directories which is derived by the
  * reverse of the object inode. For example, if an object has inode 3987,
@@ -948,6 +917,37 @@ void tagsistant_querytree_rebuild_paths(tagsistant_querytree *qtree)
 	g_free(full_archive_hierarchy);
 	g_free(reversed_inode);
 	g_free(relative_path);
+}
+
+/**
+ * set the object_path field of a tagsistant_querytree object and
+ * then update all the other depending fields
+ *
+ * @param qtree the tagsistant_querytree object
+ * @param path the new object_path which is copied by g_strdup()
+ */
+void tagsistant_querytree_set_object_path(tagsistant_querytree *qtree, char *new_object_path)
+{
+	if (!new_object_path) return;
+
+	if (qtree->object_path) g_free_null(qtree->object_path);
+	qtree->object_path = g_strdup(new_object_path);
+
+	tagsistant_querytree_rebuild_paths(qtree);
+}
+
+/**
+ * set the object inode and rebuild the paths
+ *
+ * @param qtree the tagsistant_querytree object
+ * @param inode the new inode
+ */
+void tagsistant_querytree_set_inode(tagsistant_querytree *qtree, tagsistant_inode inode)
+{
+	if (!qtree || !inode) return;
+
+	qtree->inode = inode;
+	tagsistant_querytree_rebuild_paths(qtree);
 }
 
 #if TAGSISTANT_ENABLE_QUERYTREE_CACHE
@@ -1231,7 +1231,6 @@ tagsistant_querytree *tagsistant_querytree_new(
 	int start_transaction,
 	int provide_connection)
 {
-	int tagsistant_errno;
 	tagsistant_querytree *qtree = NULL;
 
 #if TAGSISTANT_ENABLE_QUERYTREE_CACHE
