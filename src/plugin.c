@@ -130,9 +130,9 @@ int tagsistant_process(tagsistant_querytree *qtree)
 		slash++; *slash = '\0';
 	}
 
-	//
-	//  apply plugins starting from the most matching first (like: image/jpeg)
-	//
+	/*
+	 *  apply plugins starting from the most matching first (like: image/jpeg)
+	 */
 	tagsistant_plugin_t *plugin = tagsistant.plugins;
 	while (plugin != NULL) {
 		if (strcmp(plugin->mime_type, mime_type) == 0) {
@@ -141,9 +141,9 @@ int tagsistant_process(tagsistant_querytree *qtree)
 		plugin = plugin->next;
 	}
 
-	//
-	// mime generic then (like: image / *)
-	//
+	/*
+	 * mime generic then (like: image / *)
+	 */
 	plugin = tagsistant.plugins;
 	while (plugin != NULL) {
 		if (strcmp(plugin->mime_type, mime_generic) == 0) {
@@ -152,9 +152,9 @@ int tagsistant_process(tagsistant_querytree *qtree)
 		plugin = plugin->next;
 	}
 
-	//
-	// mime everything (* / *)
-	//
+	/*
+	 * mime everything (* / *)
+	 */
 	plugin = tagsistant.plugins;
 	while (plugin != NULL) {
 		if (strcmp(plugin->mime_type, "*/*") == 0) {
@@ -226,8 +226,8 @@ static int tagsistant_process_callback(
 /**
  * process a file using plugin chain
  *
- * \param filename file to be processed (just the name, will be looked up in /archive)
- * \return(zero on fault, one on success)
+ * @param filename file to be processed (just the name, will be looked up in /archive)
+ * @return(zero on fault, one on success)
  */
 int tagsistant_process(tagsistant_querytree *qtree)
 {
@@ -247,45 +247,39 @@ int tagsistant_process(tagsistant_querytree *qtree)
 	EXTRACTOR_extract(plist, qtree->full_archive_path, NULL, 0, tagsistant_process_callback, (void *) &context);
 
 	/*
-	 *  apply plugins in order
+	 *  apply plugins starting from the most matching first (like: image/jpeg)
 	 */
-	//
-	//  apply plugins starting from the most matching first (like: image/jpeg)
-	//
 	tagsistant_plugin_t *plugin = tagsistant.plugins;
 	while (plugin != NULL) {
-		if (strcmp(plugin->mime_type, mime_type) == 0) {
-			if (TP_STOP == tagsistant_run_processor(plugin, qtree, keywords)) goto STOP_CHAIN_TAGGING;
+		if (strcmp(plugin->mime_type, context.mime_type) == 0) {
+			if (TP_STOP == tagsistant_run_processor(plugin, qtree, context.keywords)) goto STOP_CHAIN_TAGGING;
 		}
 		plugin = plugin->next;
 	}
 
-	//
-	// mime generic then (like: image / *)
-	//
+	/*
+	 * mime generic then (like: image / *)
+	 */
 	plugin = tagsistant.plugins;
 	while (plugin != NULL) {
-		if (strcmp(plugin->mime_type, mime_generic) == 0) {
-			if (TP_STOP == tagsistant_run_processor(plugin, qtree, keywords)) goto STOP_CHAIN_TAGGING;
+		if (strcmp(plugin->mime_type, context.generic_mime_type) == 0) {
+			if (TP_STOP == tagsistant_run_processor(plugin, qtree, context.keywords)) goto STOP_CHAIN_TAGGING;
 		}
 		plugin = plugin->next;
 	}
 
-	//
-	// mime everything (* / *)
-	//
+	/*
+	 * mime everything (* / *)
+	 */
 	plugin = tagsistant.plugins;
 	while (plugin != NULL) {
 		if (strcmp(plugin->mime_type, "*/*") == 0) {
-			if (TP_STOP == tagsistant_run_processor(plugin, qtree, keywords)) goto STOP_CHAIN_TAGGING;
+			if (TP_STOP == tagsistant_run_processor(plugin, qtree, context.keywords)) goto STOP_CHAIN_TAGGING;
 		}
 		plugin = plugin->next;
 	}
 
 STOP_CHAIN_TAGGING:
-
-
-TAGSISTANT_AUTOTAGGING_EXIT:
 	return (res);
 }
 

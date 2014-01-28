@@ -39,6 +39,9 @@
 	by libDBI version provided on some distros (ArchLinux).
     Thanks to Jeremy Self for reporting.
 
+  - fixed src/plugin.c for compiling against libextractor 0.6/1.x
+    Thanks to Jeremy Self for providing the patch.
+
 0.7:
   - libextractor integration. Tagging plugins have been converted to
     the new API.
