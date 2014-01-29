@@ -192,14 +192,14 @@ int tagsistant_readdir_on_store(
 			ufs->is_alias = 1;
 			tagsistant_query("select alias from aliases", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
 		} else if (qtree->operator) {
-			tagsistant_query("select distinct value from tags where tagname = \"%s\" and key = \"%s\"", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace, qtree->key);
+			tagsistant_query("select distinct value from tags where tagname = '%s' and key = '%s'", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace, qtree->key);
 		} else if (qtree->key) {
 			filler(buf, TAGSISTANT_EQUALS_TO_OPERATOR, NULL, 0);
 			filler(buf, TAGSISTANT_CONTAINS_OPERATOR, NULL, 0);
 			filler(buf, TAGSISTANT_GREATER_THAN_OPERATOR, NULL, 0);
 			filler(buf, TAGSISTANT_SMALLER_THAN_OPERATOR, NULL, 0);
 		} else if (qtree->namespace) {
-			tagsistant_query("select distinct key from tags where tagname = \"%s\"", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace);
+			tagsistant_query("select distinct key from tags where tagname = '%s'", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace);
 		} else {
 			tagsistant_query("select distinct tagname from tags", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
 			ufs->is_alias = 1;
@@ -271,8 +271,29 @@ int tagsistant_readdir_on_relations(
 	ufs->path = path;
 	ufs->qtree = qtree;
 
-	if (qtree->second_tag) {
+	if (qtree->second_tag || qtree->related_value) {
 		// nothing
+	} else if (qtree->related_key) {
+
+		tagsistant_query(
+			"select distinct value from tags "
+				"where tagname = '%s' and key = '%s'",
+			qtree->dbi,
+			tagsistant_add_entry_to_dir,
+			ufs,
+			qtree->related_namespace,
+			qtree->related_key);
+
+	} else if (qtree->related_namespace) {
+
+		tagsistant_query(
+			"select distinct key from tags "
+				"where tagname = '%s'",
+			qtree->dbi,
+			tagsistant_add_entry_to_dir,
+			ufs,
+			qtree->related_namespace);
+
 	} else if (qtree->relation) {
 		// list all tags related to first_tag with this relation
 		tagsistant_query(
@@ -286,13 +307,13 @@ int tagsistant_readdir_on_relations(
 			qtree->first_tag,
 			qtree->relation);
 
-	} else if (qtree->value) {
+	} else if (qtree->first_tag || qtree->value) {
 
 		// list all relations
 		filler(buf, "includes", NULL, 0);
 		filler(buf, "is_equivalent", NULL, 0);
 
-	} else if (qtree->operator) {
+	} else if (qtree->key) {
 
 		tagsistant_query(
 			"select distinct value from tags "
@@ -303,13 +324,6 @@ int tagsistant_readdir_on_relations(
 			qtree->namespace,
 			qtree->key);
 
-	} else if (qtree->key) {
-
-		filler(buf, TAGSISTANT_GREATER_THAN_OPERATOR, NULL, 0);
-		filler(buf, TAGSISTANT_SMALLER_THAN_OPERATOR, NULL, 0);
-		filler(buf, TAGSISTANT_EQUALS_TO_OPERATOR, NULL, 0);
-		filler(buf, TAGSISTANT_CONTAINS_OPERATOR, NULL, 0);
-
 	} else if (qtree->namespace) {
 
 		tagsistant_query(
@@ -319,12 +333,6 @@ int tagsistant_readdir_on_relations(
 			tagsistant_add_entry_to_dir,
 			ufs,
 			qtree->namespace);
-
-	} else if (qtree->first_tag) {
-
-		// list all relations
-		filler(buf, "includes", NULL, 0);
-		filler(buf, "is_equivalent", NULL, 0);
 
 	} else {
 		// list all tags
@@ -365,9 +373,9 @@ int tagsistant_readdir_on_tags(
 	} else if (qtree->value) {
 		// nothing
 	} else if (qtree->key) {
-		tagsistant_query("select distinct value from tags where tagname = \"%s\" and key = \"%s\"", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace, qtree->key);
+		tagsistant_query("select distinct value from tags where tagname = '%s' and key = '%s'", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace, qtree->key);
 	} else if (qtree->namespace) {
-		tagsistant_query("select distinct key from tags where tagname = \"%s\"", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace);
+		tagsistant_query("select distinct key from tags where tagname = '%s'", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace);
 	} else {
 		// list all tags
 		tagsistant_query("select distinct tagname from tags", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
@@ -665,14 +673,14 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 							"from objects "
 							"join tagging on tagging.inode = objects.inode "
 							"join tags on tags.tag_id = tagging.tag_id "
-							"where tagname in (\"%s\"", tag->tag);
+							"where tagname in ('%s'", tag->tag);
 				} else {
-					g_string_printf(tag_condition, "tagname in (\"%s\"", tag->tag);
+					g_string_printf(tag_condition, "tagname in ('%s'", tag->tag);
 				}
 				if (tag->related != NULL) {
 					ptree_and_node *related = tag->related;
 					while (related != NULL) {
-						g_string_append_printf(tag_condition, ", \"%s\"", related->tag);
+						g_string_append_printf(tag_condition, ", '%s'", related->tag);
 						related = related->related;
 					}
 				}
@@ -681,23 +689,23 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 				switch (tag->operator) {
 					case TAGSISTANT_CONTAINS:
 						g_string_printf(tag_condition,
-							"tagname = \"%s\" and key = \"%s\" and value like \"%%%s%%\"",
+							"tagname = '%s' and key = '%s' and value like '%%%s%%'",
 							tag->namespace, tag->key, tag->value);
 						break;
 					case TAGSISTANT_GREATER_THAN:
 						g_string_printf(tag_condition,
-							"tagname = \"%s\" and key = \"%s\" and value > \"%s\"",
+							"tagname = '%s' and key = '%s' and value > '%s'",
 							tag->namespace, tag->key, tag->value);
 						break;
 					case TAGSISTANT_SMALLER_THAN:
 						g_string_printf(tag_condition,
-							"tagname = \"%s\" and key = \"%s\" and value < \"%s\"",
+							"tagname = '%s' and key = '%s' and value < '%s'",
 							tag->namespace, tag->key, tag->value);
 						break;
 					case TAGSISTANT_EQUAL_TO:
 					default:
 						g_string_printf(tag_condition,
-							"tagname = \"%s\" and key = \"%s\" and value = \"%s\"",
+							"tagname = '%s' and key = '%s' and value = '%s'",
 							tag->namespace, tag->key, tag->value);
 						break;
 				}

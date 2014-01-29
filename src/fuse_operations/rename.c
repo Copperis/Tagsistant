@@ -64,7 +64,7 @@ int tagsistant_rename(const char *from, const char *to)
 
 			// 1. rename the object
 			tagsistant_query(
-				"update objects set objectname = \"%s\" where inode = %d",
+				"update objects set objectname = '%s' where inode = %d",
 				from_qtree->dbi,
 				NULL, NULL,
 				to_qtree->object_path,
@@ -105,8 +105,8 @@ int tagsistant_rename(const char *from, const char *to)
 		}
 
 		tagsistant_query(
-			"update tags set tagname = \"%s\" "
-				"where tagname = \"%s\"",
+			"update tags set tagname = '%s' "
+				"where tagname = '%s'",
 			from_qtree->dbi,
 			NULL, NULL,
 			to_qtree->last_tag,
@@ -122,8 +122,8 @@ int tagsistant_rename(const char *from, const char *to)
 	// -- tags --
 	if (QTREE_IS_TAGS(from_qtree) && QTREE_IS_TAGS(to_qtree)) {
 		tagsistant_query(
-			"update tags set tagname = \"%s\" "
-				"where tagname = \"%s\"",
+			"update tags set tagname = '%s' "
+				"where tagname = '%s'",
 			from_qtree->dbi,
 			NULL, NULL,
 			to_qtree->last_tag,
@@ -139,7 +139,7 @@ int tagsistant_rename(const char *from, const char *to)
 	// -- alias --
 	if (QTREE_IS_ALIAS(from_qtree) && QTREE_IS_ALIAS(to_qtree)) {
 		tagsistant_query(
-			"update aliases set alias = \"%s\" where alias = \"%s\"",
+			"update aliases set alias = '%s' where alias = '%s'",
 			from_qtree->dbi,
 			NULL, NULL,
 			to_qtree->alias,

@@ -48,7 +48,7 @@ int tagsistant_flush(const char *path, struct fuse_file_info *fi)
 		// check if the file has been modified
 		int modified = 0;
 		tagsistant_query(
-			"select inode from objects where inode = %d and checksum = \"\"",
+			"select inode from objects where inode = %d and checksum = ''",
 			qtree->dbi, tagsistant_return_integer, &modified, qtree->inode);
 
 		// schedule deduplication and autotagging for this file

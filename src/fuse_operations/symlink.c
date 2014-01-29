@@ -46,7 +46,7 @@ int tagsistant_symlink(const char *from, const char *to)
 			// 1. check if a symlink pointing to "from" path is already in the DB
 			tagsistant_inode check_inode = 0;
 			tagsistant_query(
-				"select inode from objects where symlink = \"%s\"",
+				"select inode from objects where symlink = '%s'",
 				to_qtree->dbi,
 				tagsistant_return_integer,
 				&check_inode,
@@ -68,7 +68,7 @@ int tagsistant_symlink(const char *from, const char *to)
 
 				// 2.2. save the target path for future checks
 				tagsistant_query(
-					"update objects set symlink = \"%s\" where inode = %d",
+					"update objects set symlink = '%s' where inode = %d",
 					to_qtree->dbi,
 					NULL, NULL,
 					from, to_qtree->inode);

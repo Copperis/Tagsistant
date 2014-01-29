@@ -93,21 +93,33 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 			}
 
 			// check the relation
-			if (qtree->relation && related_tag_id) {
+			if (related_tag_id && (qtree->second_tag || qtree->related_value)) {
 				int relation_is_valid = 0;
-				tagsistant_query(
-					"select 1 from tagging "
-						"where relation = '%s' and "
-							"(tag1_id = %d and tag2_id = %d) or "
-							"(tag2_id = %d and tag1_id = %d)",
-					qtree->dbi,
-					tagsistant_return_integer,
-					&relation_is_valid,
-					qtree->relation,
-					tag_id,
-					related_tag_id,
-					related_tag_id,
-					tag_id);
+
+				if (g_strcmp0(qtree->relation, "includes") == 0) {
+					tagsistant_query(
+						"select 1 from relations "
+							"where relation = 'includes' and "
+								"(tag1_id = %d and tag2_id = %d)",
+						qtree->dbi,
+						tagsistant_return_integer,
+						&relation_is_valid,
+						tag_id,
+						related_tag_id);
+				} else if (g_strcmp0(qtree->relation, "is_equivalent") == 0) {
+					tagsistant_query(
+						"select 1 from relations "
+							"where relation = 'is_equivalent' and "
+								"(tag1_id = %d and tag2_id = %d) or "
+								"(tag2_id = %d and tag1_id = %d)",
+						qtree->dbi,
+						tagsistant_return_integer,
+						&relation_is_valid,
+						tag_id,
+						related_tag_id,
+						related_tag_id,
+						tag_id);
+				}
 
 				if (!relation_is_valid) TAGSISTANT_ABORT_OPERATION(ENOENT);
 			}
@@ -117,27 +129,44 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 			tagsistant_inode tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->first_tag, NULL, NULL);
 			if (!tag_id) TAGSISTANT_ABORT_OPERATION(ENOENT);
 
-			if (qtree->second_tag) {
-				tagsistant_inode related_tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->second_tag, NULL, NULL);
+			tagsistant_inode related_tag_id = 0;
 
-				/* process a full relation */
+			if (qtree->second_tag) {
+				related_tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->second_tag, NULL, NULL);
+			} else if (qtree->related_namespace) {
+				related_tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->related_namespace, qtree->related_key, qtree->related_value);
+			}
+
+			// check the relation
+			if (related_tag_id && (qtree->second_tag || qtree->related_value)) {
 				int relation_is_valid = 0;
-				tagsistant_query(
-					"select 1 from tagging "
-						"where relation = '%s' and "
-							"(tag1_id = %d and tag2_id = %d) or "
-							"(tag2_id = %d and tag1_id = %d)",
-					qtree->dbi,
-					tagsistant_return_integer,
-					&relation_is_valid,
-					qtree->relation,
-					tag_id,
-					related_tag_id,
-					related_tag_id,
-					tag_id);
+
+				if (g_strcmp0(qtree->relation, "includes") == 0) {
+					tagsistant_query(
+						"select 1 from relations "
+							"where relation = 'includes' and "
+								"(tag1_id = %d and tag2_id = %d)",
+						qtree->dbi,
+						tagsistant_return_integer,
+						&relation_is_valid,
+						tag_id,
+						related_tag_id);
+				} else if (g_strcmp0(qtree->relation, "is_equivalent") == 0) {
+					tagsistant_query(
+						"select 1 from relations "
+							"where relation = 'is_equivalent' and "
+								"(tag1_id = %d and tag2_id = %d) or "
+								"(tag2_id = %d and tag1_id = %d)",
+						qtree->dbi,
+						tagsistant_return_integer,
+						&relation_is_valid,
+						tag_id,
+						related_tag_id,
+						related_tag_id,
+						tag_id);
+				}
 
 				if (!relation_is_valid) TAGSISTANT_ABORT_OPERATION(ENOENT);
-
 			}
 		}
 	}

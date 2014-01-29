@@ -86,7 +86,7 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 	else if (QTREE_IS_ALIAS(qtree)) {
 		gchar *value = NULL;
 		tagsistant_query(
-			"select query from aliases where alias = \"%s\"",
+			"select query from aliases where alias = '%s'",
 			qtree->dbi,
 			tagsistant_return_string,
 			&value,

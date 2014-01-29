@@ -79,17 +79,39 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 
 	// -- relations --
 	else if (QTREE_IS_RELATIONS(qtree)) {
-		// mkdir can be used only on third level
-		// since first level is all available tags
-		// and second level is all available relations
-		if (qtree->second_tag) {
-			// create a new relation between two tags
-			tagsistant_sql_create_tag(qtree->dbi, qtree->second_tag, NULL, NULL);
-			int tag1_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->first_tag, "", "");
-			int tag2_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->second_tag, "", "");
-			if (tag1_id && tag2_id && IS_VALID_RELATION(qtree->relation)) {
+		/*
+		 * mkdir can be used only on third level since first level is
+		 * all available tags and second level is all available relations
+		 */
+		if (qtree->second_tag || qtree->related_namespace) {
+			tagsistant_inode tag1_id = 0, tag2_id = 0;
+
+			/*
+			 * get first tag id
+			 */
+			if (qtree->first_tag)
+				tag1_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->first_tag, NULL, NULL);
+			else
+				tag1_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->namespace, qtree->key, qtree->value);
+
+			/*
+			 * get second tag id
+			 */
+			if (qtree->second_tag)
+				tag2_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->second_tag, NULL, NULL);
+			else
+				tag2_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->related_namespace, qtree->related_key, qtree->related_value);
+
+			/*
+			 * check tags and the relation
+			 */
+			if (!(tag1_id && tag2_id && IS_VALID_RELATION(qtree->relation))) {
+				TAGSISTANT_ABORT_OPERATION(EFAULT);
+			}
+
+			if (qtree->second_tag || (qtree->related_namespace && qtree->related_key && qtree->related_value)) {
 				tagsistant_query(
-					"insert into relations (tag1_id, tag2_id, relation) values (%d, %d, \"%s\")",
+					"insert into relations (tag1_id, tag2_id, relation) values (%d, %d, '%s')",
 					qtree->dbi, NULL, NULL, tag1_id, tag2_id, qtree->relation);
 
 #if TAGSISTANT_ENABLE_QUERYTREE_CACHE
@@ -97,10 +119,8 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 				tagsistant_invalidate_querytree_cache(qtree);
 #endif
 
-				tagsistant_invalidate_reasoning_cache(qtree->first_tag);
-				tagsistant_invalidate_reasoning_cache(qtree->second_tag);
-			} else {
-				TAGSISTANT_ABORT_OPERATION(EFAULT);
+				tagsistant_invalidate_reasoning_cache(qtree->first_tag ? qtree->first_tag : qtree->namespace);
+				tagsistant_invalidate_reasoning_cache(qtree->second_tag ? qtree->second_tag : qtree->related_namespace);
 			}
 		} else {
 			TAGSISTANT_ABORT_OPERATION(EROFS);

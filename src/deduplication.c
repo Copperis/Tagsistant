@@ -53,7 +53,7 @@ int tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *hex
 
 	/* get the first inode matching the checksum */
 	tagsistant_query(
-		"select inode from objects where checksum = \"%s\" order by inode limit 1",
+		"select inode from objects where checksum = '%s' order by inode limit 1",
 		qtree->dbi,	tagsistant_return_integer, &main_inode,	hex);
 
 	/*

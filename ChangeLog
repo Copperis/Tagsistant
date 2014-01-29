@@ -42,6 +42,12 @@
   - fixed src/plugin.c for compiling against libextractor 0.6/1.x
     Thanks to Jeremy Self for providing the patch.
 
+  - fixed relations/ paths parsing.
+    Thanks to Jeremy Self for reporting.
+
+  - implemented relations between flat and triple tags. The reasoner
+    still need to be adapted (see reasoner.c:153 and following)
+
 0.7:
   - libextractor integration. Tagging plugins have been converted to
     the new API.

@@ -154,12 +154,12 @@ int tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int do_caching)
 			"select tags2.tagname from relations "
 				"join tags as tags1 on tags1.tag_id = relations.tag1_id "
 				"join tags as tags2 on tags2.tag_id = relations.tag2_id "
-				"where tags1.tagname = \"%s\" "
+				"where tags1.tagname = '%s' "
 			"union all "
 			"select tags1.tagname from relations "
 				"join tags as tags1 on tags1.tag_id = relations.tag1_id "
 				"join tags as tags2 on tags2.tag_id = relations.tag2_id "
-				"where tags2.tagname = \"%s\" and relation = \"is_equivalent\"",
+				"where tags2.tagname = '%s' and relation = 'is_equivalent'",
 			reasoning->conn,
 			tagsistant_add_reasoned_tag_callback,
 			reasoning,

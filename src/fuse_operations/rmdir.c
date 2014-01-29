@@ -99,7 +99,7 @@ int tagsistant_rmdir(const char *path)
 			int tag2_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->second_tag, NULL, NULL);
 			if (tag1_id && tag2_id && IS_VALID_RELATION(qtree->relation)) {
 				tagsistant_query(
-					"delete from relations where tag1_id = \"%d\" and tag2_id = \"%d\" and relation = \"%s\"",
+					"delete from relations where tag1_id = '%d' and tag2_id = '%d' and relation = '%s'",
 					qtree->dbi, NULL, NULL, tag1_id, tag2_id, qtree->relation);
 
 #if TAGSISTANT_ENABLE_QUERYTREE_CACHE

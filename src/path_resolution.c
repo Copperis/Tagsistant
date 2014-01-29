@@ -265,7 +265,7 @@ gchar *tagsistant_compile_grouped_and_set(ptree_and_node *and_set, int *total)
 			if (tags_total > 0) g_string_append(and_condition, ", ");
 
 			/* add the tag */
-			g_string_append_printf(and_condition, "\"%s\"", (gchar *) this_tag->data);
+			g_string_append_printf(and_condition, "'%s'", (gchar *) this_tag->data);
 
 			/* increment tags count */
 			tags_total++;
@@ -363,8 +363,8 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 				"select objects.inode from objects "
 					"join tagging on objects.inode = tagging.inode "
 					"join tags on tagging.tag_id = tags.tag_id "
-					"where tags.tagname %s \"%s\" "
-					"and objects.objectname = \"%s\" ",
+					"where tags.tagname %s '%s' "
+					"and objects.objectname = '%s' ",
 				dbi,
 				tagsistant_return_integer,
 				&inode,
@@ -381,8 +381,8 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 						"select objects.inode from objects "
 							"join tagging on objects.inode = tagging.inode "
 							"join tags on tagging.tag_id = tags.tag_id "
-							"where tags.tagname = \"%s\" "
-							"and objects.objectname = \"%s\" ",
+							"where tags.tagname = '%s' "
+							"and objects.objectname = '%s' ",
 						dbi,
 						tagsistant_return_integer,
 						&inode,
@@ -403,10 +403,10 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 				"select objects.inode from objects "
 					"join tagging on objects.inode = tagging.inode "
 					"join tags on tagging.tag_id = tags.tag_id "
-					"where tags.tagname = \"%s\" "
-					"and tags.key = \"%s\" "
-					"and tags.value = \"%s\" "
-					"and objects.objectname = \"%s\" ",
+					"where tags.tagname = '%s' "
+					"and tags.key = '%s' "
+					"and tags.value = '%s' "
+					"and objects.objectname = '%s' ",
 				dbi,
 				tagsistant_return_integer,
 				&inode,
@@ -740,6 +740,45 @@ int tagsistant_querytree_parse_tags (
 }
 
 /**
+ * 'consumes' (remove from the token stack) enough tokens to
+ * for a triple tag, if available
+ *
+ * @param qtree the tagsistant_querytree object to be filled
+ * @param token_ptr the token stack
+ * @param is_related if true, put tokens in tagsistant_querytree related_namespace, related_key and related_value fields, otherwise use namespace, key and value fields
+ */
+void tagsistant_querytree_parse_relations_consume_triple (
+	tagsistant_querytree *qtree,
+	gchar ***token_ptr,
+	int is_related)
+{
+	gchar **namespace = is_related ? &qtree->related_namespace : &qtree->namespace;
+	gchar **key = is_related ? &qtree->related_key : &qtree->key;
+	gchar **value = is_related ? &qtree->related_value : &qtree->value;
+
+	g_free_null(*namespace);
+	g_free_null(*key);
+	g_free_null(*value);
+
+	*namespace = g_strdup(__TOKEN);
+
+	if (__NEXT_TOKEN) {
+		__SLIDE_TOKEN;
+		*key = g_strdup(__TOKEN);
+
+		if (__NEXT_TOKEN) {
+			__SLIDE_TOKEN;
+			*value = g_strdup(__TOKEN);
+
+			if (is_related) qtree->complete = 1;
+		}
+	}
+}
+
+#define TAGSISTANT_IS_RELATED 1
+#define TAGSISTANT_IS_NOT_RELATED 0
+
+/**
  * parse the query portion after relations/
  *
  * @param qtree the querytree object
@@ -751,91 +790,77 @@ int tagsistant_querytree_parse_relations (
 	gchar ***token_ptr)
 {
 	/* parse a relations query */
-	if (NULL != __TOKEN) {
+	if (__TOKEN) {
 		if (g_regex_match_simple(":$", __TOKEN, 0, 0)) {
-			qtree->namespace = g_strdup(__TOKEN);
-			qtree->key = qtree->value = NULL;
-			qtree->operator = 0;
+			/*
+			 *  the left tag is a triple tag
+			 */
+			tagsistant_querytree_parse_relations_consume_triple(qtree, token_ptr, TAGSISTANT_IS_NOT_RELATED);
 
 			if (__NEXT_TOKEN) {
 				__SLIDE_TOKEN;
-
-				qtree->key = g_strdup(__TOKEN);
+				qtree->relation = g_strdup(__TOKEN);
 
 				if (__NEXT_TOKEN) {
 					__SLIDE_TOKEN;
 
-					if (strcmp(__TOKEN, TAGSISTANT_GREATER_THAN_OPERATOR) == 0) {
-						qtree->operator = TAGSISTANT_GREATER_THAN;
-					} else if (strcmp(__TOKEN, TAGSISTANT_SMALLER_THAN_OPERATOR) == 0) {
-						qtree->operator = TAGSISTANT_SMALLER_THAN;
-					} else if (strcmp(__TOKEN, TAGSISTANT_EQUALS_TO_OPERATOR) == 0) {
-						qtree->operator = TAGSISTANT_EQUAL_TO;
-					} else if (strcmp(__TOKEN, TAGSISTANT_CONTAINS_OPERATOR) == 0) {
-						qtree->operator = TAGSISTANT_CONTAINS;
+					if (g_regex_match_simple(":$", __TOKEN, 0, 0)) {
+						/*
+						 *  the right (related) tag is a triple tag
+						 */
+						tagsistant_querytree_parse_relations_consume_triple(qtree, token_ptr, TAGSISTANT_IS_RELATED);
+					} else {
+						/*
+						 *  the right (related) tag is a triple tag
+						 */
+						qtree->second_tag = g_strdup(__TOKEN);
+						qtree->complete = 1;
 					}
 
-					if (__NEXT_TOKEN) {
-						__SLIDE_TOKEN;
+					/*
+					 * a relations/ path should be completed so far,
+					 * if another token is available, the path is malformed
+					 */
+					if (__NEXT_TOKEN) qtree->type = QTYPE_MALFORMED;
+				}
+			}
+		} else {
+			/*
+			 *  the left tag is a flat tag
+			 */
+			qtree->first_tag = g_strdup(__TOKEN);
 
-						qtree->value = g_strdup(__TOKEN);
-						if (__NEXT_TOKEN) {
-							qtree->relation = g_strdup(__TOKEN);
-							if (__NEXT_TOKEN) {
-								qtree->related_namespace = g_strdup(__TOKEN);
-								qtree->related_key = qtree->related_value = NULL;
-								qtree->related_operator = 0;
+			if (__NEXT_TOKEN) {
+				__SLIDE_TOKEN;
+				qtree->relation = g_strdup(__TOKEN);
 
-								if (__NEXT_TOKEN) {
-									__SLIDE_TOKEN;
+				if (__NEXT_TOKEN) {
+					__SLIDE_TOKEN;
 
-									qtree->key = g_strdup(__TOKEN);
-
-									if (__NEXT_TOKEN) {
-										__SLIDE_TOKEN;
-
-										if (strcmp(__TOKEN, TAGSISTANT_GREATER_THAN_OPERATOR) == 0) {
-											qtree->related_operator = TAGSISTANT_GREATER_THAN;
-										} else if (strcmp(__TOKEN, TAGSISTANT_SMALLER_THAN_OPERATOR) == 0) {
-											qtree->related_operator = TAGSISTANT_SMALLER_THAN;
-										} else if (strcmp(__TOKEN, TAGSISTANT_EQUALS_TO_OPERATOR) == 0) {
-											qtree->related_operator = TAGSISTANT_EQUAL_TO;
-										} else if (strcmp(__TOKEN, TAGSISTANT_CONTAINS_OPERATOR) == 0) {
-											qtree->related_operator = TAGSISTANT_CONTAINS;
-										}
-
-										if (__NEXT_TOKEN) {
-											__SLIDE_TOKEN;
-
-											qtree->related_value = g_strdup(__TOKEN);
-
-											if (__NEXT_TOKEN) {
-												qtree->type = QTYPE_MALFORMED;
-											}
-										}
-									}
-								}
-							}
-						}
+					if (g_regex_match_simple(":$", __TOKEN, 0, 0)) {
+						/*
+						 *  the right (related) tag is a triple tag
+						 */
+						tagsistant_querytree_parse_relations_consume_triple(qtree, token_ptr, TAGSISTANT_IS_RELATED);
+					} else {
+						/*
+						 *  the right (related) tag is a triple tag
+						 */
+						qtree->second_tag = g_strdup(__TOKEN);
+						qtree->complete = 1;
 					}
+
+					/*
+					 * a relations/ path should be completed so far,
+					 * if another token is available, the path is malformed
+					 */
+					if (__NEXT_TOKEN) qtree->type = QTYPE_MALFORMED;
 				}
 			}
 		}
-
-#if 0
-		qtree->first_tag = g_strdup(__TOKEN);
-		__SLIDE_TOKEN;
-		if (NULL != __TOKEN) {
-			qtree->relation = g_strdup(__TOKEN);
-			__SLIDE_TOKEN;
-			if (NULL != __TOKEN) {
-				qtree->second_tag = g_strdup(__TOKEN);
-				qtree->complete = 1;
-				__SLIDE_TOKEN;
-			}
-		}
-#endif
 	}
+
+	__SLIDE_TOKEN;
 
 	return (1);
 }
@@ -1377,7 +1402,7 @@ tagsistant_querytree *tagsistant_querytree_new(
 					tagsistant_query(
 						"select tagging.inode from tagging "
 							"join tags on tagging.tag_id = tags.tag_id "
-							"where tagging.inode = %d and tags.tag_name = \"%s\"",
+							"where tagging.inode = %d and tags.tag_name = '%s'",
 						qtree->dbi,
 						tagsistant_return_integer,
 						&tmp_inode,
@@ -1439,9 +1464,9 @@ tagsistant_querytree *tagsistant_querytree_new(
 	}
 
 	dbg('q', LOG_INFO, "inode = %d", qtree->inode);
-	dbg('q', LOG_INFO, "object_path = \"%s\"", qtree->object_path);
-	dbg('q', LOG_INFO, "archive_path = \"%s\"", qtree->archive_path);
-	dbg('q', LOG_INFO, "full_archive_path = \"%s\"", qtree->full_archive_path);
+	dbg('q', LOG_INFO, "object_path = '%s'", qtree->object_path);
+	dbg('q', LOG_INFO, "archive_path = '%s'", qtree->archive_path);
+	dbg('q', LOG_INFO, "full_archive_path = '%s'", qtree->full_archive_path);
 
 	/*
 	 * guess if query points to an object on disk or not

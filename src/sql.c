@@ -212,7 +212,7 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 		dbi = (dbi_conn) pool->data;
 
 		/* check if the connection is still alive */
-		if (!dbi_conn_ping(dbi) && (dbi_conn_connect(dbi) < 0)) {
+		if (!dbi_conn_ping(dbi) && dbi_conn_connect(dbi) < 0) {
 			dbi_conn_close(dbi);
 			tagsistant_connection_pool = g_list_delete_link(tagsistant_connection_pool, pool);
 			connections--;
@@ -345,8 +345,8 @@ void tagsistant_create_schema()
 				"create table if not exists tags ("
 					"tag_id integer primary key autoincrement not null, "
 					"tagname varchar(65) not null, "
-					"key varchar(65) not null default \"\", "
-					"value varchar(65) not null default \"\", "
+					"key varchar(65) not null default '', "
+					"value varchar(65) not null default '', "
 					"constraint Tag_key unique (tagname, key, value))",
 				dbi, NULL, NULL);
 
@@ -355,8 +355,8 @@ void tagsistant_create_schema()
 					"inode integer not null primary key autoincrement, "
 					"objectname text(255) not null, "
 					"last_autotag timestamp not null default 0, "
-					"checksum text(40) not null default \"\", "
-					"symlink text(1024) not null default \"\")",
+					"checksum text(40) not null default '', "
+					"symlink text(1024) not null default '')",
 				dbi, NULL, NULL);
 
 			tagsistant_query(
@@ -403,8 +403,8 @@ void tagsistant_create_schema()
 					"inode integer not null primary key auto_increment, "
 					"objectname varchar(255) not null, "
 					"last_autotag timestamp not null default 0, "
-					"checksum varchar(40) not null default \"\", "
-					"symlink varchar(1024) not null default \"\")",
+					"checksum varchar(40) not null default '', "
+					"symlink varchar(1024) not null default '')",
 				dbi, NULL, NULL);
 
 			tagsistant_query(
@@ -481,12 +481,8 @@ int tagsistant_real_query(
 	g_mutex_lock(&tagsistant_query_mutex);
 
 	// check if the connection is alive
-	if (
-		TAGSISTANT_DBI_SQLITE_BACKEND != dboptions.backend		// if we are not connected to SQLite
-		&& !dbi_conn_ping(dbi)									// and the connection wasn't pingable
-		&& dbi_conn_connect(dbi) < 0							// and can't be established
-	) {
-		g_mutex_unlock(&tagsistant_query_mutex);				// then release the mutex and return
+	if (!dbi_conn_ping(dbi)	&& dbi_conn_connect(dbi) < 0) {
+		g_mutex_unlock(&tagsistant_query_mutex);
 		dbg('s', LOG_ERR, "ERROR! DBI Connection has gone!");
 		return(0);
 	}
@@ -643,7 +639,7 @@ void tagsistant_sql_create_tag(dbi_conn conn, const gchar *namespace, const gcha
 
 	tagsistant_query(
 		"insert into tags(tagname, key, value) "
-			"values (\"%s\", \"%s\", \"%s\")",
+			"values ('%s', '%s', '%s')",
 		conn,
 		NULL,
 		NULL,
@@ -712,7 +708,7 @@ void tagsistant_full_untag_object(dbi_conn conn, tagsistant_inode inode)
 tagsistant_inode tagsistant_sql_get_tag_id(dbi_conn conn, const gchar *tagname, const gchar *key, const gchar *value)
 {
 #if TAGSISTANT_ENABLE_TAG_ID_CACHE
-	gchar *tag_key = tagsistant_make_tag_key(tagname, _safe_string(key), _safe_string(value));
+	gchar *tag_key = tagsistant_make_tag_key(_safe_string(tagname), _safe_string(key), _safe_string(value));
 
 	// lookup in the cache
 	tagsistant_inode *tag_value = (tagsistant_inode *) g_hash_table_lookup(tagsistant_tag_cache, tagname);
@@ -727,15 +723,15 @@ tagsistant_inode tagsistant_sql_get_tag_id(dbi_conn conn, const gchar *tagname, 
 	tagsistant_inode tag_id = 0;
 	if (value)
 		tagsistant_query(
-			"select tag_id from tags where tagname = \"%s\" and key = \"%s\" and value = \"%s\" limit 1",
+			"select tag_id from tags where tagname = '%s' and key = '%s' and value = '%s' limit 1",
 			conn, tagsistant_return_integer, &tag_id, tagname, _safe_string(key), _safe_string(value));
 	else if (key)
 		tagsistant_query(
-			"select tag_id from tags where tagname = \"%s\" and key = \"%s\" limit 1",
+			"select tag_id from tags where tagname = '%s' and key = '%s' limit 1",
 			conn, tagsistant_return_integer, &tag_id, tagname, _safe_string(key));
 	else
 		tagsistant_query(
-			"select tag_id from tags where tagname = \"%s\" limit 1",
+			"select tag_id from tags where tagname = '%s' limit 1",
 			conn, tagsistant_return_integer, &tag_id, tagname);
 
 #if TAGSISTANT_ENABLE_TAG_ID_CACHE
@@ -775,15 +771,15 @@ void tagsistant_sql_delete_tag(dbi_conn conn, const gchar *tagname, const gchar 
 	tagsistant_remove_tag_from_cache(tagname, _safe_string(key), _safe_string(value));
 
 	tagsistant_query(
-		"delete from tags where tagname = \"%s\" and key = \"%s\" and value = \"%s\"",
+		"delete from tags where tagname = '%s' and key = '%s' and value = '%s'",
 		conn, NULL, NULL, tagname, _safe_string(key), _safe_string(value));
 
 	tagsistant_query(
-		"delete from tagging where tag_id = \"%d\"",
+		"delete from tagging where tag_id = '%d'",
 		conn, NULL, NULL, tag_id);
 
 	tagsistant_query(
-		"delete from relations where tag1_id = \"%d\" or tag2_id = \"%d\"",
+		"delete from relations where tag1_id = '%d' or tag2_id = '%d'",
 		conn, NULL, NULL, tag_id, tag_id);
 }
 
@@ -816,7 +812,7 @@ void tagsistant_sql_tag_object(
 		dbg('s', LOG_INFO, "Tagging object %d as %s (%d)", inode, tagname, tag_id);
 	}
 
-	tagsistant_query("insert into tagging(tag_id, inode) values(\"%d\", \"%d\")", conn, NULL, NULL, tag_id, inode);
+	tagsistant_query("insert into tagging(tag_id, inode) values('%d', '%d')", conn, NULL, NULL, tag_id, inode);
 }
 
 /**
@@ -839,7 +835,7 @@ void tagsistant_sql_untag_object(dbi_conn conn, const gchar *tagname, const gcha
 	}
 
 	tagsistant_query(
-		"delete from tagging where tag_id = \"%d\" and inode = \"%d\"",
+		"delete from tagging where tag_id = '%d' and inode = '%d'",
 		conn, NULL, NULL, tag_id, inode);
 }
 
@@ -852,7 +848,7 @@ void tagsistant_sql_untag_object(dbi_conn conn, const gchar *tagname, const gcha
  */
 void tagsistant_sql_rename_tag(dbi_conn conn, const gchar *tagname, const gchar *oldtagname)
 {
-	tagsistant_query("update tags set tagname = \"%s\" where tagname = \"%s\"", conn, NULL, NULL, tagname, oldtagname);
+	tagsistant_query("update tags set tagname = '%s' where tagname = '%s'", conn, NULL, NULL, tagname, oldtagname);
 }
 
 /**
@@ -866,7 +862,7 @@ int tagsistant_sql_alias_exists(dbi_conn conn, const gchar *alias)
 {
 	int exists = 0;
 	tagsistant_query(
-		"select 1 from aliases where alias = \"%s\"",
+		"select 1 from aliases where alias = '%s'",
 		conn, tagsistant_return_integer, &exists, alias);
 	return (exists);
 }
@@ -881,7 +877,7 @@ void tagsistant_sql_alias_create(dbi_conn conn, const gchar *alias)
 {
 	if (tagsistant_sql_alias_exists(conn, alias)) return;
 	tagsistant_query(
-		"insert into aliases (alias, query) values (\"%s\", \"\")",
+		"insert into aliases (alias, query) values ('%s', '')",
 		conn, NULL, NULL, alias);
 }
 
@@ -894,7 +890,7 @@ void tagsistant_sql_alias_create(dbi_conn conn, const gchar *alias)
 void tagsistant_sql_alias_delete(dbi_conn conn, const gchar *alias)
 {
 	tagsistant_query(
-		"delete from aliases where alias = \"%s\"",
+		"delete from aliases where alias = '%s'",
 		conn, NULL, NULL, alias);
 }
 
@@ -908,7 +904,7 @@ void tagsistant_sql_alias_delete(dbi_conn conn, const gchar *alias)
 void tagsistant_sql_alias_set(dbi_conn conn, const gchar *alias, const gchar *query)
 {
 	tagsistant_query(
-		"update aliases set query = \"%s\" where alias = \"%s\"",
+		"update aliases set query = '%s' where alias = '%s'",
 		conn, NULL, NULL, query, alias);
 }
 
@@ -924,7 +920,7 @@ gchar *tagsistant_sql_alias_get(dbi_conn conn, const gchar *alias)
 	gchar *value = NULL;
 
 	tagsistant_query(
-		"select query from aliases where alias = \"%s\"",
+		"select query from aliases where alias = '%s'",
 		conn, tagsistant_return_string, &value, alias);
 
 	return (value);
