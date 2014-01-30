@@ -670,7 +670,7 @@ int tagsistant_querytree_parse_store (
 			andcount++;
 
 			/* search related tags */
-			if (qtree->do_reasoning && and->tag) {
+			if (qtree->do_reasoning && (and->tag || (and->namespace && and->key && and->value))) {
 				dbg('q', LOG_INFO, "Searching for other tags related to %s", and->tag);
 
 				tagsistant_reasoning *reasoning = g_malloc(sizeof(tagsistant_reasoning));

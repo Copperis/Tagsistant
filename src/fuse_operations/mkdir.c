@@ -95,12 +95,21 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 				tag1_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->namespace, qtree->key, qtree->value);
 
 			/*
-			 * get second tag id
+			 * get second tag id (create it if not exists) <----------------------------
 			 */
-			if (qtree->second_tag)
+			if (qtree->second_tag) {
 				tag2_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->second_tag, NULL, NULL);
-			else
+				if (!tag2_id) {
+					tagsistant_sql_create_tag(qtree->dbi, qtree->second_tag, NULL, NULL);
+					tag2_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->second_tag, NULL, NULL);
+				}
+			} else {
 				tag2_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->related_namespace, qtree->related_key, qtree->related_value);
+				if (!tag2_id) {
+					tagsistant_sql_create_tag(qtree->dbi, qtree->related_namespace, qtree->related_key, qtree->related_value);
+					tag2_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->related_namespace, qtree->related_key, qtree->related_value);
+				}
+			}
 
 			/*
 			 * check tags and the relation

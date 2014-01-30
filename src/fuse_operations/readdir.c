@@ -271,40 +271,68 @@ int tagsistant_readdir_on_relations(
 	ufs->path = path;
 	ufs->qtree = qtree;
 
+	gchar *condition1 = NULL, *condition2 = NULL;
+
 	if (qtree->second_tag || qtree->related_value) {
 		// nothing
 	} else if (qtree->related_key) {
 
+		if (qtree->namespace)
+			condition1 = g_strdup_printf("(tags1.tagname = '%s' and tags1.key = '%s' and tags1.value = '%s') ", qtree->namespace, qtree->key, qtree->value);
+		else
+			condition1 = g_strdup_printf("(tags1.tagname = '%s') ", qtree->first_tag);
+
+		condition2 = g_strdup_printf("(tags2.tagname = '%s' and tags2.key = '%s') ", qtree->related_namespace, qtree->related_key);
+
 		tagsistant_query(
-			"select distinct value from tags "
-				"where tagname = '%s' and key = '%s'",
+			"select distinct tags2.value from tags as tags2 "
+				"join relations on tags2.tag_id = relations.tag2_id "
+				"join tags as tags1 on tags1.tag_id = relations.tag1_id "
+				"where %s and %s and relation = '%s'",
 			qtree->dbi,
 			tagsistant_add_entry_to_dir,
 			ufs,
-			qtree->related_namespace,
-			qtree->related_key);
+			condition1,
+			condition2,
+			qtree->relation);
 
 	} else if (qtree->related_namespace) {
 
+		if (qtree->namespace)
+			condition1 = g_strdup_printf("(tags1.tagname = '%s' and tags1.key = '%s' and tags1.value = '%s') ", qtree->namespace, qtree->key, qtree->value);
+		else
+			condition1 = g_strdup_printf("(tags1.tagname = '%s') ", qtree->first_tag);
+
+		condition2 = g_strdup_printf("(tags2.tagname = '%s' ) ", qtree->related_namespace);
+
 		tagsistant_query(
-			"select distinct key from tags "
-				"where tagname = '%s'",
+			"select distinct tags2.key from tags as tags2 "
+				"join relations on tags2.tag_id = relations.tag2_id "
+				"join tags as tags1 on tags1.tag_id = relations.tag1_id "
+				"where %s and %s and relation = '%s'",
 			qtree->dbi,
 			tagsistant_add_entry_to_dir,
 			ufs,
-			qtree->related_namespace);
+			condition1,
+			condition2,
+			qtree->relation);
 
 	} else if (qtree->relation) {
-		// list all tags related to first_tag with this relation
+
+		if (qtree->namespace)
+			condition1 = g_strdup_printf("(tags1.tagname = '%s' and tags1.key = '%s' and tags1.value = '%s') ", qtree->namespace, qtree->key, qtree->value);
+		else
+			condition1 = g_strdup_printf("(tags1.tagname = '%s') ", qtree->first_tag);
+
 		tagsistant_query(
-			"select distinct tags.tagname from tags "
-				"join relations on relations.tag2_id = tags.tag_id "
-				"join tags as firsttags on firsttags.tag_id = relations.tag1_id "
-				"where firsttags.tagname = '%s' and relation = '%s'",
+			"select distinct tags2.tagname from tags as tags2 "
+				"join relations on relations.tag2_id = tags2.tag_id "
+				"join tags as tags1 on tags1.tag_id = relations.tag1_id "
+				"where %s and relation = '%s'",
 			qtree->dbi,
 			tagsistant_add_entry_to_dir,
 			ufs,
-			qtree->first_tag,
+			condition1,
 			qtree->relation);
 
 	} else if (qtree->first_tag || qtree->value) {
@@ -335,11 +363,20 @@ int tagsistant_readdir_on_relations(
 			qtree->namespace);
 
 	} else {
+
 		// list all tags
-		tagsistant_query("select distinct tagname from tags", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
+		tagsistant_query(
+			"select distinct tagname from tags",
+			qtree->dbi,
+			tagsistant_add_entry_to_dir,
+			ufs);
+
 	}
 
 	g_free_null(ufs);
+	g_free_null(condition1);
+	g_free_null(condition2);
+
 	return (0);
 }
 
