@@ -45,8 +45,8 @@
   - fixed relations/ paths parsing.
     Thanks to Jeremy Self for reporting.
 
-  - implemented relations between flat and triple tags. The reasoner
-    still need to be adapted (see reasoner.c:153 and following)
+  - implemented relations between flat and triple tags. Adapted the
+    reasoner too.
 
 0.7:
   - libextractor integration. Tagging plugins have been converted to

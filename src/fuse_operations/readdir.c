@@ -116,6 +116,8 @@ static int tagsistant_readdir_on_store_filler(gchar *name, GList *fh_list, struc
 /**
  * Return true if the operators +/, @/ and @@/ should be added to
  * while listing the content of a store/ query
+ *
+ * @param qtree the tagsistant_querytree object
  */
 int tagsistant_do_add_operators(tagsistant_querytree *qtree)
 {
@@ -138,6 +140,14 @@ int tagsistant_do_add_operators(tagsistant_querytree *qtree)
 
 /**
  * Read the content of the store/ directory
+ *
+ * @param qtree the tagsistant_querytree object
+ * @param path the query path
+ * @param buf FUSE buffer used by FUSE filler
+ * @param filler the FUSE fuse_fill_dir_t compatible function used to fill the buffer
+ * @param off_t the offset of the readdir() operation
+ * @param tagsistant_errno pointer to return the state of the errno macro
+ * @return always 0
  */
 int tagsistant_readdir_on_store(
 		tagsistant_querytree *qtree,
@@ -621,6 +631,45 @@ static int tagsistant_add_to_filetree(void *hash_table_pointer, dbi_result resul
 	return (0);
 }
 
+void tagsistant_filetree_add_tag(
+	ptree_and_node *tag,
+	GString *tag_id_condition,
+	GString *triple_tag_condition,
+	dbi_conn conn)
+{
+	if (tag->tag) {
+		if (!tag->tag_id) tag->tag_id = tagsistant_sql_get_tag_id(conn, tag->tag, NULL, NULL);
+		g_string_append_printf(tag_id_condition, ", %d", tag->tag_id);
+	} else {
+		if (!tag->tag_id) tag->tag_id = tagsistant_sql_get_tag_id(conn, tag->namespace, tag->key, tag->value);
+		switch (tag->operator) {
+			case TAGSISTANT_CONTAINS:
+				g_string_append_printf(
+					triple_tag_condition,
+					" or (tagname = '%s' and key = '%s' and value like '%%%s%%')",
+					tag->namespace, tag->key, tag->value);
+				break;
+			case TAGSISTANT_GREATER_THAN:
+				g_string_append_printf(
+					triple_tag_condition,
+					" or (tagname = '%s' and key = '%s' and value > '%s')",
+					tag->namespace, tag->key, tag->value);
+				break;
+			case TAGSISTANT_SMALLER_THAN:
+				g_string_append_printf(
+					triple_tag_condition,
+					" or (tagname = '%s' and key = '%s' and value < '%s')",
+					tag->namespace, tag->key, tag->value);
+				break;
+			case TAGSISTANT_EQUAL_TO:
+			default:
+				g_string_append_printf(tag_id_condition, ", %d", tag->tag_id);
+				break;
+		}
+	}
+}
+
+
 /**
  * build a linked list of filenames that apply to querytree
  * query expressed in query. querytree translate as follows
@@ -700,96 +749,97 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 		while (tag != NULL) {
 
 			/* create the list of tags (natural or related) to match */
-			GString *tag_condition = g_string_sized_new(1024);
+			GString *tag_id_condition = g_string_sized_new(1024);
+			GString *triple_tag_condition = g_string_sized_new(1024);
 
-			if (tag->tag) {
-				if (tag->negate) {
-					g_string_printf(tag_condition,
-						"objects.inode not in ("
-							"select objects.inode "
-							"from objects "
-							"join tagging on tagging.inode = objects.inode "
-							"join tags on tags.tag_id = tagging.tag_id "
-							"where tagname in ('%s'", tag->tag);
-				} else {
-					g_string_printf(tag_condition, "tagname in ('%s'", tag->tag);
-				}
-				if (tag->related != NULL) {
-					ptree_and_node *related = tag->related;
-					while (related != NULL) {
-						g_string_append_printf(tag_condition, ", '%s'", related->tag);
-						related = related->related;
-					}
-				}
-				g_string_append(tag_condition, (tag->negate) ? "))" : ")");
-			} else if (tag->namespace && tag->key && tag->value) {
-				switch (tag->operator) {
-					case TAGSISTANT_CONTAINS:
-						g_string_printf(tag_condition,
-							"tagname = '%s' and key = '%s' and value like '%%%s%%'",
-							tag->namespace, tag->key, tag->value);
-						break;
-					case TAGSISTANT_GREATER_THAN:
-						g_string_printf(tag_condition,
-							"tagname = '%s' and key = '%s' and value > '%s'",
-							tag->namespace, tag->key, tag->value);
-						break;
-					case TAGSISTANT_SMALLER_THAN:
-						g_string_printf(tag_condition,
-							"tagname = '%s' and key = '%s' and value < '%s'",
-							tag->namespace, tag->key, tag->value);
-						break;
-					case TAGSISTANT_EQUAL_TO:
-					default:
-						g_string_printf(tag_condition,
-							"tagname = '%s' and key = '%s' and value = '%s'",
-							tag->namespace, tag->key, tag->value);
-						break;
+			tagsistant_filetree_add_tag(tag, tag_id_condition, triple_tag_condition, conn);
+
+			if (tag->related) {
+				ptree_and_node *related = tag->related;
+				while (related) {
+					tagsistant_filetree_add_tag(related, tag_id_condition, triple_tag_condition, conn);
+					related = related->related;
 				}
 			}
+
+			int needs_tags_table = strlen(triple_tag_condition->str);
+			int has_tags_id = strlen(tag_id_condition->str);
 
 			if (tagsistant.sql_backend_have_intersect) {
 
 				/* shorter syntax for SQL dialects that provide INTERSECT */
-				g_string_append_printf(statement,
-					"select objectname, objects.inode as inode "
-						"from objects "
-						"join tagging on tagging.inode = objects.inode "
-						"join tags on tags.tag_id = tagging.tag_id "
-						"where %s ", tag_condition->str);
+				g_string_append(statement,
+					"select objectname, objects.inode as inode from objects "
+					"join tagging on tagging.inode = objects.inode ");
 
-				if (tag->next != NULL)
-					g_string_append(statement, " intersect ");
+				if (needs_tags_table) {
+					g_string_append(statement, "join tags on tags.tag_id = tagging.tag_id ");
+				}
+
+				g_string_append(statement, "where ");
+
+				if (tag->negate) {
+					g_string_append(statement,
+						"objects.inode not in ("
+							"select inode from tagging "
+							"join tags on tags.tag_id = tagging.tag_id "
+							"where ");
+				}
 
 			} else {
 
 				/* longer syntax for SQL dialects that do not provide INTERSECT */
 				if (nesting) {
-					g_string_append_printf(statement,
+					g_string_append(statement,
 						" and objects.inode in ("
 							"select distinct objects.inode from objects "
-								"inner join tagging on tagging.inode = objects.inode "
-								"inner join tags on tagging.tag_id = tags.tag_id "
-								"where %s ", tag_condition->str);
+							"inner join tagging on tagging.inode = objects.inode ");
+
+					if (needs_tags_table) g_string_append(statement, "inner join tags on tagging.tag_id = tags.tag_id ");
+
+					g_string_append(statement, "where ");
 				} else {
-					g_string_append_printf(statement,
-						" select distinct objectname, objects.inode as inode from objects "
-							"inner join tagging on tagging.inode = objects.inode "
-							"inner join tags on tagging.tag_id = tags.tag_id "
-							"where %s ", tag_condition->str);
+					g_string_append(statement,
+						"select distinct objectname, objects.inode as inode from objects "
+						"inner join tagging on tagging.inode = objects.inode ");
+
+					if (needs_tags_table) g_string_append(statement, "inner join tags on tagging.tag_id = tags.tag_id ");
+
+					g_string_append(statement, "where ");
 				}
 
 				/* increment nesting counter, used to match parenthesis later */
 				nesting++;
 			}
 
-			g_string_free(tag_condition, TRUE);
+			if (has_tags_id) {
+				gchar *condition = tag_id_condition->str + 2; // skip the first ", " of the string
+				g_string_append_printf(statement, " tagging.tag_id in (%s)", condition);
+				if (needs_tags_table) {
+					g_string_append(statement, triple_tag_condition->str);
+				}
+			} else if (needs_tags_table) {
+				gchar *condition = triple_tag_condition->str + 4; // skip the first " or " of the string
+				g_string_append(statement, condition);
+			}
+
+			if (tag->negate) {
+				g_string_append(statement, ")");
+			}
+
+			if (tagsistant.sql_backend_have_intersect && tag->next) {
+				g_string_append(statement, " intersect ");
+			}
+
+			g_string_free(tag_id_condition, TRUE);
+			g_string_free(triple_tag_condition, TRUE);
+
 			tag = tag->next;
 		}
 
 		/* add closing parenthesis on the end of non-INTERSECT queries */
 		if (!tagsistant.sql_backend_have_intersect) {
-			nesting--; // we need one closed parenthesis less than nested subquery
+			nesting--; // we need one closed parenthesis less than nested sub-queries
 
 			while (nesting) {
 				g_string_append(statement, ")");

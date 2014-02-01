@@ -31,10 +31,13 @@
 static GHashTable *tagsistant_reasoner_cache;
 
 typedef struct {
+	tagsistant_tag_id tag_id;
+
 	gchar tag[1024];
 	gchar namespace[1024];
 	gchar key[1024];
 	gchar value[1024];
+
 } tagsistant_tag;
 
 /**
@@ -69,11 +72,31 @@ void tagsistant_reasoner_init()
  * @param key the key of the triple tag
  * @param value the value of the triple tag
  */
-#define tagsistant_and_node_match(and, T) (\
+#define dont_tagsistant_and_node_match(and, T) (\
 	(and->tag && (g_strcmp0(and->tag, T->tag) == 0)) || \
 	(and->namespace && (g_strcmp0(and->namespace, T->namespace) == 0) && \
 	(g_strcmp0(and->key, T->key) == 0) && (g_strcmp0(and->value, T->value) == 0)))
 
+int tagsistant_and_node_match(ptree_and_node *and, tagsistant_tag *T)
+{
+	if (T->tag_id == and->tag_id) return (1);
+
+#if 0
+	//
+	// Perché qui la comparazione di "prova2" e "prova5" è vera?????
+	//
+	if (and->tag && (strcmp(and->tag, T->tag) == 0)) {
+		return (1);
+	}
+
+	if (and->namespace && (strcmp(and->namespace, T->namespace) == 0) &&
+		(strcmp(and->key, T->key) == 0) && (strcmp(and->value, T->value) == 0)) {
+		return (1);
+	}
+#endif
+
+	return (0);
+}
 
 /**
  * Add a reasoned tag to a node. Used by both tagsistant_add_reasoned_tag_callback()
@@ -85,6 +108,7 @@ void tagsistant_reasoner_init()
  */
 static int tagsistant_add_reasoned_tag(tagsistant_tag *T, tagsistant_reasoning *reasoning)
 {
+#if 1
 	/* check for duplicates */
 	ptree_and_node *and = reasoning->start_node;
 	while (and) {
@@ -94,13 +118,14 @@ static int tagsistant_add_reasoned_tag(tagsistant_tag *T, tagsistant_reasoning *
 		if (tagsistant_and_node_match(and, T)) return (0);
 
 		ptree_and_node *related = and->related;
-		while (related && related->tag) {
+		while (related) {
 			if (tagsistant_and_node_match(related, T)) return (0);
 			related = related->related;
 		}
 
 		and = and->next;
 	}
+#endif
 
 	/* adding tag */
 	ptree_and_node *reasoned = g_new0(ptree_and_node, 1);
@@ -116,10 +141,14 @@ static int tagsistant_add_reasoned_tag(tagsistant_tag *T, tagsistant_reasoning *
 	reasoned->namespace = g_strdup(T->namespace);
 	reasoned->key = g_strdup(T->key);
 	reasoned->value = g_strdup(T->value);
+	reasoned->tag_id = T->tag_id;
 
-	/* prepend the reasoned tag */
-	reasoned->related = reasoning->current_node->related;
-	reasoning->current_node->related = reasoned;
+	/* append the reasoned tag */
+	ptree_and_node *last_reasoned = reasoning->current_node;
+	while (last_reasoned->related) {
+		last_reasoned = last_reasoned->related;
+	}
+	last_reasoned->related = reasoned;
 
 	reasoning->added_tags += 1;
 	return (reasoning->added_tags);
@@ -137,33 +166,32 @@ static int tagsistant_add_reasoned_tag_callback(void *_reasoning, dbi_result res
 	/* point to a reasoning_t structure */
 	tagsistant_reasoning *reasoning = (tagsistant_reasoning *) _reasoning;
 
-
+	/*
+	 * create a buffer object to pass the query results
+	 * to tagsistant_add_reasoned_tag()
+	 */
 	tagsistant_tag *T = g_new0(tagsistant_tag, 1);
 
-	/* get tag components */
-	gchar *tag_or_namespace = NULL, *key = NULL, *value = NULL;
-
-	tag_or_namespace = dbi_result_get_string_copy_idx(result, 1);
-	key = dbi_result_get_string_copy_idx(result, 2);
-	value = dbi_result_get_string_copy_idx(result, 3);
+	tagsistant_return_integer(&T->tag_id, result);
+	const gchar *tag_or_namespace = dbi_result_get_string_idx(result, 2);
 
 	if (g_regex_match_simple(":$", tag_or_namespace, 0, 0)) {
 		strcpy(T->namespace, tag_or_namespace);
-		strcpy(T->key, key);
-		strcpy(T->value, value);
+		strcpy(T->key, dbi_result_get_string_idx(result, 3));
+		strcpy(T->value, dbi_result_get_string_idx(result, 4));
 	} else {
 		strcpy(T->tag, tag_or_namespace);
 	}
 
 	/* add the tag */
 	if (-1 == tagsistant_add_reasoned_tag(T, reasoning)) {
+		dbg('r', LOG_ERR, "Error adding reasoned tag (%s, %s, %s)", T->namespace, T->key, T->value);
 		g_free(T);
-		dbg('r', LOG_ERR, "Error adding reasoned tag (%s, %s, %s)", tag_or_namespace, key, value);
 		return (1);
 	}
 
+	dbg('r', LOG_INFO, "Adding related tag (%s, %s, %s)", T->tag, "n/a", "n/a");
 	g_free(T);
-	dbg('r', LOG_INFO, "Adding related tag (%s, %s, %s)", tag_or_namespace, key, value);
 	return (0);
 }
 
@@ -187,7 +215,7 @@ int tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int do_caching)
 	/*
 	 * compute the key used to store the result in the reasoner cache
 	 */
-	if (reasoning->current_node->tag) {
+	if (reasoning->current_node->tag && strlen(reasoning->current_node->tag)) {
 		reference_key = g_strdup(reasoning->current_node->tag);
 	} else if (reasoning->current_node->namespace && reasoning->current_node->key && reasoning->current_node->value) {
 		reference_key = g_strdup_printf("%s<>%s<>%s",
@@ -213,7 +241,7 @@ int tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int do_caching)
 
 		tagsistant_inode other_tag_id = 0;
 
-		if (reasoning->current_node->tag) {
+		if (reasoning->current_node->tag && strlen(reasoning->current_node->tag)) {
 			other_tag_id = tagsistant_sql_get_tag_id(reasoning->conn, reasoning->current_node->tag, NULL, NULL);
 		} else if (reasoning->current_node->namespace && reasoning->current_node->key && reasoning->current_node->value) {
 			other_tag_id = tagsistant_sql_get_tag_id(reasoning->conn, reasoning->current_node->namespace,
@@ -222,11 +250,11 @@ int tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int do_caching)
 
 		// the result wasn't cached, so we lookup it in the DB
 		tagsistant_query(
-			"select tagname, key, value from tags "
+			"select tag_id, tagname, key, value from tags "
 				"join relations on tags.tag_id = relations.tag2_id "
 				"where tag1_id = %d "
 			"union "
-			"select tagname, key, value from tags "
+			"select tag_id, tagname, key, value from tags "
 				"join relations on tags.tag_id = relations.tag1_id "
 				"where tag2_id = %d and relation = 'is_equivalent' ",
 			reasoning->conn,
@@ -234,6 +262,15 @@ int tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int do_caching)
 			reasoning,
 			other_tag_id,
 			other_tag_id);
+
+		/*
+		 * if another node is available, reason about it,
+		 * otherwise exit the reasoning process
+		 */
+		if (reasoning->current_node->related) {
+			reasoning->current_node = reasoning->current_node->related;
+			tagsistant_reasoner_inner(reasoning, FALSE);
+		}
 
 #if TAGSISTANT_ENABLE_REASONER_CACHE
 	}
@@ -252,6 +289,7 @@ int tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int do_caching)
 			g_strlcpy(T->namespace, reasoned->namespace, 1024);
 			g_strlcpy(T->key, reasoned->key, 1024);
 			g_strlcpy(T->value, reasoned->value, 1024);
+			T->tag_id = reasoned->tag_id;
 
 			reasoned_list = g_list_append(reasoned_list, T);
 

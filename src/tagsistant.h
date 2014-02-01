@@ -171,6 +171,8 @@
  */
 typedef uint32_t tagsistant_inode;
 
+typedef uint32_t tagsistant_tag_id;
+
 #define dyn_strcat(original, newstring) original = _dyn_strcat(original, newstring)
 extern gchar *_dyn_strcat(gchar *original, const gchar *newstring);
 

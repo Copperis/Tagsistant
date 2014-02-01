@@ -324,6 +324,36 @@ void tagsistant_invalidate_and_set_cache_entries(tagsistant_querytree *qtree)
 #endif
 }
 
+int tagsistant_check_single_tagging(ptree_and_node *and, dbi_conn dbi, gchar *objectname)
+{
+	tagsistant_inode inode = 0;
+
+	tagsistant_query(
+		"select objects.inode from objects "
+			"join tagging on objects.inode = tagging.inode "
+			"join tags on tagging.tag_id = tags.tag_id "
+			"where objects.objectname = '%s' and ( "
+				"tags.tagname %s '%s' %s "
+				"tags.key %s '%s' %s "
+				"tags.value %s '%s' "
+			")",
+		dbi,
+		tagsistant_return_integer,
+		&inode,
+		objectname,
+		and->negate ? "<>" : "=",
+		and->tag ? and->tag : and->namespace,
+		and->negate ? " or " : " and ",
+		and->negate ? "<>" : "=",
+		_safe_string(and->key),
+		and->negate ? " or " : " and ",
+		and->negate ? "<>" : "=",
+		_safe_string(and->value)
+	);
+
+	return (inode);
+}
+
 /**
  * Try to guess the inode of an object by comparing DB contents
  * with and and-set of tags
@@ -355,73 +385,19 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 	/* lookup the inode into the database */
 	ptree_and_node *and_set_ptr = and_set;
 	while (and_set_ptr) {
-		inode = 0;
+		inode = tagsistant_check_single_tagging(and_set_ptr, dbi, objectname);
 
-		/* check the flat tag  first*/
-		if (and_set_ptr->tag) {
-			tagsistant_query(
-				"select objects.inode from objects "
-					"join tagging on objects.inode = tagging.inode "
-					"join tags on tagging.tag_id = tags.tag_id "
-					"where tags.tagname %s '%s' "
-					"and objects.objectname = '%s' ",
-				dbi,
-				tagsistant_return_integer,
-				&inode,
-				(and_set_ptr->negate) ? "<>" : "=",
-				and_set_ptr->tag,
-				objectname
-			);
+		/* the main tag has not returned an inode, we check every related tags */
+		if (!inode) {
+			ptree_and_node *related = and_set_ptr->related;
 
-			/* the main tag has not returned an inode, we check every related tags */
-			if (!inode) {
-				and_set_ptr = and_set_ptr->related;
-				while (and_set_ptr && !inode) {
-					tagsistant_query(
-						"select objects.inode from objects "
-							"join tagging on objects.inode = tagging.inode "
-							"join tags on tagging.tag_id = tags.tag_id "
-							"where tags.tagname = '%s' "
-							"and objects.objectname = '%s' ",
-						dbi,
-						tagsistant_return_integer,
-						&inode,
-						and_set_ptr->tag,
-						objectname
-					);
-					and_set_ptr = and_set_ptr->related;
-				}
-
-				/* if the inode was not found, we must abort the lookup */
-				if (!inode) goto BREAK_LOOKUP;
+			while (related && !inode) {
+				inode = tagsistant_check_single_tagging(related, dbi, objectname);
+				related = related->related;
 			}
-		} else
-
-		/* or check the triple tag, if it is one */
-		if (and_set_ptr->namespace && and_set_ptr->key && and_set_ptr->value) {
-			tagsistant_query(
-				"select objects.inode from objects "
-					"join tagging on objects.inode = tagging.inode "
-					"join tags on tagging.tag_id = tags.tag_id "
-					"where tags.tagname = '%s' "
-					"and tags.key = '%s' "
-					"and tags.value = '%s' "
-					"and objects.objectname = '%s' ",
-				dbi,
-				tagsistant_return_integer,
-				&inode,
-				and_set_ptr->namespace,
-				and_set_ptr->key,
-				and_set_ptr->value,
-				objectname
-			);
 
 			/* if the inode was not found, we must abort the lookup */
-			if (!inode) {
-				// TODO add here the support triple tags aliases
-				// adapt the code from the single tag section
-				if (!inode) goto BREAK_LOOKUP;
-			}
+			if (!inode) goto BREAK_LOOKUP;
 		}
 
 		and_set_ptr = and_set_ptr->next;
@@ -467,10 +443,11 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
 	// 1. get the object path first element
 	gchar *object_first_element = g_strdup(qtree->object_path);
 	gchar *first_slash = g_strstr_len(object_first_element, strlen(object_first_element), G_DIR_SEPARATOR_S);
-	if (first_slash)
+	if (first_slash) {
 		*first_slash = '\0';
-	else
+	} else {
 		qtree->is_taggable = 1;
+	}
 
 	// 2. use the object_first_element to guess if its tagged in the provided set of tags
 	ptree_or_node *or_tmp = qtree->tree;
@@ -640,12 +617,16 @@ int tagsistant_querytree_parse_store (
 						__SLIDE_TOKEN;
 						if (strcmp(__TOKEN, TAGSISTANT_GREATER_THAN_OPERATOR) == 0) {
 							tagsistant_querytree_set_operator_value(qtree, TAGSISTANT_GREATER_THAN, NULL);
+							and->operator = TAGSISTANT_GREATER_THAN;
 						} else if (strcmp(__TOKEN, TAGSISTANT_SMALLER_THAN_OPERATOR) == 0) {
 							tagsistant_querytree_set_operator_value(qtree, TAGSISTANT_SMALLER_THAN, NULL);
+							and->operator = TAGSISTANT_SMALLER_THAN;
 						} else if (strcmp(__TOKEN, TAGSISTANT_EQUALS_TO_OPERATOR) == 0) {
 							tagsistant_querytree_set_operator_value(qtree, TAGSISTANT_EQUAL_TO, NULL);
+							and->operator = TAGSISTANT_EQUAL_TO;
 						} else if (strcmp(__TOKEN, TAGSISTANT_CONTAINS_OPERATOR) == 0) {
 							tagsistant_querytree_set_operator_value(qtree, TAGSISTANT_CONTAINS, NULL);
+							and->operator = TAGSISTANT_CONTAINS;
 						}
 						if (__NEXT_TOKEN) {
 							__SLIDE_TOKEN;
@@ -654,8 +635,10 @@ int tagsistant_querytree_parse_store (
 						}
 					}
 				}
+				and->tag_id = tagsistant_sql_get_tag_id(qtree->dbi, and->namespace, and->key, and->value);
 			} else {
 				and->tag = g_strdup(__TOKEN);
+				and->tag_id = tagsistant_sql_get_tag_id(qtree->dbi, and->tag, NULL, NULL);
 			}
 			and->next = NULL;
 			and->related = NULL;

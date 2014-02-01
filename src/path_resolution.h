@@ -37,6 +37,8 @@ enum {
 #define TAGSISTANT_GREATER_THAN_OPERATOR "gt"
 #define TAGSISTANT_SMALLER_THAN_OPERATOR "lt"
 
+#define TAGSISTANT_REASONED_TAGS_LIMIT 1024
+
 /**
  * defines an AND token in a query path
  */
@@ -46,6 +48,7 @@ typedef struct ptree_and_node {
 
 	/** the name of this token */
 	char *tag;
+	tagsistant_tag_id tag_id;
 
 	/** the namespace **/
 	char *namespace;

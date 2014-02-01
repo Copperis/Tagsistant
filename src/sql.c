@@ -623,8 +623,6 @@ int tagsistant_return_string(void *return_string, dbi_result result)
 	return (0);
 }
 
-#define _safe_string(string) string ? string : ""
-
 /**
  * Creates a (partial) triple tag
  *

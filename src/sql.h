@@ -38,6 +38,8 @@ extern void tagsistant_db_init();
 extern dbi_conn *tagsistant_db_connection(int start_transaction);
 extern void tagsistant_create_schema();
 
+#define _safe_string(string) string ? string : ""
+
 /* execute SQL statements auto formatting the SQL string and adding file:line coords */
 #define tagsistant_query(format, conn, callback, firstarg, ...) \
 	tagsistant_real_query(conn, format, callback, __FILE__, __LINE__, firstarg, ## __VA_ARGS__)
