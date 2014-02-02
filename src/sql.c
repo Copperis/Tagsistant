@@ -186,7 +186,7 @@ void tagsistant_db_init()
 
 	/* initialize the regular expressions used to escape the SQL queries */
 	RX1 = g_regex_new("[\"']", 0, 0, NULL);
-	RX2 = g_regex_new("[']", 0, 0, NULL);
+	RX2 = g_regex_new("\"", 0, 0, NULL);
 	RX3 = g_regex_new("<><>", 0, 0, NULL);
 }
 
@@ -732,7 +732,7 @@ tagsistant_inode tagsistant_sql_get_tag_id(dbi_conn conn, const gchar *tagname, 
 	gchar *tag_key = tagsistant_make_tag_key(_safe_string(tagname), _safe_string(key), _safe_string(value));
 
 	// lookup in the cache
-	tagsistant_inode *tag_value = (tagsistant_inode *) g_hash_table_lookup(tagsistant_tag_cache, tagname);
+	tagsistant_inode *tag_value = (tagsistant_inode *) g_hash_table_lookup(tagsistant_tag_cache, tag_key);
 
 	if (tag_value && *tag_value) {
 		g_free(tag_key);

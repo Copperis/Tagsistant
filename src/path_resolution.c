@@ -328,13 +328,14 @@ int tagsistant_check_single_tagging(ptree_and_node *and, dbi_conn dbi, gchar *ob
 {
 	tagsistant_inode inode = 0;
 
+#if 0
 	tagsistant_query(
 		"select objects.inode from objects "
 			"join tagging on objects.inode = tagging.inode "
 			"join tags on tagging.tag_id = tags.tag_id "
 			"where objects.objectname = '%s' and ( "
 				"tags.tagname %s '%s' %s "
-				"tags.key %s '%s' %s "
+				"tags.`key` %s '%s' %s "
 				"tags.value %s '%s' "
 			")",
 		dbi,
@@ -350,6 +351,21 @@ int tagsistant_check_single_tagging(ptree_and_node *and, dbi_conn dbi, gchar *ob
 		and->negate ? "<>" : "=",
 		_safe_string(and->value)
 	);
+#endif
+
+	tagsistant_query(
+		"select objects.inode from objects "
+			"join tagging on objects.inode = tagging.inode "
+			"where objects.objectname = '%s' and tagging.tag_id = %d",
+		dbi,
+		tagsistant_return_integer,
+		&inode,
+		objectname,
+		and->tag_id);
+
+	if (and->negate) {
+		return (inode ? 0 : inode);
+	}
 
 	return (inode);
 }

@@ -51,6 +51,10 @@
   - parameter escaping in tagsistant_real_query() to prevent SQL
     injection and problems with filenames with single quotes inside
 
+  - fixed tag_id caching
+
+  - simplified the SQL query to check tagging of a file
+
 0.7:
   - libextractor integration. Tagging plugins have been converted to
     the new API.
