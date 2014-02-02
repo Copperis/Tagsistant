@@ -48,6 +48,9 @@
   - implemented relations between flat and triple tags. Adapted the
     reasoner too.
 
+  - parameter escaping in tagsistant_real_query() to prevent SQL
+    injection and problems with filenames with single quotes inside
+
 0.7:
   - libextractor integration. Tagging plugins have been converted to
     the new API.

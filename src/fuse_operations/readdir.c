@@ -202,7 +202,7 @@ int tagsistant_readdir_on_store(
 			ufs->is_alias = 1;
 			tagsistant_query("select alias from aliases", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
 		} else if (qtree->operator) {
-			tagsistant_query("select distinct value from tags where tagname = '%s' and key = '%s'", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace, qtree->key);
+			tagsistant_query("select distinct value from tags where tagname = '%s' and `key` = '%s'", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace, qtree->key);
 		} else if (qtree->key) {
 			filler(buf, TAGSISTANT_EQUALS_TO_OPERATOR, NULL, 0);
 			filler(buf, TAGSISTANT_CONTAINS_OPERATOR, NULL, 0);
@@ -288,11 +288,11 @@ int tagsistant_readdir_on_relations(
 	} else if (qtree->related_key) {
 
 		if (qtree->namespace)
-			condition1 = g_strdup_printf("(tags1.tagname = '%s' and tags1.key = '%s' and tags1.value = '%s') ", qtree->namespace, qtree->key, qtree->value);
+			condition1 = g_strdup_printf("(tags1.tagname = '%s' and tags1.`key` = '%s' and tags1.value = '%s') ", qtree->namespace, qtree->key, qtree->value);
 		else
 			condition1 = g_strdup_printf("(tags1.tagname = '%s') ", qtree->first_tag);
 
-		condition2 = g_strdup_printf("(tags2.tagname = '%s' and tags2.key = '%s') ", qtree->related_namespace, qtree->related_key);
+		condition2 = g_strdup_printf("(tags2.tagname = '%s' and tags2.`key` = '%s') ", qtree->related_namespace, qtree->related_key);
 
 		tagsistant_query(
 			"select distinct tags2.value from tags as tags2 "
@@ -309,7 +309,7 @@ int tagsistant_readdir_on_relations(
 	} else if (qtree->related_namespace) {
 
 		if (qtree->namespace)
-			condition1 = g_strdup_printf("(tags1.tagname = '%s' and tags1.key = '%s' and tags1.value = '%s') ", qtree->namespace, qtree->key, qtree->value);
+			condition1 = g_strdup_printf("(tags1.tagname = '%s' and tags1.`key` = '%s' and tags1.value = '%s') ", qtree->namespace, qtree->key, qtree->value);
 		else
 			condition1 = g_strdup_printf("(tags1.tagname = '%s') ", qtree->first_tag);
 
@@ -330,7 +330,7 @@ int tagsistant_readdir_on_relations(
 	} else if (qtree->relation) {
 
 		if (qtree->namespace)
-			condition1 = g_strdup_printf("(tags1.tagname = '%s' and tags1.key = '%s' and tags1.value = '%s') ", qtree->namespace, qtree->key, qtree->value);
+			condition1 = g_strdup_printf("(tags1.tagname = '%s' and tags1.`key` = '%s' and tags1.value = '%s') ", qtree->namespace, qtree->key, qtree->value);
 		else
 			condition1 = g_strdup_printf("(tags1.tagname = '%s') ", qtree->first_tag);
 
@@ -355,7 +355,7 @@ int tagsistant_readdir_on_relations(
 
 		tagsistant_query(
 			"select distinct value from tags "
-				"where tagname = '%s' and key = '%s'",
+				"where tagname = '%s' and `key` = '%s'",
 			qtree->dbi,
 			tagsistant_add_entry_to_dir,
 			ufs,
@@ -420,7 +420,7 @@ int tagsistant_readdir_on_tags(
 	} else if (qtree->value) {
 		// nothing
 	} else if (qtree->key) {
-		tagsistant_query("select distinct value from tags where tagname = '%s' and key = '%s'", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace, qtree->key);
+		tagsistant_query("select distinct value from tags where tagname = '%s' and `key` = '%s'", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace, qtree->key);
 	} else if (qtree->namespace) {
 		tagsistant_query("select distinct key from tags where tagname = '%s'", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace);
 	} else {
@@ -646,19 +646,19 @@ void tagsistant_filetree_add_tag(
 			case TAGSISTANT_CONTAINS:
 				g_string_append_printf(
 					triple_tag_condition,
-					" or (tagname = '%s' and key = '%s' and value like '%%%s%%')",
+					" or (tagname = '%s' and `key` = '%s' and value like '%%%s%%')",
 					tag->namespace, tag->key, tag->value);
 				break;
 			case TAGSISTANT_GREATER_THAN:
 				g_string_append_printf(
 					triple_tag_condition,
-					" or (tagname = '%s' and key = '%s' and value > '%s')",
+					" or (tagname = '%s' and `key` = '%s' and value > '%s')",
 					tag->namespace, tag->key, tag->value);
 				break;
 			case TAGSISTANT_SMALLER_THAN:
 				g_string_append_printf(
 					triple_tag_condition,
-					" or (tagname = '%s' and key = '%s' and value < '%s')",
+					" or (tagname = '%s' and `key` = '%s' and value < '%s')",
 					tag->namespace, tag->key, tag->value);
 				break;
 			case TAGSISTANT_EQUAL_TO:

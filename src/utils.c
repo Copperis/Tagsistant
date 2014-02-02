@@ -106,7 +106,7 @@ tagsistant_inode tagsistant_inode_extract_from_path(tagsistant_querytree *qtree)
 	if (inode) {
 		dbg('l', LOG_INFO, "%s has inode %lu", qtree->object_path, (long unsigned int) inode);
 	} else {
-		dbg('l', LOG_INFO, "%s does not contain and inode", qtree->object_path);
+		dbg('l', LOG_INFO, "%s does not contain an inode", qtree->object_path);
 	}
 
 	return (inode);

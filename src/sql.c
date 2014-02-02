@@ -74,6 +74,9 @@ struct {
 GHashTable *tagsistant_tag_cache = NULL;
 #endif
 
+/** regular expressions used to escape query parameters */
+GRegex *RX1, *RX2, *RX3;
+
 /**
  * Initialize libDBI structures
  */
@@ -180,6 +183,11 @@ void tagsistant_db_init()
 		dbg('b', LOG_INFO, "Database does not support INTERSECT operator");
 	}
 #endif
+
+	/* initialize the regular expressions used to escape the SQL queries */
+	RX1 = g_regex_new("[\"']", 0, 0, NULL);
+	RX2 = g_regex_new("[']", 0, 0, NULL);
+	RX3 = g_regex_new("<><>", 0, 0, NULL);
 }
 
 /**
@@ -393,9 +401,9 @@ void tagsistant_create_schema()
 				"create table if not exists tags ("
 					"tag_id integer primary key auto_increment not null, "
 					"tagname varchar(65) not null, "
-					"key varchar(65) not null, "
+					"`key` varchar(65) not null, "
 					"value varchar(65) not null, "
-					"constraint Tag_key unique key (tagname, key, value)",
+					"constraint Tag_key unique `key` (tagname, `key`, value))",
 				dbi, NULL, NULL);
 
 			tagsistant_query(
@@ -464,40 +472,53 @@ int tagsistant_real_query(
 	va_list ap;
 	va_start(ap, firstarg);
 
-	// check if connection has been created
+	/* check if connection has been created */
 	if (NULL == dbi) {
 		dbg('s', LOG_ERR, "ERROR! DBI connection was not initialized!");
 		return(0);
 	}
 
-	// format the statement
-	gchar *statement = g_strdup_vprintf(format, ap);
-	if (NULL == statement) {
-		dbg('s', LOG_ERR, "Null SQL statement");
-		return(0);
-	}
-
-	// lock the connection mutex
+	/* lock the connection mutex */
 	g_mutex_lock(&tagsistant_query_mutex);
 
-	// check if the connection is alive
+	/* check if the connection is alive */
 	if (!dbi_conn_ping(dbi)	&& dbi_conn_connect(dbi) < 0) {
 		g_mutex_unlock(&tagsistant_query_mutex);
 		dbg('s', LOG_ERR, "ERROR! DBI Connection has gone!");
 		return(0);
 	}
 
-	dbg('s', LOG_INFO, "SQL from %s:%d: [%s]", file, line, statement);
+	/* replace all the single or double quotes with "<><>" in the format */
+	gchar *escaped_format = g_regex_replace_literal(RX1, format, -1, 0, "<><>", 0, NULL);
 
-	tagsistant_dirty_logging(statement);
+	/* format the statement */
+	gchar *statement = g_strdup_vprintf(escaped_format, ap);
+	if (NULL == statement) {
+		dbg('s', LOG_ERR, "Null SQL statement");
+		g_free(escaped_format);
+		return(0);
+	}
 
-	// do the query
-	dbi_result result = dbi_conn_query(dbi, statement);
+	/* prepend a backslash to all the single quotes inside the arguments */
+	gchar *escaped_statement_tmp = g_regex_replace_literal(RX2, statement, -1, 0, "\\'", 0, NULL);
 
-	// call the callback function on results or report an error
+	/* replace "<><>" with a single quote */
+	gchar *escaped_statement = g_regex_replace_literal(RX3, escaped_statement_tmp, -1, 0, "\"", 0, NULL);
+
+	/* log and do the query */
+	dbg('s', LOG_INFO, "SQL from %s:%d: [%s]", file, line, escaped_statement);
+	dbi_result result = dbi_conn_query(dbi, escaped_statement);
+
+	tagsistant_dirty_logging(escaped_statement);
+
+	g_free_null(escaped_format);
+	g_free_null(escaped_statement_tmp);
+	g_free_null(escaped_statement);
+
+	/* call the callback function on results or report an error */
 	int rows = 0;
-
 	if (result) {
+
 		if (callback) {
 			while (dbi_result_next_row(result)) {
 				callback(firstarg, result);
@@ -505,16 +526,18 @@ int tagsistant_real_query(
 			}
 		}
 		dbi_result_free(result);
+
 	} else {
-		// get the error message
+
+		/* get the error message */
 		const char *errmsg = NULL;
 		dbi_conn_error(dbi, &errmsg);
 		if (errmsg) dbg('s', LOG_ERR, "Error: %s.", errmsg);
+
 	}
 
 	g_mutex_unlock(&tagsistant_query_mutex);
 
-	g_free_null(statement);
 	return(rows);
 }
 
@@ -636,7 +659,7 @@ void tagsistant_sql_create_tag(dbi_conn conn, const gchar *namespace, const gcha
 	if (!namespace) return;
 
 	tagsistant_query(
-		"insert into tags(tagname, key, value) "
+		"insert into tags(tagname, `key`, value) "
 			"values ('%s', '%s', '%s')",
 		conn,
 		NULL,
@@ -721,11 +744,11 @@ tagsistant_inode tagsistant_sql_get_tag_id(dbi_conn conn, const gchar *tagname, 
 	tagsistant_inode tag_id = 0;
 	if (value)
 		tagsistant_query(
-			"select tag_id from tags where tagname = '%s' and key = '%s' and value = '%s' limit 1",
+			"select tag_id from tags where tagname = '%s' and `key` = '%s' and value = '%s' limit 1",
 			conn, tagsistant_return_integer, &tag_id, tagname, _safe_string(key), _safe_string(value));
 	else if (key)
 		tagsistant_query(
-			"select tag_id from tags where tagname = '%s' and key = '%s' limit 1",
+			"select tag_id from tags where tagname = '%s' and `key` = '%s' limit 1",
 			conn, tagsistant_return_integer, &tag_id, tagname, _safe_string(key));
 	else
 		tagsistant_query(
@@ -769,7 +792,7 @@ void tagsistant_sql_delete_tag(dbi_conn conn, const gchar *tagname, const gchar 
 	tagsistant_remove_tag_from_cache(tagname, _safe_string(key), _safe_string(value));
 
 	tagsistant_query(
-		"delete from tags where tagname = '%s' and key = '%s' and value = '%s'",
+		"delete from tags where tagname = '%s' and `key` = '%s' and value = '%s'",
 		conn, NULL, NULL, tagname, _safe_string(key), _safe_string(value));
 
 	tagsistant_query(
