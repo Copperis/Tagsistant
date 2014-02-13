@@ -55,6 +55,10 @@
 
   - simplified the SQL query to check tagging of a file
 
+  - deduplication and autotagging can be performed in a separate thread
+    or in the main thread by setting TAGSISTANT_DEDUPLICATION_THREAD to
+	1 or 0 in tagsistant.h
+
 0.7:
   - libextractor integration. Tagging plugins have been converted to
     the new API.

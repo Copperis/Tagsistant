@@ -53,8 +53,33 @@ int tagsistant_flush(const char *path, struct fuse_file_info *fi)
 
 		// schedule deduplication and autotagging for this file
 		if (modified) {
+#if TAGSISTANT_DEDUPLICATION_THREAD
+
 			dbg('2', LOG_INFO, "Scheduling %s for deduplication", path);
 			g_async_queue_push(tagsistant_dedup_autotag_queue, g_strdup(path));
+
+#else
+
+#	if TAGSISTANT_ENABLE_DEDUPLICATION
+			/* deduplicate the object */
+			if (tagsistant_querytree_deduplicate(qtree)) {
+#	endif /* TAGSISTANT_ENABLE_DEDUPLICATION */
+
+#	if TAGSISTANT_ENABLE_AND_SET_CACHE
+				/* invalidate the and_set cache */
+				tagsistant_invalidate_and_set_cache_entries(qtree);
+#	endif
+
+#	if TAGSISTANT_ENABLE_AUTOTAGGING
+				/* run the autotagging plugin stack */
+				tagsistant_process(qtree);
+#	endif /* TAGSISTANT_ENABLE_AUTOTAGGING */
+
+#	if TAGSISTANT_ENABLE_DEDUPLICATION
+			}
+#	endif /* TAGSISTANT_ENABLE_DEDUPLICATION */
+
+#endif
 		}
 #endif
 

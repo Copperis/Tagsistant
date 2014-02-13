@@ -68,6 +68,9 @@
 /** enable deduplication? */
 #define TAGSISTANT_ENABLE_DEDUPLICATION 1
 
+/** perform deduplication in a separate thread */
+#define TAGSISTANT_DEDUPLICATION_THREAD 0
+
 /** enable the autotagging plugin stack? */
 #define TAGSISTANT_ENABLE_AUTOTAGGING 1
 

@@ -201,6 +201,11 @@ void tagsistant_dedup_and_autotag_thread(gpointer data) {
 				tagsistant_process(qtree);
 #endif
 
+#if TAGSISTANT_ENABLE_AND_SET_CACHE
+				/* invalidate the and_set cache */
+				tagsistant_invalidate_and_set_cache_entries(qtree);
+#endif
+
 #if TAGSISTANT_ENABLE_DEDUPLICATION
 			}
 #endif

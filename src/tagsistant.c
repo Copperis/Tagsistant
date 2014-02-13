@@ -531,6 +531,10 @@ int main(int argc, char *argv[])
 	tagsistant_reasoner_init();
 	tagsistant_utils_init();
 
+	/* SQLite requires tagsistant to run in single thread mode */
+	if (tagsistant.sql_database_driver == TAGSISTANT_DBI_SQLITE_BACKEND)
+		fuse_opt_add_arg(&args, "-s");
+
 #if FUSE_VERSION <= 25
 	res = fuse_main(args.argc, args.argv, &tagsistant_oper);
 #else

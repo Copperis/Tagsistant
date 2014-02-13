@@ -300,6 +300,8 @@ gchar *tagsistant_compile_grouped_and_set(ptree_and_node *and_set, int *total)
  */
 void tagsistant_invalidate_and_set_cache_entries(tagsistant_querytree *qtree)
 {
+	(void) qtree;
+
 #if TAGSISTANT_ENABLE_AND_SET_CACHE
 	ptree_or_node *ptr = qtree->tree;
 	while (ptr) {
@@ -1255,6 +1257,8 @@ tagsistant_querytree *tagsistant_querytree_new(
 	int start_transaction,
 	int provide_connection)
 {
+	(void) assign_inode;
+
 	tagsistant_querytree *qtree = NULL;
 
 #if TAGSISTANT_ENABLE_QUERYTREE_CACHE

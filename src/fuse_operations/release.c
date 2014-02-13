@@ -45,7 +45,6 @@ int tagsistant_release(const char *path, struct fuse_file_info *fi)
 	// -- object --
 	if (QTREE_IS_TAGGABLE(qtree) && fi->fh) {
 		dbg('F', LOG_INFO, "Uncaching %" PRIu64 " = open(%s)", fi->fh, path);
-		fprintf(stderr, "Closing FD %llu\n", fi->fh);
 		close(fi->fh);
 		fi->fh = 0;
 	}
