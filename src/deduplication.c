@@ -189,6 +189,13 @@ void tagsistant_dedup_and_autotag_thread(gpointer data) {
 
 			// build the querytree from the path
 			tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1);
+			if (!qtree) {
+				int i;
+				for (i = 5; i; i--) {
+					sleep(1);
+					qtree = tagsistant_querytree_new(path, 0, 1, 1);
+				}
+			}
 #endif
 
 #if TAGSISTANT_ENABLE_DEDUPLICATION
