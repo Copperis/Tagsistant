@@ -59,6 +59,15 @@
     or in the main thread by setting TAGSISTANT_DEDUPLICATION_THREAD to
 	1 or 0 in tagsistant.h
 
+  - implemented the ALL/ metatag which lists all the files in the
+    repository. Files can be deleted from the ALL/ tag, but can't be
+	created. This tag is also useful to re-scan the whole repository
+	when a new autotagging plugin is added, by just doing a:
+
+	  $ touch ~/myfiles/store/ALL/@@/*
+	
+	Each file will be rescanned for tags and deduplicated too.
+
 0.7:
   - libextractor integration. Tagging plugins have been converted to
     the new API.

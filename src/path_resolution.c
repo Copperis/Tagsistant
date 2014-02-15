@@ -40,6 +40,8 @@ GRWLock tagsistant_and_set_cache_lock;
 GHashTable *tagsistant_and_set_cache = NULL;
 #endif
 
+GRegex *tagsistant_inode_extract_from_path_regex = NULL;
+
 /**
  * Counts one single element of the querytree hashtable
  *
@@ -85,14 +87,14 @@ void tagsistant_querytree_cache_destroy_element(tagsistant_querytree *qtree)
 void tagsistant_path_resolution_init()
 {
 	/* prepare stringified version of tagsistant_querytree types */
-	tagsistant_querytree_types[QTYPE_MALFORMED] = g_strdup("QTYPE_MALFORMED");
-	tagsistant_querytree_types[QTYPE_ROOT] = g_strdup("QTYPE_ROOT");
-	tagsistant_querytree_types[QTYPE_ARCHIVE] = g_strdup("QTYPE_ARCHIVE");
-	tagsistant_querytree_types[QTYPE_TAGS] = g_strdup("QTYPE_TAGS");
-	tagsistant_querytree_types[QTYPE_RELATIONS] = g_strdup("QTYPE_RELATIONS");
-	tagsistant_querytree_types[QTYPE_STATS] = g_strdup("QTYPE_STATS");
-	tagsistant_querytree_types[QTYPE_STORE] = g_strdup("QTYPE_STORE");
-	tagsistant_querytree_types[QTYPE_ALIAS] = g_strdup("QTYPE_ALIAS");
+	tagsistant_querytree_types[QTYPE_MALFORMED]	= g_strdup("QTYPE_MALFORMED");
+	tagsistant_querytree_types[QTYPE_ROOT]		= g_strdup("QTYPE_ROOT");
+	tagsistant_querytree_types[QTYPE_ARCHIVE]	= g_strdup("QTYPE_ARCHIVE");
+	tagsistant_querytree_types[QTYPE_TAGS]		= g_strdup("QTYPE_TAGS");
+	tagsistant_querytree_types[QTYPE_RELATIONS]	= g_strdup("QTYPE_RELATIONS");
+	tagsistant_querytree_types[QTYPE_STATS]		= g_strdup("QTYPE_STATS");
+	tagsistant_querytree_types[QTYPE_STORE]		= g_strdup("QTYPE_STORE");
+	tagsistant_querytree_types[QTYPE_ALIAS]		= g_strdup("QTYPE_ALIAS");
 
 #if TAGSISTANT_ENABLE_QUERYTREE_CACHE
 	/* initialize the tagsistant_querytree object cache */
@@ -106,6 +108,9 @@ void tagsistant_path_resolution_init()
 #if TAGSISTANT_ENABLE_AND_SET_CACHE
 	tagsistant_and_set_cache = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
 #endif
+
+	/* compile regular expressions */
+	tagsistant_inode_extract_from_path_regex = g_regex_new("^([0-9]+)" TAGSISTANT_INODE_DELIMITER, 0, 0, NULL);
 }
 
 /**
@@ -373,6 +378,38 @@ int tagsistant_check_single_tagging(ptree_and_node *and, dbi_conn dbi, gchar *ob
 }
 
 /**
+ * return the tagsistant inode contained into a path
+ *
+ * @param qtree the querytree object supposed to contain an inode
+ * @return the inode, if found
+ */
+tagsistant_inode tagsistant_inode_extract_from_path(const gchar *path)
+{
+	if (!path && strlen(path) == 0) return (0);
+
+	tagsistant_inode inode = 0;
+
+	GMatchInfo *match_info;
+	if (g_regex_match(tagsistant_inode_extract_from_path_regex, path, 0, &match_info)) {
+		/*
+		 * extract the inode
+		 */
+		gchar *inode_text = g_match_info_fetch(match_info, 1);
+		inode = strtoul(inode_text, NULL, 10);
+		g_free_null(inode_text);
+	}
+	g_match_info_free(match_info);
+
+	if (inode) {
+		dbg('l', LOG_INFO, "%s has inode %lu", path, (long unsigned int) inode);
+	} else {
+		dbg('l', LOG_INFO, "%s does not contain an inode", path);
+	}
+
+	return (inode);
+}
+
+/**
  * Try to guess the inode of an object by comparing DB contents
  * with and and-set of tags
  *
@@ -403,6 +440,21 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 	/* lookup the inode into the database */
 	ptree_and_node *and_set_ptr = and_set;
 	while (and_set_ptr) {
+		if (g_strcmp0(and_set_ptr->tag, "ALL") == 0) {
+			// get the inode from the object path
+			inode = tagsistant_inode_extract_from_path(objectname);
+
+			// load the inode from the object table
+			if (!inode) {
+				tagsistant_query(
+					"select inode from objects where objectname = '%s'",
+					dbi, tagsistant_return_integer, &inode, objectname);
+			}
+
+			goto BREAK_LOOKUP;
+
+		}
+
 		inode = tagsistant_check_single_tagging(and_set_ptr, dbi, objectname);
 
 		/* the main tag has not returned an inode, we check every related tags */
@@ -1353,8 +1405,22 @@ tagsistant_querytree *tagsistant_querytree_new(
 	if (QTREE_IS_ARCHIVE(qtree)) {
 
 		qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
-		qtree->inode = tagsistant_inode_extract_from_path(qtree);
+		qtree->inode = tagsistant_inode_extract_from_path(qtree->object_path);
+
 		if (qtree->inode) {
+			/*
+			 * replace the inode and the separator with a blank string,
+			 * actually stripping it from the object_path
+			 */
+			gchar *new_object_path = g_regex_replace(
+				tagsistant_inode_extract_from_path_regex,
+				qtree->object_path,
+				strlen(qtree->object_path),
+				0, "", 0, NULL);
+
+			g_free(qtree->object_path);
+			qtree->object_path = new_object_path;
+
 			tagsistant_querytree_set_inode(qtree, qtree->inode);
 		}
 
@@ -1372,7 +1438,7 @@ tagsistant_querytree *tagsistant_querytree_new(
 		qtree->object_path = g_strjoinv(G_DIR_SEPARATOR_S, token_ptr);
 
 		// look for an inode in object_path
-		qtree->inode = tagsistant_inode_extract_from_path(qtree);
+		qtree->inode = tagsistant_inode_extract_from_path(qtree->object_path);
 
 		// if no inode is found, try to guess it resolving the querytree
 		// we just need to check if an object with *token_ptr objectname and
@@ -1384,6 +1450,19 @@ tagsistant_querytree *tagsistant_querytree_new(
 				or_tmp = or_tmp->next;
 			}
 		} else {
+			/*
+			 * replace the inode and the separator with a blank string,
+			 * actually stripping it from the object_path
+			 */
+			gchar *new_object_path = g_regex_replace(
+				tagsistant_inode_extract_from_path_regex,
+				qtree->object_path,
+				strlen(qtree->object_path),
+				0, "", 0, NULL);
+
+			g_free(qtree->object_path);
+			qtree->object_path = new_object_path;
+
 			//
 			// check if the inode found in the object_path refers to an object
 			// which is really tagged by the tagset described in the tags/.../=

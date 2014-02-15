@@ -342,7 +342,7 @@ extern void						tagsistant_invalidate_querytree_cache(tagsistant_querytree *qtr
 extern void						tagsistant_invalidate_and_set_cache_entries(tagsistant_querytree *qtree);
 
 // inode functions
-extern tagsistant_inode			tagsistant_inode_extract_from_path(tagsistant_querytree *qtree);
+extern tagsistant_inode			tagsistant_inode_extract_from_path(const gchar *path);
 extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_querytree *qtree);
 
 // reasoner functions

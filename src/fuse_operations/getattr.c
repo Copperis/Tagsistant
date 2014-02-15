@@ -52,12 +52,16 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 	// -- object on disk --
 	else if (QTREE_POINTS_TO_OBJECT(qtree)) {
-		tagsistant_querytree_check_tagging_consistency(qtree);
-
-		if (qtree->full_archive_path && qtree->exists) {
+		if (is_all_path(qtree->full_path)) {
 			lstat_path = qtree->full_archive_path;
 		} else {
-			TAGSISTANT_ABORT_OPERATION(ENOENT);
+			tagsistant_querytree_check_tagging_consistency(qtree);
+
+			if (qtree->full_archive_path && qtree->exists) {
+				lstat_path = qtree->full_archive_path;
+			} else {
+				TAGSISTANT_ABORT_OPERATION(ENOENT);
+			}
 		}
 	}
 
@@ -195,6 +199,8 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	if (QTREE_IS_STORE(qtree)) {
 		// dbg(LOG_INFO, "getattr: last tag is %s", qtree->last_tag);
 		if (NULL == qtree->last_tag) {
+			// OK
+		} else if (g_strcmp0(qtree->last_tag, "ALL") == 0) {
 			// OK
 		} else if ((g_strcmp0(qtree->last_tag, TAGSISTANT_ANDSET_DELIMITER) == 0) ||
 			(g_strcmp0(qtree->last_tag, TAGSISTANT_NEGATE_NEXT_TAG) == 0)) {

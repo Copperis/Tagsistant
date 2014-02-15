@@ -25,8 +25,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-GRegex *tagsistant_inode_extract_from_path_regex = NULL;
-
 #ifdef DEBUG_TO_LOGFILE
 void open_debug_file()
 {
@@ -69,48 +67,6 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream)
 	return(*n);
 }
 #endif
-
-/**
- * return the tagsistant inode contained into a path
- *
- * @param qtree the querytree object supposed to contain an inode
- * @return the inode, if found
- */
-tagsistant_inode tagsistant_inode_extract_from_path(tagsistant_querytree *qtree)
-{
-	if (!qtree || !qtree->object_path || strlen(qtree->object_path) == 0) return (0);
-
-	tagsistant_inode inode = 0;
-
-	GMatchInfo *match_info;
-	if (g_regex_match(tagsistant_inode_extract_from_path_regex, qtree->object_path, 0, &match_info)) {
-		/*
-		 * extract the inode
-		 */
-		gchar *inode_text = g_match_info_fetch(match_info, 1);
-		inode = strtoul(inode_text, NULL, 10);
-		g_free_null(inode_text);
-
-		/*
-		 * replace the inode and the separator with a blank string,
-		 * actually stripping it from the object_path
-		 */
-		qtree->object_path = g_regex_replace(
-			tagsistant_inode_extract_from_path_regex,
-			qtree->object_path,
-			strlen(qtree->object_path),
-			0, "", 0, NULL);
-	}
-	g_match_info_free(match_info);
-
-	if (inode) {
-		dbg('l', LOG_INFO, "%s has inode %lu", qtree->object_path, (long unsigned int) inode);
-	} else {
-		dbg('l', LOG_INFO, "%s does not contain an inode", qtree->object_path);
-	}
-
-	return (inode);
-}
 
 /**
  * Print configuration lines on STDERR
@@ -209,9 +165,6 @@ extern void tagsistant_dedup_and_autotag_thread(gpointer data);
  */
 void tagsistant_utils_init()
 {
-	/* compile regular expressions */
-	tagsistant_inode_extract_from_path_regex = g_regex_new("^([0-9]+)" TAGSISTANT_INODE_DELIMITER, 0, 0, NULL);
-
 #if TAGSISTANT_ENABLE_DEDUPLICATION || TAGSISTANT_ENABLE_AUTOTAGGING
 	/* init the asynchronous queue */
 	tagsistant_dedup_autotag_queue = g_async_queue_new();

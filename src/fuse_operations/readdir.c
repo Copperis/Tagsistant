@@ -31,8 +31,8 @@ struct tagsistant_use_filler_struct {
 };
 
 // filetree functions
-extern GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn);
-extern void tagsistant_filetree_destroy_value_list(gchar *key, GList *list_p, gpointer data);
+GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn, int is_all_path);
+void tagsistant_filetree_destroy_value_list(gchar *key, GList *list_p, gpointer data);
 #define tagsistant_filetree_destroy_value g_free_null
 
 /**
@@ -163,9 +163,14 @@ int tagsistant_readdir_on_store(
 	filler(buf, "..", NULL, 0);
 
 	/*
- 	* if path does not terminate by @,
- 	* directory should be filled with tagsdir registered tags
- 	*/
+	 * check if path contains the ALL/ meta-tag
+	 */
+	int is_all_path = is_all_path(qtree->full_path);
+
+	/*
+	 * if path does not terminate by @,
+ 	 * directory should be filled with tagsdir registered tags
+ 	 */
 	struct tagsistant_use_filler_struct *ufs = g_new0(struct tagsistant_use_filler_struct, 1);
 	if (!ufs) {
 		dbg('F', LOG_ERR, "Error allocating memory");
@@ -182,7 +187,7 @@ int tagsistant_readdir_on_store(
 	if (qtree->complete) {
 
 		// build the filetree
-		GHashTable *hash_table = tagsistant_filetree_new(qtree->tree, qtree->dbi);
+		GHashTable *hash_table = tagsistant_filetree_new(qtree->tree, qtree->dbi, is_all_path);
 		g_hash_table_foreach(hash_table, (GHFunc) tagsistant_readdir_on_store_filler, ufs);
 		g_hash_table_foreach(hash_table, (GHFunc) tagsistant_filetree_destroy_value_list, NULL);
 		g_hash_table_destroy(hash_table);
@@ -191,13 +196,18 @@ int tagsistant_readdir_on_store(
 
 		// add operators if path is not "/tags", to avoid "/tags/+" and "/tags/@"
 		if (tagsistant_do_add_operators(qtree)) {
-			filler(buf, TAGSISTANT_ANDSET_DELIMITER, NULL, 0);
 			filler(buf, TAGSISTANT_QUERY_DELIMITER, NULL, 0);
 			filler(buf, TAGSISTANT_QUERY_DELIMITER_NO_REASONING, NULL, 0);
-			filler(buf, TAGSISTANT_NEGATE_NEXT_TAG, NULL, 0);
+			if (!is_all_path) {
+				filler(buf, TAGSISTANT_ANDSET_DELIMITER, NULL, 0);
+				filler(buf, TAGSISTANT_NEGATE_NEXT_TAG, NULL, 0);
+			}
 		}
 
-		if (qtree->value) {
+		if (is_all_path) {
+			// OK
+		} else if (qtree->value) {
+			filler(buf, "ALL", NULL, 0);
 			tagsistant_query("select distinct tagname from tags", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
 			ufs->is_alias = 1;
 			tagsistant_query("select alias from aliases", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
@@ -211,6 +221,7 @@ int tagsistant_readdir_on_store(
 		} else if (qtree->namespace) {
 			tagsistant_query("select distinct key from tags where tagname = '%s'", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace);
 		} else {
+			filler(buf, "ALL", NULL, 0);
 			tagsistant_query("select distinct tagname from tags", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
 			ufs->is_alias = 1;
 			tagsistant_query("select alias from aliases", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
@@ -694,9 +705,21 @@ void tagsistant_filetree_add_tag(
  * @param query the ptree_or_node_t* query structure to
  * be resolved.
  */
-GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
+GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn, int is_all_path)
 {
-	if (query == NULL) {
+	/*
+	 * If the query contains the ALL meta-tag, just select all the available
+	 * objects and return them
+	 */
+	if (is_all_path) {
+		GHashTable *file_hash = g_hash_table_new(g_str_hash, g_str_equal);
+
+		tagsistant_query("select objectname, inode from objects", conn, tagsistant_add_to_filetree, file_hash);
+
+		return(file_hash);
+	}
+
+	if (!query) {
 		dbg('f', LOG_ERR, "NULL path_tree_t object provided to %s", __func__);
 		return(NULL);
 	}
@@ -704,37 +727,37 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 	/* save a working pointer to the query */
 	ptree_or_node *query_dup = query;
 
-	//
-	// MySQL does not support intersect!
-	// So we must find an alternative way.
-	// Some hints:
-	//
-	// 1. select distinct objectname, objects.inode as inode from objects
-	//    join tagging on tagging.inode = objects.inode
-	//    join tags on tagging.tag_id = tags.tag_id
-	//    where tags.tagname in ("t1", "t2", "t3");
-	//
-	// Main problem with 1. is that it finds all the objects tagged
-	// at least with one of the tags listed, not what the AND-set
-	// means
-	//
-	// 2. select distinct objects.inode from objects
-	//    inner join tagging on tagging.inode = objects.inode
-	//    inner join tags on tagging.tag_id = tags.tag_id
-	//    where tagname = 't1' and objects.inode in (
-	//      select distinct objects.inode from objects
-	//      inner join tagging on tagging.inode = objects.inode
-	//      inner join tags on tagging.tag_id = tags.tag_id
-	//      where tagname = 't2' and objects.inode in (
-	//        select distinct objects.inode from objects
-	//        inner join tagging on tagging.inode = objects.inode
-	//        inner join tags on tagging.tag_id = tags.tag_id
-	//        where tagname = 't3'
-	//      )
-	//    )
-	//
-	// That's the longest and less readable form but seems to work.
-	//
+	/*
+	 * MySQL does not support intersect!
+	 * So we must find an alternative way.
+	 * Some hints:
+	 *
+	 * 1. select distinct objectname, objects.inode as inode from objects
+	 *    join tagging on tagging.inode = objects.inode
+	 *    join tags on tagging.tag_id = tags.tag_id
+	 *    where tags.tagname in ("t1", "t2", "t3");
+	 *
+	 * Main problem with 1. is that it finds all the objects tagged
+	 * at least with one of the tags listed, not what the AND-set
+	 * means
+	 *
+	 * 2. select distinct objects.inode from objects
+	 *    inner join tagging on tagging.inode = objects.inode
+	 *    inner join tags on tagging.tag_id = tags.tag_id
+	 *    where tagname = 't1' and objects.inode in (
+	 *      select distinct objects.inode from objects
+	 *      inner join tagging on tagging.inode = objects.inode
+	 *      inner join tags on tagging.tag_id = tags.tag_id
+	 *      where tagname = 't2' and objects.inode in (
+	 *        select distinct objects.inode from objects
+	 *        inner join tagging on tagging.inode = objects.inode
+	 *        inner join tags on tagging.tag_id = tags.tag_id
+	 *        where tagname = 't3'
+	 *      )
+	 *    )
+	 *
+	 * That's the longest and less readable form but seems to work.
+	 */
 
 	int nesting = 0;
 	while (query != NULL) {
@@ -884,11 +907,6 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn)
 
 	return(file_hash);
 }
-
-/**
- * Destroy a tagsistant_file_handle
- */
-
 
 /**
  * Destroy a filetree element GList list of tagsistant_file_handle.

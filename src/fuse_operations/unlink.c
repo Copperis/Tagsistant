@@ -43,11 +43,36 @@ int tagsistant_unlink(const char *path)
 		tagsistant_querytree_check_tagging_consistency(qtree);
 
 		if (QTREE_IS_TAGGABLE(qtree)) {
-			/*
-			 * if object is pointed by a tags/ query, then untag it
-			 * from the tags included in the query path...
-			 */
-			tagsistant_querytree_traverse(qtree, tagsistant_sql_untag_object, qtree->inode);
+			if (is_all_path(qtree->full_path)) {
+
+				tagsistant_query(
+					"delete from objects where inode = %d",
+					qtree->dbi, NULL, NULL, qtree->inode);
+
+				tagsistant_query(
+					"delete from tagging where inode = %d",
+					qtree->dbi, NULL, NULL, qtree->inode);
+
+			} else {
+
+				/*
+				 * if object is pointed by a tags/ query, then untag it
+				 * from the tags included in the query path...
+				 */
+				tagsistant_querytree_traverse(qtree, tagsistant_sql_untag_object, qtree->inode);
+
+				/*
+				 * ...then check if it's tagged elsewhere...
+				 * ...if still tagged, then avoid real unlink(): the object must survive!
+				 * ...otherwise we can delete it from the objects table
+				 */
+				if (!tagsistant_object_is_tagged(qtree->dbi, qtree->inode))
+					tagsistant_query(
+						"delete from objects where inode = %d",
+						qtree->dbi, NULL, NULL, qtree->inode);
+				else
+					do_unlink = 0;
+			}
 
 #if TAGSISTANT_ENABLE_AND_SET_CACHE
 			/*
@@ -55,18 +80,6 @@ int tagsistant_unlink(const char *path)
 			 */
 			tagsistant_invalidate_and_set_cache_entries(qtree);
 #endif
-
-			/*
-			 * ...then check if it's tagged elsewhere...
-			 * ...if still tagged, then avoid real unlink(): the object must survive!
-			 * ...otherwise we can delete it from the objects table
-			 */
-			if (!tagsistant_object_is_tagged(qtree->dbi, qtree->inode))
-				tagsistant_query(
-					"delete from objects where inode = %d",
-					qtree->dbi, NULL, NULL, qtree->inode);
-			else
-				do_unlink = 0;
 		}
 
 		// unlink the object on disk

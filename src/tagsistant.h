@@ -237,6 +237,13 @@ extern GAsyncQueue *tagsistant_dedup_autotag_queue;
 }
 
 /**
+ * Check if a path contains the meta-tag ALL/
+ */
+#define is_all_path(path) (\
+	g_regex_match_simple("/ALL/", path, G_REGEX_EXTENDED, 0) ||\
+	g_regex_match_simple("/ALL$", path, G_REGEX_EXTENDED, 0))
+
+/**
  * Fuse operations logging macros.
  * Enabled or disabled by TAGSISTANT_VERBOSE_LOGGING.
  */
