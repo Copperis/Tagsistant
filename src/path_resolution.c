@@ -1405,7 +1405,7 @@ tagsistant_querytree *tagsistant_querytree_new(
 					tagsistant_query(
 						"select tagging.inode from tagging "
 							"join tags on tagging.tag_id = tags.tag_id "
-							"where tagging.inode = %d and tags.tag_name = '%s'",
+							"where tagging.inode = %d and tags.tagname = '%s'",
 						qtree->dbi,
 						tagsistant_return_integer,
 						&tmp_inode,
