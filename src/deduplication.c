@@ -120,7 +120,8 @@ int tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
 	dbg('2', LOG_INFO, "Checksumming %s", qtree->full_archive_path);
 
 	/* check if object checksum is a zero-length string */
-	gchar *loaded_checksum;
+	gchar *loaded_checksum = NULL;
+
 	tagsistant_query(
 		"select checksum from objects where inode = %d",
 		qtree->dbi,
@@ -190,8 +191,7 @@ void tagsistant_dedup_and_autotag_thread(gpointer data) {
 			// build the querytree from the path
 			tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1);
 			if (!qtree) {
-				int i;
-				for (i = 5; i; i--) {
+				for (int i = 5; i; i--) {
 					sleep(1);
 					qtree = tagsistant_querytree_new(path, 0, 1, 1);
 				}
