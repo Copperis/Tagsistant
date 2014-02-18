@@ -371,7 +371,7 @@ int tagsistant_check_single_tagging(ptree_and_node *and, dbi_conn dbi, gchar *ob
 		and->tag_id);
 
 	if (and->negate) {
-		return (inode ? 0 : inode);
+		return (inode ? 0 : -1);
 	}
 
 	return (inode);
@@ -422,7 +422,7 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 {
 	tagsistant_inode inode = 0;
 
-#if TAGSISTANT_ENABLE_AND_SET_CACHE
+#if 0 && TAGSISTANT_ENABLE_AND_SET_CACHE
 	/* check if the query has been already answered and cached */
 	gchar *search_key = tagsistant_compile_and_set(objectname, and_set);
 
@@ -452,22 +452,21 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 			}
 
 			goto BREAK_LOOKUP;
-
 		}
 
 		inode = tagsistant_check_single_tagging(and_set_ptr, dbi, objectname);
 
-		/* the main tag has not returned an inode, we check every related tags */
-		if (!inode) {
+		if (0 == inode) {
+			/* the main tag has not returned an inode, we check every related tags */
 			ptree_and_node *related = and_set_ptr->related;
 
-			while (related && !inode) {
+			while (related && (0 != inode)) {
 				inode = tagsistant_check_single_tagging(related, dbi, objectname);
 				related = related->related;
 			}
 
 			/* if the inode was not found, we must abort the lookup */
-			if (!inode) goto BREAK_LOOKUP;
+			if (0 == inode) goto BREAK_LOOKUP;
 		}
 
 		and_set_ptr = and_set_ptr->next;
@@ -475,7 +474,7 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 
 BREAK_LOOKUP:
 
-#if TAGSISTANT_ENABLE_AND_SET_CACHE
+#if 0 && TAGSISTANT_ENABLE_AND_SET_CACHE
 	/* cache a result if one has been found */
 	if (inode) {
 		g_rw_lock_writer_lock(&tagsistant_and_set_cache_lock);
@@ -1022,7 +1021,7 @@ void tagsistant_querytree_set_object_path(tagsistant_querytree *qtree, char *new
  */
 void tagsistant_querytree_set_inode(tagsistant_querytree *qtree, tagsistant_inode inode)
 {
-	if (!qtree || !inode) return;
+	if (!qtree || (inode <= 0)) return;
 
 	qtree->inode = inode;
 	tagsistant_querytree_rebuild_paths(qtree);
