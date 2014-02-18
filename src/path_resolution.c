@@ -422,7 +422,7 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 {
 	tagsistant_inode inode = 0;
 
-#if 0 && TAGSISTANT_ENABLE_AND_SET_CACHE
+#if TAGSISTANT_ENABLE_AND_SET_CACHE
 	/* check if the query has been already answered and cached */
 	gchar *search_key = tagsistant_compile_and_set(objectname, and_set);
 
@@ -480,7 +480,7 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 
 BREAK_LOOKUP:
 
-#if 0 && TAGSISTANT_ENABLE_AND_SET_CACHE
+#if TAGSISTANT_ENABLE_AND_SET_CACHE
 	/* cache a result if one has been found */
 	if (inode) {
 		g_rw_lock_writer_lock(&tagsistant_and_set_cache_lock);
