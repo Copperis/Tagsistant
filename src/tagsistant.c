@@ -223,7 +223,6 @@ void tagsistant_usage(char *progname)
 static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse_args *outargs)
 {
     (void) data;
-    (void) data;
 
     switch (key) {
 		case FUSE_OPT_KEY_NONOPT:
@@ -241,7 +240,7 @@ static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse
 #else
 	        fuse_main(outargs->argc, outargs->argv, &tagsistant_oper, NULL);
 #endif
-	        exit(1);
+	        exit(0);
 	
 	    case KEY_VERSION:
 	    	fprintf(stderr, "\nTagsistant (tagfs) v.%s Build: %s FUSE_USE_VERSION: %d\n", PACKAGE_VERSION, TAGSISTANT_BUILDNUMBER, FUSE_USE_VERSION);
@@ -256,12 +255,12 @@ static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse
 	        exit(0);
 	
 	    default:
-	        fprintf(stderr, "Extra parameter provided\n");
-	        tagsistant_usage(outargs->argv[0]);
+	        // fprintf(stderr, " ** Extra parameter provided: %s\n", arg);
+	        // tagsistant_usage(outargs->argv[0]);
 	        break;
     }
 
-	return(0);
+	return(1);
 }
 
 /**
@@ -311,7 +310,7 @@ int main(int argc, char *argv[])
 	if (-1 == fuse_opt_parse(&args, &tagsistant, tagsistant_opts, tagsistant_opt_proc)) {
 		exit(1);
 	}
-
+	
 	/* do some tuning on FUSE options */
 	fuse_opt_add_arg(&args, "-s");
 //	fuse_opt_add_arg(&args, "-odirect_io");
