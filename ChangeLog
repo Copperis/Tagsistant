@@ -68,6 +68,16 @@
 	
 	Each file will be rescanned for tags and deduplicated too.
 
+  - Added GLib based option parsing to allow mounting tagsistant from
+    /etc/fstab
+
+  - Added SVN revision number to build number. The new schema is:
+
+	  SVN.date.progressive
+
+    where SVN is the svn revision number and date has the format YYYYMMDD.
+
+
 0.7:
   - libextractor integration. Tagging plugins have been converted to
     the new API.

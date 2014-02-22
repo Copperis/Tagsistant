@@ -39,6 +39,7 @@ my @new_svn_revision = grep {/^Revision: .*/} `svn info`;
 my $new_svn_revision = $new_svn_revision[0];
 $new_svn_revision =~ s/Revision: //;
 $new_svn_revision =~ s/\n//;
+$new_svn_revision += 1;
 
 my $new_build_number = "$new_svn_revision.$new_build_date.$new_build_revision";
 
