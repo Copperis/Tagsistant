@@ -31,6 +31,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/tagsistant-0.8}&quot;"/>
 									<listOptionValue builtIn="false" value="/usr/include/fuse"/>
 									<listOptionValue builtIn="false" value="/usr/include/glib-2.0/glib/"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/tagsistant-0.8/src/compat}&quot;"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.481234288" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
@@ -460,7 +461,11 @@
 		</buildTargets>
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
-	<storageModule moduleId="refreshScope"/>
+	<storageModule moduleId="refreshScope" versionNumber="2">
+		<configuration configurationName="Build (GNU)">
+			<resource resourceType="PROJECT" workspacePath="/tagsistant-0.8"/>
+		</configuration>
+	</storageModule>
 	<storageModule moduleId="scannerConfiguration">
 		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		<scannerConfigBuildInfo instanceId="org.eclipse.linuxtools.cdt.autotools.core.toolChain.459772867;org.eclipse.linuxtools.cdt.autotools.core.toolChain.459772867.1088711700;org.eclipse.linuxtools.cdt.autotools.core.toolchain.tool.gcc.2094207011;cdt.managedbuild.tool.gnu.c.compiler.input.481234288">

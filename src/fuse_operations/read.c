@@ -209,7 +209,7 @@ void tagsistant_read_stats_configuration(gchar stats_buffer[TAGSISTANT_STATS_BUF
 		tagsistant.foreground,
 		tagsistant.singlethread,
 		tagsistant.readonly,
-		tagsistant.debug ? tagsistant.debug : "-",
+		tagsistant.debug_flags ? tagsistant.debug_flags : "-",
 		tagsistant.dbg['b'] ? 'x' : ' ',
 		tagsistant.dbg['c'] ? 'x' : ' ',
 		tagsistant.dbg['f'] ? 'x' : ' ',

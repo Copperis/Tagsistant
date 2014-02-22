@@ -188,21 +188,23 @@ extern gchar *_dyn_strcat(gchar *original, const gchar *newstring);
  * defines command line options for tagsistant mount tool
  */
 struct tagsistant {
-	char *debug;		/**< debug profile */
-	char dbg[128];		/**< debug flags */
-	int	foreground;		/**< run in foreground */
-	int	singlethread;	/**< single thread? */
-	int	readonly;		/**< mount filesystem readonly */
-	int	verbose;		/**< do verbose logging on syslog (stderr is always verbose) */
-	int	quiet;			/**< don't log anything, even errors */
-	int	show_config;	/**< show whole configuration */
+	gboolean	debug;			/**< debug profile */
+	gchar		*debug_flags;	/**< debug flags as a string */
+	gchar 		dbg[128];		/**< debug flags */
+	gboolean	foreground;		/**< run in foreground */
+	gboolean	singlethread;	/**< single thread? */
+	gboolean	readonly;		/**< mount filesystem readonly */
+	gboolean	verbose;		/**< do verbose logging on syslog (stderr is always verbose) */
+	gboolean	quiet;			/**< don't log anything, even errors */
+	gboolean	show_config;	/**< show whole configuration */
+	gboolean	show_help;		/**< show the help screen */
 
-	char *progname;		/**< tagsistant */
-	char *mountpoint;	/**< no clue? */
-	char *repository;	/**< it's where files and tags are archived, no? */
-	char *archive;		/**< a directory holding all the files */
-	char *tags;			/**< a SQLite database on file */
-	char *dboptions;	/**< database options for DBI */
+	gchar		*progname;		/**< tagsistant */
+	gchar		*mountpoint;	/**< no clue? */
+	gchar		*repository;	/**< it's where files and tags are archived, no? */
+	gchar		*archive;		/**< a directory holding all the files */
+	gchar		*tags;			/**< a SQLite database on file */
+	gchar		*dboptions;		/**< database options for DBI */
 
 	/** the list of available plugins */
 	tagsistant_plugin_t *plugins;
@@ -215,6 +217,14 @@ struct tagsistant {
 
 	/** SQL database driver */
 	int sql_database_driver;
+
+	/** FUSE options */
+	gchar **fuse_opts;
+
+	gboolean show_version;
+
+	/** not parsed options */
+	gchar **remaining_opts;
 };
 
 /** where global values are stored */

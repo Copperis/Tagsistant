@@ -136,6 +136,7 @@ enum {
     KEY_VERSION,
 };
 
+#if 0
 /* following code got from SSHfs sources */
 #define TAGSISTANT_OPT(t, p, v) { t, offsetof(struct tagsistant, p), v }
 
@@ -156,6 +157,8 @@ static struct fuse_opt tagsistant_opts[] = {
 	FUSE_OPT_KEY("--help",      		KEY_HELP),
 	FUSE_OPT_END
 };
+#endif
+
 
 int usage_already_printed = 0;
 
@@ -164,16 +167,13 @@ int usage_already_printed = 0;
  *
  * @param progname the name tagsistant was invoked as
  */
-void tagsistant_usage(char *progname)
+void tagsistant_usage(gchar *progname, int verbose)
 {
 	if (usage_already_printed++)
 		return;
 
-	fprintf(stderr, "\n"
-		" Tagsistant (tagfs) v.%s Build: %s FUSE_USE_VERSION: %d\n"
-		" Semantic File System for Linux kernels\n"
-		" (c) 2006-2013 Tx0 <tx0@strumentiresistenti.org>\n"
-		" \n"
+	gchar *license = verbose
+	?
 		" This program is free software; you can redistribute it and/or modify\n"
 		" it under the terms of the GNU General Public License as published by\n"
 		" the Free Software Foundation; either version 2 of the License, or\n"
@@ -188,9 +188,20 @@ void tagsistant_usage(char *progname)
 		" along with this program; if not, write to the Free Software\n"
 		" Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA\n"
 		" \n"
+	:
+		"";
+
+	gchar *endnote = verbose ? "" :	" Add --verbose for more information\n\n";
+
+	fprintf(stderr, "\n"
+		" Tagsistant (tagfs) v.%s Build: %s FUSE_USE_VERSION: %d\n"
+		" Semantic File System for Linux kernels\n"
+		" (c) 2006-2013 Tx0 <tx0@strumentiresistenti.org>\n"
+		" \n%s"
 		" Usage: \n"
 		" \n"
-		"  %s [OPTIONS] [--repository=<PATH>] [--db=<OPTIONS>] /mountpoint\n"
+		"  %s [OPTIONS] [--db=<OPTIONS>] [--repository=<PATH>] /mountpoint\n"
+		"  %s [OPTIONS] [--db=<OPTIONS>] [REPOSITORY_PATH] /mountpoint\n"
 		"\n"
 		"    -q                     be quiet\n"
 		"    -r                     mount readonly\n"
@@ -199,18 +210,19 @@ void tagsistant_usage(char *progname)
 		"                             b: boot\n"
 		"                             c: cache\n"
 		"                             f: file tree (readdir)\n"
-		"                             F: FUSE operations (open, read, write, symlink, ...)\n"
+		"                             F: FUSE operations (open, read, symlink, ...)\n"
 		"                             l: low level\n"
 		"                             p: plugin\n"
 		"                             q: query parsing\n"
 		"                             r: reasoning\n"
 		"                             s: SQL queries\n"
 		"                             2: deduplication\n"
-		"\n" /*fuse options will follow... */
-		, PACKAGE_VERSION, TAGSISTANT_BUILDNUMBER, FUSE_USE_VERSION, progname
+		"\n%s"
+		, PACKAGE_VERSION, TAGSISTANT_BUILDNUMBER, FUSE_USE_VERSION, license, progname, progname, endnote
 	);
 }
 
+#if 0
 /**
  * process command line options
  * 
@@ -223,14 +235,26 @@ void tagsistant_usage(char *progname)
 static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse_args *outargs)
 {
     (void) data;
+    int i;
+
+    fprintf(stderr, "\nArgument parsing status:\n");
+	for (i = 0; i < outargs->argc; i++) {
+		fprintf(stderr, "%d: %s\n", i, outargs->argv[i]);
+	}
 
     switch (key) {
 		case FUSE_OPT_KEY_NONOPT:
 			if (!tagsistant.mountpoint) {
 				tagsistant.mountpoint = g_strdup(arg);
 				return(1);
+			} else if (!tagsistant.repository) {
+				tagsistant.repository = tagsistant.mountpoint;
+				tagsistant.mountpoint = g_strdup(arg);
+				return(1);
 			}
-			return(0);
+
+			tagsistant_usage(outargs->argv[0]);
+			return(1);
 
 	    case KEY_HELP:
 	        tagsistant_usage(outargs->argv[0]);
@@ -255,13 +279,12 @@ static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse
 	        exit(0);
 	
 	    default:
-	        // fprintf(stderr, " ** Extra parameter provided: %s\n", arg);
-	        // tagsistant_usage(outargs->argv[0]);
-	        break;
+	    	break;
     }
 
 	return(1);
 }
+#endif
 
 /**
  * cleanup hook used by signal()
@@ -288,9 +311,28 @@ gchar *tagsistant_get_ini_entry(gchar *section, gchar *key) {
 
 extern void tagsistant_show_config();
 
+static GOptionEntry tagsistant_options[] =
+{
+  { "help", 'h', 0,	 			G_OPTION_ARG_NONE,				&tagsistant.show_help,	 	"Show help screen", NULL },
+  { "dbg", 'd', 0,	 			G_OPTION_ARG_NONE,				&tagsistant.debug,	 		"Enable debug", NULL },
+  { "debug", 0, 0,	 			G_OPTION_ARG_STRING,			&tagsistant.debug_flags, 	"Debug flags", "bcfFlpqrs2" },
+  { "repository", 0, 0,			G_OPTION_ARG_FILENAME,			&tagsistant.repository, 	"Repository path", "<repository path>" },
+  { "foreground", 'f', 0, 		G_OPTION_ARG_NONE, 				&tagsistant.foreground, 	"Run in foreground", NULL },
+  { "single-thread", 's', 0,	G_OPTION_ARG_NONE,				&tagsistant.singlethread, 	"Don't spawn other threads", NULL },
+  { "db", 0, 0,					G_OPTION_ARG_STRING,			&tagsistant.dboptions, 		"Database connection options", "backend:[host:[db:[user:[password]]]]" },
+  { "readonly", 'r', 0, 		G_OPTION_ARG_NONE,				&tagsistant.readonly, 		"Mount read-only", NULL },
+  { "verbose", 'v', 0,			G_OPTION_ARG_NONE,				&tagsistant.verbose, 		"Be verbose", NULL },
+  { "quiet", 'q', 0, 			G_OPTION_ARG_NONE,				&tagsistant.quiet, 			"Be quiet", NULL },
+  { "show-config", 'p', 0, 		G_OPTION_ARG_NONE,				&tagsistant.show_config, 	"Print repository INI file", NULL },
+  { "version", 'V', 0,			G_OPTION_ARG_NONE,				&tagsistant.show_version, 	"Print version", NULL },
+  { "fuse-opt", 'o', 0, 		G_OPTION_ARG_STRING_ARRAY, 		&tagsistant.fuse_opts, 		"Pass options to FUSE", "allow_other, allow_root, ..." },
+  { G_OPTION_REMAINING, 0, 0, 	G_OPTION_ARG_FILENAME_ARRAY, 	&tagsistant.remaining_opts, "", "" },
+  { NULL, 0, 0, 				0, 								NULL, 						NULL, NULL }
+};
+
 int main(int argc, char *argv[])
 {
-    struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
+    struct fuse_args args = { 0, NULL, 0 };
 	int res;
 
 #ifndef MACOSX
@@ -302,15 +344,74 @@ int main(int argc, char *argv[])
 #endif
 
 	tagsistant.progname = argv[0];
-	tagsistant.debug = NULL;
+	tagsistant.debug = FALSE;
+
 	int i = 0;
 	for (; i < 128; i++) tagsistant.dbg[i] = 0;
 
+	/*
+	 * Parse command line options
+	 */
+	GError *error = NULL;
+	GOptionContext *context = g_option_context_new ("[repository path] <mount point>");
+	g_option_context_add_main_entries (context, tagsistant_options, NULL);
+	g_option_context_set_help_enabled (context, FALSE);
+	if (!g_option_context_parse (context, &argc, &argv, &error)) {
+		fprintf(stderr, " *** option parsing failed: %s\n", error->message);
+		exit (1);
+	}
+
+	if (tagsistant.show_help) {
+		tagsistant_usage(argv[0], tagsistant.verbose);
+		if (tagsistant.verbose) {
+			fuse_opt_add_arg(&args, argv[0]);
+			fuse_opt_add_arg(&args, "--help");
+
+#			if FUSE_VERSION <= 25
+				fuse_main(args.argc, args.argv, &tagsistant_oper);
+#			else
+				fuse_main(args.argc, args.argv, &tagsistant_oper, NULL);
+#			endif
+		}
+
+		exit(0);
+	}
+
+	if (tagsistant.show_version) {
+		fprintf(stderr, "Tagsistant (tagfs) v.%s Build: %s FUSE_USE_VERSION: %d\n", PACKAGE_VERSION, TAGSISTANT_BUILDNUMBER, FUSE_USE_VERSION);
+		fuse_opt_add_arg(&args, "-V");
+		fuse_opt_add_arg(&args, "--version");
+#		if FUSE_VERSION == 25
+			fuse_main(args.argc, args.argv, &tagsistant_oper);
+#		else
+			fuse_main(args.argc, args.argv, &tagsistant_oper, NULL);
+#		endif
+		exit(0);
+	}
+
+	/*
+	 * look for a mount point (and a repository too)
+	 */
+	if (tagsistant.remaining_opts && *tagsistant.remaining_opts) {
+		if (*(tagsistant.remaining_opts[1])) {
+			tagsistant.repository = *tagsistant.remaining_opts;
+			tagsistant.mountpoint = *(tagsistant.remaining_opts + 1);
+		} else {
+			tagsistant.mountpoint = *tagsistant.remaining_opts;
+		}
+	} else {
+		// fprintf(stderr, " *** No mountpoint provided *** \n\n");
+		tagsistant_usage(argv[0], 0);
+		exit(2);
+	}
+
+#if 0
 	/* parse command line options */
 	if (-1 == fuse_opt_parse(&args, &tagsistant, tagsistant_opts, tagsistant_opt_proc)) {
 		exit(1);
 	}
-	
+#endif
+
 	/* do some tuning on FUSE options */
 	fuse_opt_add_arg(&args, "-s");
 //	fuse_opt_add_arg(&args, "-odirect_io");
@@ -331,56 +432,87 @@ int main(int argc, char *argv[])
 	/* fuse_opt_add_arg(&args, "-odefault_permissions"); */
 #endif
 
-	/* parse debugging profile */
-	if (tagsistant.debug) {
-		char *dbg_ptr = tagsistant.debug;
+	/*
+	 * parse debugging flags
+	 */
+	if (tagsistant.debug_flags) {
+		char *dbg_ptr = tagsistant.debug_flags;
 		while (*dbg_ptr) {
 			tagsistant.dbg[(int) *dbg_ptr] = 1;
 			dbg_ptr++;
 		}
 	}
 
+	/*
+	 * Will run as a single threaded application?
+	 */
 	if (tagsistant.singlethread) {
 		if (!tagsistant.quiet)
 			fprintf(stderr, " *** operating in single thread mode ***\n");
 		fuse_opt_add_arg(&args, "-s");
 	}
+
+	/*
+	 * Will run readonly?
+	 */
 	if (tagsistant.readonly) {
 		if (!tagsistant.quiet)
 			fprintf(stderr, " *** mounting tagsistant read-only ***\n");
 		fuse_opt_add_arg(&args, "-r");
 	}
+
+	/*
+	 * Will run in foreground?
+	 */
 	if (tagsistant.foreground) {
 		if (!tagsistant.quiet)
 			fprintf(stderr, " *** will run in foreground ***\n");
 		fuse_opt_add_arg(&args, "-f");
 	}
+
+	/*
+	 * Will be verbose?
+	 */
 	if (tagsistant.verbose) {
 		if (!tagsistant.quiet)
 			fprintf(stderr, " *** will log verbosely ***\n");
 		fuse_opt_add_arg(&args, "-d");
 	}
+
+	/*
+	 * Have received DB options?
+	 */
 	if (tagsistant.dboptions) {
 		if (!tagsistant.quiet)
 			fprintf(stderr, " *** connecting to %s\n", tagsistant.dboptions);
 	}
+
+	/*
+	 * The repository was provided?
+	 */
 	if (tagsistant.repository) {
 		if (!tagsistant.quiet)
 			fprintf(stderr, " *** saving repository in %s\n", tagsistant.repository);
 	}
 
-	/* checking mountpoint */
-	if (!(tagsistant.mountpoint||tagsistant.show_config)) {
-		tagsistant_usage(tagsistant.progname);
-		fprintf(stderr, " *** No mountpoint provided *** \n\n");
-		exit(2);
+	/*
+	 * add FUSE options
+	 */
+	gchar **fuse_opt = tagsistant.fuse_opts;
+	while (fuse_opt && *fuse_opt) {
+		fprintf(stderr, " *** Adding FUSE options %s\n", *fuse_opt);
+		gchar *fuse_opt_string = g_strdup_printf("-o%s", *fuse_opt);
+		fuse_opt_add_arg(&args, fuse_opt_string);
+		fuse_opt++;
 	}
 
-	/* checking if mount point exists or can be created */
+	/*
+	 * checking if mount point exists or can be created
+	 */
 	struct stat mst;
 	if ((lstat(tagsistant.mountpoint, &mst) == -1) && (errno == ENOENT)) {
 		if (mkdir(tagsistant.mountpoint, S_IRWXU|S_IRGRP|S_IXGRP) != 0) {
-			tagsistant_usage(tagsistant.progname);
+			// tagsistant_usage(tagsistant.progname);
 			if (!tagsistant.quiet)
 				fprintf(stderr, "\n    Mountpoint %s does not exists and can't be created!\n\n", tagsistant.mountpoint);
 			if (!tagsistant.show_config)
@@ -406,7 +538,7 @@ int main(int argc, char *argv[])
 			if (!tagsistant.quiet)
 				fprintf(stderr, " Using default repository %s\n", tagsistant.repository);
 		} else {
-			tagsistant_usage(tagsistant.progname);
+			// tagsistant_usage(tagsistant.progname);
 			if (!tagsistant.show_config) {
 				if (!tagsistant.quiet)
 					fprintf(stderr, " *** No repository provided with -r ***\n\n");
@@ -481,7 +613,7 @@ int main(int argc, char *argv[])
 	}
 	chmod(tagsistant.archive, S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
 
-	dbg('b', LOG_INFO, "Debug is enabled: %s", tagsistant.debug);
+	dbg('b', LOG_INFO, "Debug is enabled: %s", tagsistant.debug ? "yes" : "no");
 
 	umask(0);
 
@@ -533,6 +665,9 @@ int main(int argc, char *argv[])
 	/* SQLite requires tagsistant to run in single thread mode */
 	if (tagsistant.sql_database_driver == TAGSISTANT_DBI_SQLITE_BACKEND)
 		fuse_opt_add_arg(&args, "-s");
+
+	/* add the mount point */
+	fuse_opt_add_arg(&args, tagsistant.mountpoint);
 
 #if FUSE_VERSION <= 25
 	res = fuse_main(args.argc, args.argv, &tagsistant_oper);
