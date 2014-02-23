@@ -28,16 +28,12 @@
 #include <mcheck.h>
 #endif
 
-#define BUILD_DATE "/"
-
 /* defines command line options for tagsistant mount tool */
 struct tagsistant tagsistant;
 
-static int tagsistant_fsync(const char *path, int isdatasync,
-                     struct fuse_file_info *fi)
+static int tagsistant_fsync(const char *path, int isdatasync, struct fuse_file_info *fi)
 {
-    /* Just a stub.  This method is optional and can safely be left
-       unimplemented */
+    /* Just a stub.  This method is optional and can safely be left unimplemented */
 
     (void) path;
     (void) isdatasync;
@@ -131,35 +127,6 @@ static struct fuse_operations tagsistant_oper = {
     .init		= tagsistant_init,
 };
 
-enum {
-    KEY_HELP,
-    KEY_VERSION,
-};
-
-#if 0
-/* following code got from SSHfs sources */
-#define TAGSISTANT_OPT(t, p, v) { t, offsetof(struct tagsistant, p), v }
-
-static struct fuse_opt tagsistant_opts[] = {
-	TAGSISTANT_OPT("--debug=%s",		debug,			0),
-	TAGSISTANT_OPT("--repository=%s",	repository,		0),
-	TAGSISTANT_OPT("-f",				foreground,		1),
-	TAGSISTANT_OPT("-s",				singlethread,	1),
-	TAGSISTANT_OPT("--db=%s",			dboptions,		0),
-	TAGSISTANT_OPT("-r",				readonly,		1),
-	TAGSISTANT_OPT("-v",				verbose,		1),
-	TAGSISTANT_OPT("-q",				quiet,			1),
-	TAGSISTANT_OPT("-p",				show_config,	1),
-	
-	FUSE_OPT_KEY("-V",          		KEY_VERSION),
-	FUSE_OPT_KEY("--version",   		KEY_VERSION),
-	FUSE_OPT_KEY("-h",          		KEY_HELP),
-	FUSE_OPT_KEY("--help",      		KEY_HELP),
-	FUSE_OPT_END
-};
-#endif
-
-
 int usage_already_printed = 0;
 
 /**
@@ -222,70 +189,6 @@ void tagsistant_usage(gchar *progname, int verbose)
 	);
 }
 
-#if 0
-/**
- * process command line options
- * 
- * @param data pointer (unused)
- * @param arg argument pointer (if key has one)
- * @param key command line option to be processed
- * @param outargs structure holding libfuse options
- * @return 1 on success, 0 otherwise
- */
-static int tagsistant_opt_proc(void *data, const char *arg, int key, struct fuse_args *outargs)
-{
-    (void) data;
-    int i;
-
-    fprintf(stderr, "\nArgument parsing status:\n");
-	for (i = 0; i < outargs->argc; i++) {
-		fprintf(stderr, "%d: %s\n", i, outargs->argv[i]);
-	}
-
-    switch (key) {
-		case FUSE_OPT_KEY_NONOPT:
-			if (!tagsistant.mountpoint) {
-				tagsistant.mountpoint = g_strdup(arg);
-				return(1);
-			} else if (!tagsistant.repository) {
-				tagsistant.repository = tagsistant.mountpoint;
-				tagsistant.mountpoint = g_strdup(arg);
-				return(1);
-			}
-
-			tagsistant_usage(outargs->argv[0]);
-			return(1);
-
-	    case KEY_HELP:
-	        tagsistant_usage(outargs->argv[0]);
-	        fuse_opt_add_arg(outargs, "-ho");
-#if FUSE_VERSION <= 25
-	        fuse_main(outargs->argc, outargs->argv, &tagsistant_oper);
-#else
-	        fuse_main(outargs->argc, outargs->argv, &tagsistant_oper, NULL);
-#endif
-	        exit(0);
-	
-	    case KEY_VERSION:
-	    	fprintf(stderr, "\nTagsistant (tagfs) v.%s Build: %s FUSE_USE_VERSION: %d\n", PACKAGE_VERSION, TAGSISTANT_BUILDNUMBER, FUSE_USE_VERSION);
-#if FUSE_VERSION >= 25
-	        fuse_opt_add_arg(outargs, "--version");
-#endif
-#if FUSE_VERSION == 25
-	        fuse_main(outargs->argc, outargs->argv, &tagsistant_oper);
-#else
-			fuse_main(outargs->argc, outargs->argv, &tagsistant_oper, NULL);
-#endif
-	        exit(0);
-	
-	    default:
-	    	break;
-    }
-
-	return(1);
-}
-#endif
-
 /**
  * cleanup hook used by signal()
  *
@@ -330,6 +233,23 @@ static GOptionEntry tagsistant_options[] =
   { NULL, 0, 0, 				0, 								NULL, 						NULL, NULL }
 };
 
+/**
+ * Call FUSE event loop
+ *
+ * @param args FUSE arguments structure
+ * @param tagsistant_oper the FUSE operation table
+ */
+int tagsistant_fuse_main(
+	struct fuse_args *args,
+	struct fuse_operations *tagsistant_oper)
+{
+#if FUSE_VERSION <= 25
+	return (fuse_main(args->argc, args->argv, tagsistant_oper));
+#else
+	return (fuse_main(args->argc, args->argv, tagsistant_oper, NULL));
+#endif
+}
+
 int main(int argc, char *argv[])
 {
     struct fuse_args args = { 0, NULL, 0 };
@@ -350,7 +270,7 @@ int main(int argc, char *argv[])
 	for (; i < 128; i++) tagsistant.dbg[i] = 0;
 
 	/*
-	 * Parse command line options
+	 * parse command line options
 	 */
 	GError *error = NULL;
 	GOptionContext *context = g_option_context_new ("[repository path] <mount point>");
@@ -361,31 +281,31 @@ int main(int argc, char *argv[])
 		exit (1);
 	}
 
+	/*
+	 * print the help screen
+	 */
 	if (tagsistant.show_help) {
 		tagsistant_usage(argv[0], tagsistant.verbose);
+
 		if (tagsistant.verbose) {
 			fuse_opt_add_arg(&args, argv[0]);
 			fuse_opt_add_arg(&args, "--help");
-
-#			if FUSE_VERSION <= 25
-				fuse_main(args.argc, args.argv, &tagsistant_oper);
-#			else
-				fuse_main(args.argc, args.argv, &tagsistant_oper, NULL);
-#			endif
+			tagsistant_fuse_main(&args, &tagsistant_oper);
 		}
 
 		exit(0);
 	}
 
+	/*
+	 * show Tagsistant and FUSE version
+	 */
 	if (tagsistant.show_version) {
 		fprintf(stderr, "Tagsistant (tagfs) v.%s Build: %s FUSE_USE_VERSION: %d\n", PACKAGE_VERSION, TAGSISTANT_BUILDNUMBER, FUSE_USE_VERSION);
+
 		fuse_opt_add_arg(&args, "-V");
 		fuse_opt_add_arg(&args, "--version");
-#		if FUSE_VERSION == 25
-			fuse_main(args.argc, args.argv, &tagsistant_oper);
-#		else
-			fuse_main(args.argc, args.argv, &tagsistant_oper, NULL);
-#		endif
+		tagsistant_fuse_main(&args, &tagsistant_oper);
+
 		exit(0);
 	}
 
@@ -404,13 +324,6 @@ int main(int argc, char *argv[])
 		tagsistant_usage(argv[0], 0);
 		exit(2);
 	}
-
-#if 0
-	/* parse command line options */
-	if (-1 == fuse_opt_parse(&args, &tagsistant, tagsistant_opts, tagsistant_opt_proc)) {
-		exit(1);
-	}
-#endif
 
 	/* do some tuning on FUSE options */
 	fuse_opt_add_arg(&args, "-s");
@@ -669,12 +582,10 @@ int main(int argc, char *argv[])
 	/* add the mount point */
 	fuse_opt_add_arg(&args, tagsistant.mountpoint);
 
-#if FUSE_VERSION <= 25
-	res = fuse_main(args.argc, args.argv, &tagsistant_oper);
-#else
-	res = fuse_main(args.argc, args.argv, &tagsistant_oper, NULL);
-#endif
-
+	/*
+	 * run FUSE main event loop
+	 */
+	res = tagsistant_fuse_main(&args, &tagsistant_oper);
 	fuse_opt_free_args(&args);
 
 	/*

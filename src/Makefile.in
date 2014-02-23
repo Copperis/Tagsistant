@@ -49,20 +49,20 @@ am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_tagsistant_OBJECTS = tagsistant-tagsistant.$(OBJEXT) \
 	tagsistant-path_resolution.$(OBJEXT) \
-	tagsistant-reasoner.$(OBJEXT) tagsistant-fuse_opt.$(OBJEXT) \
-	tagsistant-sql.$(OBJEXT) tagsistant-utils.$(OBJEXT) \
-	tagsistant-plugin.$(OBJEXT) tagsistant-deduplication.$(OBJEXT) \
-	tagsistant-access.$(OBJEXT) tagsistant-chmod.$(OBJEXT) \
-	tagsistant-chown.$(OBJEXT) tagsistant-getattr.$(OBJEXT) \
-	tagsistant-link.$(OBJEXT) tagsistant-mkdir.$(OBJEXT) \
-	tagsistant-mknod.$(OBJEXT) tagsistant-open.$(OBJEXT) \
-	tagsistant-read.$(OBJEXT) tagsistant-readdir.$(OBJEXT) \
-	tagsistant-readlink.$(OBJEXT) tagsistant-rename.$(OBJEXT) \
-	tagsistant-rmdir.$(OBJEXT) tagsistant-statfs.$(OBJEXT) \
-	tagsistant-statvfs.$(OBJEXT) tagsistant-symlink.$(OBJEXT) \
-	tagsistant-truncate.$(OBJEXT) tagsistant-unlink.$(OBJEXT) \
-	tagsistant-utime.$(OBJEXT) tagsistant-write.$(OBJEXT) \
-	tagsistant-flush.$(OBJEXT) tagsistant-release.$(OBJEXT)
+	tagsistant-reasoner.$(OBJEXT) tagsistant-sql.$(OBJEXT) \
+	tagsistant-utils.$(OBJEXT) tagsistant-plugin.$(OBJEXT) \
+	tagsistant-deduplication.$(OBJEXT) tagsistant-access.$(OBJEXT) \
+	tagsistant-chmod.$(OBJEXT) tagsistant-chown.$(OBJEXT) \
+	tagsistant-getattr.$(OBJEXT) tagsistant-link.$(OBJEXT) \
+	tagsistant-mkdir.$(OBJEXT) tagsistant-mknod.$(OBJEXT) \
+	tagsistant-open.$(OBJEXT) tagsistant-read.$(OBJEXT) \
+	tagsistant-readdir.$(OBJEXT) tagsistant-readlink.$(OBJEXT) \
+	tagsistant-rename.$(OBJEXT) tagsistant-rmdir.$(OBJEXT) \
+	tagsistant-statfs.$(OBJEXT) tagsistant-statvfs.$(OBJEXT) \
+	tagsistant-symlink.$(OBJEXT) tagsistant-truncate.$(OBJEXT) \
+	tagsistant-unlink.$(OBJEXT) tagsistant-utime.$(OBJEXT) \
+	tagsistant-write.$(OBJEXT) tagsistant-flush.$(OBJEXT) \
+	tagsistant-release.$(OBJEXT)
 tagsistant_OBJECTS = $(am_tagsistant_OBJECTS)
 tagsistant_LDADD = $(LDADD)
 tagsistant_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
@@ -243,8 +243,6 @@ tagsistant_SOURCES = tagsistant.c\
 	path_resolution.c\
 	path_resolution.h\
 	reasoner.c\
-	compat/fuse_opt.c\
-	compat/fuse_opt.h\
 	debug.h\
 	sql.c\
 	sql.h\
@@ -371,7 +369,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-chown.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-deduplication.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-flush.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-fuse_opt.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-getattr.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-link.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tagsistant-mkdir.Po@am__quote@
@@ -459,20 +456,6 @@ tagsistant-reasoner.obj: reasoner.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='reasoner.c' object='tagsistant-reasoner.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -c -o tagsistant-reasoner.obj `if test -f 'reasoner.c'; then $(CYGPATH_W) 'reasoner.c'; else $(CYGPATH_W) '$(srcdir)/reasoner.c'; fi`
-
-tagsistant-fuse_opt.o: compat/fuse_opt.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -MT tagsistant-fuse_opt.o -MD -MP -MF $(DEPDIR)/tagsistant-fuse_opt.Tpo -c -o tagsistant-fuse_opt.o `test -f 'compat/fuse_opt.c' || echo '$(srcdir)/'`compat/fuse_opt.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/tagsistant-fuse_opt.Tpo $(DEPDIR)/tagsistant-fuse_opt.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='compat/fuse_opt.c' object='tagsistant-fuse_opt.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -c -o tagsistant-fuse_opt.o `test -f 'compat/fuse_opt.c' || echo '$(srcdir)/'`compat/fuse_opt.c
-
-tagsistant-fuse_opt.obj: compat/fuse_opt.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -MT tagsistant-fuse_opt.obj -MD -MP -MF $(DEPDIR)/tagsistant-fuse_opt.Tpo -c -o tagsistant-fuse_opt.obj `if test -f 'compat/fuse_opt.c'; then $(CYGPATH_W) 'compat/fuse_opt.c'; else $(CYGPATH_W) '$(srcdir)/compat/fuse_opt.c'; fi`
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/tagsistant-fuse_opt.Tpo $(DEPDIR)/tagsistant-fuse_opt.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='compat/fuse_opt.c' object='tagsistant-fuse_opt.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -c -o tagsistant-fuse_opt.obj `if test -f 'compat/fuse_opt.c'; then $(CYGPATH_W) 'compat/fuse_opt.c'; else $(CYGPATH_W) '$(srcdir)/compat/fuse_opt.c'; fi`
 
 tagsistant-sql.o: sql.c
 @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -MT tagsistant-sql.o -MD -MP -MF $(DEPDIR)/tagsistant-sql.Tpo -c -o tagsistant-sql.o `test -f 'sql.c' || echo '$(srcdir)/'`sql.c

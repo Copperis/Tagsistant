@@ -32,6 +32,7 @@ my $new_build_date = "$year$month$day";
 my $new_build_revision = sprintf("%.6d", $current_build_revision + 1);
 
 if ($new_build_date != $current_build_date) {
+	print " *** resetting progressive\n";
 	$new_build_revision = "000";
 }
 
