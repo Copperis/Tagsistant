@@ -64,6 +64,7 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 			if (QTREE_IS_TAGGABLE(qtree)) {
 				if ((fi->flags & O_WRONLY) || (fi->flags & O_RDWR)) {
 					// invalidate the checksum
+					dbg('2', LOG_INFO, "Invalidating checksum on %s", path);
 					tagsistant_invalidate_object_checksum(qtree->inode, qtree->dbi);
 				} else {
 					fi->keep_cache = 1;

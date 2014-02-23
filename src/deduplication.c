@@ -51,7 +51,9 @@ int tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *hex
 {
 	tagsistant_inode main_inode = 0;
 
-	/* get the first inode matching the checksum */
+	/*
+	 * get the first inode matching the checksum
+	 */
 	tagsistant_query(
 		"select inode from objects where checksum = '%s' order by inode limit 1",
 		qtree->dbi,	tagsistant_return_integer, &main_inode,	hex);
@@ -119,6 +121,7 @@ int tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
 
 	dbg('2', LOG_INFO, "Checksumming %s", qtree->full_archive_path);
 
+#if 0
 	/* check if object checksum is a zero-length string */
 	gchar *loaded_checksum = NULL;
 
@@ -132,11 +135,17 @@ int tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
 	if (loaded_checksum && strlen(loaded_checksum)) {
 		return (TAGSISTANT_DO_AUTOTAGGING);
 	}
+#endif
 
-	/* we'll return a 'do autotagging' condition even if a problem arise in computing file checksum */
+	/*
+	 * we'll return a 'do autotagging' condition even if
+	 * a problem arises in computing file checksum
+	 */
 	int do_autotagging = TAGSISTANT_DO_AUTOTAGGING;
 
-	/* open the file and read its content to compute is checksum */
+	/*
+	 * open the file and read its content to compute is checksum
+	 */
 	int fd = open(qtree->full_archive_path, O_RDONLY|O_NOATIME);
 	if (-1 != fd) {
 		GChecksum *checksum = g_checksum_new(G_CHECKSUM_SHA1);
@@ -207,11 +216,6 @@ void tagsistant_dedup_and_autotag_thread(gpointer data) {
 #if TAGSISTANT_ENABLE_AUTOTAGGING
 				// run the autotagging plugin stack
 				tagsistant_process(qtree);
-#endif
-
-#if TAGSISTANT_ENABLE_AND_SET_CACHE
-				/* invalidate the and_set cache */
-				tagsistant_invalidate_and_set_cache_entries(qtree);
 #endif
 
 #if TAGSISTANT_ENABLE_DEDUPLICATION

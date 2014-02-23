@@ -40,56 +40,51 @@ int tagsistant_flush(const char *path, struct fuse_file_info *fi)
 	if (QTREE_IS_MALFORMED(qtree))
 		TAGSISTANT_ABORT_OPERATION(ENOENT);
 
-//	tagsistant_querytree_check_tagging_consistency(qtree);
-
-	// -- object --
-//	if (QTREE_IS_TAGGABLE(qtree)) {
 #if TAGSISTANT_ENABLE_DEDUPLICATION || TAGSISTANT_ENABLE_AUTOTAGGING
-		// check if the file has been modified
-		int modified = 0;
-		tagsistant_query(
-			"select inode from objects where inode = %d and checksum = ''",
-			qtree->dbi, tagsistant_return_integer, &modified, qtree->inode);
+	// check if the file has been modified
+	int modified = 0;
+	tagsistant_query(
+		"select inode from objects where inode = %d and checksum = ''",
+		qtree->dbi, tagsistant_return_integer, &modified, qtree->inode);
 
-		// schedule deduplication and autotagging for this file
-		if (modified) {
-#if TAGSISTANT_DEDUPLICATION_THREAD
+	if (modified) {
+#	if TAGSISTANT_DEDUPLICATION_THREAD
+		/*
+		 * schedule deduplication and autotagging for this file
+		 */
+		dbg('2', LOG_INFO, "Scheduling %s for deduplication", path);
+		g_async_queue_push(tagsistant_dedup_autotag_queue, g_strdup(path));
+#	else
+		/*
+		 * do in-place deduplication and autotagging
+		 */
 
-			dbg('2', LOG_INFO, "Scheduling %s for deduplication", path);
-			g_async_queue_push(tagsistant_dedup_autotag_queue, g_strdup(path));
+#		if TAGSISTANT_ENABLE_DEDUPLICATION
+		if (tagsistant_querytree_deduplicate(qtree)) { /* ............ deduplication */
+#		endif
 
-#else
+#		if TAGSISTANT_ENABLE_AND_SET_CACHE
+			tagsistant_invalidate_and_set_cache_entries(qtree); /* ... invalidate the and_set cache */
+#		endif
 
-#	if TAGSISTANT_ENABLE_DEDUPLICATION
-			/* deduplicate the object */
-			if (tagsistant_querytree_deduplicate(qtree)) {
-#	endif /* TAGSISTANT_ENABLE_DEDUPLICATION */
+#		if TAGSISTANT_ENABLE_AUTOTAGGING
+			tagsistant_process(qtree); /* ............................ run the autotagging plugin stack */
+#		endif
 
-#	if TAGSISTANT_ENABLE_AND_SET_CACHE
-				/* invalidate the and_set cache */
-				tagsistant_invalidate_and_set_cache_entries(qtree);
+#		if TAGSISTANT_ENABLE_DEDUPLICATION
+		}
+#		endif
+
 #	endif
-
-#	if TAGSISTANT_ENABLE_AUTOTAGGING
-				/* run the autotagging plugin stack */
-				tagsistant_process(qtree);
-#	endif /* TAGSISTANT_ENABLE_AUTOTAGGING */
-
-#	if TAGSISTANT_ENABLE_DEDUPLICATION
-			}
-#	endif /* TAGSISTANT_ENABLE_DEDUPLICATION */
-
-#endif
 		}
 #endif
 
-		if (fi->fh) {
-			dbg('F', LOG_INFO, "Uncaching %" PRIu64 " = open(%s)", fi->fh, path);
-//			fprintf(stderr, "Closing FD %lu\n", fi->fh);
-			close(fi->fh);
-			fi->fh = 0;
-		}
-//	}
+	if (fi->fh) {
+		dbg('F', LOG_INFO, "Uncaching %" PRIu64 " = open(%s)", fi->fh, path);
+//		fprintf(stderr, "Closing FD %lu\n", fi->fh);
+		close(fi->fh);
+		fi->fh = 0;
+	}
 
 TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {

@@ -561,11 +561,6 @@ int main(int argc, char *argv[])
 	}
 
 	/*
-	 * print configuration if requested
-	 */
-	if (tagsistant.show_config) tagsistant_show_config();
-
-	/*
 	 * initialize db connection, SQL schema,
 	 * path_resolution.c and utils.c structures
 	 */
@@ -576,8 +571,15 @@ int main(int argc, char *argv[])
 	tagsistant_utils_init();
 
 	/* SQLite requires tagsistant to run in single thread mode */
-	if (tagsistant.sql_database_driver == TAGSISTANT_DBI_SQLITE_BACKEND)
+	if (tagsistant.sql_database_driver == TAGSISTANT_DBI_SQLITE_BACKEND) {
+		tagsistant.singlethread = TRUE;
 		fuse_opt_add_arg(&args, "-s");
+	}
+
+	/*
+	 * print configuration if requested
+	 */
+	if (tagsistant.show_config) tagsistant_show_config();
 
 	/* add the mount point */
 	fuse_opt_add_arg(&args, tagsistant.mountpoint);
