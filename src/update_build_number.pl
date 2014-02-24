@@ -4,16 +4,16 @@ use strict;
 use warnings;
 
 my $current_svn_revision = "";
-my $current_build_number = "";
-my $current_build_date = "";
-my $current_build_revision = "";
+my $current_build_number = 0;
+my $current_build_date = 0;
+my $current_build_revision = 0;
 
 if (open(IN, "buildnumber.h")) {
 	$current_build_number = <IN>;
 	chomp($current_build_number);
 	$current_build_number =~ s/#define TAGSISTANT_BUILDNUMBER //;
 
-	if ($current_build_number =~ /"(\d\+)\.(\d{8})\.(\d+)"/) {
+	if ($current_build_number =~ /"(\d+)\.(\d{8})\.(\d+)"/) {
 		$current_svn_revision = $1;
 		$current_build_date = $2;
 		$current_build_revision = $3;
@@ -36,7 +36,7 @@ if ($new_build_date != $current_build_date) {
 	$new_build_revision = "000";
 }
 
-my @new_svn_revision = grep {/^Revision: .*/} `svn info`;
+my @new_svn_revision = grep {/^Revision: .*/} `svn info http://tx0\@svn.gna.org/svn/tagfs`;
 my $new_svn_revision = $new_svn_revision[0];
 $new_svn_revision =~ s/Revision: //;
 $new_svn_revision =~ s/\n//;
