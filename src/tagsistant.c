@@ -313,7 +313,7 @@ int main(int argc, char *argv[])
 	 * look for a mount point (and a repository too)
 	 */
 	if (tagsistant.remaining_opts && *tagsistant.remaining_opts) {
-		if (*(tagsistant.remaining_opts[1])) {
+		if (tagsistant.remaining_opts[1] && *(tagsistant.remaining_opts[1])) {
 			tagsistant.repository = *tagsistant.remaining_opts;
 			tagsistant.mountpoint = *(tagsistant.remaining_opts + 1);
 		} else {
@@ -323,6 +323,13 @@ int main(int argc, char *argv[])
 		// fprintf(stderr, " *** No mountpoint provided *** \n\n");
 		tagsistant_usage(argv[0], 0);
 		exit(2);
+	}
+
+	/*
+	 * default repository
+	 */
+	if (!tagsistant.repository) {
+		tagsistant.repository = g_strdup_printf("%s/.tagsistant/", g_getenv("HOME"));
 	}
 
 	/* do some tuning on FUSE options */
@@ -603,5 +610,3 @@ int main(int argc, char *argv[])
 
 	return(res);
 }
-
-// vim:ts=4:autoindent:nocindent:syntax=c
