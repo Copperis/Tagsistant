@@ -40,48 +40,47 @@ int tagsistant_flush(const char *path, struct fuse_file_info *fi)
 	if (QTREE_IS_MALFORMED(qtree))
 		TAGSISTANT_ABORT_OPERATION(ENOENT);
 
-#if TAGSISTANT_ENABLE_DEDUPLICATION || TAGSISTANT_ENABLE_AUTOTAGGING
-	// check if the file has been modified
-	int modified = 0;
-	tagsistant_query(
-		"select inode from objects where inode = %d and checksum = ''",
-		qtree->dbi, tagsistant_return_integer, &modified, qtree->inode);
+	if (qtree->full_archive_path) {
+		GChecksum *checksum =  g_hash_table_lookup(tagsistant_checksummers, qtree->full_archive_path);
+		if (checksum) {
+			gchar *hex = g_strdup(g_checksum_get_string(checksum));
 
-	if (modified) {
-#	if TAGSISTANT_DEDUPLICATION_THREAD
-		/*
-		 * schedule deduplication and autotagging for this file
-		 */
-		dbg('2', LOG_INFO, "Scheduling %s for deduplication", path);
-		g_async_queue_push(tagsistant_dedup_autotag_queue, g_strdup(path));
+			/* save the string into the objects table */
+			tagsistant_query(
+				"update objects set checksum = '%s' where inode = %d",
+				qtree->dbi, NULL, NULL, hex, qtree->inode);
+
+			/* look for duplicated objects */
+			int do_autotagging = tagsistant_querytree_find_duplicates(qtree, hex);
+
+			/* free the hex checksum string */
+			g_free_null(hex);
+
+			/* remove the checksum object from the hash table */
+			g_hash_table_remove(tagsistant_checksummers, qtree->full_archive_path);
+
+			if (do_autotagging) {
+#if TAGSISTANT_ENABLE_AUTOTAGGING
+#	if TAGSISTANT_ENABLE_AUTOTAGGING_THREAD
+				/*
+				 * schedule autotagging for this file
+				 */
+				dbg('p', LOG_INFO, "Scheduling %s for autotagging", path);
+				g_async_queue_push(tagsistant_autotag_queue, g_strdup(path));
 #	else
-		/*
-		 * do in-place deduplication and autotagging
-		 */
-
-#		if TAGSISTANT_ENABLE_DEDUPLICATION
-		if (tagsistant_querytree_deduplicate(qtree)) { /* ............ deduplication */
-#		endif
-
-#		if TAGSISTANT_ENABLE_AND_SET_CACHE
-			tagsistant_invalidate_and_set_cache_entries(qtree); /* ... invalidate the and_set cache */
-#		endif
-
-#		if TAGSISTANT_ENABLE_AUTOTAGGING
-			tagsistant_process(qtree); /* ............................ run the autotagging plugin stack */
-#		endif
-
-#		if TAGSISTANT_ENABLE_DEDUPLICATION
-		}
-#		endif
-
+				/*
+				 * do in-place autotagging
+				 */
+				dbg('p', LOG_INFO, "Doing in-place autotagging on %s", path);
+				tagsistant_process(qtree);
 #	endif
-		}
 #endif
+			}
+		}
+	}
 
 	if (fi->fh) {
 		dbg('F', LOG_INFO, "Uncaching %" PRIu64 " = open(%s)", fi->fh, path);
-//		fprintf(stderr, "Closing FD %lu\n", fi->fh);
 		close(fi->fh);
 		fi->fh = 0;
 	}

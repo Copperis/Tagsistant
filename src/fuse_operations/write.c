@@ -79,14 +79,11 @@ int tagsistant_write(const char *path, const char *buf, size_t size, off_t offse
 			tagsistant_get_file_handle(fi, fh);
 			res = pwrite(fh, buf, size, offset);
 			tagsistant_errno = errno;
-//			fprintf(stderr, "Trying a write on FD %lu\n", fi->fh);
 		}
 
 		if ((-1 == res) || (0 == fh)) {
 			if (fh) close(fh);
 			fh = open(qtree->full_archive_path, fi->flags|O_WRONLY);
-//			fprintf(stderr, "Re-trying a write on FD %lu\n", fi->fh);
-
 			if (fh)	res = pwrite(fh, buf, size, offset);
 			else res = -1;
 			tagsistant_errno = errno;
@@ -103,6 +100,21 @@ int tagsistant_write(const char *path, const char *buf, size_t size, off_t offse
 			TAGSISTANT_ABORT_OPERATION(errno);
 		}
 #endif
+
+		/*
+		 * retrieve the checksum object for this file or create one
+		 * if doesn't exist
+		 */
+		GChecksum *checksum = g_hash_table_lookup(tagsistant_checksummers, qtree->full_archive_path);
+		if (!checksum) {
+			checksum = g_checksum_new(G_CHECKSUM_SHA1);
+			g_hash_table_insert(tagsistant_checksummers, g_strdup(qtree->full_archive_path), checksum);
+		}
+
+		/*
+		 * update the checksum object with the write() buffer content
+		 */
+		g_checksum_update(checksum, buf, size);
 	}
 
 	// -- tags --

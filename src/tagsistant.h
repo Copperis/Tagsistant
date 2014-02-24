@@ -65,11 +65,8 @@
 /** cache reasoner queries? */
 #define TAGSISTANT_ENABLE_REASONER_CACHE 1
 
-/** enable deduplication? */
-#define TAGSISTANT_ENABLE_DEDUPLICATION 1
-
 /** perform deduplication in a separate thread */
-#define TAGSISTANT_DEDUPLICATION_THREAD 1
+#define TAGSISTANT_ENABLE_AUTOTAGGING_THREAD 1
 
 /** enable the autotagging plugin stack? */
 #define TAGSISTANT_ENABLE_AUTOTAGGING 1
@@ -157,7 +154,6 @@
 #define _FILE_OFFSET_BITS 64
 
 #include <fuse.h>
-#include "compat/fuse_opt.h"
 #include <extractor.h>
 
 /** define libextractor support */
@@ -231,7 +227,7 @@ struct tagsistant {
 extern struct tagsistant tagsistant;
 
 /** the asynchronous queue used to pass files to the deduplication/autotagging thread */
-extern GAsyncQueue *tagsistant_dedup_autotag_queue;
+extern GAsyncQueue *tagsistant_autotag_queue;
 
 /**
  * g_free() a symbol only if it's not NULL
@@ -301,6 +297,9 @@ extern int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, i
 extern GKeyFile *tagsistant_ini;
 extern void tagsistant_manage_repository_ini();
 extern gchar *tagsistant_get_ini_entry(gchar *section, gchar *key);
+
+extern GHashTable *tagsistant_checksummers;
+extern int tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *hex);
 
 #include "fuse_operations/operations.h"
 

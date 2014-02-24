@@ -154,31 +154,47 @@ int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tag
 	return(inode);
 }
 
-#if TAGSISTANT_ENABLE_DEDUPLICATION || TAGSISTANT_ENABLE_AUTOTAGGING
-extern GThread *tagsistant_dedup_autotag_thread;
-extern GAsyncQueue *tagsistant_dedup_autotag_queue;
-extern void tagsistant_dedup_and_autotag_thread(gpointer data);
+#if TAGSISTANT_ENABLE_AUTOTAGGING && TAGSISTANT_ENABLE_AUTOTAGGING_THREAD
+extern GThread *tagsistant_autotag_thread;
+extern GAsyncQueue *tagsistant_autotag_queue;
+extern void tagsistant_autotag_thread_kernel(gpointer data);
 #endif
+
+GHashTable *tagsistant_checksummers = NULL;
+
+void tagsistant_destroy_checksummer (gpointer data)
+{
+	GChecksum *checksum = (GChecksum *) data;
+	g_checksum_free(checksum);
+}
 
 /**
  * Initialize all the utilities
  */
 void tagsistant_utils_init()
 {
-#if TAGSISTANT_ENABLE_DEDUPLICATION || TAGSISTANT_ENABLE_AUTOTAGGING
+#if TAGSISTANT_ENABLE_AUTOTAGGING && TAGSISTANT_ENABLE_AUTOTAGGING_THREAD
 	/* init the asynchronous queue */
-	tagsistant_dedup_autotag_queue = g_async_queue_new();
+	tagsistant_autotag_queue = g_async_queue_new();
 
 	/* start deduplication thread */
-	tagsistant_dedup_autotag_thread = g_thread_new(
+	tagsistant_autotag_thread = g_thread_new(
 		"deduplication",
-		(GThreadFunc) tagsistant_dedup_and_autotag_thread,
+		(GThreadFunc) tagsistant_autotag_thread_kernel,
 		NULL);
 
 	/* increase reference count for both objects */
-	g_async_queue_ref(tagsistant_dedup_autotag_queue);
-	g_thread_ref(tagsistant_dedup_autotag_thread);
+	g_async_queue_ref(tagsistant_autotag_queue);
+	g_thread_ref(tagsistant_autotag_thread);
 #endif
+
+	/*
+	 * create a global hashtable to store the GChecksum objects
+	 * used for deduplication
+	 */
+	tagsistant_checksummers = g_hash_table_new_full(
+		g_str_hash,	g_str_equal, g_free,
+	    tagsistant_destroy_checksummer);
 }
 
 /****************************************************************************/

@@ -31,9 +31,9 @@
 /***                                                                      ***/
 /****************************************************************************/
 
-#if TAGSISTANT_ENABLE_DEDUPLICATION || TAGSISTANT_ENABLE_AUTOTAGGING
-GThread *tagsistant_dedup_autotag_thread = NULL;
-GAsyncQueue *tagsistant_dedup_autotag_queue = NULL;
+#if TAGSISTANT_ENABLE_AUTOTAGGING && TAGSISTANT_ENABLE_AUTOTAGGING_THREAD
+GThread *tagsistant_autotag_thread = NULL;
+GAsyncQueue *tagsistant_autotag_queue = NULL;
 #endif
 
 #define TAGSISTANT_DO_AUTOTAGGING 1
@@ -104,6 +104,7 @@ int tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *hex
 	return (TAGSISTANT_DONT_DO_AUTOTAGGING);
 }
 
+#if 0
 /**
  * Deduplicates the object pointed by the querytree
  *
@@ -120,22 +121,6 @@ int tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
 		return (TAGSISTANT_DONT_DO_AUTOTAGGING);
 
 	dbg('2', LOG_INFO, "Checksumming %s", qtree->full_archive_path);
-
-#if 0
-	/* check if object checksum is a zero-length string */
-	gchar *loaded_checksum = NULL;
-
-	tagsistant_query(
-		"select checksum from objects where inode = %d",
-		qtree->dbi,
-		tagsistant_return_string,
-		&loaded_checksum,
-		qtree->inode);
-
-	if (loaded_checksum && strlen(loaded_checksum)) {
-		return (TAGSISTANT_DO_AUTOTAGGING);
-	}
-#endif
 
 	/*
 	 * we'll return a 'do autotagging' condition even if
@@ -182,17 +167,18 @@ int tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
 
 	return (do_autotagging);
 }
+#endif
 
 /**
- * This is the kernel of the autotagging and deduplication thread.
+ * This is the kernel of the autotagging thread.
  */
-void tagsistant_dedup_and_autotag_thread(gpointer data) {
+void tagsistant_autotag_thread_kernel(gpointer data) {
 	(void) data;
 
-#if TAGSISTANT_ENABLE_DEDUPLICATION || TAGSISTANT_ENABLE_AUTOTAGGING
+#if TAGSISTANT_ENABLE_AUTOTAGGING && TAGSISTANT_ENABLE_AUTOTAGGING_THREAD
 	while (1) {
 		// get a path from the queue
-		gchar *path = (gchar *) g_async_queue_pop(tagsistant_dedup_autotag_queue);
+		gchar *path = (gchar *) g_async_queue_pop(tagsistant_autotag_queue);
 
 		// process the path only if it's not null
 		if (path && strlen(path)) {
@@ -206,23 +192,10 @@ void tagsistant_dedup_and_autotag_thread(gpointer data) {
 					qtree = tagsistant_querytree_new(path, 0, 1, 1);
 				}
 			}
-#endif
 
-#if TAGSISTANT_ENABLE_DEDUPLICATION
-			// deduplicate the object
-			if (tagsistant_querytree_deduplicate(qtree)) {
-#endif
+			// run the autotagging plugin stack
+			tagsistant_process(qtree);
 
-#if TAGSISTANT_ENABLE_AUTOTAGGING
-				// run the autotagging plugin stack
-				tagsistant_process(qtree);
-#endif
-
-#if TAGSISTANT_ENABLE_DEDUPLICATION
-			}
-#endif
-
-#if TAGSISTANT_ENABLE_DEDUPLICATION || TAGSISTANT_ENABLE_AUTOTAGGING
 			// destroy the querytree
 			tagsistant_querytree_destroy(qtree, 1);
 		}

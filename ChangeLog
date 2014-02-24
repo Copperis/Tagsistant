@@ -77,6 +77,9 @@
 
     where SVN is the svn revision number and date has the format YYYYMMDD.
 
+  - new experimental deduplication architecture: checksums are
+    calculated while writing files. Autotagging only happens in
+	a separate thread
 
 0.7:
   - libextractor integration. Tagging plugins have been converted to
