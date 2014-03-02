@@ -55,10 +55,6 @@
 
   - simplified the SQL query to check tagging of a file
 
-  - deduplication and autotagging can be performed in a separate thread
-    or in the main thread by setting TAGSISTANT_DEDUPLICATION_THREAD to
-	1 or 0 in tagsistant.h
-
   - implemented the ALL/ metatag which lists all the files in the
     repository. Files can be deleted from the ALL/ tag, but can't be
 	created. This tag is also useful to re-scan the whole repository
@@ -76,10 +72,6 @@
 	  SVN.date.progressive
 
     where SVN is the svn revision number and date has the format YYYYMMDD.
-
-  - new experimental deduplication architecture: checksums are
-    calculated while writing files. Autotagging only happens in
-	a separate thread
 
 0.7:
   - libextractor integration. Tagging plugins have been converted to

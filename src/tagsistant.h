@@ -65,9 +65,6 @@
 /** cache reasoner queries? */
 #define TAGSISTANT_ENABLE_REASONER_CACHE 1
 
-/** perform deduplication in a separate thread */
-#define TAGSISTANT_ENABLE_AUTOTAGGING_THREAD 1
-
 /** enable the autotagging plugin stack? */
 #define TAGSISTANT_ENABLE_AUTOTAGGING 1
 
@@ -229,6 +226,9 @@ extern struct tagsistant tagsistant;
 /** the asynchronous queue used to pass files to the deduplication/autotagging thread */
 extern GAsyncQueue *tagsistant_autotag_queue;
 
+/** starts deduplication on a path */
+extern void tagsistant_deduplicate(gchar *path);
+
 /**
  * g_free() a symbol only if it's not NULL
  *
@@ -272,6 +272,7 @@ extern void tagsistant_utils_init();
 extern void tagsistant_init_syslog();
 extern void tagsistant_plugin_loader();
 extern void tagsistant_plugin_unloader();
+extern void tagsistant_deduplication_init();
 
 // call the plugin stack
 extern int tagsistant_process(tagsistant_querytree *qtree);
@@ -291,7 +292,7 @@ extern int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, i
  * @param dbi_conn a valid DBI connection
  */
 #define tagsistant_invalidate_object_checksum(inode, dbi_conn)\
-	tagsistant_query("update objects set checksum = \"\" where inode = %d", dbi_conn, NULL, NULL, inode)
+	tagsistant_query("update objects set checksum = '' where inode = %d", dbi_conn, NULL, NULL, inode)
 
 // read and write repository.ini file
 extern GKeyFile *tagsistant_ini;

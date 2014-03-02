@@ -576,6 +576,7 @@ int main(int argc, char *argv[])
 	tagsistant_path_resolution_init();
 	tagsistant_reasoner_init();
 	tagsistant_utils_init();
+	tagsistant_deduplication_init();
 
 	/* SQLite requires tagsistant to run in single thread mode */
 	if (tagsistant.sql_database_driver == TAGSISTANT_DBI_SQLITE_BACKEND) {

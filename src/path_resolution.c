@@ -40,7 +40,8 @@ GRWLock tagsistant_and_set_cache_lock;
 GHashTable *tagsistant_and_set_cache = NULL;
 #endif
 
-GRegex *tagsistant_inode_extract_from_path_regex = NULL;
+GRegex *tagsistant_inode_extract_from_path_regex_1 = NULL;
+GRegex *tagsistant_inode_extract_from_path_regex_2 = NULL;
 
 /**
  * Counts one single element of the querytree hashtable
@@ -110,7 +111,8 @@ void tagsistant_path_resolution_init()
 #endif
 
 	/* compile regular expressions */
-	tagsistant_inode_extract_from_path_regex = g_regex_new("^([0-9]+)" TAGSISTANT_INODE_DELIMITER, 0, 0, NULL);
+	tagsistant_inode_extract_from_path_regex_1 = g_regex_new("^([0-9]+)" TAGSISTANT_INODE_DELIMITER, 0, 0, NULL);
+	tagsistant_inode_extract_from_path_regex_2 = g_regex_new("/([0-9]+)" TAGSISTANT_INODE_DELIMITER, 0, 0, NULL);
 }
 
 /**
@@ -390,14 +392,18 @@ tagsistant_inode tagsistant_inode_extract_from_path(const gchar *path)
 	tagsistant_inode inode = 0;
 
 	GMatchInfo *match_info;
-	if (g_regex_match(tagsistant_inode_extract_from_path_regex, path, 0, &match_info)) {
-		/*
-		 * extract the inode
-		 */
+	if (g_regex_match(tagsistant_inode_extract_from_path_regex_1, path, 0, &match_info)) {
+		/* extract the inode */
+		gchar *inode_text = g_match_info_fetch(match_info, 1);
+		inode = strtoul(inode_text, NULL, 10);
+		g_free_null(inode_text);
+	} else if (g_regex_match(tagsistant_inode_extract_from_path_regex_2, path, 0, &match_info)) {
+		/* extract the inode */
 		gchar *inode_text = g_match_info_fetch(match_info, 1);
 		inode = strtoul(inode_text, NULL, 10);
 		g_free_null(inode_text);
 	}
+
 	g_match_info_free(match_info);
 
 	if (inode) {
@@ -1418,7 +1424,7 @@ tagsistant_querytree *tagsistant_querytree_new(
 			 * actually stripping it from the object_path
 			 */
 			gchar *new_object_path = g_regex_replace(
-				tagsistant_inode_extract_from_path_regex,
+				tagsistant_inode_extract_from_path_regex_1,
 				qtree->object_path,
 				strlen(qtree->object_path),
 				0, "", 0, NULL);
@@ -1460,7 +1466,7 @@ tagsistant_querytree *tagsistant_querytree_new(
 			 * actually stripping it from the object_path
 			 */
 			gchar *new_object_path = g_regex_replace(
-				tagsistant_inode_extract_from_path_regex,
+				tagsistant_inode_extract_from_path_regex_1,
 				qtree->object_path,
 				strlen(qtree->object_path),
 				0, "", 0, NULL);

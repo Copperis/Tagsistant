@@ -28,8 +28,10 @@
  */
 int tagsistant_flush(const char *path, struct fuse_file_info *fi)
 {
-    int res = 0, tagsistant_errno = 0;
-    (void) fi;
+	(void) fi;
+
+	int res = 0, tagsistant_errno = 0, do_deduplicate = 0;
+    gchar *deduplicate = NULL;
 
 	TAGSISTANT_START("FLUSH on %s", path);
 
@@ -41,42 +43,14 @@ int tagsistant_flush(const char *path, struct fuse_file_info *fi)
 		TAGSISTANT_ABORT_OPERATION(ENOENT);
 
 	if (qtree->full_archive_path) {
-		GChecksum *checksum =  g_hash_table_lookup(tagsistant_checksummers, qtree->full_archive_path);
-		if (checksum) {
-			gchar *hex = g_strdup(g_checksum_get_string(checksum));
+		tagsistant_query(
+			"select 1 from objects where objectname = '%s' and checksum = ''",
+			qtree->dbi,
+			tagsistant_return_integer,
+			&do_deduplicate,
+			qtree->object_path);
 
-			/* save the string into the objects table */
-			tagsistant_query(
-				"update objects set checksum = '%s' where inode = %d",
-				qtree->dbi, NULL, NULL, hex, qtree->inode);
-
-			/* look for duplicated objects */
-			int do_autotagging = tagsistant_querytree_find_duplicates(qtree, hex);
-
-			/* free the hex checksum string */
-			g_free_null(hex);
-
-			/* remove the checksum object from the hash table */
-			g_hash_table_remove(tagsistant_checksummers, qtree->full_archive_path);
-
-			if (do_autotagging) {
-#if TAGSISTANT_ENABLE_AUTOTAGGING
-#	if TAGSISTANT_ENABLE_AUTOTAGGING_THREAD
-				/*
-				 * schedule autotagging for this file
-				 */
-				dbg('p', LOG_INFO, "Scheduling %s for autotagging", path);
-				g_async_queue_push(tagsistant_autotag_queue, g_strdup(path));
-#	else
-				/*
-				 * do in-place autotagging
-				 */
-				dbg('p', LOG_INFO, "Doing in-place autotagging on %s", path);
-				tagsistant_process(qtree);
-#	endif
-#endif
-			}
-		}
+		if (do_deduplicate) deduplicate = g_strdup(path);
 	}
 
 	if (fi->fh) {
@@ -89,10 +63,12 @@ TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("FLUSH on %s (%s) (%s): %d %d: %s", path, qtree->full_archive_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
+		if (do_deduplicate) tagsistant_deduplicate(deduplicate);
 		return (-tagsistant_errno);
 	} else {
 		TAGSISTANT_STOP_OK("FLUSH on %s (%s): OK", path, tagsistant_querytree_type(qtree));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
+		if (do_deduplicate) tagsistant_deduplicate(deduplicate);
 		return (0);
 	}
 }
