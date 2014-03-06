@@ -175,7 +175,7 @@ static int tagsistant_add_reasoned_tag_callback(void *_reasoning, dbi_result res
 	tagsistant_return_integer(&T->tag_id, result);
 	const gchar *tag_or_namespace = dbi_result_get_string_idx(result, 2);
 
-	if (g_regex_match_simple(":$", tag_or_namespace, 0, 0)) {
+	if (g_regex_match_simple(TAGSISTANT_DEFAULT_TRIPLE_TAG_REGEX, tag_or_namespace, 0, 0)) {
 		strcpy(T->namespace, tag_or_namespace);
 		strcpy(T->key, dbi_result_get_string_idx(result, 3));
 		strcpy(T->value, dbi_result_get_string_idx(result, 4));

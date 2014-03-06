@@ -685,9 +685,9 @@ int tagsistant_querytree_parse_store (
 			/*
 			 * check if the tag token ends with a colon (:)
 			 * if so, this tag is a triple tag and requires special
-			 * parsing
+			 * parsing ":$"
 			 */
-			if (g_regex_match_simple(":$", __TOKEN, 0, 0)) {
+			if (g_regex_match_simple(TAGSISTANT_DEFAULT_TRIPLE_TAG_REGEX, __TOKEN, 0, 0)) {
 				and->namespace = g_strdup(__TOKEN);
 				tagsistant_querytree_set_namespace_key_operator_value(qtree, __TOKEN, NULL, 0, NULL);
 				if (__NEXT_TOKEN) {
@@ -777,7 +777,7 @@ int tagsistant_querytree_parse_tags (
 	gchar ***token_ptr)
 {
 	if (__TOKEN) {
-		if (g_regex_match_simple(":$", __TOKEN, 0, 0)) {
+		if (g_regex_match_simple(TAGSISTANT_DEFAULT_TRIPLE_TAG_REGEX, __TOKEN, 0, 0)) {
 			qtree->first_tag = qtree->second_tag = qtree->last_tag = NULL;
 
 			qtree->namespace = g_strdup(__TOKEN);
@@ -855,7 +855,7 @@ int tagsistant_querytree_parse_relations (
 {
 	/* parse a relations query */
 	if (__TOKEN) {
-		if (g_regex_match_simple(":$", __TOKEN, 0, 0)) {
+		if (g_regex_match_simple(TAGSISTANT_DEFAULT_TRIPLE_TAG_REGEX, __TOKEN, 0, 0)) {
 			/*
 			 *  the left tag is a triple tag
 			 */
@@ -868,7 +868,7 @@ int tagsistant_querytree_parse_relations (
 				if (__NEXT_TOKEN) {
 					__SLIDE_TOKEN;
 
-					if (g_regex_match_simple(":$", __TOKEN, 0, 0)) {
+					if (g_regex_match_simple(TAGSISTANT_DEFAULT_TRIPLE_TAG_REGEX, __TOKEN, 0, 0)) {
 						/*
 						 *  the right (related) tag is a triple tag
 						 */
@@ -901,7 +901,7 @@ int tagsistant_querytree_parse_relations (
 				if (__NEXT_TOKEN) {
 					__SLIDE_TOKEN;
 
-					if (g_regex_match_simple(":$", __TOKEN, 0, 0)) {
+					if (g_regex_match_simple(TAGSISTANT_DEFAULT_TRIPLE_TAG_REGEX, __TOKEN, 0, 0)) {
 						/*
 						 *  the right (related) tag is a triple tag
 						 */

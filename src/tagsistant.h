@@ -83,6 +83,9 @@
 /** the depth of the archive/ hierarchy (each zero adds one level, 10 is the lowest meaningful value) */
 #define TAGSISTANT_ARCHIVE_DEPTH 1000
 
+/** the default regular expression to identify the starting token of a triple tag */
+#define TAGSISTANT_DEFAULT_TRIPLE_TAG_REGEX ":$"
+
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
