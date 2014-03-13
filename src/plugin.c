@@ -79,7 +79,7 @@ int tagsistant_run_processor(
 int tagsistant_process(tagsistant_querytree *qtree)
 {
 	int res = 0;
-	const gchar *mime_type = "";
+	gchar *mime_type = "";
 	gchar *mime_generic = "";
 	tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS];
 
@@ -107,7 +107,8 @@ int tagsistant_process(tagsistant_querytree *qtree)
 
 		/* save the mime type */
 		if (EXTRACTOR_MIMETYPE == keyword_pointer->keywordType) {
-			mime_type = EXTRACTOR_getKeywordTypeAsString(keyword_pointer->keywordType);
+			// mime_type = EXTRACTOR_getKeywordValueAsString(keyword_pointer->keywordType);
+			mime_type = g_strdup(keyword_pointer->keyword);
 		}
 
 #if 0
@@ -161,11 +162,13 @@ int tagsistant_process(tagsistant_querytree *qtree)
 			if (TP_STOP == tagsistant_run_processor(plugin, qtree, keywords)) goto STOP_CHAIN_TAGGING;
 		}
 		plugin = plugin->next;
+
+		dbg('p', LOG_INFO, "Using generic plugin on MIME type %s", mime_type);
 	}
 
 STOP_CHAIN_TAGGING:
 
-//	g_free_null(mime_type); /* mustn't be freed because it's static code from libextractor */
+	g_free_null(mime_type);
 	g_free_null(mime_generic);
 
 	dbg('p', LOG_INFO, "Processing of %s ended.", qtree->full_archive_path);
@@ -326,6 +329,8 @@ void tagsistant_keyword_matcher(
 		/* ... and cleanup */
 		g_free_null(clean_keyword);
 		g_free_null(clean_value);
+	} else {
+		dbg('p', LOG_INFO, "keyword %s refused by regular expression", keyword);
 	}
 }
 

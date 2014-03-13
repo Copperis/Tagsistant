@@ -35,3 +35,8 @@ lib_LTLIBRARIES += libtagsistant_png-0.1.la
 libtagsistant_png_0_1_la_SOURCES = ../tagsistant.h tp_png.c
 libtagsistant_png_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0`
 libtagsistant_png_0_1_la_LDFLAGS = `pkg-config --libs glib-2.0`
+
+lib_LTLIBRARIES += libtagsistant_pdf-0.1.la
+libtagsistant_pdf_0_1_la_SOURCES = ../tagsistant.h tp_pdf.c
+libtagsistant_pdf_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0`
+libtagsistant_pdf_0_1_la_LDFLAGS = `pkg-config --libs glib-2.0`

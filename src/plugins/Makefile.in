@@ -127,6 +127,15 @@ libtagsistant_ogg_0_1_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) \
 	$(libtagsistant_ogg_0_1_la_CFLAGS) $(CFLAGS) \
 	$(libtagsistant_ogg_0_1_la_LDFLAGS) $(LDFLAGS) -o $@
+libtagsistant_pdf_0_1_la_LIBADD =
+am_libtagsistant_pdf_0_1_la_OBJECTS =  \
+	libtagsistant_pdf_0_1_la-tp_pdf.lo
+libtagsistant_pdf_0_1_la_OBJECTS =  \
+	$(am_libtagsistant_pdf_0_1_la_OBJECTS)
+libtagsistant_pdf_0_1_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) \
+	$(libtagsistant_pdf_0_1_la_CFLAGS) $(CFLAGS) \
+	$(libtagsistant_pdf_0_1_la_LDFLAGS) $(LDFLAGS) -o $@
 libtagsistant_png_0_1_la_LIBADD =
 am_libtagsistant_png_0_1_la_OBJECTS =  \
 	libtagsistant_png_0_1_la-tp_png.lo
@@ -164,6 +173,7 @@ SOURCES = $(libtagsistant_generic_0_1_la_SOURCES) \
 	$(libtagsistant_jpeg_0_1_la_SOURCES) \
 	$(libtagsistant_mp3_0_1_la_SOURCES) \
 	$(libtagsistant_ogg_0_1_la_SOURCES) \
+	$(libtagsistant_pdf_0_1_la_SOURCES) \
 	$(libtagsistant_png_0_1_la_SOURCES) \
 	$(libtagsistant_xml_0_1_la_SOURCES)
 DIST_SOURCES = $(libtagsistant_generic_0_1_la_SOURCES) \
@@ -172,6 +182,7 @@ DIST_SOURCES = $(libtagsistant_generic_0_1_la_SOURCES) \
 	$(libtagsistant_jpeg_0_1_la_SOURCES) \
 	$(libtagsistant_mp3_0_1_la_SOURCES) \
 	$(libtagsistant_ogg_0_1_la_SOURCES) \
+	$(libtagsistant_pdf_0_1_la_SOURCES) \
 	$(libtagsistant_png_0_1_la_SOURCES) \
 	$(libtagsistant_xml_0_1_la_SOURCES)
 ETAGS = etags
@@ -294,7 +305,7 @@ lib_LTLIBRARIES = libtagsistant_generic-0.1.la \
 	libtagsistant_jpeg-0.1.la libtagsistant_ogg-0.1.la \
 	libtagsistant_mp3-0.1.la libtagsistant_html-0.1.la \
 	libtagsistant_xml-0.1.la libtagsistant_gif-0.1.la \
-	libtagsistant_png-0.1.la
+	libtagsistant_png-0.1.la libtagsistant_pdf-0.1.la
 libtagsistant_generic_0_1_la_SOURCES = ../tagsistant.h tp_generic.c
 libtagsistant_generic_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0`
 libtagsistant_jpeg_0_1_la_SOURCES = ../tagsistant.h tp_jpeg.c
@@ -318,6 +329,9 @@ libtagsistant_gif_0_1_la_LDFLAGS = `pkg-config --libs glib-2.0`
 libtagsistant_png_0_1_la_SOURCES = ../tagsistant.h tp_png.c
 libtagsistant_png_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0`
 libtagsistant_png_0_1_la_LDFLAGS = `pkg-config --libs glib-2.0`
+libtagsistant_pdf_0_1_la_SOURCES = ../tagsistant.h tp_pdf.c
+libtagsistant_pdf_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0`
+libtagsistant_pdf_0_1_la_LDFLAGS = `pkg-config --libs glib-2.0`
 all: all-am
 
 .SUFFIXES:
@@ -395,6 +409,8 @@ libtagsistant_mp3-0.1.la: $(libtagsistant_mp3_0_1_la_OBJECTS) $(libtagsistant_mp
 	$(libtagsistant_mp3_0_1_la_LINK) -rpath $(libdir) $(libtagsistant_mp3_0_1_la_OBJECTS) $(libtagsistant_mp3_0_1_la_LIBADD) $(LIBS)
 libtagsistant_ogg-0.1.la: $(libtagsistant_ogg_0_1_la_OBJECTS) $(libtagsistant_ogg_0_1_la_DEPENDENCIES) $(EXTRA_libtagsistant_ogg_0_1_la_DEPENDENCIES) 
 	$(libtagsistant_ogg_0_1_la_LINK) -rpath $(libdir) $(libtagsistant_ogg_0_1_la_OBJECTS) $(libtagsistant_ogg_0_1_la_LIBADD) $(LIBS)
+libtagsistant_pdf-0.1.la: $(libtagsistant_pdf_0_1_la_OBJECTS) $(libtagsistant_pdf_0_1_la_DEPENDENCIES) $(EXTRA_libtagsistant_pdf_0_1_la_DEPENDENCIES) 
+	$(libtagsistant_pdf_0_1_la_LINK) -rpath $(libdir) $(libtagsistant_pdf_0_1_la_OBJECTS) $(libtagsistant_pdf_0_1_la_LIBADD) $(LIBS)
 libtagsistant_png-0.1.la: $(libtagsistant_png_0_1_la_OBJECTS) $(libtagsistant_png_0_1_la_DEPENDENCIES) $(EXTRA_libtagsistant_png_0_1_la_DEPENDENCIES) 
 	$(libtagsistant_png_0_1_la_LINK) -rpath $(libdir) $(libtagsistant_png_0_1_la_OBJECTS) $(libtagsistant_png_0_1_la_LIBADD) $(LIBS)
 libtagsistant_xml-0.1.la: $(libtagsistant_xml_0_1_la_OBJECTS) $(libtagsistant_xml_0_1_la_DEPENDENCIES) $(EXTRA_libtagsistant_xml_0_1_la_DEPENDENCIES) 
@@ -412,6 +428,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtagsistant_jpeg_0_1_la-tp_jpeg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtagsistant_mp3_0_1_la-tp_mp3.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtagsistant_ogg_0_1_la-tp_ogg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtagsistant_pdf_0_1_la-tp_pdf.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtagsistant_png_0_1_la-tp_png.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libtagsistant_xml_0_1_la-tp_xml.Plo@am__quote@
 
@@ -477,6 +494,13 @@ libtagsistant_ogg_0_1_la-tp_ogg.lo: tp_ogg.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='tp_ogg.c' object='libtagsistant_ogg_0_1_la-tp_ogg.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libtagsistant_ogg_0_1_la_CFLAGS) $(CFLAGS) -c -o libtagsistant_ogg_0_1_la-tp_ogg.lo `test -f 'tp_ogg.c' || echo '$(srcdir)/'`tp_ogg.c
+
+libtagsistant_pdf_0_1_la-tp_pdf.lo: tp_pdf.c
+@am__fastdepCC_TRUE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libtagsistant_pdf_0_1_la_CFLAGS) $(CFLAGS) -MT libtagsistant_pdf_0_1_la-tp_pdf.lo -MD -MP -MF $(DEPDIR)/libtagsistant_pdf_0_1_la-tp_pdf.Tpo -c -o libtagsistant_pdf_0_1_la-tp_pdf.lo `test -f 'tp_pdf.c' || echo '$(srcdir)/'`tp_pdf.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/libtagsistant_pdf_0_1_la-tp_pdf.Tpo $(DEPDIR)/libtagsistant_pdf_0_1_la-tp_pdf.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='tp_pdf.c' object='libtagsistant_pdf_0_1_la-tp_pdf.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libtagsistant_pdf_0_1_la_CFLAGS) $(CFLAGS) -c -o libtagsistant_pdf_0_1_la-tp_pdf.lo `test -f 'tp_pdf.c' || echo '$(srcdir)/'`tp_pdf.c
 
 libtagsistant_png_0_1_la-tp_png.lo: tp_png.c
 @am__fastdepCC_TRUE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libtagsistant_png_0_1_la_CFLAGS) $(CFLAGS) -MT libtagsistant_png_0_1_la-tp_png.lo -MD -MP -MF $(DEPDIR)/libtagsistant_png_0_1_la-tp_png.Tpo -c -o libtagsistant_png_0_1_la-tp_png.lo `test -f 'tp_png.c' || echo '$(srcdir)/'`tp_png.c
