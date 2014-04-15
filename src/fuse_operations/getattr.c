@@ -198,7 +198,9 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	// post-processing output
 	if (QTREE_IS_STORE(qtree)) {
 		// dbg(LOG_INFO, "getattr: last tag is %s", qtree->last_tag);
-		if (NULL == qtree->last_tag) {
+		if (qtree->points_to_object) {
+			// OK
+		} else if (NULL == qtree->last_tag) {
 			// OK
 		} else if (g_strcmp0(qtree->last_tag, "ALL") == 0) {
 			// OK
@@ -217,6 +219,14 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 			stbuf->st_ino += 2;
 			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
 			stbuf->st_nlink = 1;
+
+		} else if ((g_strcmp0(qtree->last_tag, TAGSISTANT_TAG_GROUP_BEGIN) == 0) ||
+			(g_strcmp0(qtree->last_tag, TAGSISTANT_TAG_GROUP_END) == 0)) {
+
+			// path ends by TAGSISTANT_QUERY_DELIMITER (with or without reasoning)
+			stbuf->st_ino += 3;
+			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
+			stbuf->st_nlink = 3;
 
 		} else if (g_regex_match_simple("^" TAGSISTANT_ALIAS_IDENTIFIER, qtree->last_tag, 0, 0)) {
 			gchar *alias_name = qtree->last_tag + 1;

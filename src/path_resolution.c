@@ -614,6 +614,15 @@ void tagsistant_querytree_set_value(
 	qtree->value = g_strdup(value);
 }
 
+/** add next token to a tag group by creating the and_node_t structure */
+#define TAGSISTANT_TAG_GROUP_ADD_NEW_NODE 2
+
+/** add next token to a tag group by appending it to the last and_node_t structure */
+#define TAGSISTANT_TAG_GROUP_ADD_TO_NODE 1
+
+/** next token is outside any tag group */
+#define TAGSISTANT_TAG_GROUP_DONT_ADD 0
+
 /**
  * parse the query portion between tags/ and @/
  *
@@ -630,7 +639,18 @@ int tagsistant_querytree_parse_store (
 {
 	unsigned int orcount = 0, andcount = 0;
 
-	// initialize iterator variables on query tree nodes
+	/*
+	 * When a tag group is started by {, this variable is set to TAGSISTANT_TAG_GROUP_DONT_ADD.
+	 * Next token will be saved in a new ptree_and_node structure and the tag_group variable will
+	 * be set to TAGSISTANT_TAG_GROUP_ADD_TO_NODE. When the tag group is closed by }, the
+	 * tag_group variable is set to TAGSISTANT_TAG_GROUP_DONT_ADD. Next token will be saved
+	 * on its own ptree_and_node structure.
+	 */
+	unsigned int tag_group = TAGSISTANT_TAG_GROUP_DONT_ADD;
+
+	/*
+	 * initialize iterator variables on query tree nodes
+	 */
 	ptree_or_node *last_or = qtree->tree = g_new0(ptree_or_node, 1);
 	if (qtree->tree == NULL) {
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
@@ -640,7 +660,9 @@ int tagsistant_querytree_parse_store (
 
 	ptree_and_node *last_and = NULL;
 
-	// state if the query is complete or not
+	/*
+	 * guess if the query is complete or not
+	 */
 	size_t path_length = strlen(path);
 	if (g_strstr_len(path, path_length, "/" TAGSISTANT_QUERY_DELIMITER)) {
 		qtree->complete = 1;
@@ -648,10 +670,14 @@ int tagsistant_querytree_parse_store (
 	}
 	dbg('q', LOG_INFO, "Path %s is %scomplete", path, qtree->complete ? "" : "not ");
 
-	// by default a query is valid until something wrong happens while parsing it
+	/*
+	 * by default a query is valid until something wrong happens while parsing it
+	 */
 	qtree->valid = 1;
 
-	// begin parsing
+	/*
+	 * begin parsing
+	 */
 	while (__TOKEN && (TAGSISTANT_QUERY_DELIMITER_CHAR != *__TOKEN)) {
 		if (strlen(__TOKEN) == 0) {
 			/* ignore zero length tokens */
@@ -669,12 +695,25 @@ int tagsistant_querytree_parse_store (
 			last_or->next = new_or;
 			last_or = new_or;
 			last_and = NULL;
+		} else if (strcmp(__TOKEN, TAGSISTANT_TAG_GROUP_BEGIN) == 0) {
+			tag_group = TAGSISTANT_TAG_GROUP_ADD_NEW_NODE;
+		} else if (strcmp(__TOKEN, TAGSISTANT_TAG_GROUP_END) == 0) {
+			tag_group = TAGSISTANT_TAG_GROUP_DONT_ADD;
 		} else {
 			/* save next token in new ptree_and_node_t slot */
-			ptree_and_node *and = g_new0(ptree_and_node, 1);
-			if (and == NULL) {
-				dbg('q', LOG_ERR, "Error allocating memory");
-				return (0);
+			ptree_and_node *and = NULL;
+
+			if (TAGSISTANT_TAG_GROUP_ADD_TO_NODE != tag_group) {
+				and = g_new0(ptree_and_node, 1);
+				if (and == NULL) {
+					dbg('q', LOG_ERR, "Error allocating memory");
+					return (0);
+				}
+			} else {
+				and = last_and;
+				while (and->related) {
+					and = and->related;
+				}
 			}
 
 			if (qtree->negate_next_tag) {
@@ -721,17 +760,28 @@ int tagsistant_querytree_parse_store (
 				and->tag = g_strdup(__TOKEN);
 				and->tag_id = tagsistant_sql_get_tag_id(qtree->dbi, and->tag, NULL, NULL);
 			}
+
 			and->next = NULL;
 			and->related = NULL;
-			if (last_and == NULL) {
-				last_or->and_set = and;
-			} else {
-				last_and->next = and;
+
+			if (TAGSISTANT_TAG_GROUP_ADD_TO_NODE != tag_group) {
+				if (last_and == NULL) {
+					last_or->and_set = and;
+				} else {
+					last_and->next = and;
+				}
+				last_and = and;
 			}
-			last_and = and;
 
 			dbg('q', LOG_INFO, "Query tree nodes %.2d.%.2d %s", orcount, andcount, __TOKEN);
 			andcount++;
+
+			/*
+			 * Next tokens will be added to current ptree_and_node structure
+			 */
+			if (TAGSISTANT_TAG_GROUP_ADD_NEW_NODE == tag_group) {
+				tag_group = TAGSISTANT_TAG_GROUP_ADD_TO_NODE;
+			}
 
 			/* search related tags */
 			if (qtree->do_reasoning && (and->tag || (and->namespace && and->key && and->value))) {

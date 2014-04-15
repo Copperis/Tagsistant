@@ -53,6 +53,12 @@
 /** the string used to separate inodes from filenames inside archive/ directory */
 #define TAGSISTANT_INODE_DELIMITER "___"
 
+/** the string used to start a group of alternative tags */
+#define TAGSISTANT_TAG_GROUP_BEGIN "{"
+
+/** the string used to close a group of alternative tags */
+#define TAGSISTANT_TAG_GROUP_END "}"
+
 /** use an hash table to save previously processed querytrees */
 #define TAGSISTANT_ENABLE_QUERYTREE_CACHE 0
 
