@@ -204,11 +204,6 @@ GMutex tagsistant_connection_pool_lock;
 int connections = 0;
 
 /**
- * Experimental Mutex for SQLite
- */
-GMutex tagsistant_sqlite_global_lock;
-
-/**
  * Parse command line options, create connection object,
  * start the connection and finally create database schema
  *
@@ -219,12 +214,8 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 	/* DBI connection handler used by subsequent calls to dbi_* functions */
 	dbi_conn dbi = NULL;
 
-	if (tagsistant.sql_database_driver == TAGSISTANT_DBI_SQLITE_BACKEND)
-		/* lock the global mutex for SQLite backend */
-		g_mutex_lock(&tagsistant_sqlite_global_lock);
-	else if (!tagsistant.singlethread)
-		/* lock the pool */
-		g_mutex_lock(&tagsistant_connection_pool_lock);
+	/* lock the pool */
+	g_mutex_lock(&tagsistant_connection_pool_lock);
 
 	GList *pool = tagsistant_connection_pool;
 	while (pool) {
@@ -245,7 +236,10 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 		pool = pool->next;
 	}
 
-	if (tagsistant.sql_database_driver != TAGSISTANT_DBI_SQLITE_BACKEND && !tagsistant.singlethread)
+	/*
+	 * unlock the pool mutex only if the backend is not SQLite
+	 */
+	if (tagsistant.sql_database_driver != TAGSISTANT_DBI_SQLITE_BACKEND)
 		g_mutex_unlock(&tagsistant_connection_pool_lock);
 
 	if (!dbi) {
@@ -345,9 +339,6 @@ void tagsistant_db_connection_release(dbi_conn dbi)
 	tagsistant_connection_pool = g_list_prepend(tagsistant_connection_pool, dbi);
 
 	if (tagsistant.sql_database_driver == TAGSISTANT_DBI_SQLITE_BACKEND)
-		/* unlock the global mutex for SQLite backend */
-		g_mutex_unlock(&tagsistant_sqlite_global_lock);
-	else if (!tagsistant.singlethread)
 		g_mutex_unlock(&tagsistant_connection_pool_lock);
 }
 
