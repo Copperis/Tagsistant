@@ -79,8 +79,8 @@ int tagsistant_run_processor(
 int tagsistant_process(tagsistant_querytree *qtree)
 {
 	int res = 0;
-	gchar *mime_type = "";
-	gchar *mime_generic = "";
+	gchar *mime_type = NULL;
+	gchar *mime_generic = NULL;
 	tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS];
 
 	dbg('p', LOG_INFO, "Running autotagging on %s", qtree->object_path);
@@ -119,6 +119,13 @@ int tagsistant_process(tagsistant_querytree *qtree)
 
 		keyword_pointer = keyword_pointer->next;
 		c++;
+	}
+
+	/*
+	 * If no mime type has been found just return
+	 */
+	if (!mime_type) {
+		return(res);
 	}
 
 	/*
