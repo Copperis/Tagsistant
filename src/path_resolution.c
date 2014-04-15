@@ -491,7 +491,7 @@ BREAK_LOOKUP:
 	if (inode) {
 		g_rw_lock_writer_lock(&tagsistant_and_set_cache_lock);
 		g_hash_table_insert(tagsistant_and_set_cache, search_key, GUINT_TO_POINTER(inode));
-		g_rw_lock_writer_lock(&tagsistant_and_set_cache_lock);
+		g_rw_lock_writer_unlock(&tagsistant_and_set_cache_lock);
 	} else {
 		g_free_null(search_key);
 	}

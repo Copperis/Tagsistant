@@ -21,7 +21,7 @@
 
 #include "tagsistant.h"
 
-#define TAGISTANT_USE_QUERY_MUTEX 0
+#define TAGISTANT_USE_QUERY_MUTEX 1
 
 #if TAGISTANT_USE_QUERY_MUTEX
 GMutex tagsistant_query_mutex;
@@ -332,14 +332,15 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
  */
 void tagsistant_db_connection_release(dbi_conn dbi)
 {
-	if (tagsistant.sql_database_driver != TAGSISTANT_DBI_SQLITE_BACKEND && !tagsistant.singlethread)
+	/* lock the pool if the backend is not SQLite */
+	if (tagsistant.sql_database_driver != TAGSISTANT_DBI_SQLITE_BACKEND)
 		g_mutex_lock(&tagsistant_connection_pool_lock);
 
 	/* release the connection back to the pool */
 	tagsistant_connection_pool = g_list_prepend(tagsistant_connection_pool, dbi);
 
-	if (tagsistant.sql_database_driver == TAGSISTANT_DBI_SQLITE_BACKEND)
-		g_mutex_unlock(&tagsistant_connection_pool_lock);
+	/* unlock the pool */
+	g_mutex_unlock(&tagsistant_connection_pool_lock);
 }
 
 /**
@@ -501,6 +502,10 @@ int tagsistant_real_query(
 	/* format the statement */
 	gchar *statement = g_strdup_vprintf(escaped_format, ap);
 	if (NULL == statement) {
+#if TAGISTANT_USE_QUERY_MUTEX
+		/* lock the connection mutex */
+		g_mutex_lock(&tagsistant_query_mutex);
+#endif
 		dbg('s', LOG_ERR, "Null SQL statement");
 		g_free(escaped_format);
 		return(0);

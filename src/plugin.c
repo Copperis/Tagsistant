@@ -37,6 +37,11 @@ static GRegex *tagsistant_rx_date;
 #define errno
 #endif
 
+/*
+ * This mutex is used to concurrently access libextractor facilities
+ */
+GMutex tagsistant_processor_mutex;
+
 int tagsistant_run_processor(
 	tagsistant_plugin_t *plugin,
 	tagsistant_querytree *qtree,
@@ -90,6 +95,9 @@ int tagsistant_process(tagsistant_querytree *qtree)
 
 	dbg('p', LOG_INFO, "Processing file %s", qtree->full_archive_path);
 
+	/* lock processor mutex */
+	g_mutex_lock(&tagsistant_processor_mutex);
+
 	/*
 	 * Extract the keywords and remove duplicated ones
 	 */
@@ -125,6 +133,8 @@ int tagsistant_process(tagsistant_querytree *qtree)
 	 * If no mime type has been found just return
 	 */
 	if (!mime_type) {
+		/* lock processor mutex */
+		g_mutex_unlock(&tagsistant_processor_mutex);
 		return(res);
 	}
 
@@ -182,6 +192,9 @@ STOP_CHAIN_TAGGING:
 
 	/* free the keyword structure */
 	EXTRACTOR_freeKeywords(extracted_keywords);
+
+	/* lock processor mutex */
+	g_mutex_unlock(&tagsistant_processor_mutex);
 
 	return(res);
 }
@@ -421,6 +434,9 @@ void tagsistant_plugin_loader()
 #else
 	plist = EXTRACTOR_plugin_add_defaults(EXTRACTOR_OPTION_DEFAULT_POLICY);
 #endif
+
+	/* init processor mutex */
+	g_mutex_init(&tagsistant_processor_mutex);
 
 	/* init some useful regex */
 	tagsistant_rx_date = g_regex_new(
