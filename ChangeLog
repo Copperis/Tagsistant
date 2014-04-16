@@ -73,6 +73,29 @@
 
     where SVN is the svn revision number and date has the format YYYYMMDD.
 
+  - Implemented tag groups using curly braces. A group of tags form a
+    set of alternative tags that are equivalent for file matching. For
+	example if the user wants all the files matching t1 and one of t2 or
+	t3, she can express the query as:
+
+	  store/t1/{/t2/t3/}/@@
+	
+	This query is equivalent to:
+
+	  store/t1/t2/+/t1/t3/@@
+	
+	The benefit of this feature is evident when possible permutations
+	increase, like in:
+
+	  store/t1/{/t2/t3/}/{/t4/t5/}@@
+	
+	where the query without tag groups would require four separate sets:
+
+	  store/t1/t2/t4/+/t1/t2/t5/+/t1/t3/t4/+/t1/t3/t5/@@
+	
+	Tag groups allow the use of both simple and triple tags. Tag groups
+	can _not_ be nested.
+
 0.7:
   - libextractor integration. Tagging plugins have been converted to
     the new API.

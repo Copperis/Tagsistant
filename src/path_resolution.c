@@ -701,19 +701,10 @@ int tagsistant_querytree_parse_store (
 			tag_group = TAGSISTANT_TAG_GROUP_DONT_ADD;
 		} else {
 			/* save next token in new ptree_and_node_t slot */
-			ptree_and_node *and = NULL;
-
-			if (TAGSISTANT_TAG_GROUP_ADD_TO_NODE != tag_group) {
-				and = g_new0(ptree_and_node, 1);
-				if (and == NULL) {
-					dbg('q', LOG_ERR, "Error allocating memory");
-					return (0);
-				}
-			} else {
-				and = last_and;
-				while (and->related) {
-					and = and->related;
-				}
+			ptree_and_node *and = g_new0(ptree_and_node, 1);
+			if (and == NULL) {
+				dbg('q', LOG_ERR, "Error allocating memory");
+				return (0);
 			}
 
 			if (qtree->negate_next_tag) {
@@ -764,7 +755,20 @@ int tagsistant_querytree_parse_store (
 			and->next = NULL;
 			and->related = NULL;
 
-			if (TAGSISTANT_TAG_GROUP_ADD_TO_NODE != tag_group) {
+			/*
+			 * Append this node to the tree. If its the nth node of a tag group,
+			 * append it to the ->related field of the last related node,
+			 * otherwise append it to the ->next field of the last node
+			 */
+			if (TAGSISTANT_TAG_GROUP_ADD_TO_NODE == tag_group) {
+				/* append this node to the last related node of the last ptree_and_node */
+				ptree_and_node *last_related = last_and;
+				while (last_related->related) {
+					last_related = last_related->related;
+				}
+				last_related->related = and;
+			} else {
+				/* append this node to last ptree_and_node */
 				if (last_and == NULL) {
 					last_or->and_set = and;
 				} else {

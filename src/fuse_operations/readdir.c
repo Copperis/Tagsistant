@@ -139,6 +139,16 @@ int tagsistant_do_add_operators(tagsistant_querytree *qtree)
 }
 
 /**
+ * Check if an _incomplete_ path has an open tag group
+ */
+int is_inside_tag_group(gchar *path)
+{
+	if (g_regex_match_simple("/{/[^{}]+$", path, G_REGEX_EXTENDED, 0)) return (1);
+	if (g_regex_match_simple("/{$", path, G_REGEX_EXTENDED, 0)) return (1);
+	return (0);
+}
+
+/**
  * Read the content of the store/ directory
  *
  * @param qtree the tagsistant_querytree object
@@ -196,11 +206,16 @@ int tagsistant_readdir_on_store(
 
 		// add operators if path is not "/tags", to avoid "/tags/+" and "/tags/@"
 		if (tagsistant_do_add_operators(qtree)) {
-			filler(buf, TAGSISTANT_QUERY_DELIMITER, NULL, 0);
-			filler(buf, TAGSISTANT_QUERY_DELIMITER_NO_REASONING, NULL, 0);
-			if (!is_all_path) {
-				filler(buf, TAGSISTANT_ANDSET_DELIMITER, NULL, 0);
-				filler(buf, TAGSISTANT_NEGATE_NEXT_TAG, NULL, 0);
+			if (is_inside_tag_group(qtree->full_path)) {
+				filler(buf, TAGSISTANT_TAG_GROUP_END, NULL, 0);
+			} else {
+				filler(buf, TAGSISTANT_QUERY_DELIMITER, NULL, 0);
+				filler(buf, TAGSISTANT_QUERY_DELIMITER_NO_REASONING, NULL, 0);
+				if (!is_all_path) {
+					filler(buf, TAGSISTANT_ANDSET_DELIMITER, NULL, 0);
+					filler(buf, TAGSISTANT_NEGATE_NEXT_TAG, NULL, 0);
+					filler(buf, TAGSISTANT_TAG_GROUP_BEGIN, NULL, 0);
+				}
 			}
 		}
 
