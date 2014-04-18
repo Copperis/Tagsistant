@@ -168,7 +168,7 @@ void tagsistant_usage(gchar *progname, int verbose)
 		" Usage: \n"
 		" \n"
 		"  %s [OPTIONS] [--db=<OPTIONS>] [--repository=<PATH>] /mountpoint\n"
-		"  %s [OPTIONS] [--db=<OPTIONS>] [REPOSITORY_PATH] /mountpoint\n"
+		"  %s [OPTIONS] [--db=<OPTIONS>] [/repository/path] /mountpoint\n"
 		"\n"
 		"    -q                     be quiet\n"
 		"    -r                     mount readonly\n"
@@ -316,11 +316,16 @@ int main(int argc, char *argv[])
 		if (tagsistant.remaining_opts[1] && *(tagsistant.remaining_opts[1])) {
 			tagsistant.repository = *tagsistant.remaining_opts;
 			tagsistant.mountpoint = *(tagsistant.remaining_opts + 1);
+
+			// fprintf(stderr, " *** repository %s *** \n\n", tagsistant.repository);
+			// fprintf(stderr, " *** mountpoint %s *** \n\n", tagsistant.mountpoint);
 		} else {
 			tagsistant.mountpoint = *tagsistant.remaining_opts;
+
+			// fprintf(stderr, " *** mountpoint %s *** \n\n", tagsistant.mountpoint);
 		}
 	} else {
-		// fprintf(stderr, " *** No mountpoint provided *** \n\n");
+		fprintf(stderr, " *** No mountpoint provided *** \n\n");
 		tagsistant_usage(argv[0], 0);
 		exit(2);
 	}
