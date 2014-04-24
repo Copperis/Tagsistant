@@ -372,9 +372,7 @@ int tagsistant_check_single_tagging(ptree_and_node *and, dbi_conn dbi, gchar *ob
 		objectname,
 		and->tag_id);
 
-	if (and->negate) {
-		return (inode ? 0 : 1);
-	}
+	// if (and->negate) { return (inode ? 0 : 1); }
 
 	return (inode);
 }
@@ -445,9 +443,10 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 
 	/* lookup the inode into the database */
 	ptree_and_node *and_set_ptr = and_set;
-	tagsistant_inode tmp_inode = 0;
+	tagsistant_inode guessed_inode = 0;
 
 	while (and_set_ptr) {
+		/* handle the ALL special case */
 		if (g_strcmp0(and_set_ptr->tag, "ALL") == 0) {
 			// get the inode from the object path
 			inode = tagsistant_inode_extract_from_path(objectname);
@@ -462,32 +461,45 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 			goto BREAK_LOOKUP;
 		}
 
-		tmp_inode = tagsistant_check_single_tagging(and_set_ptr, dbi, objectname);
+		/* match the first tag (the one in the ptree_and_node) */
+		tagsistant_inode single_and_inode = tagsistant_check_single_tagging(and_set_ptr, dbi, objectname);
 
-		if (!tmp_inode) {
-			/* the main tag has not returned an inode, we check every related tags */
+		/* if no match has been found, try with related tags */
+		if (!single_and_inode) {
 			ptree_and_node *related = and_set_ptr->related;
 
 			while (related) {
-				tmp_inode = tagsistant_check_single_tagging(related, dbi, objectname);
+				single_and_inode = tagsistant_check_single_tagging(related, dbi, objectname);
 
-				if (tmp_inode) break;
+				/* if a related tag match, break the while loop */
+				if (single_and_inode) break;
 
 				related = related->related;
 			}
 
-			if (!tmp_inode) goto BREAK_LOOKUP;
-
+			/* it this tag (nor any of its related) matches, break the lookup */
+			if (!single_and_inode && !and_set_ptr->negate) goto BREAK_LOOKUP;
 		}
 
-		/* save the result of the lookup only if this tag is not a negative tag */
-		if (tmp_inode && and_set_ptr->negate) goto BREAK_LOOKUP;
+		if (and_set_ptr->negate) {
+			/* break the loop if a match has been found but the tag was negated */
+			if (single_and_inode) goto BREAK_LOOKUP;
+		} else {
+			/* save the inode for the further checking */
+			if (!guessed_inode) guessed_inode = single_and_inode;
+
+			/*
+			 * if the inode extracted from this iteration is different from the previous one
+			 * this may suggest a case of file homonymy, so we must return a match failure
+			 */
+			if (guessed_inode != single_and_inode) goto BREAK_LOOKUP;
+		}
 
 		and_set_ptr = and_set_ptr->next;
 	}
 
 	/* save the inode to return it */
-	inode = tmp_inode;
+	inode = guessed_inode;
 
 BREAK_LOOKUP:
 
