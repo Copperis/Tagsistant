@@ -445,6 +445,8 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 
 	/* lookup the inode into the database */
 	ptree_and_node *and_set_ptr = and_set;
+	tagsistant_inode tmp_inode = 0;
+
 	while (and_set_ptr) {
 		if (g_strcmp0(and_set_ptr->tag, "ALL") == 0) {
 			// get the inode from the object path
@@ -460,29 +462,32 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 			goto BREAK_LOOKUP;
 		}
 
-		tagsistant_inode tmp_inode = tagsistant_check_single_tagging(and_set_ptr, dbi, objectname);
+		tmp_inode = tagsistant_check_single_tagging(and_set_ptr, dbi, objectname);
 
-		if (0 == tmp_inode) {
+		if (!tmp_inode) {
 			/* the main tag has not returned an inode, we check every related tags */
 			ptree_and_node *related = and_set_ptr->related;
 
 			while (related) {
 				tmp_inode = tagsistant_check_single_tagging(related, dbi, objectname);
 
-				if (0 == tmp_inode) goto BREAK_LOOKUP;
+				if (tmp_inode) break;
 
 				related = related->related;
 			}
 
-			if (0 == tmp_inode) goto BREAK_LOOKUP;
+			if (!tmp_inode) goto BREAK_LOOKUP;
 
 		}
 
 		/* save the result of the lookup only if this tag is not a negative tag */
-		if (!and_set_ptr->negate) inode = tmp_inode;
+		if (tmp_inode && and_set_ptr->negate) goto BREAK_LOOKUP;
 
 		and_set_ptr = and_set_ptr->next;
 	}
+
+	/* save the inode to return it */
+	inode = tmp_inode;
 
 BREAK_LOOKUP:
 
