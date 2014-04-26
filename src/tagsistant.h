@@ -66,10 +66,10 @@
 #define TAGSISTANT_ENABLE_TAG_ID_CACHE 1
 
 /** cache inode resolution queries? */
-#define TAGSISTANT_ENABLE_AND_SET_CACHE 1
+#define TAGSISTANT_ENABLE_AND_SET_CACHE 0
 
 /** cache reasoner queries? */
-#define TAGSISTANT_ENABLE_REASONER_CACHE 1
+#define TAGSISTANT_ENABLE_REASONER_CACHE 0
 
 /** enable the autotagging plugin stack? */
 #define TAGSISTANT_ENABLE_AUTOTAGGING 1
