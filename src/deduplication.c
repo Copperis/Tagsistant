@@ -31,13 +31,12 @@
 /***                                                                      ***/
 /****************************************************************************/
 
-#if TAGSISTANT_ENABLE_AUTOTAGGING && TAGSISTANT_ENABLE_AUTOTAGGING_THREAD
-GThread *tagsistant_autotag_thread = NULL;
-GAsyncQueue *tagsistant_autotag_queue = NULL;
+#if TAGSISTANT_AUTOTAG_IN_MULTIPLE_THREADS
+	GMutex tagsistant_deduplication_mutex;
+	GHashTable *tagsistant_deduplication_table;
+#else
+	GAsyncQueue *tagsistant_deduplication_queue;
 #endif
-
-GMutex tagsistant_deduplication_mutex;
-GHashTable *tagsistant_deduplication_table;
 
 #define TAGSISTANT_DO_AUTOTAGGING 1
 #define TAGSISTANT_DONT_DO_AUTOTAGGING 0
@@ -130,7 +129,7 @@ gpointer tagsistant_deduplication_kernel(gpointer data)
 				do {
 					length = read(fd, buffer, 65535);
 					g_checksum_update(checksum, buffer, length);
-				} while (length);
+				} while (length > 0);
 
 				/* get the hexadecimal checksum string */
 				gchar *hex = g_strdup(g_checksum_get_string(checksum));
@@ -150,7 +149,7 @@ gpointer tagsistant_deduplication_kernel(gpointer data)
 					/*
 					 * do in-place autotagging
 					 */
-					dbg('p', LOG_INFO, "Doing in-place autotagging on %s", path);
+					dbg('p', LOG_INFO, "Doing autotagging on %s", path);
 					tagsistant_process(qtree);
 #endif
 				}
@@ -165,24 +164,55 @@ gpointer tagsistant_deduplication_kernel(gpointer data)
 		close(fd);
 	}
 
-	/*
-	 * remove the path from the deduplication table
-	 */
+#if TAGSISTANT_AUTOTAG_IN_MULTIPLE_THREADS
+	/* remove the path from the deduplication table */
 	g_mutex_lock(&tagsistant_deduplication_mutex);
 	g_hash_table_remove(tagsistant_deduplication_table, path);
 	g_mutex_unlock(&tagsistant_deduplication_mutex);
 
-	/*
-	 * exit deduplication thread
-	 */
-	// g_free_null(path); // not required because the path is freed by g_hash_table_remove()
+	/* exit deduplication thread */
 	g_thread_exit(NULL);
+#endif
+
 	return (NULL);
 }
 
+/**
+ * This is the loop that calls the deduplication thread
+ * when TAGSISTANT_AUTOTAG_IN_MULTIPLE_THREADS is 0
+ */
+#if !TAGSISTANT_AUTOTAG_IN_MULTIPLE_THREADS
+gpointer tagsistant_deduplication_loop(gpointer data) {
+	(void) data;
+
+	while (1) {
+		/* get a path from the queue */
+		gchar *path = (gchar *) g_async_queue_pop(tagsistant_deduplication_queue);
+
+		/* process the path only if it's not null */
+		if (path && strlen(path)) tagsistant_deduplication_kernel(path);
+
+		/* throw away the path */
+		g_free_null(path);
+	}
+
+	return (NULL);
+}
+#endif
+
 void tagsistant_deduplication_init()
 {
+#if TAGSISTANT_AUTOTAG_IN_MULTIPLE_THREADS
+	/* setup the hash table to avoid deduplicating the same file twice */
 	tagsistant_deduplication_table = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+#else
+	/* setup the deduplication queue */
+	tagsistant_deduplication_queue = g_async_queue_new_full(g_free);
+	g_async_queue_ref(tagsistant_deduplication_queue);
+
+	/* start the deduplication thread */
+	g_thread_new("Deduplication thread", tagsistant_deduplication_loop, NULL);
+#endif
 }
 
 /**
@@ -192,12 +222,16 @@ void tagsistant_deduplication_init()
  */
 void tagsistant_deduplicate(gchar *path)
 {
+#if TAGSISTANT_AUTOTAG_IN_MULTIPLE_THREADS
 	g_mutex_lock(&tagsistant_deduplication_mutex);
 	if (!g_hash_table_contains(tagsistant_deduplication_table, path)) {
 		g_thread_new(path, tagsistant_deduplication_kernel, path);
 		g_hash_table_insert(tagsistant_deduplication_table, path, GINT_TO_POINTER(1));
 	}
 	g_mutex_unlock(&tagsistant_deduplication_mutex);
+#else
+	g_async_queue_push(tagsistant_deduplication_queue, g_strdup(path));
+#endif
 }
 
 #if 0
@@ -262,41 +296,5 @@ int tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
 	}
 
 	return (do_autotagging);
-}
-
-/**
- * This is the kernel of the autotagging thread.
- */
-void tagsistant_autotag_thread_kernel(gpointer data) {
-	(void) data;
-
-#if TAGSISTANT_ENABLE_AUTOTAGGING && TAGSISTANT_ENABLE_AUTOTAGGING_THREAD
-	while (1) {
-		// get a path from the queue
-		gchar *path = (gchar *) g_async_queue_pop(tagsistant_autotag_queue);
-
-		// process the path only if it's not null
-		if (path && strlen(path)) {
-
-			// build the querytree from the path
-			tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1);
-			if (!qtree) {
-				int i;
-				for (i = 5; i; i--) {
-					sleep(1);
-					qtree = tagsistant_querytree_new(path, 0, 1, 1);
-				}
-			}
-
-			// run the autotagging plugin stack
-			tagsistant_process(qtree);
-
-			// destroy the querytree
-			tagsistant_querytree_destroy(qtree, 1);
-		}
-
-		g_free_null(path);
-	}
-#endif
 }
 #endif

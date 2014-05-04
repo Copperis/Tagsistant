@@ -74,6 +74,9 @@
 /** enable the autotagging plugin stack? */
 #define TAGSISTANT_ENABLE_AUTOTAGGING 1
 
+/** do deduplication and autotagging using a queue (0) or multiple threads (1) ? */
+#define TAGSISTANT_AUTOTAG_IN_MULTIPLE_THREADS 0
+
 /** enable filehandle caching between open(), read(), write() and release() calls */
 #define TAGSISTANT_ENABLE_FILE_HANDLE_CACHING 1
 

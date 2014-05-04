@@ -1,8 +1,8 @@
 /*
-   Tagsistant (tagfs) -- tp_jpeg.c
+   Tagsistant (tagfs) -- tp_photo.c
    Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
 
-   Tagsistant jpeg plugin which makes decisions on file MIME types.
+   Tagsistant photo plugin, registered for image / *.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -21,24 +21,25 @@
 
 #include "../tagsistant.h"
 
-/**
- * set to 1 to return TP_STOP and avoid further processing
- */
-#define EXCLUDE_OTHER_PLUGINS 0
-
 /* declaring mime type */
-char mime_type[] = "image/jpeg";
+char mime_type[] = "image/*";
 
-/* regex */
-GRegex *rx = NULL;
+/* the regular expression used to match the tags to be considered */
+GRegex *rx;
 
 /* exported init function */
 int tagsistant_plugin_init()
 {
-	/* get the jpeg filter and prepare a regular expression */
-	gchar *pattern = tagsistant_get_ini_entry("mime:image/jpeg", "filter");
-	if (!pattern) pattern = "^(size|orientation)$";
+	/* get the filter patter from the .ini file */
+	gchar *pattern = tagsistant_get_ini_entry("mime:image/*", "filter");
 
+	/* set a default pattern */
+	if (!pattern) pattern = "^(white balance|image quality|metering mode|"
+		"exposure mode|iso speed|focal length (35mm equivalent)|focal length|"
+		"flash|exposure bias|aperture|exposure|date|orientation|camera model|"
+		"camera make|creation date|software|source|size)$";
+
+	/* prepare the regular expression */
 	rx = g_regex_new(pattern, TAGSISTANT_RX_COMPILE_FLAGS, 0, NULL);
 
 	return(1);
@@ -47,14 +48,9 @@ int tagsistant_plugin_init()
 /* exported processor function */
 int tagsistant_processor(tagsistant_querytree *qtree, tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS])
 {
-	/* default tagging */
-	tagsistant_sql_tag_object(qtree->dbi, "image", NULL, NULL, qtree->inode);
-	tagsistant_sql_tag_object(qtree->dbi, "image:", "format", "jpeg", qtree->inode);
+	tagsistant_plugin_iterator(qtree, "photo:", keywords, rx);
 
-	/* applying regular expression */
-	tagsistant_plugin_iterator(qtree, "image:", keywords, rx);
-
-	return(EXCLUDE_OTHER_PLUGINS ? TP_STOP : TP_OK);
+	return(TP_OK);
 }
 
 /* exported finalize function */

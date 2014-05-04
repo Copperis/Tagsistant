@@ -2,6 +2,11 @@ lib_LTLIBRARIES = libtagsistant_generic-0.1.la
 libtagsistant_generic_0_1_la_SOURCES = ../tagsistant.h tp_generic.c
 libtagsistant_generic_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0`
 
+lib_LTLIBRARIES += libtagsistant_photo-0.1.la
+libtagsistant_photo_0_1_la_SOURCES = ../tagsistant.h tp_photo.c
+libtagsistant_photo_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0`
+libtagsistant_photo_0_1_la_LDFLAGS = `pkg-config --libs glib-2.0`
+
 lib_LTLIBRARIES += libtagsistant_jpeg-0.1.la
 libtagsistant_jpeg_0_1_la_SOURCES = ../tagsistant.h tp_jpeg.c
 libtagsistant_jpeg_0_1_la_CFLAGS = `pkg-config --cflags glib-2.0`
