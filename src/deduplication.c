@@ -114,10 +114,13 @@ int tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *hex
 gpointer tagsistant_deduplication_kernel(gpointer data)
 {
 	gchar *path = (gchar *) data;
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1);
+
+	/* create a qtree object just to exctract the full_archive_path */
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 0);
 
 	if (qtree) {
 		int fd = open(qtree->full_archive_path, O_RDONLY|O_NOATIME);
+		tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
 
 		if (-1 != fd) {
 			GChecksum *checksum = g_checksum_new(G_CHECKSUM_SHA1);
@@ -138,23 +141,28 @@ gpointer tagsistant_deduplication_kernel(gpointer data)
 				g_checksum_free(checksum);
 				g_free_null(buffer);
 
-				/* save the string into the objects table */
-				tagsistant_query(
-					"update objects set checksum = '%s' where inode = %d",
-					qtree->dbi, NULL, NULL, hex, qtree->inode);
+				/* re-create the qtree object */
+				qtree = tagsistant_querytree_new(path, 0, 1, 1);
 
-				/* look for duplicated objects */
-				if (tagsistant_querytree_find_duplicates(qtree, hex)) {
+				if (qtree) {
+					/* save the string into the objects table */
+					tagsistant_query(
+						"update objects set checksum = '%s' where inode = %d",
+						qtree->dbi, NULL, NULL, hex, qtree->inode);
+	
+					/* look for duplicated objects */
+					if (tagsistant_querytree_find_duplicates(qtree, hex)) {
 #if TAGSISTANT_ENABLE_AUTOTAGGING
-					/*
-					 * do in-place autotagging
-					 */
-					dbg('p', LOG_INFO, "Doing autotagging on %s", path);
-					tagsistant_process(qtree);
+						/*
+						 * do in-place autotagging
+						 */
+						dbg('p', LOG_INFO, "Doing autotagging on %s", path);
+						tagsistant_process(qtree);
 #endif
-				}
+					}
 
-				tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
+					tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
+				}
 
 				/* free the hex checksum string */
 				g_free_null(hex);
