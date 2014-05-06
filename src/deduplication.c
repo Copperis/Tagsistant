@@ -115,14 +115,16 @@ gpointer tagsistant_deduplication_kernel(gpointer data)
 {
 	gchar *path = (gchar *) data;
 
-	/* create a qtree object just to exctract the full_archive_path */
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 0);
+	/* create a qtree object just to extract the full_archive_path */
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1);
 
 	if (qtree) {
 		int fd = open(qtree->full_archive_path, O_RDONLY|O_NOATIME);
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
 
 		if (-1 != fd) {
+			dbg('2', LOG_INFO, "Running deduplication on %s", path);
+
 			GChecksum *checksum = g_checksum_new(G_CHECKSUM_SHA1);
 			guchar *buffer = g_new0(guchar, 65535);
 
@@ -208,6 +210,51 @@ gpointer tagsistant_deduplication_loop(gpointer data) {
 }
 #endif
 
+/**
+ * Callback for tagsistant_fix_checksums()
+ */
+int tagsistant_fix_checksums_callback(void *null_pointer, dbi_result result)
+{
+	(void) null_pointer;
+
+	/* fetch the inode and the objectname from the query */
+	const gchar *inode = dbi_result_get_string_idx(result, 1);
+	const gchar *objectname = dbi_result_get_string_idx(result, 2);
+
+	/* build the path using the ALL/ tag */
+	gchar *path = g_strdup_printf("/store/ALL/@@/%s%s%s", inode, TAGSISTANT_INODE_DELIMITER, objectname);
+
+	/* deduplicate the object */
+	tagsistant_deduplicate(path);
+
+	/* free the path and return */
+	g_free(path);
+
+	return (0);
+}
+
+/**
+ * called once() after starting to fix object entries lacking the checksum
+ */
+void tagsistant_fix_checksums()
+{
+	/* get a dedicated connection */
+	dbi_conn *dbi = tagsistant_db_connection(0);
+
+	/*
+	 * find all the objects without a checksum. the inode is cast to varchar(12)
+	 * to simplify the callback function
+	 */
+	tagsistant_query(
+		"select cast(inode as varchar(12)), objectname from objects where checksum = ''",
+		dbi, tagsistant_fix_checksums_callback, NULL);
+
+	tagsistant_db_connection_release(dbi);
+}
+
+/**
+ * Setup deduplication thread and facilities
+ */
 void tagsistant_deduplication_init()
 {
 #if TAGSISTANT_AUTOTAG_IN_MULTIPLE_THREADS
@@ -221,10 +268,13 @@ void tagsistant_deduplication_init()
 	/* start the deduplication thread */
 	g_thread_new("Deduplication thread", tagsistant_deduplication_loop, NULL);
 #endif
+
+	/* fix missing checksums */
+	tagsistant_fix_checksums();
 }
 
 /**
- * starts deduplication thread
+ * deduplicate an object
  *
  * @path the path to be deduplicated
  */

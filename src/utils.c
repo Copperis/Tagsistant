@@ -165,20 +165,6 @@ extern void tagsistant_autotag_thread_kernel(gpointer data);
  */
 void tagsistant_utils_init()
 {
-#if 0 && TAGSISTANT_ENABLE_AUTOTAGGING && TAGSISTANT_ENABLE_AUTOTAGGING_THREAD
-	/* init the asynchronous queue */
-	tagsistant_autotag_queue = g_async_queue_new();
-
-	/* start deduplication thread */
-	tagsistant_autotag_thread = g_thread_new(
-		"deduplication",
-		(GThreadFunc) tagsistant_autotag_thread_kernel,
-		NULL);
-
-	/* increase reference count for both objects */
-	g_async_queue_ref(tagsistant_autotag_queue);
-	g_thread_ref(tagsistant_autotag_thread);
-#endif
 }
 
 /****************************************************************************/

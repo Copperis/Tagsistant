@@ -574,7 +574,7 @@ int main(int argc, char *argv[])
 
 	/*
 	 * initialize db connection, SQL schema,
-	 * path_resolution.c and utils.c structures
+	 * an other subsystems
 	 */
 	tagsistant_db_init();
 	tagsistant_create_schema();

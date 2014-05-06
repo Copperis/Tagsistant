@@ -96,6 +96,12 @@
 	Tag groups allow the use of both simple and triple tags. Tag groups
 	can _not_ be nested.
 
+  - Changed quote char in SQL queries with single quotes in place of double
+    quotes. This fixed a bug which prevented the use of 'key' as a tag.
+
+  - Implemented a startup procedure that checks for missing checksums in
+    the objects table.
+
 0.7:
   - libextractor integration. Tagging plugins have been converted to
     the new API.
