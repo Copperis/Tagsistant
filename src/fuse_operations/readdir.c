@@ -314,11 +314,11 @@ int tagsistant_readdir_on_relations(
 	} else if (qtree->related_key) {
 
 		if (qtree->namespace)
-			condition1 = g_strdup_printf("(tags1.tagname = '%s' and tags1.`key` = '%s' and tags1.value = '%s') ", qtree->namespace, qtree->key, qtree->value);
+			condition1 = g_strdup_printf("(tags1.tagname = \"%s\" and tags1.`key` = \"%s\" and tags1.value = \"%s\") ", qtree->namespace, qtree->key, qtree->value);
 		else
-			condition1 = g_strdup_printf("(tags1.tagname = '%s') ", qtree->first_tag);
+			condition1 = g_strdup_printf("(tags1.tagname = \"%s\") ", qtree->first_tag);
 
-		condition2 = g_strdup_printf("(tags2.tagname = '%s' and tags2.`key` = '%s') ", qtree->related_namespace, qtree->related_key);
+		condition2 = g_strdup_printf("(tags2.tagname = \"%s\" and tags2.`key` = \"%s\") ", qtree->related_namespace, qtree->related_key);
 
 		tagsistant_query(
 			"select distinct tags2.value from tags as tags2 "
@@ -335,11 +335,11 @@ int tagsistant_readdir_on_relations(
 	} else if (qtree->related_namespace) {
 
 		if (qtree->namespace)
-			condition1 = g_strdup_printf("(tags1.tagname = '%s' and tags1.`key` = '%s' and tags1.value = '%s') ", qtree->namespace, qtree->key, qtree->value);
+			condition1 = g_strdup_printf("(tags1.tagname = \"%s\" and tags1.`key` = \"%s\" and tags1.value = \"%s\") ", qtree->namespace, qtree->key, qtree->value);
 		else
-			condition1 = g_strdup_printf("(tags1.tagname = '%s') ", qtree->first_tag);
+			condition1 = g_strdup_printf("(tags1.tagname = \"%s\") ", qtree->first_tag);
 
-		condition2 = g_strdup_printf("(tags2.tagname = '%s' ) ", qtree->related_namespace);
+		condition2 = g_strdup_printf("(tags2.tagname = \"%s\" ) ", qtree->related_namespace);
 
 		tagsistant_query(
 			"select distinct tags2.key from tags as tags2 "
@@ -356,9 +356,9 @@ int tagsistant_readdir_on_relations(
 	} else if (qtree->relation) {
 
 		if (qtree->namespace)
-			condition1 = g_strdup_printf("(tags1.tagname = '%s' and tags1.`key` = '%s' and tags1.value = '%s') ", qtree->namespace, qtree->key, qtree->value);
+			condition1 = g_strdup_printf("(tags1.tagname = \"%s\" and tags1.`key` = \"%s\" and tags1.value = \"%s\") ", qtree->namespace, qtree->key, qtree->value);
 		else
-			condition1 = g_strdup_printf("(tags1.tagname = '%s') ", qtree->first_tag);
+			condition1 = g_strdup_printf("(tags1.tagname = \"%s\") ", qtree->first_tag);
 
 		tagsistant_query(
 			"select distinct tags2.tagname from tags as tags2 "
@@ -374,6 +374,7 @@ int tagsistant_readdir_on_relations(
 	} else if (qtree->first_tag || qtree->value) {
 
 		// list all relations
+		filler(buf, "excludes", NULL, 0);
 		filler(buf, "includes", NULL, 0);
 		filler(buf, "is_equivalent", NULL, 0);
 
@@ -660,36 +661,43 @@ static int tagsistant_add_to_filetree(void *hash_table_pointer, dbi_result resul
 void tagsistant_filetree_add_tag(
 	ptree_and_node *tag,
 	GString *tag_id_condition,
+	GString *tag_id_exclude_condition,
 	GString *triple_tag_condition,
+	GString *triple_tag_exclude_condition,
 	dbi_conn conn)
 {
 	if (tag->tag) {
 		if (!tag->tag_id) tag->tag_id = tagsistant_sql_get_tag_id(conn, tag->tag, NULL, NULL);
-		g_string_append_printf(tag_id_condition, ", %d", tag->tag_id);
+		if (tag->negate) {
+			g_string_append_printf(tag_id_exclude_condition, ", %d", tag->tag_id);
+		} else {
+			g_string_append_printf(tag_id_condition, ", %d", tag->tag_id);
+		}
 	} else {
 		if (!tag->tag_id) tag->tag_id = tagsistant_sql_get_tag_id(conn, tag->namespace, tag->key, tag->value);
+		GString *appender = (tag->negate) ? triple_tag_exclude_condition : triple_tag_condition;
 		switch (tag->operator) {
 			case TAGSISTANT_CONTAINS:
 				g_string_append_printf(
-					triple_tag_condition,
-					" or (tagname = '%s' and `key` = '%s' and value like '%%%s%%')",
+					appender,
+					" or (tagname= '%s' and `key` = '%s' and value like '%%%s%%')",
 					tag->namespace, tag->key, tag->value);
 				break;
 			case TAGSISTANT_GREATER_THAN:
 				g_string_append_printf(
-					triple_tag_condition,
+					appender,
 					" or (tagname = '%s' and `key` = '%s' and value > '%s')",
 					tag->namespace, tag->key, tag->value);
 				break;
 			case TAGSISTANT_SMALLER_THAN:
 				g_string_append_printf(
-					triple_tag_condition,
+					appender,
 					" or (tagname = '%s' and `key` = '%s' and value < '%s')",
 					tag->namespace, tag->key, tag->value);
 				break;
 			case TAGSISTANT_EQUAL_TO:
 			default:
-				g_string_append_printf(tag_id_condition, ", %d", tag->tag_id);
+				g_string_append_printf(tag_id_exclude_condition, ", %d", tag->tag_id);
 				break;
 		}
 	}
@@ -788,20 +796,34 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn, int is_
 
 			/* create the list of tags (natural or related) to match */
 			GString *tag_id_condition = g_string_sized_new(1024);
+			GString *tag_id_exclude_condition = g_string_sized_new(1024);
 			GString *triple_tag_condition = g_string_sized_new(1024);
+			GString *triple_tag_exclude_condition = g_string_sized_new(1024);
 
-			tagsistant_filetree_add_tag(tag, tag_id_condition, triple_tag_condition, conn);
+			tagsistant_filetree_add_tag(
+				tag,
+				tag_id_condition,
+				tag_id_exclude_condition,
+				triple_tag_condition,
+				triple_tag_exclude_condition,
+				conn);
 
 			if (tag->related) {
 				ptree_and_node *related = tag->related;
 				while (related) {
-					tagsistant_filetree_add_tag(related, tag_id_condition, triple_tag_condition, conn);
+					tagsistant_filetree_add_tag(
+						related,
+						tag_id_condition,
+						tag_id_exclude_condition,
+						triple_tag_condition,
+						triple_tag_exclude_condition,
+						conn);
 					related = related->related;
 				}
 			}
 
-			int needs_tags_table = strlen(triple_tag_condition->str);
-			int has_tags_id = strlen(tag_id_condition->str);
+			int needs_tags_table = strlen(triple_tag_condition->str) || strlen(triple_tag_exclude_condition->str);
+			// int has_tags_id = strlen(tag_id_condition->str) || strlen(tag_id_exclude_condition->str);
 
 			if (tagsistant.sql_backend_have_intersect) {
 
@@ -850,15 +872,29 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn, int is_
 				nesting++;
 			}
 
-			if (has_tags_id) {
+			g_string_append_printf(statement, "(");
+
+			if (strlen(tag_id_condition->str)) {
 				gchar *condition = tag_id_condition->str + 2; // skip the first ", " of the string
-				g_string_append_printf(statement, " tagging.tag_id in (%s)", condition);
-				if (needs_tags_table) {
-					g_string_append(statement, triple_tag_condition->str);
-				}
-			} else if (needs_tags_table) {
-				gchar *condition = triple_tag_condition->str + 4; // skip the first " or " of the string
+				g_string_append_printf(statement, " tagging.tag_id in (%s) ", condition);
+			}
+
+			if (strlen(triple_tag_condition->str)) {
+				gchar *condition = triple_tag_condition->str;
+				if (!strlen(tag_id_condition->str)) condition += 4; // skip the first " or " of the string
 				g_string_append(statement, condition);
+			}
+
+			g_string_append_printf(statement, ")");
+
+			if (strlen(tag_id_exclude_condition->str)) {
+				gchar *condition = tag_id_exclude_condition->str + 2; // skip the first ", " of the string
+				g_string_append_printf(statement, " and objects.inode not in (select inode from tagging where tag_id in (%s)) ", condition);
+			}
+
+			if (strlen(triple_tag_exclude_condition->str)) {
+				gchar *condition = triple_tag_exclude_condition->str + 4; // skip the first " or " of the string
+				g_string_append_printf(statement, " and objects.inode not in (select inode from tagging where %s) ", condition);
 			}
 
 			if (tag->negate) {

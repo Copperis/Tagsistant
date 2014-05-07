@@ -142,6 +142,7 @@ static int tagsistant_add_reasoned_tag(tagsistant_tag *T, tagsistant_reasoning *
 	reasoned->key = g_strdup(T->key);
 	reasoned->value = g_strdup(T->value);
 	reasoned->tag_id = T->tag_id;
+	reasoned->negate = reasoning->negate;
 
 	/* append the reasoned tag */
 	ptree_and_node *last_reasoned = reasoning->current_node;
@@ -248,15 +249,33 @@ int tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int do_caching)
 				reasoning->current_node->key, reasoning->current_node->value);
 		}
 
-		// the result wasn't cached, so we lookup it in the DB
+		/*
+		 * the result wasn't cached, so we lookup it in the DB, starting
+		 * from the positive relations 'includes' and 'is_equivalent'
+		 */
+		reasoning->negate = 0;
 		tagsistant_query(
 			"select tag_id, tagname, key, value from tags "
 				"join relations on tags.tag_id = relations.tag2_id "
-				"where tag1_id = %d "
+				"where tag1_id = %d and relation in ('includes', 'is_equivalent') "
 			"union "
 			"select tag_id, tagname, key, value from tags "
 				"join relations on tags.tag_id = relations.tag1_id "
 				"where tag2_id = %d and relation = 'is_equivalent' ",
+			reasoning->conn,
+			tagsistant_add_reasoned_tag_callback,
+			reasoning,
+			other_tag_id,
+			other_tag_id);
+
+		/*
+		 * than we look for negative relations (aka 'excludes')
+		 */
+		reasoning->negate = 1;
+		tagsistant_query(
+			"select tag_id, tagname, key, value from tags "
+				"join relations on tags.tag_id = relations.tag2_id "
+				"where tag1_id = %d and relation = 'excludes'",
 			reasoning->conn,
 			tagsistant_add_reasoned_tag_callback,
 			reasoning,

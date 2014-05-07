@@ -102,6 +102,8 @@
   - Implemented a startup procedure that checks for missing checksums in
     the objects table.
 
+  - Implemented the "excludes" relation between tags
+
 0.7:
   - libextractor integration. Tagging plugins have been converted to
     the new API.

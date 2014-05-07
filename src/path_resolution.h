@@ -286,13 +286,18 @@ typedef struct {
 	ptree_and_node *current_node;
 	int added_tags;
 	dbi_conn conn;
+	int negate;
 } tagsistant_reasoning;
 
 /**
  * evaluates true if string "relation" matches at least
  * one of available relations
  */
-#define IS_VALID_RELATION(relation) ((g_strcmp0(relation, "is_equivalent")) == 0 || (g_strcmp0(relation, "includes") == 0))
+#define IS_VALID_RELATION(relation) (\
+	(0 == g_strcmp0(relation, "is_equivalent")) || \
+	(0 == g_strcmp0(relation, "includes"))      || \
+	(0 == g_strcmp0(relation, "excludes"))         \
+)
 
 /**
  * applies a function to all the ptree_and_node_t nodes of

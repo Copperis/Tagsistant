@@ -20,6 +20,47 @@
 #include "../tagsistant.h"
 
 /**
+ * Checks if a relation is valid
+ *
+ * @param qtree the querytree that expressed the relation in the relations/ directory
+ * @param tag_id the main tag id
+ * @param related_tag_id the related tag id
+ * @return 1 if valid, 0 otherwise
+ */
+int tagsistant_valid_relation(tagsistant_querytree *qtree, tagsistant_inode tag_id, tagsistant_inode related_tag_id)
+{
+	int relation_is_valid = 0;
+
+	if (g_strcmp0(qtree->relation, "is_equivalent") == 0) {
+		tagsistant_query(
+			"select 1 from relations "
+				"where relation = 'is_equivalent' and"
+					"((tag1_id = %d and tag2_id = %d) or "
+					" (tag2_id = %d and tag1_id = %d))",
+			qtree->dbi,
+			tagsistant_return_integer,
+			&relation_is_valid,
+			tag_id,
+			related_tag_id,
+			related_tag_id,
+			tag_id);
+	} else if ((g_strcmp0(qtree->relation, "includes") == 0) || (g_strcmp0(qtree->relation, "excludes") == 0)) {
+		tagsistant_query(
+			"select 1 from relations "
+				"where relation = '%s' and "
+					"(tag1_id = %d and tag2_id = %d)",
+			qtree->dbi,
+			tagsistant_return_integer,
+			&relation_is_valid,
+			qtree->relation,
+			tag_id,
+			related_tag_id);
+	}
+
+	return (relation_is_valid);
+}
+
+/**
  * lstat equivalent
  *
  * @param path the path to be lstat()ed
@@ -98,33 +139,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 			// check the relation
 			if (related_tag_id && (qtree->second_tag || qtree->related_value)) {
-				int relation_is_valid = 0;
-
-				if (g_strcmp0(qtree->relation, "includes") == 0) {
-					tagsistant_query(
-						"select 1 from relations "
-							"where relation = 'includes' and "
-								"(tag1_id = %d and tag2_id = %d)",
-						qtree->dbi,
-						tagsistant_return_integer,
-						&relation_is_valid,
-						tag_id,
-						related_tag_id);
-				} else if (g_strcmp0(qtree->relation, "is_equivalent") == 0) {
-					tagsistant_query(
-						"select 1 from relations "
-							"where relation = 'is_equivalent' and "
-								"(tag1_id = %d and tag2_id = %d) or "
-								"(tag2_id = %d and tag1_id = %d)",
-						qtree->dbi,
-						tagsistant_return_integer,
-						&relation_is_valid,
-						tag_id,
-						related_tag_id,
-						related_tag_id,
-						tag_id);
-				}
-
+				int relation_is_valid = tagsistant_valid_relation(qtree, tag_id, related_tag_id);
 				if (!relation_is_valid) TAGSISTANT_ABORT_OPERATION(ENOENT);
 			}
 
@@ -145,33 +160,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 			// check the relation
 			if (related_tag_id && (qtree->second_tag || qtree->related_value)) {
-				int relation_is_valid = 0;
-
-				if (g_strcmp0(qtree->relation, "includes") == 0) {
-					tagsistant_query(
-						"select 1 from relations "
-							"where relation = 'includes' and "
-								"(tag1_id = %d and tag2_id = %d)",
-						qtree->dbi,
-						tagsistant_return_integer,
-						&relation_is_valid,
-						tag_id,
-						related_tag_id);
-				} else if (g_strcmp0(qtree->relation, "is_equivalent") == 0) {
-					tagsistant_query(
-						"select 1 from relations "
-							"where relation = 'is_equivalent' and "
-								"(tag1_id = %d and tag2_id = %d) or "
-								"(tag2_id = %d and tag1_id = %d)",
-						qtree->dbi,
-						tagsistant_return_integer,
-						&relation_is_valid,
-						tag_id,
-						related_tag_id,
-						related_tag_id,
-						tag_id);
-				}
-
+				int relation_is_valid = tagsistant_valid_relation(qtree, tag_id, related_tag_id);
 				if (!relation_is_valid) TAGSISTANT_ABORT_OPERATION(ENOENT);
 			}
 		}
