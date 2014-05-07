@@ -20,6 +20,7 @@
 #include "../tagsistant.h"
 
 void tagsistant_read_stats_configuration(gchar stats_buffer[TAGSISTANT_STATS_BUFFER]);
+int tagsistant_read_file_tags(void *tagsbuffer, dbi_result result);
 
 /**
  * read() equivalent
@@ -46,6 +47,39 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 
 	// -- object on disk --
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+		if (tagsistant_is_tags_list_file(qtree)) {
+			/* strip the suffix from the path */
+			gchar *stripped_path = tagsistant_string_tags_list_suffix(qtree);
+
+			/* destroy the old qtree and create a new one on the stripped path */
+			tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
+			qtree = tagsistant_querytree_new(stripped_path, 0, 0, 1);
+
+			/* free the stripped path */
+			g_free(stripped_path);
+
+			if (!qtree->inode) TAGSISTANT_ABORT_OPERATION(EFAULT);
+
+			/* allocate a buffer GString and fill it with the tags bound to the file */
+			GString *tagsbuffer = g_string_sized_new(size);
+
+			tagsistant_query(
+				"select tagname, key, value from tags "
+					"join tagging on tagging.tag_id = tags.tag_id "
+					"where tagging.inode = %d",
+				qtree->dbi, tagsistant_read_file_tags, (void *) tagsbuffer, qtree->inode);
+
+			/* copy the GString buffer to the FUSE buffer */
+			memcpy(buf, tagsbuffer->str, size);
+
+			/* free the GString buffer and goto the function exit point */
+			g_string_free(tagsbuffer, 1);
+
+			res = strlen(buf);
+
+			goto TAGSISTANT_EXIT_OPERATION;
+		}
+
 		if (!qtree->full_archive_path) {
 			dbg('F', LOG_ERR, "Null qtree->full_archive_path");
 			TAGSISTANT_ABORT_OPERATION(EFAULT);
@@ -168,6 +202,24 @@ TAGSISTANT_EXIT_OPERATION:
 	}
 }
 
+int tagsistant_read_file_tags(void *tagsbuffer, dbi_result result)
+{
+	GString *buffer = (GString *) tagsbuffer;
+
+	const gchar *next_tag = dbi_result_get_string_idx(result, 1);
+
+	if (g_regex_match_simple(TAGSISTANT_DEFAULT_TRIPLE_TAG_REGEX, next_tag, 0, 0)) {
+		g_string_append_printf(buffer, "%s:%s=%s\n",
+			next_tag,
+			dbi_result_get_string_idx(result, 2),
+			dbi_result_get_string_idx(result, 3));
+	} else {
+		g_string_append_printf(buffer, "%s\n", next_tag);
+	}
+
+	return (1);
+}
+
 void tagsistant_read_stats_configuration(gchar stats_buffer[TAGSISTANT_STATS_BUFFER])
 {
 	snprintf(stats_buffer, TAGSISTANT_STATS_BUFFER,
@@ -176,6 +228,7 @@ void tagsistant_read_stats_configuration(gchar stats_buffer[TAGSISTANT_STATS_BUF
 		"         mountpoint: %s\n"
 		"    repository path: %s\n"
 		"   database options: %s\n"
+		"        tags suffix: %s (append it to object names to list their tags)\n"
 		"  run in foreground: %d\n"
 		"    single threaded: %d\n"
 		"    mount read-only: %d\n"
@@ -205,6 +258,7 @@ void tagsistant_read_stats_configuration(gchar stats_buffer[TAGSISTANT_STATS_BUF
 		tagsistant.mountpoint,
 		tagsistant.repository,
 		tagsistant.dboptions,
+		tagsistant.tags_suffix,
 		tagsistant.foreground,
 		tagsistant.singlethread,
 		tagsistant.readonly,

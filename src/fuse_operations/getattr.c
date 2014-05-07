@@ -95,6 +95,8 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	else if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		if (is_all_path(qtree->full_path)) {
 			lstat_path = qtree->full_archive_path;
+		} else if (tagsistant_is_tags_list_file(qtree)) {
+			lstat_path = tagsistant.tags;
 		} else {
 			tagsistant_querytree_check_tagging_consistency(qtree);
 
@@ -190,7 +192,9 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	if (QTREE_IS_STORE(qtree)) {
 		// dbg(LOG_INFO, "getattr: last tag is %s", qtree->last_tag);
 		if (qtree->points_to_object) {
-			// OK
+			if (tagsistant_is_tags_list_file(qtree)) {
+				stbuf->st_size = TAGSISTANT_STATS_BUFFER;
+			}
 		} else if (NULL == qtree->last_tag) {
 			// OK
 		} else if (g_strcmp0(qtree->last_tag, "ALL") == 0) {
@@ -271,7 +275,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 TAGSISTANT_EXIT_OPERATION:
 
-if ( res == -1 ) {
+	if ( res == -1 ) {
 		TAGSISTANT_STOP_ERROR("GETATTR on %s (%s) {%s}: %d %d: %s", path, lstat_path, tagsistant_querytree_type(qtree), res, tagsistant_errno, strerror(tagsistant_errno));
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
 		return (-tagsistant_errno);

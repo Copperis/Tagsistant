@@ -160,13 +160,77 @@ extern GAsyncQueue *tagsistant_autotag_queue;
 extern void tagsistant_autotag_thread_kernel(gpointer data);
 #endif
 
+GMutex tagsistant_tags_list_mutex;
+GRegex *tagsistant_tags_list_rx = NULL;
+GRegex *tagsistant_tags_list_removal_rx = NULL;
+
 /**
  * Initialize all the utilities
  */
 void tagsistant_utils_init()
 {
+	/*
+	 * transform the tag suffix command line option into a
+	 * regular expression anchored to the end of the line
+	 * and then create a GRegex object using that pattern
+	 */
+	gchar *escaped = g_regex_escape_string(tagsistant.tags_suffix, -1);
+	gchar *pattern = g_strdup_printf("%s/[^/]*%s$", TAGSISTANT_QUERY_DELIMITER, escaped);
+
+	dbg('l', LOG_INFO, "tag-suffix detection regex: %s", pattern);
+
+	tagsistant_tags_list_rx = g_regex_new(pattern, G_REGEX_OPTIMIZE|G_REGEX_DOLLAR_ENDONLY, 0, NULL);
+	g_free(pattern);
+
+	/*
+	 * transform the tag suffix command line option into a
+	 * regular expression to remove the suffix
+	 */
+	pattern = g_strdup_printf("%s$", escaped);
+
+	dbg('l', LOG_INFO, "tag-suffix removal regex: %s", pattern);
+
+	tagsistant_tags_list_removal_rx = g_regex_new(pattern, G_REGEX_OPTIMIZE|G_REGEX_DOLLAR_ENDONLY, 0, NULL);
+
+	g_free(pattern);
+	g_free(escaped);
 }
 
+/**
+ * guess if a filename refers to a tag-listing special file or not
+ *
+ * @param qtree the tagsistant_querytree object describing the filename
+ * @return true if the file is a tag-listing special file, false otherwise
+ */
+gboolean tagsistant_is_tags_list_file(tagsistant_querytree *qtree)
+{
+	g_mutex_lock(&tagsistant_tags_list_mutex);
+
+	/* the file must be taggable (this is the path must end one token after @/ or @@/ */
+	/* the file must end by the tag-listing suffix (default: .tags) */
+	if (g_regex_match(tagsistant_tags_list_rx, qtree->full_path, 0, NULL)) {
+		g_mutex_unlock(&tagsistant_tags_list_mutex);
+		return (TRUE);
+	}
+
+	g_mutex_unlock(&tagsistant_tags_list_mutex);
+	return (FALSE);
+}
+
+/**
+ * removes the tag-suffix from a filename
+ *
+ * @param qtree the tagsistant_querytree object describing the filename
+ * @return true if the file is a tag-listing special file, false otherwise
+ */
+gchar *tagsistant_string_tags_list_suffix(tagsistant_querytree *qtree)
+{
+	g_mutex_lock(&tagsistant_tags_list_mutex);
+	gchar *stripped = g_regex_replace_literal(tagsistant_tags_list_removal_rx, qtree->full_path, -1, 0, "", 0, NULL);
+	g_mutex_unlock(&tagsistant_tags_list_mutex);
+
+	return (stripped);
+}
 /****************************************************************************/
 /***                                                                      ***/
 /***   Repository .ini file parsing and writing                           ***/

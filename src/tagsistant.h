@@ -95,6 +95,9 @@
 /** the default regular expression to identify the starting token of a triple tag */
 #define TAGSISTANT_DEFAULT_TRIPLE_TAG_REGEX ":$"
 
+/** the default suffix appended to files to get their tags */
+#define TAGSISTANT_DEFAULT_TAGS_SUFFIX ".tags"
+
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -203,6 +206,7 @@ struct tagsistant {
 	gboolean	quiet;			/**< don't log anything, even errors */
 	gboolean	show_config;	/**< show whole configuration */
 	gboolean	show_help;		/**< show the help screen */
+	gchar		*tags_suffix;	/**< the suffix to be added to filenames to list their tags */
 
 	gchar		*progname;		/**< tagsistant */
 	gchar		*mountpoint;	/**< no clue? */
@@ -296,6 +300,10 @@ extern void tagsistant_plugin_apply_regex(const tagsistant_querytree *qtree, con
 #define tagsistant_create_and_tag_object(qtree, errno) tagsistant_inner_create_and_tag_object(qtree, errno, 0);
 #define tagsistant_force_create_and_tag_object(qtree, errno) tagsistant_inner_create_and_tag_object(qtree, errno, 1);
 extern int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, int *tagsistant_errno, int force_create);
+
+// check if a file ends by the tags-listing suffix (default: .tags)
+extern gboolean tagsistant_is_tags_list_file(tagsistant_querytree *qtree);
+extern gchar *tagsistant_string_tags_list_suffix(tagsistant_querytree *qtree);
 
 /**
  * invalidate object checksum

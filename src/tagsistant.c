@@ -223,6 +223,7 @@ static GOptionEntry tagsistant_options[] =
   { "foreground", 'f', 0, 		G_OPTION_ARG_NONE, 				&tagsistant.foreground, 	"Run in foreground", NULL },
   { "single-thread", 's', 0,	G_OPTION_ARG_NONE,				&tagsistant.singlethread, 	"Don't spawn other threads", NULL },
   { "db", 0, 0,					G_OPTION_ARG_STRING,			&tagsistant.dboptions, 		"Database connection options", "backend:[host:[db:[user:[password]]]]" },
+  { "tags-suffix", 0, 0, 		G_OPTION_ARG_STRING, 			&tagsistant.tags_suffix, 	"The filenames suffix used to list their tags (default .tags)", TAGSISTANT_DEFAULT_TAGS_SUFFIX },
   { "readonly", 'r', 0, 		G_OPTION_ARG_NONE,				&tagsistant.readonly, 		"Mount read-only", NULL },
   { "verbose", 'v', 0,			G_OPTION_ARG_NONE,				&tagsistant.verbose, 		"Be verbose", NULL },
   { "quiet", 'q', 0, 			G_OPTION_ARG_NONE,				&tagsistant.quiet, 			"Be quiet", NULL },
@@ -335,6 +336,13 @@ int main(int argc, char *argv[])
 	 */
 	if (!tagsistant.repository) {
 		tagsistant.repository = g_strdup_printf("%s/.tagsistant/", g_getenv("HOME"));
+	}
+
+	/*
+	 * default tag-listing suffix
+	 */
+	if (!tagsistant.tags_suffix) {
+		tagsistant.tags_suffix = g_strdup(TAGSISTANT_DEFAULT_TAGS_SUFFIX);
 	}
 
 	/* do some tuning on FUSE options */

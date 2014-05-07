@@ -41,6 +41,12 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 
 	// -- object --
 	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+		if (tagsistant_is_tags_list_file(qtree)) {
+			res = open(tagsistant.tags, fi->flags|O_RDONLY);
+			tagsistant_errno = errno;
+			goto TAGSISTANT_EXIT_OPERATION;
+		}
+
 		if (!qtree->full_archive_path) {
 			dbg('F', LOG_ERR, "Null qtree->full_archive_path");
 			TAGSISTANT_ABORT_OPERATION(EFAULT);
