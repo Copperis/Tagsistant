@@ -270,7 +270,7 @@ void tagsistant_deduplication_init()
 #endif
 
 	/* fix missing checksums */
-	tagsistant_fix_checksums();
+	// tagsistant_fix_checksums();
 }
 
 /**
@@ -288,7 +288,11 @@ void tagsistant_deduplicate(gchar *path)
 	}
 	g_mutex_unlock(&tagsistant_deduplication_mutex);
 #else
-	g_async_queue_push(tagsistant_deduplication_queue, g_strdup(path));
+	if (TAGSISTANT_DBI_SQLITE_BACKEND == tagsistant.sql_database_driver) {
+		tagsistant_deduplication_kernel(path);
+	} else {
+		g_async_queue_push(tagsistant_deduplication_queue, g_strdup(path));
+	}
 #endif
 }
 
