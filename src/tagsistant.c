@@ -560,10 +560,16 @@ int main(int argc, char *argv[])
 	signal(15, cleanup); /* SIGTERM */
 #endif
 
+#if !(GLIB_MAJOR_VERSION >= 2 && GLIB_MINOR_VERSION >= 32)
+	/*
+	 * init the threading library
+	 */
+	g_thread_init(NULL);
+#endif
+
 	/*
 	 * loading plugins
 	 */
-	g_thread_init(NULL);
 	tagsistant_plugin_loader();
 
 	/*

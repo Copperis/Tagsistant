@@ -288,7 +288,7 @@ void tagsistant_deduplicate(gchar *path)
 	}
 	g_mutex_unlock(&tagsistant_deduplication_mutex);
 #else
-	if (TAGSISTANT_DBI_SQLITE_BACKEND == tagsistant.sql_database_driver) {
+	if (0 || TAGSISTANT_DBI_SQLITE_BACKEND == tagsistant.sql_database_driver) {
 		tagsistant_deduplication_kernel(path);
 	} else {
 		g_async_queue_push(tagsistant_deduplication_queue, g_strdup(path));
