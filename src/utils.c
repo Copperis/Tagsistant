@@ -87,7 +87,11 @@ void tagsistant_show_config()
 	fprintf(stderr, "db_options: %s\n", tagsistant.dboptions);
 	dbi_driver driver = NULL;
 	c = 1;
+#if TAGSISTANT_REENTRANT_DBI
+	while ((driver = dbi_driver_list_r(driver, tagsistant.dbi_instance))) {
+#else
 	while ((driver = dbi_driver_list(driver))) {
+#endif
 		fprintf(stderr, "driver_%02d: %s, %s\n", c++, dbi_driver_get_name(driver), dbi_driver_get_filename(driver));
 	}
 

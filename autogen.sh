@@ -136,8 +136,8 @@
 ## automake --gnu --add-missing --copy --foreign
 ## autoconf -f -Wall
 
+aclocal
 autoheader
 libtoolize
-aclocal
 automake -a
 autoconf

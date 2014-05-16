@@ -4,11 +4,12 @@
 # AC_PREREQ(2.65)
 AC_INIT([tagsistant],[0.8],[tx0@strumentiresistenti.org])
 # AC_CANONICAL_TARGET
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([foreign -Wall -Werror subdir-objects])
 AC_COPYRIGHT([tagsistant is (C) Tx0 <tx0@strumentiresistenti.org>])
 AC_CONFIG_SRCDIR([src/tagsistant.c])
 AC_CONFIG_FILES([Makefile src/Makefile src/plugins/Makefile])
 AC_CONFIG_HEADER([config.h])
+AM_PROG_AR
 
 # AC_PROG_RANLIB
 

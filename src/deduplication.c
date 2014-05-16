@@ -25,6 +25,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#define TAGSISTANT_AUTOTAGGING_SEPARATOR "<><><>"
+
 /****************************************************************************/
 /***                                                                      ***/
 /***   Checksumming and deduplication support                             ***/
@@ -36,6 +38,7 @@
 	GHashTable *tagsistant_deduplication_table;
 #else
 	GAsyncQueue *tagsistant_deduplication_queue;
+	GAsyncQueue *tagsistant_autotagging_queue;
 #endif
 
 #define TAGSISTANT_DO_AUTOTAGGING 1
@@ -154,16 +157,31 @@ gpointer tagsistant_deduplication_kernel(gpointer data)
 	
 					/* look for duplicated objects */
 					if (tagsistant_querytree_find_duplicates(qtree, hex)) {
+
 #if TAGSISTANT_ENABLE_AUTOTAGGING
 						/*
-						 * do in-place autotagging
+						 * before destroying the qtree, we build the string
+						 * to schedule the object for autotagging
 						 */
-						dbg('p', LOG_INFO, "Doing autotagging on %s", path);
-						tagsistant_process(qtree);
-#endif
-					}
+						gchar *paths = g_strdup_printf("%s%s%s",
+							path, TAGSISTANT_AUTOTAGGING_SEPARATOR,
+							qtree->full_archive_path);
 
-					tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
+#endif
+						tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
+
+						/*
+						 * the object is eligible for autotagging,
+						 * so we submit it into the autotagging queue
+						 */
+#if TAGSISTANT_ENABLE_AUTOTAGGING
+						dbg('p', LOG_INFO, "Running autotagging on %s", qtree->object_path);
+						g_async_queue_push(tagsistant_autotagging_queue, paths);
+#endif
+
+					} else {
+						tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
+					}
 				}
 
 				/* free the hex checksum string */
@@ -188,10 +206,42 @@ gpointer tagsistant_deduplication_kernel(gpointer data)
 }
 
 /**
+ * kernel of the autotagging thread
+ *
+ * @param data the path to be autotagged (must be casted back to gchar*)
+ */
+gpointer tagsistant_autotagging_kernel(gpointer data)
+{
+	gchar *paths = (gchar *) data;
+	if (strlen(paths) <= strlen(TAGSISTANT_AUTOTAGGING_SEPARATOR)) return(NULL);
+
+	/*
+	 * split the queued element by TAGSISTANT_AUTOTAGGING_SEPARATOR to
+	 * get back the original path [0] and the full_archive_path [1]
+	 */
+	gchar **splitted_paths = g_strsplit_set(paths, TAGSISTANT_AUTOTAGGING_SEPARATOR, 2);
+	gchar *path = splitted_paths[0];
+	gchar *full_archive_path = splitted_paths[1];
+
+	/*
+	 * call the plugin processors
+	 */
+	tagsistant_process(path, full_archive_path);
+
+	/*
+	 * clean up the string vector and quit
+	 * (paths will be freed by the calling function)
+	 */
+	g_strfreev(splitted_paths);
+
+	return (NULL);
+}
+
+#if !TAGSISTANT_AUTOTAG_IN_MULTIPLE_THREADS
+/**
  * This is the loop that calls the deduplication thread
  * when TAGSISTANT_AUTOTAG_IN_MULTIPLE_THREADS is 0
  */
-#if !TAGSISTANT_AUTOTAG_IN_MULTIPLE_THREADS
 gpointer tagsistant_deduplication_loop(gpointer data) {
 	(void) data;
 
@@ -201,6 +251,27 @@ gpointer tagsistant_deduplication_loop(gpointer data) {
 
 		/* process the path only if it's not null */
 		if (path && strlen(path)) tagsistant_deduplication_kernel(path);
+
+		/* throw away the path */
+		g_free_null(path);
+	}
+
+	return (NULL);
+}
+
+/**
+ * This is the loop that calls the autotagging thread
+ * when TAGSISTANT_AUTOTAG_IN_MULTIPLE_THREADS is 0
+ */
+gpointer tagsistant_autotagging_loop(gpointer data) {
+	(void) data;
+
+	while (1) {
+		/* get a path from the queue */
+		gchar *path = (gchar *) g_async_queue_pop(tagsistant_autotagging_queue);
+
+		/* process the path only if it's not null */
+		if (path && strlen(path)) tagsistant_autotagging_kernel(path);
 
 		/* throw away the path */
 		g_free_null(path);
@@ -233,6 +304,8 @@ int tagsistant_fix_checksums_callback(void *null_pointer, dbi_result result)
 	return (0);
 }
 
+GMutex tagsistant_connection_pool_lock;
+
 /**
  * called once() after starting to fix object entries lacking the checksum
  */
@@ -249,7 +322,7 @@ void tagsistant_fix_checksums()
 		"select cast(inode as varchar(12)), objectname from objects where checksum = ''",
 		dbi, tagsistant_fix_checksums_callback, NULL);
 
-	tagsistant_db_connection_release(dbi);
+	tagsistant_db_connection_release(dbi, 1);
 }
 
 /**
@@ -267,10 +340,17 @@ void tagsistant_deduplication_init()
 
 	/* start the deduplication thread */
 	g_thread_new("Deduplication thread", tagsistant_deduplication_loop, NULL);
+
+	/* setup the autotagging queue */
+	tagsistant_autotagging_queue = g_async_queue_new_full(g_free);
+	g_async_queue_ref(tagsistant_autotagging_queue);
+
+	/* start the autotagging thread */
+	g_thread_new("Autotagging thread", tagsistant_autotagging_loop, NULL);
 #endif
 
 	/* fix missing checksums */
-	// tagsistant_fix_checksums();
+	tagsistant_fix_checksums();
 }
 
 /**
@@ -288,11 +368,7 @@ void tagsistant_deduplicate(gchar *path)
 	}
 	g_mutex_unlock(&tagsistant_deduplication_mutex);
 #else
-	if (0 || TAGSISTANT_DBI_SQLITE_BACKEND == tagsistant.sql_database_driver) {
-		tagsistant_deduplication_kernel(path);
-	} else {
-		g_async_queue_push(tagsistant_deduplication_queue, g_strdup(path));
-	}
+	g_async_queue_push(tagsistant_deduplication_queue, g_strdup(path));
 #endif
 }
 

@@ -81,19 +81,17 @@ int tagsistant_run_processor(
  * @param filename file to be processed (just the name, will be looked up in /archive)
  * @return zero on fault, one on success
  */
-int tagsistant_process(tagsistant_querytree *qtree)
+int tagsistant_process(gchar *path, gchar *full_archive_path)
 {
 	int res = 0;
 	gchar *mime_type = NULL;
 	gchar *mime_generic = NULL;
 	tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS];
 
-	dbg('p', LOG_INFO, "Running autotagging on %s", qtree->object_path);
-
 	/* blank the keyword buffer */
 	memset(keywords, 0, TAGSISTANT_MAX_KEYWORDS * 2 * TAGSISTANT_MAX_KEYWORD_LENGTH);
 
-	dbg('p', LOG_INFO, "Processing file %s", qtree->full_archive_path);
+	dbg('p', LOG_INFO, "Processing file %s", full_archive_path);
 
 	/* lock processor mutex */
 	g_mutex_lock(&tagsistant_processor_mutex);
@@ -101,7 +99,7 @@ int tagsistant_process(tagsistant_querytree *qtree)
 	/*
 	 * Extract the keywords and remove duplicated ones
 	 */
-	EXTRACTOR_KeywordList *extracted_keywords = EXTRACTOR_getKeywords(elist, qtree->full_archive_path);
+	EXTRACTOR_KeywordList *extracted_keywords = EXTRACTOR_getKeywords(elist, full_archive_path);
 	extracted_keywords = EXTRACTOR_removeDuplicateKeywords (extracted_keywords, 0);
 
 	/*
@@ -149,6 +147,12 @@ int tagsistant_process(tagsistant_querytree *qtree)
 	}
 
 	/*
+	 * recreate the querytree object just before using it to tag the object
+	 */
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1);
+	if (!qtree) goto STOP_CHAIN_TAGGING;
+
+	/*
 	 *  apply plugins starting from the most matching first (like: image/jpeg)
 	 */
 	tagsistant_plugin_t *plugin = tagsistant.plugins;
@@ -189,6 +193,8 @@ STOP_CHAIN_TAGGING:
 	g_free_null(mime_generic);
 
 	dbg('p', LOG_INFO, "Processing of %s ended.", qtree->full_archive_path);
+
+	tagsistant_querytree_destroy(qtree, 1);
 
 	/* free the keyword structure */
 	EXTRACTOR_freeKeywords(extracted_keywords);
@@ -252,11 +258,11 @@ static int tagsistant_process_callback(
  * @param filename file to be processed (just the name, will be looked up in /archive)
  * @return(zero on fault, one on success)
  */
-int tagsistant_process(tagsistant_querytree *qtree)
+int tagsistant_process(gchar *path, gchar *full_archive_path)
 {
 	int res = 0;
 
-	dbg('p', LOG_INFO, "Processing file %s", qtree->full_archive_path);
+	dbg('p', LOG_INFO, "Processing file %s", full_archive_path);
 
 	tagsistant_process_callback_context context;
 	memset(context.keywords, 0, TAGSISTANT_MAX_KEYWORDS * 2 * TAGSISTANT_MAX_KEYWORD_LENGTH);
@@ -267,7 +273,13 @@ int tagsistant_process(tagsistant_querytree *qtree)
 	/*
 	 * Extract the keywords
 	 */
-	EXTRACTOR_extract(plist, qtree->full_archive_path, NULL, 0, tagsistant_process_callback, (void *) &context);
+	EXTRACTOR_extract(plist, full_archive_path, NULL, 0, tagsistant_process_callback, (void *) &context);
+
+	/*
+	 * recreate the querytree object just before using it to tag the object
+	 */
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1);
+	if (!qtree) goto STOP_CHAIN_TAGGING;
 
 	/*
 	 *  apply plugins starting from the most matching first (like: image/jpeg)
@@ -303,6 +315,7 @@ int tagsistant_process(tagsistant_querytree *qtree)
 	}
 
 STOP_CHAIN_TAGGING:
+	tagsistant_querytree_destroy(qtree, 1);
 	return (res);
 }
 

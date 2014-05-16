@@ -1702,7 +1702,7 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, guint commit_tran
 				tagsistant_rollback_transaction(qtree->dbi);
 		}
 
-		tagsistant_db_connection_release(qtree->dbi);
+		tagsistant_db_connection_release(qtree->dbi, qtree->transaction_started);
 	}
 
 	/* free the paths */

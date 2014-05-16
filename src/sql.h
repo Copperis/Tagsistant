@@ -20,6 +20,12 @@
 
 #include <dbi/dbi.h>
 
+#if  LIBDBI_LIB_CURRENT > 1
+#define TAGSISTANT_REENTRANT_DBI 1
+#else
+#define TAGSISTANT_REENTRANT_DBI 0
+#endif
+
 #define TAGSISTANT_NULL_BACKEND			0
 #define TAGSISTANT_DBI_MYSQL_BACKEND	1
 #define TAGSISTANT_DBI_SQLITE_BACKEND	2
@@ -63,7 +69,7 @@ extern int tagsistant_return_string(void *return_string, dbi_result result);
 /** callback to return an integer */
 extern int tagsistant_return_integer(void *return_integer, dbi_result result);
 
-extern void tagsistant_db_connection_release(dbi_conn dbi);
+extern void tagsistant_db_connection_release(dbi_conn dbi, gboolean is_writer_locked);
 
 /**
  * transactions are started by default in tagsistant_db_connection()

@@ -21,11 +21,13 @@
 
 #include "tagsistant.h"
 
-#define TAGISTANT_USE_QUERY_MUTEX 1
+#define TAGISTANT_USE_QUERY_MUTEX 0
 
 #if TAGISTANT_USE_QUERY_MUTEX
-GMutex tagsistant_query_mutex;
+// GMutex tagsistant_query_mutex;
 #endif
+
+GRWLock tagsistant_query_rwlock;
 
 /**
  * check if requested driver is provided by local DBI installation
@@ -40,7 +42,11 @@ int tagsistant_driver_is_available(const char *driver_name)
 	dbi_driver driver = NULL;
 
 	dbg('b', LOG_INFO, "Available drivers:");
+#if TAGSISTANT_REENTRANT_DBI
+	while ((driver = dbi_driver_list_r(driver, tagsistant.dbi_instance)) != NULL) {
+#else
 	while ((driver = dbi_driver_list(driver)) != NULL) {
+#endif
 		counter++;
 		dbg('b', LOG_INFO, "  Driver #%d: %s - %s", counter, dbi_driver_get_name(driver), dbi_driver_get_filename(driver));
 		if (g_strcmp0(dbi_driver_get_name(driver), driver_name) == 0) {
@@ -87,7 +93,11 @@ GRegex *RX1, *RX2, *RX3;
 void tagsistant_db_init()
 {
 	// initialize DBI library
+#if TAGSISTANT_REENTRANT_DBI
+	dbi_initialize_r(NULL, &(tagsistant.dbi_instance));
+#else
 	dbi_initialize(NULL);
+#endif
 
 #if TAGISTANT_USE_QUERY_MUTEX
 	g_mutex_init(&tagsistant_query_mutex);
@@ -214,6 +224,12 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 	/* DBI connection handler used by subsequent calls to dbi_* functions */
 	dbi_conn dbi = NULL;
 
+	if (start_transaction) {
+		g_rw_lock_writer_lock(&(tagsistant_query_rwlock));
+	} else {
+		g_rw_lock_reader_lock(&(tagsistant_query_rwlock));
+	}
+
 	/* lock the pool */
 	g_mutex_lock(&tagsistant_connection_pool_lock);
 
@@ -239,7 +255,7 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 	/*
 	 * unlock the pool mutex only if the backend is not SQLite
 	 */
-	if (tagsistant.sql_database_driver != TAGSISTANT_DBI_SQLITE_BACKEND)
+////	if (tagsistant.sql_database_driver != TAGSISTANT_DBI_SQLITE_BACKEND)
 		g_mutex_unlock(&tagsistant_connection_pool_lock);
 
 	if (!dbi) {
@@ -255,7 +271,11 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 			tagsistant.sql_backend_have_intersect = 0;
 
 			// create connection
+#if TAGSISTANT_REENTRANT_DBI
+			dbi = dbi_conn_new_r("mysql", tagsistant.dbi_instance);
+#else
 			dbi = dbi_conn_new("mysql");
+#endif
 			if (NULL == dbi) {
 				dbg('s', LOG_ERR, "Error creating MySQL connection");
 				exit (1);
@@ -276,7 +296,11 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 			}
 
 			// create connection
+#if TAGSISTANT_REENTRANT_DBI
+			dbi = dbi_conn_new_r("sqlite3", tagsistant.dbi_instance);
+#else
 			dbi = dbi_conn_new("sqlite3");
+#endif
 			if (NULL == dbi) {
 				dbg('s', LOG_ERR, "Error connecting to SQLite3");
 				exit (1);
@@ -306,7 +330,6 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
 
 	/* start a transaction */
 	if (start_transaction) {
-
 #if TAGSISTANT_USE_INTERNAL_TRANSACTIONS
 		switch (tagsistant.sql_database_driver) {
 			case TAGSISTANT_DBI_SQLITE_BACKEND:
@@ -330,10 +353,10 @@ dbi_conn *tagsistant_db_connection(int start_transaction)
  *
  * @param dbi the connection to be released
  */
-void tagsistant_db_connection_release(dbi_conn dbi)
+void tagsistant_db_connection_release(dbi_conn dbi, gboolean is_writer_locked)
 {
 	/* lock the pool if the backend is not SQLite */
-	if (tagsistant.sql_database_driver != TAGSISTANT_DBI_SQLITE_BACKEND)
+	//// if (tagsistant.sql_database_driver != TAGSISTANT_DBI_SQLITE_BACKEND)
 		g_mutex_lock(&tagsistant_connection_pool_lock);
 
 	/* release the connection back to the pool */
@@ -341,6 +364,12 @@ void tagsistant_db_connection_release(dbi_conn dbi)
 
 	/* unlock the pool */
 	g_mutex_unlock(&tagsistant_connection_pool_lock);
+
+	if (is_writer_locked) {
+		g_rw_lock_writer_unlock(&tagsistant_query_rwlock);
+	} else {
+		g_rw_lock_reader_unlock(&tagsistant_query_rwlock);
+	}
 }
 
 /**
@@ -453,7 +482,7 @@ void tagsistant_create_schema()
 	}
 
 	tagsistant_commit_transaction(dbi);
-	tagsistant_db_connection_release(dbi);
+	tagsistant_db_connection_release(dbi, 1);
 }
 
 /**
@@ -504,7 +533,7 @@ int tagsistant_real_query(
 	if (NULL == statement) {
 #if TAGISTANT_USE_QUERY_MUTEX
 		/* lock the connection mutex */
-		g_mutex_lock(&tagsistant_query_mutex);
+		g_mutex_unlock(&tagsistant_query_mutex);
 #endif
 		dbg('s', LOG_ERR, "Null SQL statement");
 		g_free(escaped_format);

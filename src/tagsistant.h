@@ -215,6 +215,10 @@ struct tagsistant {
 	gchar		*tags;			/**< a SQLite database on file */
 	gchar		*dboptions;		/**< database options for DBI */
 
+#if TAGSISTANT_REENTRANT_DBI
+	dbi_inst	dbi_instance;	/**< libDBI instance for reentrant functions */
+#endif
+
 	/** the list of available plugins */
 	tagsistant_plugin_t *plugins;
 
@@ -291,7 +295,7 @@ extern void tagsistant_plugin_unloader();
 extern void tagsistant_deduplication_init();
 
 // call the plugin stack
-extern int tagsistant_process(tagsistant_querytree *qtree);
+extern int tagsistant_process(gchar *path, gchar *full_archive_path);
 
 // used by plugins to apply regex to file content
 extern void tagsistant_plugin_apply_regex(const tagsistant_querytree *qtree, const char *buf, GMutex *m, GRegex *rx);
