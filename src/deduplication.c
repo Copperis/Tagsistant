@@ -167,6 +167,7 @@ gpointer tagsistant_deduplication_kernel(gpointer data)
 							path, TAGSISTANT_AUTOTAGGING_SEPARATOR,
 							qtree->full_archive_path);
 
+						dbg('p', LOG_INFO, "Running autotagging on %s", qtree->object_path);
 #endif
 						tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
 
@@ -175,7 +176,7 @@ gpointer tagsistant_deduplication_kernel(gpointer data)
 						 * so we submit it into the autotagging queue
 						 */
 #if TAGSISTANT_ENABLE_AUTOTAGGING
-						dbg('p', LOG_INFO, "Running autotagging on %s", qtree->object_path);
+
 						g_async_queue_push(tagsistant_autotagging_queue, paths);
 #endif
 
@@ -219,7 +220,7 @@ gpointer tagsistant_autotagging_kernel(gpointer data)
 	 * split the queued element by TAGSISTANT_AUTOTAGGING_SEPARATOR to
 	 * get back the original path [0] and the full_archive_path [1]
 	 */
-	gchar **splitted_paths = g_strsplit_set(paths, TAGSISTANT_AUTOTAGGING_SEPARATOR, 2);
+	gchar **splitted_paths = g_strsplit(paths, TAGSISTANT_AUTOTAGGING_SEPARATOR, 2);
 	gchar *path = splitted_paths[0];
 	gchar *full_archive_path = splitted_paths[1];
 
