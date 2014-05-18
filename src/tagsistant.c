@@ -346,7 +346,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* do some tuning on FUSE options */
-	fuse_opt_add_arg(&args, "-s");
+//	fuse_opt_add_arg(&args, "-s");
 //	fuse_opt_add_arg(&args, "-odirect_io");
 	fuse_opt_add_arg(&args, "-obig_writes");
 	fuse_opt_add_arg(&args, "-omax_write=32768");
@@ -599,8 +599,8 @@ int main(int argc, char *argv[])
 
 	/* SQLite requires tagsistant to run in single thread mode */
 	if (tagsistant.sql_database_driver == TAGSISTANT_DBI_SQLITE_BACKEND) {
-		tagsistant.singlethread = TRUE;
-		fuse_opt_add_arg(&args, "-s");
+		// tagsistant.singlethread = TRUE;
+		// fuse_opt_add_arg(&args, "-s");
 	}
 
 	/*

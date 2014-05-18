@@ -209,7 +209,7 @@ int tagsistant_read_file_tags(void *tagsbuffer, dbi_result result)
 	const gchar *next_tag = dbi_result_get_string_idx(result, 1);
 
 	if (g_regex_match_simple(TAGSISTANT_DEFAULT_TRIPLE_TAG_REGEX, next_tag, 0, 0)) {
-		g_string_append_printf(buffer, "%s:%s=%s\n",
+		g_string_append_printf(buffer, "%s%s=%s\n",
 			next_tag,
 			dbi_result_get_string_idx(result, 2),
 			dbi_result_get_string_idx(result, 3));

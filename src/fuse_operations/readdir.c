@@ -766,16 +766,13 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn, int is_
 	 *
 	 * 2. select distinct objects.inode from objects
 	 *    inner join tagging on tagging.inode = objects.inode
-	 *    inner join tags on tagging.tag_id = tags.tag_id
-	 *    where tagname = 't1' and objects.inode in (
+	 *    where tag_id = 1 and objects.inode in (
 	 *      select distinct objects.inode from objects
 	 *      inner join tagging on tagging.inode = objects.inode
-	 *      inner join tags on tagging.tag_id = tags.tag_id
-	 *      where tagname = 't2' and objects.inode in (
+	 *      where tag_id = 2 and objects.inode in (
 	 *        select distinct objects.inode from objects
 	 *        inner join tagging on tagging.inode = objects.inode
-	 *        inner join tags on tagging.tag_id = tags.tag_id
-	 *        where tagname = 't3'
+	 *        where tag_id = 3
 	 *      )
 	 *    )
 	 *
@@ -790,15 +787,14 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn, int is_
 		// TODO valgrind says: check for leaks
 		GString *statement = g_string_sized_new(51200);
 
-		g_string_printf(statement, "create view tv%.16" PRIxPTR " as ", (uintptr_t) query);
+		GString *tag_id_exclude_condition = g_string_sized_new(1024);
+		GString *triple_tag_exclude_condition = g_string_sized_new(10240);
 
 		while (tag != NULL) {
 
 			/* create the list of tags (natural or related) to match */
 			GString *tag_id_condition = g_string_sized_new(1024);
-			GString *tag_id_exclude_condition = g_string_sized_new(1024);
-			GString *triple_tag_condition = g_string_sized_new(1024);
-			GString *triple_tag_exclude_condition = g_string_sized_new(1024);
+			GString *triple_tag_condition = g_string_sized_new(10240);
 
 			tagsistant_filetree_add_tag(
 				tag,
@@ -822,29 +818,28 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn, int is_
 				}
 			}
 
-			int needs_tags_table = strlen(triple_tag_condition->str) || strlen(triple_tag_exclude_condition->str);
-			// int has_tags_id = strlen(tag_id_condition->str) || strlen(tag_id_exclude_condition->str);
+			if (tag->negated) {
+				ptree_and_node *negated = tag->negated;
+				while (negated) {
+					tagsistant_filetree_add_tag(
+						negated,
+						tag_id_condition,
+						tag_id_exclude_condition,
+						triple_tag_condition,
+						triple_tag_exclude_condition,
+						conn);
+					negated = negated->negated;
+				}
+			}
 
 			if (tagsistant.sql_backend_have_intersect) {
 
 				/* shorter syntax for SQL dialects that provide INTERSECT */
 				g_string_append(statement,
 					"select objectname, objects.inode as inode from objects "
-					"join tagging on tagging.inode = objects.inode ");
-
-				if (needs_tags_table) {
-					g_string_append(statement, "join tags on tags.tag_id = tagging.tag_id ");
-				}
-
-				g_string_append(statement, "where ");
-
-				if (tag->negate) {
-					g_string_append(statement,
-						"objects.inode not in ("
-							"select inode from tagging "
-							"join tags on tags.tag_id = tagging.tag_id "
-							"where ");
-				}
+					"join tagging on tagging.inode = objects.inode "
+					"join tags on tags.tag_id = tagging.tag_id "
+					"where ");
 
 			} else {
 
@@ -853,19 +848,15 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn, int is_
 					g_string_append(statement,
 						" and objects.inode in ("
 							"select distinct objects.inode from objects "
-							"inner join tagging on tagging.inode = objects.inode ");
-
-					if (needs_tags_table) g_string_append(statement, "inner join tags on tagging.tag_id = tags.tag_id ");
-
-					g_string_append(statement, "where ");
+							"inner join tagging on tagging.inode = objects.inode "
+							"inner join tags on tagging.tag_id = tags.tag_id "
+							"where ");
 				} else {
 					g_string_append(statement,
 						"select distinct objectname, objects.inode as inode from objects "
-						"inner join tagging on tagging.inode = objects.inode ");
-
-					if (needs_tags_table) g_string_append(statement, "inner join tags on tagging.tag_id = tags.tag_id ");
-
-					g_string_append(statement, "where ");
+						"inner join tagging on tagging.inode = objects.inode "
+						"inner join tags on tagging.tag_id = tags.tag_id "
+						"where ");
 				}
 
 				/* increment nesting counter, used to match parenthesis later */
@@ -874,32 +865,21 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn, int is_
 
 			g_string_append_printf(statement, "(");
 
-			if (strlen(tag_id_condition->str)) {
-				gchar *condition = tag_id_condition->str + 2; // skip the first ", " of the string
-				g_string_append_printf(statement, " tagging.tag_id in (%s) ", condition);
+			int has_tag_id_condition = strlen(tag_id_condition->str);
+			int has_triple_tag_condition = strlen(triple_tag_condition->str);
+
+			if (has_tag_id_condition) {
+				// skip the first ", " of the string
+				g_string_append_printf(statement, " tagging.tag_id in (%s) ", tag_id_condition->str + 2);
 			}
 
-			if (strlen(triple_tag_condition->str)) {
+			if (has_triple_tag_condition) {
 				gchar *condition = triple_tag_condition->str;
-				if (!strlen(tag_id_condition->str)) condition += 4; // skip the first " or " of the string
+				if (!has_tag_id_condition) condition += 4; // skip the first " or " of the string
 				g_string_append(statement, condition);
 			}
 
 			g_string_append_printf(statement, ")");
-
-			if (strlen(tag_id_exclude_condition->str)) {
-				gchar *condition = tag_id_exclude_condition->str + 2; // skip the first ", " of the string
-				g_string_append_printf(statement, " and objects.inode not in (select inode from tagging where tag_id in (%s)) ", condition);
-			}
-
-			if (strlen(triple_tag_exclude_condition->str)) {
-				gchar *condition = triple_tag_exclude_condition->str + 4; // skip the first " or " of the string
-				g_string_append_printf(statement, " and objects.inode not in (select inode from tagging where %s) ", condition);
-			}
-
-			if (tag->negate) {
-				g_string_append(statement, ")");
-			}
 
 			if (tagsistant.sql_backend_have_intersect && tag->next) {
 				g_string_append(statement, " intersect ");
@@ -920,6 +900,47 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn, int is_
 				nesting--;
 			}
 		}
+
+		int has_single_tag_exclude = strlen(tag_id_exclude_condition->str);
+		int has_triple_tag_exclude = strlen(triple_tag_exclude_condition->str);
+
+		/*
+		 * if we have at least one negated tag we have to wrap all the statement inside a
+		 * super-select and add some WHERE clause to exclude some files
+		 */
+		if (has_single_tag_exclude || has_triple_tag_exclude) {
+			g_string_prepend(statement, "select s.objectname, s.inode from (");
+			g_string_append(statement,
+				") s where s.inode not in ("
+					"select distinct inode "
+					"from tagging "
+					"join tags on tags.tag_id = tagging.tag_id "
+					"where ");
+
+			if (has_single_tag_exclude) {
+				g_string_append_printf(statement, "tags.tag_id in (%s) ", tag_id_exclude_condition->str + 2);
+			}
+
+			if (has_single_tag_exclude && has_triple_tag_exclude) {
+				g_string_append(statement, " or ");
+			}
+
+			if (has_triple_tag_exclude) {
+				g_string_append(statement, triple_tag_exclude_condition->str + 4);
+			}
+
+			g_string_append(statement, ")");
+		}
+
+		g_string_free(tag_id_exclude_condition, TRUE);
+		g_string_free(triple_tag_exclude_condition, TRUE);
+
+		/*
+		 * prepend the "create view" part of the statement
+		 */
+		gchar *create_view = g_strdup_printf("create view tv%.16" PRIxPTR " as ", (uintptr_t) query);
+		g_string_prepend(statement, create_view);
+		g_free(create_view);
 
 		dbg('f', LOG_INFO, "SQL: filetree query [%s]", statement->str);
 

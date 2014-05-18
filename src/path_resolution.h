@@ -65,6 +65,9 @@ typedef struct ptree_and_node {
 	/** list of all related tags **/
 	struct ptree_and_node *related;
 
+	/** list of all negated tags **/
+	struct ptree_and_node *negated;
+
 	/** next AND token */
 	struct ptree_and_node *next;
 } ptree_and_node;

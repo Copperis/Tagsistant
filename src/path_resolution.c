@@ -150,156 +150,7 @@ gchar *tagsistant_compile_and_set(gchar *objectname, ptree_and_node *and_set)
 	return (g_string_free(str, FALSE));
 }
 
-#if 0
-
-/*
- * TODO: The algorithm implemented by this function is very ugly.
- * There must be a better way to express it.
- */
-int tagsistant_and_set_includes_and_set(GList *master_list, GList *comparable_list)
-{
-	/*
-	 * If a list is compared to itself, we return 0 to avoid
-	 * deleting every list in the main GList
-	 */
-	if (master_list == comparable_list) return (0);
-
-	/*
-	 * Loop through the lists to check if ALL the elements in the
-	 * master list are contained in the comparable list
-	 */
-	GList *master_ptr = master_list;
-MASTER:
-	while (master_ptr) {
-		GList *comparable_ptr = comparable_list;
-		while (comparable_ptr) {
-			/* if we find a match, break the inner loop */
-			if (strcmp(master_ptr->data, comparable_ptr->data) == 0) {
-				master_ptr = master_ptr->next;
-				goto MASTER;
-			}
-			comparable_ptr = comparable_ptr->next;
-		}
-		return (1);
-	}
-
-	return (0);
-}
-
-/**
- * Given a linked list of ptree_and_node objects (called an and-set)
- * return a string with a comma separated list of all the tags.
- *
- * @param and_set the linked and-set list
- * @return a string like "tag1, tag2, tag3"
- */
-gchar *tagsistant_compile_grouped_and_set(ptree_and_node *and_set, int *total)
-{
-	*total = 0;
-
-	/*
-	 * 1. scan all the tags and build a GList of ordered GList.
-	 *    Every second-level GList will hold the entire set of
-	 *    tags contained in an and_set node, ordered by name. So
-	 *    if and_set contains {t2, t1, t5, t3, t2, t1}, the
-	 *    corresponding GList will contain {t1, t2, t3, t5} in
-	 *    this order.
-	 */
-	ptree_and_node *and_set_ptr = and_set;
-	GList *tags_list = NULL;
-
-	while (and_set_ptr) {
-		/* init a GList with the main tag of this and node */
-		GList *this_tag = NULL;
-
-		if (and_set_ptr->tag)
-			g_list_append(NULL, g_strdup(and_set_ptr->tag));
-		else
-			g_list_append(NULL, g_strdup_printf("%s:%s=%s", and_set_ptr->namespace, and_set_ptr->key, and_set_ptr->value));
-
-		/* scan related tags */
-		ptree_and_node *related = and_set_ptr->related;
-		while (related) {
-			/* if the tag is not present in the list, add it */
-			if (g_list_find_custom(this_tag, related->tag, (GCompareFunc) strcmp) == NULL) {
-				this_tag = g_list_insert_sorted(this_tag, related->tag, (GCompareFunc) strcmp);
-			}
-
-			related = related->related;
-		}
-
-		/* add the sub-GList (the one with the list of tags) to the main GList */
-		tags_list = g_list_prepend(tags_list, this_tag);
-
-		and_set_ptr = and_set_ptr->next;
-	}
-
-	/*
-	 * 2. scan all the sets; every one that turns out to be a subset of
-	 *    another will be discarded
-	 */
-	GList *tags_list_ptr = tags_list;
-
-	while (tags_list_ptr) {
-		GList *and_tags_subptr = tags_list;
-		while (and_tags_subptr) {
-			if (tagsistant_and_set_includes_and_set(tags_list_ptr, and_tags_subptr)) {
-				tags_list = g_list_remove_link(tags_list_ptr, and_tags_subptr);
-				g_list_free(and_tags_subptr);
-			}
-			and_tags_subptr = and_tags_subptr->next;
-		}
-		tags_list_ptr = tags_list_ptr->next;
-	}
-
-	/*
-	 * 3. scan tags_list again and format the query string
-	 */
-	GString *and_condition = g_string_sized_new(10240);
-	tags_list_ptr = tags_list;
-
-	while (tags_list_ptr) {
-		GList *this_tag = (GList *) tags_list_ptr->data;
-
-		/* if the string already contains data, chain them with an "or" */
-		if (*total > 0) g_string_append(and_condition, " or ");
-
-		/* append the new sub-clause, putting the and tag */
-		g_string_append(and_condition, "tags.tagname in (");
-		int tags_total = 0;
-		while (this_tag) {
-			/* if the tag is not the first, chain with a comma and a space */
-			if (tags_total > 0) g_string_append(and_condition, ", ");
-
-			/* add the tag */
-			g_string_append_printf(and_condition, "'%s'", (gchar *) this_tag->data);
-
-			/* increment tags count */
-			tags_total++;
-
-			/* go further */
-			this_tag = this_tag->next;
-		}
-
-		/* close the and sub-clause and free the corresponding sub-GList */
-		g_string_append(and_condition, ")");
-		g_list_free(this_tag);
-
-		/* increment the tag counter */
-		*total += 1;
-
-		tags_list_ptr = tags_list_ptr->next;
-	}
-
-	/* free the GList object */
-	g_list_free(tags_list);
-
-	/* dispose and_condition, but don't free its content, which is returned */
-	return (g_string_free(and_condition, FALSE));
-}
-
-#endif
-
+#if TAGSISTANT_ENABLE_AND_SET_CACHE
 /**
  * Invalidate a tagsistant_and_set_cache entry
  *
@@ -309,7 +160,7 @@ void tagsistant_invalidate_and_set_cache_entries(tagsistant_querytree *qtree)
 {
 	(void) qtree;
 
-#if TAGSISTANT_ENABLE_AND_SET_CACHE
+
 	ptree_or_node *ptr = qtree->tree;
 	while (ptr) {
 		// compute the key
@@ -330,37 +181,20 @@ void tagsistant_invalidate_and_set_cache_entries(tagsistant_querytree *qtree)
 		// next or node
 		ptr = ptr->next;
 	}
-#endif
 }
+#endif
 
+/**
+ * check if a tagging is valid
+ *
+ * @param and the ptree_and_node holding the tag
+ * @param dbi a dbi_conn connection
+ * @param objectname the name of the object to be checked for tagging by the ptree_and_node
+ * @return the inode of the object if the tagging is valid, 0 otherwise
+ */
 int tagsistant_check_single_tagging(ptree_and_node *and, dbi_conn dbi, gchar *objectname)
 {
 	tagsistant_inode inode = 0;
-
-#if 0
-	tagsistant_query(
-		"select objects.inode from objects "
-			"join tagging on objects.inode = tagging.inode "
-			"join tags on tagging.tag_id = tags.tag_id "
-			"where objects.objectname = '%s' and ( "
-				"tags.tagname %s '%s' %s "
-				"tags.`key` %s '%s' %s "
-				"tags.value %s '%s' "
-			")",
-		dbi,
-		tagsistant_return_integer,
-		&inode,
-		objectname,
-		and->negate ? "<>" : "=",
-		and->tag ? and->tag : and->namespace,
-		and->negate ? " or " : " and ",
-		and->negate ? "<>" : "=",
-		_safe_string(and->key),
-		and->negate ? " or " : " and ",
-		and->negate ? "<>" : "=",
-		_safe_string(and->value)
-	);
-#endif
 
 	tagsistant_query(
 		"select objects.inode from objects "
@@ -371,8 +205,6 @@ int tagsistant_check_single_tagging(ptree_and_node *and, dbi_conn dbi, gchar *ob
 		&inode,
 		objectname,
 		and->tag_id);
-
-	// if (and->negate) { return (inode ? 0 : 1); }
 
 	return (inode);
 }
@@ -578,59 +410,6 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
 /** move the pointer to the next token */
 #define __SLIDE_TOKEN (*token_ptr)++;
 
-void tagsistant_querytree_set_namespace_key_operator_value(
-	tagsistant_querytree *qtree,
-	const gchar *namespace,
-	const gchar *key,
-	int operator,
-	const gchar *value)
-{
-	g_free_null(qtree->namespace);
-	qtree->namespace = g_strdup(namespace);
-
-	g_free_null(qtree->key);
-	qtree->key = g_strdup(key);
-
-	qtree->operator = operator;
-
-	g_free_null(qtree->value);
-	qtree->value = g_strdup(value);
-}
-
-void tagsistant_querytree_set_key_operator_value(
-	tagsistant_querytree *qtree,
-	const gchar *key,
-	int operator,
-	const gchar *value)
-{
-	g_free_null(qtree->key);
-	qtree->key = g_strdup(key);
-
-	qtree->operator = operator;
-
-	g_free_null(qtree->value);
-	qtree->value = g_strdup(value);
-}
-
-void tagsistant_querytree_set_operator_value(
-	tagsistant_querytree *qtree,
-	int operator,
-	const gchar *value)
-{
-	qtree->operator = operator;
-
-	g_free_null(qtree->value);
-	qtree->value = g_strdup(value);
-}
-
-void tagsistant_querytree_set_value(
-	tagsistant_querytree *qtree,
-	const gchar *value)
-{
-	g_free_null(qtree->value);
-	qtree->value = g_strdup(value);
-}
-
 /** add next token to a tag group by creating the and_node_t structure */
 #define TAGSISTANT_TAG_GROUP_ADD_NEW_NODE 2
 
@@ -657,11 +436,16 @@ int tagsistant_querytree_parse_store (
 	unsigned int orcount = 0, andcount = 0;
 
 	/*
-	 * When a tag group is started by {, this variable is set to TAGSISTANT_TAG_GROUP_DONT_ADD.
-	 * Next token will be saved in a new ptree_and_node structure and the tag_group variable will
-	 * be set to TAGSISTANT_TAG_GROUP_ADD_TO_NODE. When the tag group is closed by }, the
-	 * tag_group variable is set to TAGSISTANT_TAG_GROUP_DONT_ADD. Next token will be saved
-	 * on its own ptree_and_node structure.
+	 * This variable holds the state of a tag group and starts as TAGSISTANT_TAG_GROUP_DONT_ADD.
+	 *
+	 * When a tag group is started by {, this variable is set to TAGSISTANT_TAG_GROUP_ADD_NEW_NODE.
+	 *
+	 * The first token will be saved in a new ptree_and_node structure and the tag_group variable
+	 * will be set to TAGSISTANT_TAG_GROUP_ADD_TO_NODE.
+	 *
+	 * When the tag group is closed by }, the tag_group variable is set back to TAGSISTANT_TAG_GROUP_DONT_ADD.
+	 *
+	 * Next token will be saved on its own ptree_and_node structure.
 	 */
 	unsigned int tag_group = TAGSISTANT_TAG_GROUP_DONT_ADD;
 
@@ -724,11 +508,6 @@ int tagsistant_querytree_parse_store (
 				return (0);
 			}
 
-			if (qtree->negate_next_tag) {
-				qtree->negate_next_tag = 0;
-				and->negate = 1;
-			}
-
 			/*
 			 * check if the tag token ends with a colon (:)
 			 * if so, this tag is a triple tag and requires special
@@ -736,30 +515,36 @@ int tagsistant_querytree_parse_store (
 			 */
 			if (g_regex_match_simple(TAGSISTANT_DEFAULT_TRIPLE_TAG_REGEX, __TOKEN, 0, 0)) {
 				and->namespace = g_strdup(__TOKEN);
-				tagsistant_querytree_set_namespace_key_operator_value(qtree, __TOKEN, NULL, 0, NULL);
+
+				g_free_null(qtree->namespace);
+				g_free_null(qtree->key);
+				g_free_null(qtree->value);
+				qtree->namespace = g_strdup(__TOKEN);
+
 				if (__NEXT_TOKEN) {
 					__SLIDE_TOKEN;
 					and->key = g_strdup(__TOKEN);
-					tagsistant_querytree_set_key_operator_value(qtree, __TOKEN, 0, NULL);
+					qtree->key = g_strdup(__TOKEN);
+
 					if (__NEXT_TOKEN) {
 						__SLIDE_TOKEN;
 						if (strcmp(__TOKEN, TAGSISTANT_GREATER_THAN_OPERATOR) == 0) {
-							tagsistant_querytree_set_operator_value(qtree, TAGSISTANT_GREATER_THAN, NULL);
-							and->operator = TAGSISTANT_GREATER_THAN;
+							qtree->operator = and->operator = TAGSISTANT_GREATER_THAN;
+
 						} else if (strcmp(__TOKEN, TAGSISTANT_SMALLER_THAN_OPERATOR) == 0) {
-							tagsistant_querytree_set_operator_value(qtree, TAGSISTANT_SMALLER_THAN, NULL);
-							and->operator = TAGSISTANT_SMALLER_THAN;
+							qtree->operator = and->operator = TAGSISTANT_SMALLER_THAN;
+
 						} else if (strcmp(__TOKEN, TAGSISTANT_EQUALS_TO_OPERATOR) == 0) {
-							tagsistant_querytree_set_operator_value(qtree, TAGSISTANT_EQUAL_TO, NULL);
-							and->operator = TAGSISTANT_EQUAL_TO;
+							qtree->operator = and->operator = TAGSISTANT_EQUAL_TO;
+
 						} else if (strcmp(__TOKEN, TAGSISTANT_CONTAINS_OPERATOR) == 0) {
-							tagsistant_querytree_set_operator_value(qtree, TAGSISTANT_CONTAINS, NULL);
-							and->operator = TAGSISTANT_CONTAINS;
+							qtree->operator = and->operator = TAGSISTANT_CONTAINS;
 						}
+
 						if (__NEXT_TOKEN) {
 							__SLIDE_TOKEN;
 							and->value = g_strdup(__TOKEN);
-							tagsistant_querytree_set_value(qtree, __TOKEN);
+							qtree->value = g_strdup(__TOKEN);
 						}
 					}
 				}
@@ -771,13 +556,26 @@ int tagsistant_querytree_parse_store (
 
 			and->next = NULL;
 			and->related = NULL;
+			and->negated = NULL;
 
 			/*
-			 * Append this node to the tree. If its the nth node of a tag group,
-			 * append it to the ->related field of the last related node,
-			 * otherwise append it to the ->next field of the last node
+			 * Append this node to the tree:
+			 *
+			 * - If it's a negated tag append it to the ->negated field of the last negated node.
+			 * - If it's the nth node of a tag group, append it to the ->related field of the last related node.
+			 * - Otherwise append it to the ->next field of the last node.
 			 */
-			if (TAGSISTANT_TAG_GROUP_ADD_TO_NODE == tag_group) {
+			if (qtree->negate_next_tag) {
+				qtree->negate_next_tag = 0;
+				and->negate = 1;
+
+				/* append this node to the last ptree_and_node as a negated node */
+				ptree_and_node *last_negated = last_and;
+				while (last_negated->negated) {
+					last_negated = last_negated->negated;
+				}
+				last_negated->negated = and;
+			} else if (TAGSISTANT_TAG_GROUP_ADD_TO_NODE == tag_group) {
 				/* append this node to the last related node of the last ptree_and_node */
 				ptree_and_node *last_related = last_and;
 				while (last_related->related) {
