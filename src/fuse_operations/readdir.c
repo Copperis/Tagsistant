@@ -697,7 +697,8 @@ void tagsistant_filetree_add_tag(
 				break;
 			case TAGSISTANT_EQUAL_TO:
 			default:
-				g_string_append_printf(tag_id_exclude_condition, ", %d", tag->tag_id);
+				appender = (tag->negate) ? tag_id_exclude_condition : tag_id_condition;
+				g_string_append_printf(appender, ", %d", tag->tag_id);
 				break;
 		}
 	}
@@ -879,7 +880,7 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn, int is_
 				g_string_append(statement, condition);
 			}
 
-			g_string_append_printf(statement, ")");
+			g_string_append(statement, ")");
 
 			if (tagsistant.sql_backend_have_intersect && tag->next) {
 				g_string_append(statement, " intersect ");
