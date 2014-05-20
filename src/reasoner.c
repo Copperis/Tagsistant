@@ -123,6 +123,12 @@ static int tagsistant_add_reasoned_tag(tagsistant_tag *T, tagsistant_reasoning *
 			related = related->related;
 		}
 
+		ptree_and_node *negated = and->negated;
+		while (negated) {
+			if (tagsistant_and_node_match(negated, T)) return (0);
+			negated = negated->negated;
+		}
+
 		and = and->next;
 	}
 #endif
@@ -145,11 +151,19 @@ static int tagsistant_add_reasoned_tag(tagsistant_tag *T, tagsistant_reasoning *
 	reasoned->negate = reasoning->negate;
 
 	/* append the reasoned tag */
-	ptree_and_node *last_reasoned = reasoning->current_node;
-	while (last_reasoned->related) {
-		last_reasoned = last_reasoned->related;
+	if (reasoning->negate) {
+		ptree_and_node *last_reasoned = reasoning->current_node;
+		while (last_reasoned->negated) {
+			last_reasoned = last_reasoned->negated;
+		}
+		last_reasoned->negated = reasoned;
+	} else {
+		ptree_and_node *last_reasoned = reasoning->current_node;
+		while (last_reasoned->related) {
+			last_reasoned = last_reasoned->related;
+		}
+		last_reasoned->related = reasoned;
 	}
-	last_reasoned->related = reasoned;
 
 	reasoning->added_tags += 1;
 	return (reasoning->added_tags);
