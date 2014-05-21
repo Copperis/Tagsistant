@@ -45,8 +45,14 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 	if (QTREE_IS_MALFORMED(qtree))
 		TAGSISTANT_ABORT_OPERATION(ENOENT);
 
+	// -- error message --
+	if (qtree->error_message && g_regex_match_simple("@/error$", path, G_REGEX_EXTENDED, 0)) {
+		memcpy(buf, qtree->error_message, strlen(qtree->error_message));
+		res = strlen(qtree->error_message);
+	}
+
 	// -- object on disk --
-	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+	else if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		if (tagsistant_is_tags_list_file(qtree)) {
 			/* strip the suffix from the path */
 			gchar *stripped_path = tagsistant_string_tags_list_suffix(qtree);

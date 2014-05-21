@@ -196,6 +196,15 @@ int tagsistant_check_single_tagging(ptree_and_node *and, dbi_conn dbi, gchar *ob
 {
 	tagsistant_inode inode = 0;
 
+	/*
+	 * if the tag is a triple tag and its operator is not equality,
+	 * this function should return 1
+	 */
+	if (and->namespace && TAGSISTANT_EQUAL_TO != and->operator) return (1);
+
+	/*
+	 * otherwise the tagging has to be checked
+	 */
 	tagsistant_query(
 		"select objects.inode from objects "
 			"join tagging on objects.inode = tagging.inode "
@@ -419,6 +428,9 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
 /** next token is outside any tag group */
 #define TAGSISTANT_TAG_GROUP_DONT_ADD 0
 
+/** abort parsing a store query with an error message */
+#define TAGSISTANT_ABORT_STORE_PARSING(message) { qtree->error_message = g_strdup(message); return (0); }
+
 /**
  * parse the query portion between tags/ and @/
  *
@@ -482,8 +494,18 @@ int tagsistant_querytree_parse_store (
 	while (__TOKEN && (TAGSISTANT_QUERY_DELIMITER_CHAR != *__TOKEN)) {
 		if (strlen(__TOKEN) == 0) {
 			/* ignore zero length tokens */
+
 		} else if (strcmp(__TOKEN, TAGSISTANT_NEGATE_NEXT_TAG) == 0) {
+			/* double negations make no sense */
+			if (qtree->negate_next_tag)
+				TAGSISTANT_ABORT_STORE_PARSING(TAGSISTANT_ERROR_DOUBLE_NEGATION);
+
+			/* negation can't be used inside a tag group */
+			if (TAGSISTANT_TAG_GROUP_DONT_ADD != tag_group)
+				TAGSISTANT_ABORT_STORE_PARSING(TAGSISTANT_ERROR_NEGATION_INSIDE_TAG_GROUP);
+
 			qtree->negate_next_tag = 1;
+
 		} else if (strcmp(__TOKEN, TAGSISTANT_ANDSET_DELIMITER) == 0) {
 			/* open new entry in OR level */
 			orcount++;
@@ -496,15 +518,27 @@ int tagsistant_querytree_parse_store (
 			last_or->next = new_or;
 			last_or = new_or;
 			last_and = NULL;
+
 		} else if (strcmp(__TOKEN, TAGSISTANT_TAG_GROUP_BEGIN) == 0) {
+			/* Can't nest tag groups */
+			if (TAGSISTANT_TAG_GROUP_DONT_ADD != tag_group)
+				TAGSISTANT_ABORT_STORE_PARSING(TAGSISTANT_ERROR_NESTED_TAG_GROUP);
+
 			tag_group = TAGSISTANT_TAG_GROUP_ADD_NEW_NODE;
+
 		} else if (strcmp(__TOKEN, TAGSISTANT_TAG_GROUP_END) == 0) {
+			/* can't close a tag group that has not been opened */
+			if (TAGSISTANT_TAG_GROUP_DONT_ADD == tag_group)
+				TAGSISTANT_ABORT_STORE_PARSING(TAGSISTANT_ERROR_CLOSE_TAG_GROUP_NOT_OPENED);
+
 			tag_group = TAGSISTANT_TAG_GROUP_DONT_ADD;
+
 		} else {
 			/* save next token in new ptree_and_node_t slot */
 			ptree_and_node *and = g_new0(ptree_and_node, 1);
 			if (and == NULL) {
 				dbg('q', LOG_ERR, "Error allocating memory");
+				TAGSISTANT_ABORT_STORE_PARSING(TAGSISTANT_ERROR_MEMORY_ALLOCATION);
 				return (0);
 			}
 
@@ -530,15 +564,18 @@ int tagsistant_querytree_parse_store (
 						__SLIDE_TOKEN;
 						if (strcmp(__TOKEN, TAGSISTANT_GREATER_THAN_OPERATOR) == 0) {
 							qtree->operator = and->operator = TAGSISTANT_GREATER_THAN;
+							qtree->force_inode_in_filenames = 1;
 
 						} else if (strcmp(__TOKEN, TAGSISTANT_SMALLER_THAN_OPERATOR) == 0) {
 							qtree->operator = and->operator = TAGSISTANT_SMALLER_THAN;
+							qtree->force_inode_in_filenames = 1;
 
 						} else if (strcmp(__TOKEN, TAGSISTANT_EQUALS_TO_OPERATOR) == 0) {
 							qtree->operator = and->operator = TAGSISTANT_EQUAL_TO;
 
 						} else if (strcmp(__TOKEN, TAGSISTANT_CONTAINS_OPERATOR) == 0) {
 							qtree->operator = and->operator = TAGSISTANT_CONTAINS;
+							qtree->force_inode_in_filenames = 1;
 						}
 
 						if (__NEXT_TOKEN) {
@@ -571,6 +608,9 @@ int tagsistant_querytree_parse_store (
 
 				/* append this node to the last ptree_and_node as a negated node */
 				ptree_and_node *last_negated = last_and;
+				if (!last_and)
+					TAGSISTANT_ABORT_STORE_PARSING(TAGSISTANT_ERROR_NEGATION_ON_FIRST_POSITION);
+
 				while (last_negated->negated) {
 					last_negated = last_negated->negated;
 				}
@@ -693,14 +733,23 @@ void tagsistant_querytree_parse_relations_consume_triple (
 	g_free_null(*key);
 	g_free_null(*value);
 
+	/*
+	 * get the namespace
+	 */
 	*namespace = g_strdup(__TOKEN);
 
 	if (__NEXT_TOKEN) {
 		__SLIDE_TOKEN;
+		/*
+		 * get the key
+		 */
 		*key = g_strdup(__TOKEN);
 
 		if (__NEXT_TOKEN) {
 			__SLIDE_TOKEN;
+			/*
+			 * get the operator
+			 */
 			*value = g_strdup(__TOKEN);
 
 			if (is_related) qtree->complete = 1;
@@ -732,6 +781,10 @@ int tagsistant_querytree_parse_relations (
 
 			if (__NEXT_TOKEN) {
 				__SLIDE_TOKEN;
+
+				/* check if relation is allowed */
+				if (!g_regex_match_simple(TAGSISTANT_RELATION_PATTERN, __TOKEN, G_REGEX_EXTENDED, 0)) return (0);
+
 				qtree->relation = g_strdup(__TOKEN);
 
 				if (__NEXT_TOKEN) {
@@ -765,6 +818,10 @@ int tagsistant_querytree_parse_relations (
 
 			if (__NEXT_TOKEN) {
 				__SLIDE_TOKEN;
+
+				/* check if relation is allowed */
+				if (!g_regex_match_simple(TAGSISTANT_RELATION_PATTERN, __TOKEN, G_REGEX_EXTENDED, 0)) return (0);
+
 				qtree->relation = g_strdup(__TOKEN);
 
 				if (__NEXT_TOKEN) {
@@ -777,7 +834,7 @@ int tagsistant_querytree_parse_relations (
 						tagsistant_querytree_parse_relations_consume_triple(qtree, token_ptr, TAGSISTANT_IS_RELATED);
 					} else {
 						/*
-						 *  the right (related) tag is a triple tag
+						 *  the right (related) tag is a flat tag
 						 */
 						qtree->second_tag = g_strdup(__TOKEN);
 						qtree->complete = 1;
@@ -1118,6 +1175,9 @@ gboolean  tagsistant_expand_path_callback(
 
 /**
  * expand a path, resolving the aliases
+ *
+ * @param qtree the tagsistant_querytree to expand
+ * @return the expanded path
  */
 gchar *tagsistant_expand_path(tagsistant_querytree *qtree)
 {
@@ -1249,6 +1309,8 @@ tagsistant_querytree *tagsistant_querytree_new(
 	qtree->exists = 0;
 	qtree->do_reasoning = 0;
 	qtree->schedule_for_unlink = 0;
+	qtree->force_inode_in_filenames = 0;
+	qtree->error_message = NULL;
 
 	/* guess the type of the query by first token */
 	if ('\0' == __TOKEN)								qtree->type = QTYPE_ROOT;
@@ -1451,6 +1513,10 @@ tagsistant_querytree *tagsistant_querytree_new(
 RETURN:
 	g_strfreev(splitted);
 
+	if (QTREE_IS_MALFORMED(qtree) && !qtree->error_message) {
+		qtree->error_message = g_strdup(TAGSISTANT_ERROR_MALFORMED_QUERY);
+	}
+
 #if TAGSISTANT_ENABLE_QUERYTREE_CACHE
 	if ((!qtree->points_to_object) || qtree->inode) {
 		/* save the querytree in the cache */
@@ -1509,6 +1575,7 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, guint commit_tran
 	g_free_null(qtree->object_path);
 	g_free_null(qtree->archive_path);
 	g_free_null(qtree->full_archive_path);
+	g_free_null(qtree->error_message);
 
 	if (QTREE_IS_STORE(qtree)) {
 		ptree_or_node *node = qtree->tree;

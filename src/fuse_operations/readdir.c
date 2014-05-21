@@ -78,10 +78,18 @@ static int tagsistant_add_entry_to_dir(void *filler_ptr, dbi_result result)
 	gchar *entry = g_strdup_printf("=%s", dir);
 	int filler_result = ufs->filler(ufs->buf, entry, NULL, 0);
 	g_free(entry);
-	return (filler_result);
 
+	return (filler_result);
 }
 
+/**
+ * Add a file entry from a GList to the readdir() buffer
+ *
+ * @param name unused
+ * @param fh_list the GList holding filenames
+ * @param ufs a context structure
+ * @return 0 always
+ */
 static int tagsistant_readdir_on_store_filler(gchar *name, GList *fh_list, struct tagsistant_use_filler_struct *ufs)
 {
 	(void) name;
@@ -96,7 +104,15 @@ static int tagsistant_readdir_on_store_filler(gchar *name, GList *fh_list, struc
 
 		if (!fh) return (0);
 
-		return (ufs->filler(ufs->buf, fh->name, NULL, 0));
+		if (ufs->qtree->force_inode_in_filenames) {
+			gchar *filename = g_strdup_printf("%d%s%s", fh->inode, TAGSISTANT_INODE_DELIMITER, fh->name);
+			ufs->filler(ufs->buf, filename, NULL, 0);
+			g_free_null(filename);
+		} else {
+			ufs->filler(ufs->buf, fh->name, NULL, 0);
+		}
+
+		return (0);
 	}
 
 	// add inodes to filenames
@@ -196,12 +212,16 @@ int tagsistant_readdir_on_store(
 
 	if (qtree->complete) {
 
-		// build the filetree
-		GHashTable *hash_table = tagsistant_filetree_new(qtree->tree, qtree->dbi, is_all_path);
-		g_hash_table_foreach(hash_table, (GHFunc) tagsistant_readdir_on_store_filler, ufs);
-		g_hash_table_foreach(hash_table, (GHFunc) tagsistant_filetree_destroy_value_list, NULL);
-		g_hash_table_destroy(hash_table);
-
+		if (qtree->error_message) {
+			/* report a file with the error message */
+			filler(buf, "error", NULL, 0);
+		} else {
+			/* build the filetree */
+			GHashTable *hash_table = tagsistant_filetree_new(qtree->tree, qtree->dbi, is_all_path);
+			g_hash_table_foreach(hash_table, (GHFunc) tagsistant_readdir_on_store_filler, ufs);
+			g_hash_table_foreach(hash_table, (GHFunc) tagsistant_filetree_destroy_value_list, NULL);
+			g_hash_table_destroy(hash_table);
+		}
 	} else {
 
 		// add operators if path is not "/tags", to avoid "/tags/+" and "/tags/@"
@@ -703,7 +723,6 @@ void tagsistant_filetree_add_tag(
 		}
 	}
 }
-
 
 /**
  * build a linked list of filenames that apply to querytree

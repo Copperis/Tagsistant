@@ -39,8 +39,15 @@ int tagsistant_open(const char *path, struct fuse_file_info *fi)
 	if (QTREE_IS_MALFORMED(qtree))
 		TAGSISTANT_ABORT_OPERATION(ENOENT);
 
+	// -- error message --
+	if (qtree->error_message && g_regex_match_simple("@/error$", path, G_REGEX_EXTENDED, 0)) {
+		res = 1;
+		tagsistant_errno = 0;
+		goto TAGSISTANT_EXIT_OPERATION;
+	}
+
 	// -- object --
-	if (QTREE_POINTS_TO_OBJECT(qtree)) {
+	else if (QTREE_POINTS_TO_OBJECT(qtree)) {
 		if (tagsistant_is_tags_list_file(qtree)) {
 			res = open(tagsistant.tags, fi->flags|O_RDONLY);
 			tagsistant_errno = errno;

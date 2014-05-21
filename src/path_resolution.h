@@ -37,7 +37,8 @@ enum {
 #define TAGSISTANT_GREATER_THAN_OPERATOR "gt"
 #define TAGSISTANT_SMALLER_THAN_OPERATOR "lt"
 
-#define TAGSISTANT_REASONED_TAGS_LIMIT 1024
+/* the regex used to check relations in the relations/ queries */
+#define TAGSISTANT_RELATION_PATTERN "^includes|excludes|is_equivalent$"
 
 /**
  * defines an AND token in a query path
@@ -212,6 +213,12 @@ typedef struct querytree {
 	/** the object pointed by is currently in the database? */
 	int exists;
 
+	/**
+	 * force the use of inodes in filenames even when filenames are not ambiguous
+	 * useful on queries with triple tags and operators different from eq/
+	 */
+	int force_inode_in_filenames;
+
 	/** the query tree in a tags/ query */
 	ptree_or_node *tree;
 
@@ -267,6 +274,11 @@ typedef struct querytree {
 	 * directory by tagsistant_querytree_destroy()
 	 */
 	int schedule_for_unlink;
+
+	/**
+	 * if the query is wrong, this field will hold am error message
+	 */
+	gchar *error_message;
 
 } tagsistant_querytree;
 
@@ -357,3 +369,27 @@ extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_que
 #define 						tagsistant_reasoner(reasoning) tagsistant_reasoner_inner(reasoning, 1)
 extern int						tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int do_caching);
 extern void						tagsistant_invalidate_reasoning_cache(gchar *tag);
+
+/**
+ * ERROR MESSAGES
+ **/
+#define TAGSISTANT_ERROR_MALFORMED_QUERY \
+	"Syntax error: your query is malformed\n"
+
+#define TAGSISTANT_ERROR_NESTED_TAG_GROUP \
+	"Syntax error: nested tag group. Close all tag groups before opening another.\n"
+
+#define TAGSISTANT_ERROR_CLOSE_TAG_GROUP_NOT_OPENED \
+	"Syntax error: } without {. Open a tag group before closing it\n"
+
+#define TAGSISTANT_ERROR_DOUBLE_NEGATION \
+	"Syntax error: can't do a double negation. Use the -/ operator before a tag and never write -/-/\n"
+
+#define TAGSISTANT_ERROR_NEGATION_INSIDE_TAG_GROUP \
+	"Syntax error: negation inside a tag group is prohibited\n"
+
+#define TAGSISTANT_ERROR_MEMORY_ALLOCATION \
+	"Internal error: can't allocate enough memory\n"
+
+#define TAGSISTANT_ERROR_NEGATION_ON_FIRST_POSITION \
+	"Syntax error: negation can't start a query or follow a +/ operator"

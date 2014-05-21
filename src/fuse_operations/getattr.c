@@ -81,7 +81,13 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	if (QTREE_IS_MALFORMED(qtree))
 		TAGSISTANT_ABORT_OPERATION(ENOENT);
 	
-	if (QTREE_IS_ARCHIVE(qtree)) {
+	// -- error message --
+	if (qtree->error_message && g_regex_match_simple("@/error$", path, G_REGEX_EXTENDED, 0)) {
+		lstat_path = tagsistant.tags;
+	}
+
+	// -- archive --
+	else if (QTREE_IS_ARCHIVE(qtree)) {
 		if (!g_regex_match_simple(TAGSISTANT_INODE_DELIMITER, qtree->object_path, 0, 0)) {
 			lstat_path = tagsistant.archive;
 		} else if (qtree->full_archive_path) {
@@ -190,8 +196,9 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 	// post-processing output
 	if (QTREE_IS_STORE(qtree)) {
-		// dbg(LOG_INFO, "getattr: last tag is %s", qtree->last_tag);
-		if (qtree->points_to_object) {
+		if (qtree->error_message) {
+			// OK
+		} else if (qtree->points_to_object) {
 			if (tagsistant_is_tags_list_file(qtree)) {
 				stbuf->st_size = 1024 * 1024 * 1024;
 			}
@@ -241,6 +248,8 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 			if (tag_id) {
 				// each directory holds 3 inodes: itself/, itself/+, itself/@
 				stbuf->st_ino = tag_id * 3;
+			} else if (qtree->namespace && (TAGSISTANT_EQUAL_TO != qtree->operator)) {
+				stbuf->st_ino = 3;
 			} else {
 				TAGSISTANT_ABORT_OPERATION(ENOENT);
 			}

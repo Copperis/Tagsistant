@@ -128,6 +128,10 @@
     The suffix can be configured with the command line argument
 	--tags-suffix=<.tags>
 
+  - Error reporting system: when a query is syntactically wrong,
+    Tagsistant list only one file called "error" which contains a
+    useful error message
+
 0.7:
   - libextractor integration. Tagging plugins have been converted to
     the new API.
