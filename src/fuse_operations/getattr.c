@@ -248,8 +248,18 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 			if (tag_id) {
 				// each directory holds 3 inodes: itself/, itself/+, itself/@
 				stbuf->st_ino = tag_id * 3;
-			} else if (qtree->namespace && (TAGSISTANT_EQUAL_TO != qtree->operator)) {
-				stbuf->st_ino = 3;
+			} else if (qtree->namespace) {
+				switch (qtree->operator) {
+					case TAGSISTANT_GREATER_THAN:
+					case TAGSISTANT_SMALLER_THAN:
+					case TAGSISTANT_CONTAINS:
+						stbuf->st_ino = tag_id * 3;
+						break;
+					default:
+						stbuf->st_ino = 0;
+						TAGSISTANT_ABORT_OPERATION(ENOENT);
+						break;
+				}
 			} else {
 				TAGSISTANT_ABORT_OPERATION(ENOENT);
 			}
