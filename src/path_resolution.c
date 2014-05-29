@@ -200,7 +200,7 @@ int tagsistant_check_single_tagging(ptree_and_node *and, dbi_conn dbi, gchar *ob
 	 * if the tag is a triple tag and its operator is not equality,
 	 * this function should return 1
 	 */
-	if (and->namespace && TAGSISTANT_EQUAL_TO != and->operator) return (1);
+	if (and->namespace && strlen(and->namespace) && TAGSISTANT_EQUAL_TO != and->operator) return (1);
 
 	/*
 	 * otherwise the tagging has to be checked

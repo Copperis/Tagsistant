@@ -76,15 +76,15 @@ my $error_stack = "";
 # the file gets copied and linked inside multiple directories
 # and than read again using diff. this ensures proper operations
 # on open(), read(), write(), symlink() and readlink()
-system("dmesg | tail > /tmp/clutter");
-system("dd if=/dev/random of=/tmp/clutter2 bs=10 count=1");
-system("dd if=/dev/random of=/tmp/clutter3 bs=10 count=1");
-system("dd if=/dev/random of=/tmp/clutter4 bs=10 count=1");
-system("dd if=/dev/random of=/tmp/clutter5 bs=10 count=1");
-system("dd if=/dev/random of=/tmp/clutter6 bs=10 count=1");
-system("dd if=/dev/random of=/tmp/clutter7 bs=10 count=1");
-system("dd if=/dev/random of=/tmp/clutter8 bs=10 count=1");
-system("dd if=/dev/random of=/tmp/clutter9 bs=10 count=1");
+system("dmesg | tail > /tmp/file");
+system("dd if=/dev/random of=/tmp/file2 bs=10 count=1");
+system("dd if=/dev/random of=/tmp/file3 bs=10 count=1");
+system("dd if=/dev/random of=/tmp/file4 bs=10 count=1");
+system("dd if=/dev/random of=/tmp/file5 bs=10 count=1");
+system("dd if=/dev/random of=/tmp/file6 bs=10 count=1");
+system("dd if=/dev/random of=/tmp/file7 bs=10 count=1");
+system("dd if=/dev/random of=/tmp/file8 bs=10 count=1");
+system("dd if=/dev/random of=/tmp/file9 bs=10 count=1");
 
 start_tagsistant();
 
@@ -117,106 +117,117 @@ test("ls -a $MP/store");
 out_test('^\.$', '^\.\.$');
 
 # first we create some directories
-test("mkdir $MP/store/t1");
-test("touch $MP/store/t1");
-test("mkdir $MP/tags/t2");
-test("stat $MP/store/t2");
-test("stat $MP/tags/t1");
-test("mkdir $MP/store/t3");
+test("mkdir $MP/store/tag1");
+test("touch $MP/store/tag1");
+test("mkdir $MP/tags/tag2");
+test("stat $MP/store/tag2");
+test("stat $MP/tags/tag1");
+test("mkdir $MP/store/tag3");
 test("mkdir $MP/store/toberenamed");
 test("mkdir $MP/store/tobedeleted");
 test("ls $MP/tags");
 test("ls $MP/archive");
-test("stat $MP/store/t1");
-test("ls $MP/store/t1");
+test("stat $MP/store/tag1");
+test("ls $MP/store/tag1");
 
 # then we check rename and remove of tag directories
 test("mv $MP/store/toberenamed $MP/store/renamed");
 test("rmdir $MP/store/tobedeleted");
 
 test("ls $MP/store/");
-test("ls $MP/store/t1");
-test("ls $MP/store/t1/@");
-test("ls $MP/store/t1/@@");
+test("ls $MP/store/tag1");
+test("ls $MP/store/tag1/@");
+test("ls $MP/store/tag1/@@");
 
-test("cp /tmp/clutter $MP/store/t1/@/");
-test("cp /tmp/clutter $MP/store/t2/@/");
-test("stat $MP/store/t1/@/clutter");
-test("stat $MP/store/t2/@/clutter");
-test("stat $MP/store/t1/t2/@/clutter");
-test("ln -s /tmp/clutter $MP/store/t3/@");
-test("readlink $MP/store/t3/@/clutter");
+test("cp /tmp/file $MP/store/tag1/@/");
+test("cp /tmp/file $MP/store/tag2/@/");
+test("stat $MP/store/tag1/@/file");
+test("stat $MP/store/tag2/@/file");
+test("stat $MP/store/tag1/tag2/@/file");
+test("ln -s /tmp/file $MP/store/tag3/@");
+test("readlink $MP/store/tag3/@/file");
 
 test("ls -la $MP/archive/");
-test("ls -la $MP/store/t1/@");
-test("ls -la $MP/store/t1/+/t2/@");
-test("ls -la $MP/store/t1/t2/@");
-test("diff $MP/store/t1/@/clutter $MP/store/t2/@/clutter");
-test("diff $MP/store/t1/@/clutter $MP/store/t2/@/clutter");
+test("ls -la $MP/store/tag1/@");
+test("ls -la $MP/store/tag1/+/tag2/@");
+test("ls -la $MP/store/tag1/tag2/@");
+test("diff $MP/store/tag1/@/file $MP/store/tag2/@/file");
+test("diff $MP/store/tag1/@/file $MP/store/tag2/@/file");
 
 # then we rename a file
-test("mv $MP/store/t1/@/clutter $MP/store/t1/@/clutter_renamed");
-test("ls -la $MP/store/t1/@/");
-test("stat $MP/store/t1/@/clutter_renamed");
+test("mv $MP/store/tag1/@/file $MP/store/tag1/@/file_renamed");
+test("ls -la $MP/store/tag1/@/");
+test("stat $MP/store/tag1/@/file_renamed");
 
 # then we rename a file out of a directory into another;
 # that means, from a tagsistant point of view, untag the
 # file with all the tag contained in original path and
 # tag it with all the tags contained in the destination
 # path
-test("stat $MP/store/t2/@/clutter_renamed");
-test("mv $MP/store/t2/@/clutter_renamed $MP/store/t1/@/clutter");
-test("ls -la $MP/store/t2/@");
-test("ls -la $MP/store/t1/@");
-test("ls -la $MP/store/t3/@/");
-test("ls -la $MP/store/t1/t3/@/");
+test("stat $MP/store/tag2/@/file_renamed");
+test("mv $MP/store/tag2/@/file_renamed $MP/store/tag1/@/file");
+test("ls -la $MP/store/tag2/@");
+test("ls -la $MP/store/tag1/@");
+test("ls -la $MP/store/tag3/@/");
+test("ls -la $MP/store/tag1/tag3/@/");
 
 # now we check the unlink() method. first we copy two
 # files in a tag directory. then we delete the first
 # from the directory and the second from the archive/.
-test("cp /tmp/clutter2 $MP/store/t1/@/tobedeleted");
-test("cp /tmp/clutter3 $MP/store/t2/@/tobedeleted_fromarchive");
-test("rm $MP/store/t1/@/tobedeleted");
-test("ls -l $MP/store/t1/@/tobedeleted", 2); # we specify 2 as exit status 'cause we don't expect to find what we are searching
+test("cp /tmp/file2 $MP/store/tag1/@/tobedeleted");
+test("cp /tmp/file3 $MP/store/tag2/@/tobedeleted_fromarchive");
+test("rm $MP/store/tag1/@/tobedeleted");
+test("ls -l $MP/store/tag1/@/tobedeleted", 2); # we specify 2 as exit status 'cause we don't expect to find what we are searching
 
 # now we create a file in two directories and than
 # we delete if from just one. we expect the file to
 # be still available in the other. then we delete
 # from the second and last one and we expect it to
 # desappear from the archive/ as well.
-test("cp /tmp/clutter4 $MP/store/t1/t2/@/multifile");
-test("stat $MP/store/t1/@/multifile");
-test("stat $MP/store/t2/@/multifile");
-test("rm $MP/store/t2/@/multifile");
-test("ls -l $MP/store/t1/@/multifile", 0); # 0! we DO expect the file to be here
-test("diff /tmp/clutter4 $MP/store/t1/@/multifile");
-test("diff /tmp/clutter4 `find $MP/archive/|grep multifile`");
-test("rm $MP/store/t1/@/multifile");
-test("ls -l $MP/store/t1/@/multifile", 2); # 2! we DON'T expect the file to be here
+test("cp /tmp/file4 $MP/store/tag1/tag2/@/multifile");
+test("stat $MP/store/tag1/@/multifile");
+test("stat $MP/store/tag2/@/multifile");
+test("rm $MP/store/tag2/@/multifile");
+test("ls -l $MP/store/tag1/@/multifile", 0); # 0! we DO expect the file to be here
+test("diff /tmp/file4 $MP/store/tag1/@/multifile");
+test("diff /tmp/file4 `find $MP/archive/|grep multifile`");
+test("rm $MP/store/tag1/@/multifile");
+test("ls -l $MP/store/tag1/@/multifile", 2); # 2! we DON'T expect the file to be here
 
 # truncate() test
-test("cp /tmp/clutter5 $MP/store/t1/@/truncate1");
-test("truncate -s 0 $MP/store/t1/@/truncate1");
-test("stat $MP/store/t1/@/truncate1");
+test("cp /tmp/file5 $MP/store/tag1/@/truncate1");
+test("truncate -s 0 $MP/store/tag1/@/truncate1");
+test("stat $MP/store/tag1/@/truncate1");
 out_test('Size: 0');
-test("cp /tmp/clutter6 $MP/store/t2/@/truncate2");
-test("truncate -s 10 $MP/store/t2/@/truncate2");
-test("stat $MP/store/t2/@/truncate2");
+test("cp /tmp/file6 $MP/store/tag2/@/truncate2");
+test("truncate -s 10 $MP/store/tag2/@/truncate2");
+test("stat $MP/store/tag2/@/truncate2");
 out_test('Size: 10');
 
 test("mkdir $MP/store/time:/");
 test("mkdir $MP/store/time:/year/");
 test("mkdir $MP/store/time:/year/eq/2000");
-test("cp /tmp/clutter7 $MP/store/time:/year/eq/2000/@@");
-test("stat $MP/store/time:/year/eq/2000/@@/clutter7");
+test("cp /tmp/file7 $MP/store/time:/year/eq/2000/@@");
+test("stat $MP/store/time:/year/eq/2000/@@/file7");
 
 test("mkdir $MP/store/time:/year/eq/2010");
-test("cp /tmp/clutter8 $MP/store/time:/year/eq/2010/@@");
-test("stat $MP/store/time:/year/eq/2010/@@/clutter8");
+test("cp /tmp/file8 $MP/store/time:/year/eq/2010/@@");
+test("stat $MP/store/time:/year/eq/2010/@@/file8");
 test("ls -la $MP/store/time:/year/gt/2005/@@");
-out_test('clutter8');
+out_test('file8');
 
-test("stat $MP/store/time:/year/gt/2005/@@/*___clutter8");
+test("stat $MP/store/time:/year/gt/2005/@@/*___file8");
+test("mkdir $MP/relations/tag1/is_equivalent/tag2");
+test("mkdir $MP/relations/tag2/includes/tag3");
+test("ls $MP/relations/tag1/@@/");
+test("ls $MP/relations/tag1/@/*___file");
+
+test("mkdir $MP/store/tag4/");
+test("cp /tmp/file9 $MP/store/tag1/tag4/@");
+test("stat $MP/store/tag1/@/file9");
+test("mkdir $MP/relations/tag1/excludes/tag4");
+test("stat $MP/store/tag1/@/file9");
+
 goto OUT;
 
 # ---------[no more test to run]---------------------------------------- <---
