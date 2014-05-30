@@ -49,7 +49,7 @@ my $BIN = "./tagsistant";
 my $MPOINT = "/tmp/tagsistant_test_suite";
 my $MP = $MPOINT;
 my $REPOSITORY = "$ENV{HOME}/.tagsistant_test_suite";
-my $MCMD = "$BIN -s -d -v --repository=$REPOSITORY ";
+my $MCMD = "$BIN -s -d --debug=s -v --repository=$REPOSITORY ";
 if ($driver eq "mysql") {
 	$MCMD .= "--db=mysql:localhost:tagsistant_test_suite:tagsistant_test:tagsistant_test";
 } elsif ($driver eq "sqlite3") {
