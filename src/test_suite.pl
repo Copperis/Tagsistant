@@ -77,14 +77,16 @@ my $error_stack = "";
 # and than read again using diff. this ensures proper operations
 # on open(), read(), write(), symlink() and readlink()
 system("dmesg | tail > /tmp/file");
-system("dd if=/dev/random of=/tmp/file2 bs=10 count=1");
-system("dd if=/dev/random of=/tmp/file3 bs=10 count=1");
-system("dd if=/dev/random of=/tmp/file4 bs=10 count=1");
-system("dd if=/dev/random of=/tmp/file5 bs=10 count=1");
-system("dd if=/dev/random of=/tmp/file6 bs=10 count=1");
-system("dd if=/dev/random of=/tmp/file7 bs=10 count=1");
-system("dd if=/dev/random of=/tmp/file8 bs=10 count=1");
-system("dd if=/dev/random of=/tmp/file9 bs=10 count=1");
+system("md5sum /tmp/file > /tmp/file2");
+system("md5sum /tmp/file2 > /tmp/file3");
+system("md5sum /tmp/file3 > /tmp/file4");
+system("md5sum /tmp/file4 > /tmp/file5");
+system("md5sum /tmp/file5 > /tmp/file6");
+system("md5sum /tmp/file6 > /tmp/file7");
+system("md5sum /tmp/file7 > /tmp/file8");
+system("md5sum /tmp/file8 > /tmp/file9");
+system("md5sum /tmp/file9 > /tmp/file10");
+system("md5sum /tmp/file10 > /tmp/file11");
 
 start_tagsistant();
 
