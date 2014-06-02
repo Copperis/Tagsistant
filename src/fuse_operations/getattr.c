@@ -200,7 +200,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 			// OK
 		} else if (qtree->points_to_object) {
 			if (tagsistant_is_tags_list_file(qtree)) {
-				stbuf->st_size = 1024 * 1024 * 1024;
+				stbuf->st_size = 1024 * 1024;
 			}
 		} else if (NULL == qtree->last_tag) {
 			// OK

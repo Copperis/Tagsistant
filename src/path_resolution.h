@@ -324,7 +324,7 @@ typedef struct {
  * @param qtree the tagsistant_querytree structure to traverse
  * @param funcpointer the function pointer
  */
-#define tagsistant_querytree_traverse(qtree, funcpointer, ...) {\
+#define old_tagsistant_querytree_traverse(qtree, funcpointer, ...) {\
 	if (NULL != qtree) {\
 		ptree_or_node *ptx = qtree->tree;\
 		while (NULL != ptx) {\
@@ -341,6 +341,35 @@ typedef struct {
 		}\
 	}\
 }
+
+/**
+ * a pointer to a variadic function that is applied to each node in
+ * a querytree and_set tree
+ *
+ * @param dbi a DBI connection
+ * @param namespace a namespace or tag
+ * @param a key, if the second parameter is a namespace
+ * @param a value, if the second parameter is a namespace
+ */
+typedef void (*tagsistant_querytree_traverser)(
+	dbi_conn dbi,
+	const gchar *namespace,
+	const gchar *key,
+	const gchar *value,
+	tagsistant_inode opt_inode);
+
+/**
+ * an utility function which iterates over each node of a
+ * querytree and_set tree to apply the function pointed by
+ * funcpointer
+ *
+ * @param qtree the querytree object to descend
+ * @param funcpointer the function to be applied to each tree node
+ */
+extern void tagsistant_querytree_traverse(
+	tagsistant_querytree *qtree,
+	tagsistant_querytree_traverser funcpointer,
+	tagsistant_inode opt_inode);
 
 // querytree functions
 extern void						tagsistant_path_resolution_init();

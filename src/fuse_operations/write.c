@@ -43,14 +43,23 @@ int tagsistant_write(const char *path, const char *buf, size_t size, off_t offse
 
 	// -- alias --
 	if (QTREE_IS_ALIAS(qtree) && qtree->alias) {
-		gchar *_buf = g_strdup(buf);
+		res = size;
+
+		gchar *_buf = g_strndup(buf, size);
 
 		// end the string at the first carriage return or line feed character
-		gchar *carriage_return = rindex(_buf, '\n');
-		if (carriage_return) *carriage_return = '/';
+		gchar *path_ptr = rindex(_buf, '\n');
+		if (path_ptr) *path_ptr = '/';
 
-		carriage_return = rindex(_buf, '\r');
-		if (carriage_return) *carriage_return = '/';
+		path_ptr = rindex(_buf, '\r');
+		if (path_ptr) *path_ptr = '/';
+
+		// remove double slashes
+		GRegex *rx = g_regex_new("//", 0, 0, NULL);
+		gchar *_buf2 = g_regex_replace(rx, _buf, -1, 0, "/", 0, NULL);
+		g_regex_unref(rx);
+		g_free(_buf);
+		_buf = _buf2;
 
 		// get the size of the buffer
 		size_t max_size = MIN(size, TAGSISTANT_ALIAS_MAX_LENGTH - 1);
@@ -62,8 +71,8 @@ int tagsistant_write(const char *path, const char *buf, size_t size, off_t offse
 		// save the buffer on disk
 		tagsistant_sql_alias_set(qtree->dbi, qtree->alias, value);
 
-		g_free(_buf);
 		g_free(value);
+		g_free(_buf);
 
 	} else
 
@@ -107,7 +116,7 @@ int tagsistant_write(const char *path, const char *buf, size_t size, off_t offse
 	// -- relations --
 	else TAGSISTANT_ABORT_OPERATION(EROFS);
 
-	dbg('F', LOG_ERR, "Yeah!");
+	// dbg('F', LOG_ERR, "Yeah!");
 
 TAGSISTANT_EXIT_OPERATION:
 	if ( res == -1 ) {

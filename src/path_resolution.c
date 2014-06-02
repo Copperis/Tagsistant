@@ -265,7 +265,7 @@ tagsistant_inode tagsistant_inode_extract_from_path(const gchar *path)
  */
 tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, dbi_conn dbi, gchar *objectname)
 {
-	tagsistant_inode inode = 0;
+	tagsistant_inode inode = 0, guessed_inode = 0;
 
 #if TAGSISTANT_ENABLE_AND_SET_CACHE
 	/* check if the query has been already answered and cached */
@@ -282,12 +282,18 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 	}
 #endif
 
-	/* lookup the inode into the database */
+	/*
+	 * the first step is to check every tag in the and_set linked by
+	 * the ->next field. if the object is tagged by each tag, the first
+	 * step is fulfilled
+	 */
 	ptree_and_node *and_set_ptr = and_set;
-	tagsistant_inode guessed_inode = 0;
 
 	while (and_set_ptr) {
-		/* handle the ALL special case */
+		/*
+		 * handle the ALL special case by guessing the inode of the first
+		 * object named objectname
+		 */
 		if (g_strcmp0(and_set_ptr->tag, "ALL") == 0) {
 			// get the inode from the object path
 			inode = tagsistant_inode_extract_from_path(objectname);
@@ -302,10 +308,15 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 			goto BREAK_LOOKUP;
 		}
 
-		/* match the first tag (the one in the ptree_and_node) */
+		/*
+		 * the query is not an ALL query, so we process each tag.
+		 * if no match is directly found, we check the ->related tags too.
+		 */
 		tagsistant_inode single_and_inode = tagsistant_check_single_tagging(and_set_ptr, dbi, objectname);
 
-		/* if no match has been found, try with related tags */
+		/*
+		 * if no match has been found, try with related tags
+		 */
 		if (!single_and_inode) {
 			ptree_and_node *related = and_set_ptr->related;
 
@@ -322,25 +333,66 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 			if (!single_and_inode && !and_set_ptr->negate) goto BREAK_LOOKUP;
 		}
 
-		if (and_set_ptr->negate) {
-			/* break the loop if a match has been found but the tag was negated */
-			if (single_and_inode) goto BREAK_LOOKUP;
-		} else {
-			/* save the inode for the further checking */
-			if (!guessed_inode) guessed_inode = single_and_inode;
+		/*
+		 * if this is the first iteration and guessed_inode is still
+		 * empty, save the inode for the further checking
+		 */
+		if (!guessed_inode) guessed_inode = single_and_inode;
 
-			/*
-			 * if the inode extracted from this iteration is different from the previous one
-			 * this may suggest a case of file homonymy, so we must return a match failure
-			 */
-			if (guessed_inode != single_and_inode) goto BREAK_LOOKUP;
-		}
+		/*
+		 * if the inode extracted from this iteration is different from the previous one
+		 * this may suggest a case of file homonymy, so we must return a match failure
+		 */
+		if (guessed_inode != single_and_inode) goto BREAK_LOOKUP;
 
+		/*
+		 * otherwise we continue with the next tag
+		 */
 		and_set_ptr = and_set_ptr->next;
 	}
 
-	/* save the inode to return it */
+	/*
+	 * save the inode for returning it in the end of the function
+	 */
 	inode = guessed_inode;
+
+	/*
+	 * the second step involves negated tags
+	 */
+	and_set_ptr = and_set->negated;
+	while (and_set_ptr) {
+		tagsistant_inode single_and_inode = tagsistant_check_single_tagging(and_set_ptr, dbi, objectname);
+
+		/*
+		 * if no match has been found, try with related tags
+		 */
+		if (!single_and_inode) {
+			ptree_and_node *related = and_set_ptr->related;
+
+			while (related) {
+				single_and_inode = tagsistant_check_single_tagging(related, dbi, objectname);
+
+				/* if a related tag match, break the while loop */
+				if (single_and_inode) break;
+
+				related = related->related;
+			}
+		}
+
+		/*
+		 * if we have a match, the file must be discarder (returning 0)
+		 * because this is the ->negated branch of the tree
+		 */
+		if (single_and_inode) {
+			inode = 0;
+			goto BREAK_LOOKUP;
+		}
+
+		/*
+		 * otherwise we continue with the next tag
+		 */
+		and_set_ptr = and_set_ptr->next;
+	}
 
 BREAK_LOOKUP:
 
@@ -1621,3 +1673,28 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, guint commit_tran
 	// free the structure
 	g_free_null(qtree);
 }
+
+extern void tagsistant_querytree_traverse(
+	tagsistant_querytree *qtree,
+	tagsistant_querytree_traverser funcpointer,
+	tagsistant_inode opt_inode)
+{
+    if (!qtree) { return; }
+
+	ptree_or_node *ptx = qtree->tree;
+	while (NULL != ptx) {
+		ptree_and_node *andptx = ptx->and_set;
+		while (NULL != andptx) {
+			if (andptx->tag) {
+				funcpointer(qtree->dbi, andptx->tag, NULL, NULL, opt_inode);
+			} else {
+				funcpointer(qtree->dbi, andptx->namespace, andptx->key, andptx->value, opt_inode);
+			}
+			andptx = andptx->next;
+		}
+		ptx = ptx->next;
+	}
+
+    return;
+}
+

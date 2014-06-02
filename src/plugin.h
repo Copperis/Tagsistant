@@ -55,7 +55,8 @@ typedef struct tagsistant_plugin {
 	/**
 	 * hook to processing function
 	 *
-	 * @param filename the file to be processed
+	 * @param qtree the querytree object
+	 * @param keywords an array of tagsistant_keyword to be applied to the qtree object
 	 * @return 0 on failure (the plugin wasn't unable to process the file), 1 on
 	 *   partial success (the plugin did processed the file, but later processing
 	 *   by other plugins is allowed) or 2 on successful processing (no further

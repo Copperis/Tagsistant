@@ -19,6 +19,18 @@
 
 #include "../tagsistant.h"
 
+void tagsistant_sql_delete_tag_proxy(
+	dbi_conn dbi,
+	const gchar *namespace,
+	const gchar *key,
+	const gchar *value,
+	tagsistant_inode unused)
+{
+	(void) unused;
+
+	tagsistant_sql_delete_tag(dbi, namespace, key, value);
+}
+
 /**
  * rmdir equivalent
  *
@@ -50,7 +62,7 @@ int tagsistant_rmdir(const char *path)
 
 		if (!QTREE_IS_COMPLETE(qtree)) {
 			// -- tags but incomplete (means: delete a tag) --
-			tagsistant_querytree_traverse(qtree, tagsistant_sql_delete_tag);
+			tagsistant_querytree_traverse(qtree, tagsistant_sql_delete_tag_proxy, 0);
 			do_rmdir = 0;
 		} else if (QTREE_IS_TAGGABLE(qtree)) {
 			/*
