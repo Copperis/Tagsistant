@@ -39,7 +39,7 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 
 	TAGSISTANT_START("READ on %s [size: %lu offset: %lu]", path, (long unsigned int) size, (long unsigned int) offset);
 
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 1);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree))
@@ -59,7 +59,7 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 
 			/* destroy the old qtree and create a new one on the stripped path */
 			tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
-			qtree = tagsistant_querytree_new(stripped_path, 0, 0, 1);
+			qtree = tagsistant_querytree_new(stripped_path, 0, 0, 1, 1);
 
 			/* free the stripped path */
 			g_free(stripped_path);
@@ -70,7 +70,7 @@ int tagsistant_read(const char *path, char *buf, size_t size, off_t offset, stru
 			GString *tagsbuffer = g_string_sized_new(size);
 
 			tagsistant_query(
-				"select tagname, key, value from tags "
+				"select tagname, `key`, value from tags "
 					"join tagging on tagging.tag_id = tags.tag_id "
 					"where tagging.inode = %d",
 				qtree->dbi, tagsistant_read_file_tags, (void *) tagsbuffer, qtree->inode);

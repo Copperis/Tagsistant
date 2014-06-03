@@ -375,7 +375,7 @@ extern void tagsistant_querytree_traverse(
 extern void						tagsistant_path_resolution_init();
 extern void						tagsistant_reasoner_init();
 
-extern tagsistant_querytree *	tagsistant_querytree_new(const char *path, int assign_inode, int start_transaction, int provide_connection);
+extern tagsistant_querytree *	tagsistant_querytree_new(const char *path, int assign_inode, int start_transaction, int provide_connection, int disable_reasoner);
 extern void 					tagsistant_querytree_destroy(tagsistant_querytree *qtree, guint commit_transaction);
 
 extern void						tagsistant_querytree_set_object_path(tagsistant_querytree *qtree, char *new_object_path);

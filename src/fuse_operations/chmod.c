@@ -32,7 +32,7 @@ int tagsistant_chmod(const char *path, mode_t mode)
 
 	TAGSISTANT_START("CHMOD on %s [mode: %d]", path, mode);
 
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 1);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {

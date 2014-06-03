@@ -227,6 +227,15 @@ test("echo 'tag1/+/tag2/' > $MP/alias/a1");
 test("stat $MP/store/=a1/");
 test("ls $MP/store/=a1/@/");
 
+#
+# the .tags suffix
+#
+test("stat $MP/store/tag1/@/truncate1.tags");
+test("cat $MP/store/tag1/@/truncate1.tags");
+test("cat $MP/store/tag1/@@/file9.tags");
+out_test("tag1");
+out_test("tag4");
+
 # ---------[no more test to run]---------------------------------------- <---
 OUT:
 

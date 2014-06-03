@@ -523,7 +523,8 @@ int tagsistant_querytree_parse_store_recursive (
 int tagsistant_querytree_parse_store (
 	tagsistant_querytree *qtree,
 	const char *path,
-	gchar ***token_ptr)
+	gchar ***token_ptr,
+	int disable_reasoner)
 {
 	unsigned int orcount = 0, andcount = 0;
 
@@ -560,6 +561,7 @@ int tagsistant_querytree_parse_store (
 	if (g_strstr_len(path, path_length, "/" TAGSISTANT_QUERY_DELIMITER)) {
 		qtree->complete = 1;
 		qtree->do_reasoning = g_strstr_len(path, path_length, "/" TAGSISTANT_QUERY_DELIMITER_NO_REASONING) ? 0 : 1;
+		qtree->do_reasoning = disable_reasoner ? 0 : qtree->do_reasoning;
 	}
 	dbg('q', LOG_INFO, "Path %s is %scomplete", path, qtree->complete ? "" : "not ");
 
@@ -1310,24 +1312,26 @@ gchar *tagsistant_expand_path(tagsistant_querytree *qtree)
 
 /**
  * Build query tree from path. A querytree is composed of a linked
- * list of ptree_or_node_t objects. Each or object has a descending
- * linked list of ptree_and_node_t objects. This kind of structure
+ * list of qtree_or_node_t objects. Each or object has a descending
+ * linked list of qtree_and_node_t objects. This kind of structure
  * should be considered as a collection (the or horizontal level)
  * of queries (the and vertical lists). Each and list should be
  * resolved using SQLite INTERSECT compound operator. All results
  * should be then merged in a unique list of filenames.
  *
- * @param path the path to be converted in a logical query
- * @param assign_inode if the path has not an associated inode, assign one (used in mknod() and such)
- * @param start_transaction do a "start transaction" on the DB connection
- * @param provide_connection if true, create a DBI connection
+ * @param path                the path to be converted in a logical query
+ * @param assign_inode        if the path has not an associated inode, assign one (used in mknod() and such)
+ * @param start_transaction   do a "start transaction" on the DB connection
+ * @param provide_connection  if true, create a DBI connection
+ * @param disable_reasoner    some FUSE operations do not get affected by the reasoner and can disable it
  * @return a tagsistant_querytree object
  */
 tagsistant_querytree *tagsistant_querytree_new(
 	const char *path,
 	int assign_inode,
 	int start_transaction,
-	int provide_connection)
+	int provide_connection,
+	int disable_reasoner)
 {
 	(void) assign_inode;
 
@@ -1412,7 +1416,7 @@ tagsistant_querytree *tagsistant_querytree_new(
 
 	/* do selective parsing of the query */
 	if (QTREE_IS_STORE(qtree)) {
-		if (!tagsistant_querytree_parse_store(qtree, path, &token_ptr)) goto RETURN;
+		if (!tagsistant_querytree_parse_store(qtree, path, &token_ptr, disable_reasoner)) goto RETURN;
 	} else if (QTREE_IS_TAGS(qtree)) {
 		if (!tagsistant_querytree_parse_tags(qtree, &token_ptr)) goto RETURN;
 	} else if (QTREE_IS_RELATIONS(qtree)) {
@@ -1555,7 +1559,7 @@ tagsistant_querytree *tagsistant_querytree_new(
 		 * checking if the query is consistent or not has been
 		 * moved where the check matters:
 		 *
-		 *   flushc(), getattr(), link(), mkdir(), mknod(), open(),
+		 *   getattr(), link(), mkdir(), mknod(), open(),
 		 *   release(), rename(), rmdir(), symlink(), unlink()
 		 *
 		 * Despite it may seems odd to place an explicit call on all
@@ -1616,7 +1620,7 @@ RETURN:
  *
  * @param andnode a qtree_and_node to be freed
  */
-#define ptree_and_node_destroy(andnode) {\
+#define qtree_and_node_destroy(andnode) {\
 	g_free_null(andnode->tag);\
 	g_free_null(andnode->namespace);\
 	g_free_null(andnode->key);\
@@ -1668,12 +1672,12 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, guint commit_tran
 				while (tag->related) {
 					qtree_and_node *related = tag->related;
 					tag->related = tag->related->related;
-					ptree_and_node_destroy(related);
+					qtree_and_node_destroy(related);
 				}
 
 				// free the ptree_and_node_t node
 				qtree_and_node *next = tag->next;
-				ptree_and_node_destroy(tag);
+				qtree_and_node_destroy(tag);
 				tag = next;
 			}
 

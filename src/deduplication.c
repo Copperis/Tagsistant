@@ -119,7 +119,7 @@ gpointer tagsistant_deduplication_kernel(gpointer data)
 	gchar *path = (gchar *) data;
 
 	/* create a qtree object just to extract the full_archive_path */
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 0);
 
 	if (qtree) {
 		int fd = open(qtree->full_archive_path, O_RDONLY|O_NOATIME);
@@ -147,7 +147,7 @@ gpointer tagsistant_deduplication_kernel(gpointer data)
 				g_free_null(buffer);
 
 				/* re-create the qtree object */
-				qtree = tagsistant_querytree_new(path, 0, 1, 1);
+				qtree = tagsistant_querytree_new(path, 0, 1, 1, 0);
 
 				if (qtree) {
 					/* save the string into the objects table */

@@ -149,7 +149,7 @@ int tagsistant_process(gchar *path, gchar *full_archive_path)
 	/*
 	 * recreate the querytree object just before using it to tag the object
 	 */
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1, 0);
 	if (!qtree) goto STOP_CHAIN_TAGGING;
 
 	/*
