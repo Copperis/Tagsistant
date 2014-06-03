@@ -116,26 +116,26 @@ void tagsistant_path_resolution_init()
 }
 
 /**
- * Given a linked list of ptree_and_node objects (called an and-set)
+ * Given a linked list of qtree_and_node objects (called an and-set)
  * return a string with a comma separated list of all the tags.
  *
  * @param and_set the linked and-set list
  * @return a string like "tag1, tag2, tag3"
  */
-gchar *tagsistant_compile_and_set(gchar *objectname, ptree_and_node *and_set)
+gchar *tagsistant_compile_and_set(gchar *objectname, qtree_and_node *and_set)
 {
 	// TODO valgrind says: check for leaks
 	GString *str = g_string_sized_new(10240);
 	g_string_append_printf(str, "%s>>>", objectname);
 
 	/* compile the string */
-	ptree_and_node *and_pointer = and_set;
+	qtree_and_node *and_pointer = and_set;
 	while (and_pointer) {
 		if (and_pointer->tag) {
 			g_string_append(str, and_pointer->tag);
 
 			/* look for related tags too */
-			ptree_and_node *related = and_pointer->related;
+			qtree_and_node *related = and_pointer->related;
 			while (related) {
 				g_string_append_printf(str, ",%s", related->tag);
 				related = related->related;
@@ -161,7 +161,7 @@ void tagsistant_invalidate_and_set_cache_entries(tagsistant_querytree *qtree)
 	(void) qtree;
 
 
-	ptree_or_node *ptr = qtree->tree;
+	qtree_or_node *ptr = qtree->tree;
 	while (ptr) {
 		// compute the key
 		gchar *search_key = tagsistant_compile_and_set(qtree->object_path, ptr->and_set);
@@ -187,12 +187,12 @@ void tagsistant_invalidate_and_set_cache_entries(tagsistant_querytree *qtree)
 /**
  * check if a tagging is valid
  *
- * @param and the ptree_and_node holding the tag
+ * @param and the qtree_and_node holding the tag
  * @param dbi a dbi_conn connection
- * @param objectname the name of the object to be checked for tagging by the ptree_and_node
+ * @param objectname the name of the object to be checked for tagging by the qtree_and_node
  * @return the inode of the object if the tagging is valid, 0 otherwise
  */
-int tagsistant_check_single_tagging(ptree_and_node *and, dbi_conn dbi, gchar *objectname)
+int tagsistant_check_single_tagging(qtree_and_node *and, dbi_conn dbi, gchar *objectname)
 {
 	tagsistant_inode inode = 0;
 
@@ -258,12 +258,12 @@ tagsistant_inode tagsistant_inode_extract_from_path(const gchar *path)
  * Try to guess the inode of an object by comparing DB contents
  * with and and-set of tags
  *
- * @param and_set a pointer to a ptree_and_node and-set data structure
+ * @param and_set a pointer to a qtree_and_node and-set data structure
  * @param dbi a libDBI dbi_conn reference
  * @param objectname the name of the object we are looking up the inode
  * @return the inode of the object if found, zero otherwise
  */
-tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, dbi_conn dbi, gchar *objectname)
+tagsistant_inode tagsistant_guess_inode_from_and_set(qtree_and_node *and_set, dbi_conn dbi, gchar *objectname)
 {
 	tagsistant_inode inode = 0, guessed_inode = 0;
 
@@ -287,7 +287,7 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 	 * the ->next field. if the object is tagged by each tag, the first
 	 * step is fulfilled
 	 */
-	ptree_and_node *and_set_ptr = and_set;
+	qtree_and_node *and_set_ptr = and_set;
 
 	while (and_set_ptr) {
 		/*
@@ -318,7 +318,7 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 		 * if no match has been found, try with related tags
 		 */
 		if (!single_and_inode) {
-			ptree_and_node *related = and_set_ptr->related;
+			qtree_and_node *related = and_set_ptr->related;
 
 			while (related) {
 				single_and_inode = tagsistant_check_single_tagging(related, dbi, objectname);
@@ -367,7 +367,7 @@ tagsistant_inode tagsistant_guess_inode_from_and_set(ptree_and_node *and_set, db
 		 * if no match has been found, try with related tags
 		 */
 		if (!single_and_inode) {
-			ptree_and_node *related = and_set_ptr->related;
+			qtree_and_node *related = and_set_ptr->related;
 
 			while (related) {
 				single_and_inode = tagsistant_check_single_tagging(related, dbi, objectname);
@@ -441,7 +441,7 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
 	}
 
 	// 2. use the object_first_element to guess if its tagged in the provided set of tags
-	ptree_or_node *or_tmp = qtree->tree;
+	qtree_or_node *or_tmp = qtree->tree;
 	while (or_tmp) {
 		inode = tagsistant_guess_inode_from_and_set(or_tmp->and_set, qtree->dbi, object_first_element);
 
@@ -483,8 +483,36 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
 /** abort parsing a store query with an error message */
 #define TAGSISTANT_ABORT_STORE_PARSING(message) { qtree->error_message = g_strdup(message); return (0); }
 
+#if 0
+typedef enum {
+	BEGIN,
+	AND_NODE,
+	TAG_GROUP
+} tagsistant_query_context;
+
 /**
- * parse the query portion between tags/ and @/
+ * parse the query portion between store/ and @/
+ *
+ * @param qtree the querytree object
+ * @param path the parsed path
+ * @param token_ptr a pointer to the tokenized path (three stars because we need to move it across the array even in calling function)
+ * @param do_reasoning boolean flag which activate the reasoner if true
+ * @return 1 on success, 0 on failure or errors
+ */
+int tagsistant_querytree_parse_store_recursive (
+	tagsistant_querytree *qtree,
+	const char *path,
+	gchar ***token_ptr,
+	qtree_or_node *current_or,
+	qtree_and_node *current_and,
+	tagsistant_query_context context)
+{
+	return (1);
+}
+#endif
+
+/**
+ * parse the query portion between store/ and @/
  *
  * @param qtree the querytree object
  * @param path the parsed path
@@ -493,9 +521,9 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
  * @return 1 on success, 0 on failure or errors
  */
 int tagsistant_querytree_parse_store (
-		tagsistant_querytree *qtree,
-		const char *path,
-		gchar ***token_ptr)
+	tagsistant_querytree *qtree,
+	const char *path,
+	gchar ***token_ptr)
 {
 	unsigned int orcount = 0, andcount = 0;
 
@@ -504,26 +532,26 @@ int tagsistant_querytree_parse_store (
 	 *
 	 * When a tag group is started by {, this variable is set to TAGSISTANT_TAG_GROUP_ADD_NEW_NODE.
 	 *
-	 * The first token will be saved in a new ptree_and_node structure and the tag_group variable
+	 * The first token will be saved in a new qtree_and_node structure and the tag_group variable
 	 * will be set to TAGSISTANT_TAG_GROUP_ADD_TO_NODE.
 	 *
 	 * When the tag group is closed by }, the tag_group variable is set back to TAGSISTANT_TAG_GROUP_DONT_ADD.
 	 *
-	 * Next token will be saved on its own ptree_and_node structure.
+	 * Next token will be saved on its own qtree_and_node structure.
 	 */
 	unsigned int tag_group = TAGSISTANT_TAG_GROUP_DONT_ADD;
 
 	/*
 	 * initialize iterator variables on query tree nodes
 	 */
-	ptree_or_node *last_or = qtree->tree = g_new0(ptree_or_node, 1);
+	qtree_or_node *last_or = qtree->tree = g_new0(qtree_or_node, 1);
 	if (qtree->tree == NULL) {
 		tagsistant_querytree_destroy(qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
 		dbg('q', LOG_ERR, "Error allocating memory");
 		return (0);
 	}
 
-	ptree_and_node *last_and = NULL;
+	qtree_and_node *last_and = NULL;
 
 	/*
 	 * guess if the query is complete or not
@@ -562,7 +590,7 @@ int tagsistant_querytree_parse_store (
 			/* open new entry in OR level */
 			orcount++;
 			andcount = 0;
-			ptree_or_node *new_or = g_new0(ptree_or_node, 1);
+			qtree_or_node *new_or = g_new0(qtree_or_node, 1);
 			if (new_or == NULL) {
 				dbg('q', LOG_ERR, "Error allocating memory");
 				return (0);
@@ -587,7 +615,7 @@ int tagsistant_querytree_parse_store (
 
 		} else {
 			/* save next token in new ptree_and_node_t slot */
-			ptree_and_node *and = g_new0(ptree_and_node, 1);
+			qtree_and_node *and = g_new0(qtree_and_node, 1);
 			if (and == NULL) {
 				dbg('q', LOG_ERR, "Error allocating memory");
 				TAGSISTANT_ABORT_STORE_PARSING(TAGSISTANT_ERROR_MEMORY_ALLOCATION);
@@ -658,8 +686,8 @@ int tagsistant_querytree_parse_store (
 				qtree->negate_next_tag = 0;
 				and->negate = 1;
 
-				/* append this node to the last ptree_and_node as a negated node */
-				ptree_and_node *last_negated = last_and;
+				/* append this node to the last qtree_and_node as a negated node */
+				qtree_and_node *last_negated = last_and;
 				if (!last_and)
 					TAGSISTANT_ABORT_STORE_PARSING(TAGSISTANT_ERROR_NEGATION_ON_FIRST_POSITION);
 
@@ -668,14 +696,14 @@ int tagsistant_querytree_parse_store (
 				}
 				last_negated->negated = and;
 			} else if (TAGSISTANT_TAG_GROUP_ADD_TO_NODE == tag_group) {
-				/* append this node to the last related node of the last ptree_and_node */
-				ptree_and_node *last_related = last_and;
+				/* append this node to the last related node of the last qtree_and_node */
+				qtree_and_node *last_related = last_and;
 				while (last_related->related) {
 					last_related = last_related->related;
 				}
 				last_related->related = and;
 			} else {
-				/* append this node to last ptree_and_node */
+				/* append this node to last qtree_and_node */
 				if (last_and == NULL) {
 					last_or->and_set = and;
 				} else {
@@ -688,7 +716,7 @@ int tagsistant_querytree_parse_store (
 			andcount++;
 
 			/*
-			 * Next tokens will be added to current ptree_and_node structure
+			 * Next tokens will be added to current qtree_and_node structure
 			 */
 			if (TAGSISTANT_TAG_GROUP_ADD_NEW_NODE == tag_group) {
 				tag_group = TAGSISTANT_TAG_GROUP_ADD_TO_NODE;
@@ -1025,11 +1053,11 @@ void tagsistant_querytree_set_inode(tagsistant_querytree *qtree, tagsistant_inod
  * @param origin
  * @return
  */
-ptree_and_node *tagsistant_querytree_duplicate_ptree_and_node_related(ptree_and_node *origin)
+qtree_and_node *tagsistant_querytree_duplicate_ptree_and_node_related(qtree_and_node *origin)
 {
 	if (!origin) return (NULL);
 
-	ptree_and_node *copy = g_new0(ptree_and_node, 1);
+	qtree_and_node *copy = g_new0(qtree_and_node, 1);
 	if (!copy) return (NULL);
 
 	copy->tag = g_strdup(origin->tag);
@@ -1039,16 +1067,16 @@ ptree_and_node *tagsistant_querytree_duplicate_ptree_and_node_related(ptree_and_
 }
 
 /**
- * Duplicate a ptree_and_node branch
+ * Duplicate a qtree_and_node branch
  *
  * @param origin
  * @return
  */
-ptree_and_node *tagsistant_querytree_duplicate_ptree_and_node(ptree_and_node *origin)
+qtree_and_node *tagsistant_querytree_duplicate_ptree_and_node(qtree_and_node *origin)
 {
 	if (!origin) return (NULL);
 
-	ptree_and_node *copy = g_new0(ptree_and_node, 1);
+	qtree_and_node *copy = g_new0(qtree_and_node, 1);
 	if (!copy) return (NULL);
 
 	copy->tag = g_strdup(origin->tag);
@@ -1059,16 +1087,16 @@ ptree_and_node *tagsistant_querytree_duplicate_ptree_and_node(ptree_and_node *or
 }
 
 /**
- * Duplicate a ptree_or_node tree from a querytree
+ * Duplicate a qtree_or_node tree from a querytree
  *
  * @param origin
  * @return
  */
-ptree_or_node *tagsistant_querytree_duplicate_ptree_or_node(ptree_or_node *origin)
+qtree_or_node *tagsistant_querytree_duplicate_ptree_or_node(qtree_or_node *origin)
 {
 	if (!origin) return (NULL);
 
-	ptree_or_node *copy = g_new0(ptree_or_node, 1);
+	qtree_or_node *copy = g_new0(qtree_or_node, 1);
 	if (!copy) return (NULL);
 
 	copy->next = tagsistant_querytree_duplicate_ptree_or_node(origin->next);
@@ -1438,7 +1466,7 @@ tagsistant_querytree *tagsistant_querytree_new(
 		// we just need to check if an object with *token_ptr objectname and
 		// a matching or_node->and_set->tag named tag is listed
 		if (!qtree->inode) {
-			ptree_or_node *or_tmp = qtree->tree;
+			qtree_or_node *or_tmp = qtree->tree;
 			while (or_tmp && !qtree->inode && strlen(qtree->object_path)) {
 				qtree->inode = tagsistant_guess_inode_from_and_set(or_tmp->and_set, qtree->dbi, *token_ptr);
 				or_tmp = or_tmp->next;
@@ -1464,14 +1492,14 @@ tagsistant_querytree *tagsistant_querytree_new(
 			// and set
 			//
 			int valid_query = 0;
-			ptree_or_node *or_tmp = qtree->tree;
+			qtree_or_node *or_tmp = qtree->tree;
 
 			while (or_tmp) {
 				//
 				// check if the object is tagged in this andset
 				//
 				int valid_and_set = 1;
-				ptree_and_node *and_tmp = or_tmp->and_set;
+				qtree_and_node *and_tmp = or_tmp->and_set;
 
 				while (and_tmp) {
 					tagsistant_inode tmp_inode;
@@ -1584,9 +1612,9 @@ RETURN:
 }
 
 /**
- * Quick macro to free a ptree_and_node object
+ * Quick macro to free a qtree_and_node object
  *
- * @param andnode a ptree_and_node to be freed
+ * @param andnode a qtree_and_node to be freed
  */
 #define ptree_and_node_destroy(andnode) {\
 	g_free_null(andnode->tag);\
@@ -1630,27 +1658,27 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, guint commit_tran
 	g_free_null(qtree->error_message);
 
 	if (QTREE_IS_STORE(qtree)) {
-		ptree_or_node *node = qtree->tree;
+		qtree_or_node *node = qtree->tree;
 		while (node != NULL) {
 
-			ptree_and_node *tag = node->and_set;
+			qtree_and_node *tag = node->and_set;
 			while (tag != NULL) {
 
 				// walk related tags
 				while (tag->related) {
-					ptree_and_node *related = tag->related;
+					qtree_and_node *related = tag->related;
 					tag->related = tag->related->related;
 					ptree_and_node_destroy(related);
 				}
 
 				// free the ptree_and_node_t node
-				ptree_and_node *next = tag->next;
+				qtree_and_node *next = tag->next;
 				ptree_and_node_destroy(tag);
 				tag = next;
 			}
 
 			// free the ptree_or_node_t node
-			ptree_or_node *next = node->next;
+			qtree_or_node *next = node->next;
 			g_free_null(node);
 			node = next;
 		}
@@ -1681,9 +1709,9 @@ extern void tagsistant_querytree_traverse(
 {
     if (!qtree) { return; }
 
-	ptree_or_node *ptx = qtree->tree;
+	qtree_or_node *ptx = qtree->tree;
 	while (NULL != ptx) {
-		ptree_and_node *andptx = ptx->and_set;
+		qtree_and_node *andptx = ptx->and_set;
 		while (NULL != andptx) {
 			if (andptx->tag) {
 				funcpointer(qtree->dbi, andptx->tag, NULL, NULL, opt_inode);

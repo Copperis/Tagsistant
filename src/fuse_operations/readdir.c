@@ -31,7 +31,7 @@ struct tagsistant_use_filler_struct {
 };
 
 // filetree functions
-GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn, int is_all_path);
+GHashTable *tagsistant_filetree_new(qtree_or_node *query, dbi_conn conn, int is_all_path);
 void tagsistant_filetree_destroy_value_list(gchar *key, GList *list_p, gpointer data);
 #define tagsistant_filetree_destroy_value g_free_null
 
@@ -58,11 +58,11 @@ static int tagsistant_add_entry_to_dir(void *filler_ptr, dbi_result result)
 	if (strlen(dir) == 0) return (1);
 
 	/* check if this tag has been already listed inside the path */
-	ptree_or_node *ptx = ufs->qtree->tree;
+	qtree_or_node *ptx = ufs->qtree->tree;
 	if (ptx) {
 		while (NULL != ptx->next) ptx = ptx->next; // last OR section
 
-		ptree_and_node *and_t = ptx->and_set;
+		qtree_and_node *and_t = ptx->and_set;
 		while (NULL != and_t) {
 			if (g_strcmp0(and_t->tag, dir) == 0) {
 				return(0);
@@ -679,7 +679,7 @@ static int tagsistant_add_to_filetree(void *hash_table_pointer, dbi_result resul
 }
 
 void tagsistant_filetree_add_tag(
-	ptree_and_node *tag,
+	qtree_and_node *tag,
 	GString *tag_id_condition,
 	GString *tag_id_exclude_condition,
 	GString *triple_tag_condition,
@@ -748,7 +748,7 @@ void tagsistant_filetree_add_tag(
  * @param query the ptree_or_node_t* query structure to
  * be resolved.
  */
-GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn, int is_all_path)
+GHashTable *tagsistant_filetree_new(qtree_or_node *query, dbi_conn conn, int is_all_path)
 {
 	/*
 	 * If the query contains the ALL meta-tag, just select all the available
@@ -768,7 +768,7 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn, int is_
 	}
 
 	/* save a working pointer to the query */
-	ptree_or_node *query_dup = query;
+	qtree_or_node *query_dup = query;
 
 	/*
 	 * MySQL does not support intersect!
@@ -801,7 +801,7 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn, int is_
 
 	int nesting = 0;
 	while (query != NULL) {
-		ptree_and_node *tag = query->and_set;
+		qtree_and_node *tag = query->and_set;
 
 		// preallocate 50Kbytes for the string
 		// TODO valgrind says: check for leaks
@@ -825,7 +825,7 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn, int is_
 				conn);
 
 			if (tag->related) {
-				ptree_and_node *related = tag->related;
+				qtree_and_node *related = tag->related;
 				while (related) {
 					tagsistant_filetree_add_tag(
 						related,
@@ -839,7 +839,7 @@ GHashTable *tagsistant_filetree_new(ptree_or_node *query, dbi_conn conn, int is_
 			}
 
 			if (tag->negated) {
-				ptree_and_node *negated = tag->negated;
+				qtree_and_node *negated = tag->negated;
 				while (negated) {
 					tagsistant_filetree_add_tag(
 						negated,

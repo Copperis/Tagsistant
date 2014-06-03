@@ -443,7 +443,7 @@ sub start {
 	if (defined $ARGV[0]) {
 		if ($ARGV[0] eq "--mysql") {
 			$driver = "mysql";
-			system("echo 'drop table objects; drop table tags; drop table tagging; drop table relations;' | mysql -u tagsistant_test_suite --password='tagsistant_test' tagsistant_test");
+			system("echo 'drop table objects; drop table tags; drop table tagging; drop table relations;' | mysql -u tagsistant_test --password='tagsistant_test' tagsistant_test_suite");
 		} elsif (($ARGV[0] eq "--sqlite") || ($ARGV[0] eq "--sqlite3")) {
 			$driver = "sqlite3";
 		} else {
@@ -471,6 +471,8 @@ sub start {
 		die("No driver!");
 	}
 	$MCMD .= " $MPOINT 2>&1";
+
+	print $MCMD, "\n";
 	
 	# umount command
 	my $FUSERMOUNT = `which fusermount` || die("No fusermount found!\n");

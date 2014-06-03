@@ -71,7 +71,7 @@ typedef struct ptree_and_node {
 
 	/** next AND token */
 	struct ptree_and_node *next;
-} ptree_and_node;
+} qtree_and_node;
 
 /**
  * define an OR section in a query path
@@ -82,7 +82,7 @@ typedef struct ptree_or_node {
 
 	/** the list of AND tokens */
 	struct ptree_and_node *and_set;
-} ptree_or_node;
+} qtree_or_node;
 
 /*
  * depeding on relative path, a query can be one in the following:
@@ -220,7 +220,7 @@ typedef struct querytree {
 	int force_inode_in_filenames;
 
 	/** the query tree in a tags/ query */
-	ptree_or_node *tree;
+	qtree_or_node *tree;
 
 	/** used during path parsing to specify that next tag should not match */
 	int negate_next_tag;
@@ -297,8 +297,8 @@ typedef struct {
  * reasoning structure to trace reasoning process
  */
 typedef struct {
-	ptree_and_node *start_node;
-	ptree_and_node *current_node;
+	qtree_and_node *start_node;
+	qtree_and_node *current_node;
 	int added_tags;
 	dbi_conn conn;
 	int negate;
@@ -319,16 +319,16 @@ typedef struct {
  * a tagstistant_querytree_t structure. the function applied must be
  * declared as:
  *
- *   void function(dbi_conn dbi, ptree_and_node *node, ...);
+ *   void function(dbi_conn dbi, qtree_and_node *node, ...);
  *
  * @param qtree the tagsistant_querytree structure to traverse
  * @param funcpointer the function pointer
  */
 #define old_tagsistant_querytree_traverse(qtree, funcpointer, ...) {\
 	if (NULL != qtree) {\
-		ptree_or_node *ptx = qtree->tree;\
+		qtree_or_node *ptx = qtree->tree;\
 		while (NULL != ptx) {\
-			ptree_and_node *andptx = ptx->and_set;\
+			qtree_and_node *andptx = ptx->and_set;\
 			while (NULL != andptx) {\
 				if (andptx->tag) {\
 					funcpointer(qtree->dbi, andptx->tag, NULL, NULL, ##__VA_ARGS__);\
