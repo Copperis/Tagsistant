@@ -77,7 +77,7 @@ void tagsistant_reasoner_init()
 	(and->namespace && (g_strcmp0(and->namespace, T->namespace) == 0) && \
 	(g_strcmp0(and->key, T->key) == 0) && (g_strcmp0(and->value, T->value) == 0)))
 
-int tagsistant_and_node_match(ptree_and_node *and, tagsistant_tag *T)
+int tagsistant_and_node_match(qtree_and_node *and, tagsistant_tag *T)
 {
 	if (T->tag_id == and->tag_id) return (1);
 
@@ -110,20 +110,20 @@ static int tagsistant_add_reasoned_tag(tagsistant_tag *T, tagsistant_reasoning *
 {
 #if 1
 	/* check for duplicates */
-	ptree_and_node *and = reasoning->start_node;
+	qtree_and_node *and = reasoning->start_node;
 	while (and) {
 		/*
 		 * avoid duplicates
 		 */
 		if (tagsistant_and_node_match(and, T)) return (0);
 
-		ptree_and_node *related = and->related;
+		qtree_and_node *related = and->related;
 		while (related) {
 			if (tagsistant_and_node_match(related, T)) return (0);
 			related = related->related;
 		}
 
-		ptree_and_node *negated = and->negated;
+		qtree_and_node *negated = and->negated;
 		while (negated) {
 			if (tagsistant_and_node_match(negated, T)) return (0);
 			negated = negated->negated;
@@ -134,7 +134,7 @@ static int tagsistant_add_reasoned_tag(tagsistant_tag *T, tagsistant_reasoning *
 #endif
 
 	/* adding tag */
-	ptree_and_node *reasoned = g_new0(ptree_and_node, 1);
+	qtree_and_node *reasoned = g_new0(qtree_and_node, 1);
 
 	if (!reasoned) {
 		dbg('r', LOG_ERR, "Error allocating memory");
@@ -152,13 +152,13 @@ static int tagsistant_add_reasoned_tag(tagsistant_tag *T, tagsistant_reasoning *
 
 	/* append the reasoned tag */
 	if (reasoning->negate) {
-		ptree_and_node *last_reasoned = reasoning->current_node;
+		qtree_and_node *last_reasoned = reasoning->current_node;
 		while (last_reasoned->negated) {
 			last_reasoned = last_reasoned->negated;
 		}
 		last_reasoned->negated = reasoned;
 	} else {
-		ptree_and_node *last_reasoned = reasoning->current_node;
+		qtree_and_node *last_reasoned = reasoning->current_node;
 		while (last_reasoned->related) {
 			last_reasoned = last_reasoned->related;
 		}
@@ -269,11 +269,11 @@ int tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int do_caching)
 		 */
 		reasoning->negate = 0;
 		tagsistant_query(
-			"select tag_id, tagname, key, value from tags "
+			"select tag_id, tagname, `key`, value from tags "
 				"join relations on tags.tag_id = relations.tag2_id "
 				"where tag1_id = %d and relation in ('includes', 'is_equivalent') "
 			"union "
-			"select tag_id, tagname, key, value from tags "
+			"select tag_id, tagname, `key`, value from tags "
 				"join relations on tags.tag_id = relations.tag1_id "
 				"where tag2_id = %d and relation = 'is_equivalent' ",
 			reasoning->conn,
@@ -287,7 +287,7 @@ int tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int do_caching)
 		 */
 		reasoning->negate = 1;
 		tagsistant_query(
-			"select tag_id, tagname, key, value from tags "
+			"select tag_id, tagname, `key`, value from tags "
 				"join relations on tags.tag_id = relations.tag2_id "
 				"where tag1_id = %d and relation = 'excludes'",
 			reasoning->conn,
@@ -314,7 +314,7 @@ int tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int do_caching)
 	if (do_caching && !found && reference_key) {
 		// first we must build a GList holding all the reasoned tags...
 		GList *reasoned_list = NULL;
-		ptree_and_node *reasoned = reasoning->start_node->related;
+		qtree_and_node *reasoned = reasoning->start_node->related;
 		while (reasoned) {
 			tagsistant_tag *T = g_new0(tagsistant_tag, 1);
 
