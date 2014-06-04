@@ -847,7 +847,7 @@ GHashTable *tagsistant_filetree_new(qtree_or_node *query, dbi_conn conn, int is_
 		 * for each ->negated linked node, subtract from the base table
 		 * the objects that do match this node
 		 */
-		qtree_and_node *negated = query->and_set->next;
+		qtree_and_node *negated = query->and_set->negated;
 		while (negated) {
 			GString *cross_tag = g_string_sized_new(51200);
 			g_string_append_printf(cross_tag,
