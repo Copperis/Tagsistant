@@ -630,6 +630,9 @@ TAGSISTANT_EXIT_OPERATION:
 
 /**
  * add a file to the file tree (callback function)
+ *
+ * @param hash_table_pointer a GHashTable to hold results
+ * @param result a DBI result
  */
 static int tagsistant_add_to_filetree(void *hash_table_pointer, dbi_result result)
 {
@@ -678,322 +681,252 @@ static int tagsistant_add_to_filetree(void *hash_table_pointer, dbi_result resul
 	return (0);
 }
 
-void tagsistant_filetree_add_tag(
-	qtree_and_node *tag,
-	GString *tag_id_condition,
-	GString *tag_id_exclude_condition,
-	GString *triple_tag_condition,
-	GString *triple_tag_exclude_condition,
-	dbi_conn conn)
+/**
+ * Add a filter criterion to a WHERE clause based on a qtree_and_node object
+ *
+ * @param statement a GString object holding the building query statement
+ * @param and_set the qtree_and_node object describing the tag to be added as a criterion
+ */
+void tagsistant_query_add_and_set(GString *statement, qtree_and_node *and_set)
 {
-	if (tag->tag) {
-		if (!tag->tag_id) tag->tag_id = tagsistant_sql_get_tag_id(conn, tag->tag, NULL, NULL);
-		if (tag->negate) {
-			g_string_append_printf(tag_id_exclude_condition, ", %d", tag->tag_id);
-		} else {
-			g_string_append_printf(tag_id_condition, ", %d", tag->tag_id);
-		}
-	} else {
-		if (!tag->tag_id) tag->tag_id = tagsistant_sql_get_tag_id(conn, tag->namespace, tag->key, tag->value);
-		GString *appender = (tag->negate) ? triple_tag_exclude_condition : triple_tag_condition;
-		switch (tag->operator) {
+	if (and_set->tag_id) {
+		g_string_append_printf(statement, "tagging.tag_id = %d ", and_set->tag_id);
+	} else if (and_set->tag) {
+		g_string_append_printf(statement, "tagname = '%s' ", and_set->tag);
+	} else if (and_set->value) {
+		switch (and_set->operator) {
+			case TAGSISTANT_EQUAL_TO:
+				g_string_append_printf(statement,
+					"tagname = '%s' and `key` = '%s' and value = '%s' ",
+					and_set->namespace,
+					and_set->key,
+					and_set->value);
+				break;
 			case TAGSISTANT_CONTAINS:
-				g_string_append_printf(
-					appender,
-					" or (tagname= '%s' and `key` = '%s' and value like '%%%s%%')",
-					tag->namespace, tag->key, tag->value);
+				g_string_append_printf(statement,
+					"tagname = '%s' and `key` = '%s' and value like '%%%s%%' ",
+					and_set->namespace,
+					and_set->key,
+					and_set->value);
 				break;
 			case TAGSISTANT_GREATER_THAN:
-				g_string_append_printf(
-					appender,
-					" or (tagname = '%s' and `key` = '%s' and value > '%s')",
-					tag->namespace, tag->key, tag->value);
+				g_string_append_printf(statement,
+					"tagname = '%s' and `key` = '%s' and value > '%s' ",
+					and_set->namespace,
+					and_set->key,
+					and_set->value);
 				break;
 			case TAGSISTANT_SMALLER_THAN:
-				g_string_append_printf(
-					appender,
-					" or (tagname = '%s' and `key` = '%s' and value < '%s')",
-					tag->namespace, tag->key, tag->value);
-				break;
-			case TAGSISTANT_EQUAL_TO:
-			default:
-				appender = (tag->negate) ? tag_id_exclude_condition : tag_id_condition;
-				g_string_append_printf(appender, ", %d", tag->tag_id);
+				g_string_append_printf(statement,
+					"tagname = '%s' and `key` = '%s' and value < '%s' ",
+					and_set->namespace,
+					and_set->key,
+					and_set->value);
 				break;
 		}
 	}
 }
 
 /**
- * build a linked list of filenames that apply to querytree
- * query expressed in query. querytree translate as follows
- * while using SQLite:
+ * build a linked list of filenames that satisfy the querytree
+ * object. This is translated in a two phase flow:
  *
- *   1. each ptree_and_node_t list converted in a INTERSECT
- *   multi-SELECT query, and is saved as a VIEW. The name of
- *   the view is the string tv%.8X where %.8X is the memory
- *   location of the ptree_or_node_t to which the list is
- *   linked.
+ * 1. each qtree_and_node list is translated into one
+ * (temporary) table
  *
- *   2. a global select is built using all the views previously
- *   created joined by UNION operators. a sqlite3_exec call
- *   applies it using add_to_filetree() as callback function.
+ * 2. the content of all tables are read in with a UNION
+ * chain inside a super-select to apply the ORDER BY clause.
  *
- *   3. all the views are removed with a DROP VIEW query.
+ * 3. all the (temporary) tables are removed
  *
- * MySQL does not feature the INTERSECT operator. So each
- * ptree_and_node_t list is converted to a set of nested
- * queries. Steps 2 and 3 apply unchanged.
- *
- * @param query the ptree_or_node_t* query structure to
- * be resolved.
+ * @param query the qtree_or_node query structure to be resolved
+ * @param conn a libDBI dbi_conn handle
+ * @param is_all_path is true when the path includes the ALL/ tag
+ * @return a pointer to a GHashTable of tagsistant_file_handle objects
  */
 GHashTable *tagsistant_filetree_new(qtree_or_node *query, dbi_conn conn, int is_all_path)
 {
+	qtree_or_node *query_dup = query;
+
 	/*
 	 * If the query contains the ALL meta-tag, just select all the available
 	 * objects and return them
 	 */
 	if (is_all_path) {
 		GHashTable *file_hash = g_hash_table_new(g_str_hash, g_str_equal);
-
 		tagsistant_query("select objectname, inode from objects", conn, tagsistant_add_to_filetree, file_hash);
-
 		return(file_hash);
 	}
 
+	/*
+	 * a NULL query can't be processed
+	 */
 	if (!query) {
 		dbg('f', LOG_ERR, "NULL path_tree_t object provided to %s", __func__);
 		return(NULL);
 	}
 
-	/* save a working pointer to the query */
-	qtree_or_node *query_dup = query;
-
 	/*
-	 * MySQL does not support intersect!
-	 * So we must find an alternative way.
-	 * Some hints:
+	 * PHASE 1.
+	 * Build a set of temporary tables containing all the matched objects
 	 *
-	 * 1. select distinct objectname, objects.inode as inode from objects
-	 *    join tagging on tagging.inode = objects.inode
-	 *    join tags on tagging.tag_id = tags.tag_id
-	 *    where tags.tagname in ("t1", "t2", "t3");
-	 *
-	 * Main problem with 1. is that it finds all the objects tagged
-	 * at least with one of the tags listed, not what the AND-set
-	 * means
-	 *
-	 * 2. select distinct objects.inode from objects
-	 *    inner join tagging on tagging.inode = objects.inode
-	 *    where tag_id = 1 and objects.inode in (
-	 *      select distinct objects.inode from objects
-	 *      inner join tagging on tagging.inode = objects.inode
-	 *      where tag_id = 2 and objects.inode in (
-	 *        select distinct objects.inode from objects
-	 *        inner join tagging on tagging.inode = objects.inode
-	 *        where tag_id = 3
-	 *      )
-	 *    )
-	 *
-	 * That's the longest and less readable form but seems to work.
+	 * Step 1.1. for each qtree_or_node build a temporary table
 	 */
+	while (query) {
+		GString *create_base_table = g_string_sized_new(51200);
+		g_string_append_printf(create_base_table,
+			"create temporary table tv%.16" PRIxPTR " as "
+			"select objects.inode, objects.objectname from objects "
+				"join tagging on tagging.inode = objects.inode "
+				"join tags on tags.tag_id = tagging.tag_id "
+				"where ",
+			(uintptr_t) query);
 
-	int nesting = 0;
-	while (query != NULL) {
-		qtree_and_node *tag = query->and_set;
+		/*
+		 * add each qtree_and_node (main and ->related) to the query
+		 */
+		tagsistant_query_add_and_set(create_base_table, query->and_set);
 
-		// preallocate 50Kbytes for the string
-		// TODO valgrind says: check for leaks
-		GString *statement = g_string_sized_new(51200);
+		qtree_and_node *related = query->and_set->related;
+		while (related) {
+			g_string_append(create_base_table, " or ");
+			tagsistant_query_add_and_set(create_base_table, related);
+			related = related->related;
+		}
 
-		GString *tag_id_exclude_condition = g_string_sized_new(1024);
-		GString *triple_tag_exclude_condition = g_string_sized_new(10240);
+		/*
+		 * create the table and dispose the statement GString
+		 */
+		tagsistant_query(create_base_table->str, conn, NULL, NULL);
+		g_string_free(create_base_table, TRUE);
 
-		while (tag != NULL) {
-
-			/* create the list of tags (natural or related) to match */
-			GString *tag_id_condition = g_string_sized_new(1024);
-			GString *triple_tag_condition = g_string_sized_new(10240);
-
-			tagsistant_filetree_add_tag(
-				tag,
-				tag_id_condition,
-				tag_id_exclude_condition,
-				triple_tag_condition,
-				triple_tag_exclude_condition,
-				conn);
-
-			if (tag->related) {
-				qtree_and_node *related = tag->related;
-				while (related) {
-					tagsistant_filetree_add_tag(
-						related,
-						tag_id_condition,
-						tag_id_exclude_condition,
-						triple_tag_condition,
-						triple_tag_exclude_condition,
-						conn);
-					related = related->related;
-				}
-			}
-
-			if (tag->negated) {
-				qtree_and_node *negated = tag->negated;
-				while (negated) {
-					tagsistant_filetree_add_tag(
-						negated,
-						tag_id_condition,
-						tag_id_exclude_condition,
-						triple_tag_condition,
-						triple_tag_exclude_condition,
-						conn);
-					negated = negated->negated;
-				}
-			}
-
-			if (tagsistant.sql_backend_have_intersect) {
-
-				/* shorter syntax for SQL dialects that provide INTERSECT */
-				g_string_append(statement,
-					"select objectname, objects.inode as inode from objects "
+		/*
+		 * Step 1.2.
+		 * for each ->next linked node, subtract from the base table
+		 * the objects not matching this node
+		 */
+		qtree_and_node *next = query->and_set->next;
+		while (next) {
+			GString *cross_tag = g_string_sized_new(51200);
+			g_string_append_printf(cross_tag,
+				"delete from tv%.16" PRIxPTR " where inode not in ("
+				"select objects.inode from objects "
 					"join tagging on tagging.inode = objects.inode "
 					"join tags on tags.tag_id = tagging.tag_id "
-					"where ");
+					"where ",
+				(uintptr_t) query);
 
-			} else {
+			/*
+			 * add each qtree_and_node (main and ->related) to the query
+			 */
+			tagsistant_query_add_and_set(cross_tag, next);
 
-				/* longer syntax for SQL dialects that do not provide INTERSECT */
-				if (nesting) {
-					g_string_append(statement,
-						" and objects.inode in ("
-							"select distinct objects.inode from objects "
-							"inner join tagging on tagging.inode = objects.inode "
-							"inner join tags on tagging.tag_id = tags.tag_id "
-							"where ");
-				} else {
-					g_string_append(statement,
-						"select distinct objectname, objects.inode as inode from objects "
-						"inner join tagging on tagging.inode = objects.inode "
-						"inner join tags on tagging.tag_id = tags.tag_id "
-						"where ");
-				}
-
-				/* increment nesting counter, used to match parenthesis later */
-				nesting++;
+			qtree_and_node *related = next->related;
+			while (related) {
+				g_string_append(cross_tag, " or ");
+				tagsistant_query_add_and_set(cross_tag, related);
+				related = related->related;
 			}
 
-			g_string_append_printf(statement, "(");
+			/*
+			 * close the subquery
+			 */
+			g_string_append(cross_tag, ")");
 
-			int has_tag_id_condition = strlen(tag_id_condition->str);
-			int has_triple_tag_condition = strlen(triple_tag_condition->str);
+			/*
+			 * apply the query and dispose the statement GString
+			 */
+			tagsistant_query(cross_tag->str, conn, NULL, NULL);
+			g_string_free(cross_tag, TRUE);
 
-			if (has_tag_id_condition) {
-				// skip the first ", " of the string
-				g_string_append_printf(statement, " tagging.tag_id in (%s) ", tag_id_condition->str + 2);
-			}
-
-			if (has_triple_tag_condition) {
-				gchar *condition = triple_tag_condition->str;
-				if (!has_tag_id_condition) condition += 4; // skip the first " or " of the string
-				g_string_append(statement, condition);
-			}
-
-			g_string_append(statement, ")");
-
-			if (tagsistant.sql_backend_have_intersect && tag->next) {
-				g_string_append(statement, " intersect ");
-			}
-
-			g_string_free(tag_id_condition, TRUE);
-			g_string_free(triple_tag_condition, TRUE);
-
-			tag = tag->next;
+			next = next->next;
 		}
-
-		/* add closing parenthesis on the end of non-INTERSECT queries */
-		if (!tagsistant.sql_backend_have_intersect) {
-			nesting--; // we need one closed parenthesis less than nested sub-queries
-
-			while (nesting) {
-				g_string_append(statement, ")");
-				nesting--;
-			}
-		}
-
-		int has_single_tag_exclude = strlen(tag_id_exclude_condition->str);
-		int has_triple_tag_exclude = strlen(triple_tag_exclude_condition->str);
 
 		/*
-		 * if we have at least one negated tag we have to wrap all the statement inside a
-		 * super-select and add some WHERE clause to exclude some files
+		 * Step 1.3.
+		 * for each ->negated linked node, subtract from the base table
+		 * the objects that do match this node
 		 */
-		if (has_single_tag_exclude || has_triple_tag_exclude) {
-			g_string_prepend(statement, "select s.objectname, s.inode from (");
-			g_string_append(statement,
-				") s where s.inode not in ("
-					"select distinct inode "
-					"from tagging "
+		qtree_and_node *negated = query->and_set->next;
+		while (negated) {
+			GString *cross_tag = g_string_sized_new(51200);
+			g_string_append_printf(cross_tag,
+				"delete from tv%.16" PRIxPTR " where inode in ("
+				"select objects.inode from objects "
+					"join tagging on tagging.inode = objects.inode "
 					"join tags on tags.tag_id = tagging.tag_id "
-					"where ");
+					"where ",
+				(uintptr_t) query);
 
-			if (has_single_tag_exclude) {
-				g_string_append_printf(statement, "tags.tag_id in (%s) ", tag_id_exclude_condition->str + 2);
+			/*
+			 * add each qtree_and_node (main and ->related) to the query
+			 */
+			tagsistant_query_add_and_set(cross_tag, negated);
+
+			qtree_and_node *related = negated->related;
+			while (related) {
+				g_string_append(cross_tag, " or ");
+				tagsistant_query_add_and_set(cross_tag, related);
+				related = related->related;
 			}
 
-			if (has_single_tag_exclude && has_triple_tag_exclude) {
-				g_string_append(statement, " or ");
-			}
+			/*
+			 * close the subquery
+			 */
+			g_string_append(cross_tag, ")");
 
-			if (has_triple_tag_exclude) {
-				g_string_append(statement, triple_tag_exclude_condition->str + 4);
-			}
+			/*
+			 * apply the query and dispose the statement GString
+			 */
+			tagsistant_query(cross_tag->str, conn, NULL, NULL);
+			g_string_free(cross_tag, TRUE);
 
-			g_string_append(statement, ")");
+			negated = negated->negated;
 		}
 
-		g_string_free(tag_id_exclude_condition, TRUE);
-		g_string_free(triple_tag_exclude_condition, TRUE);
-
 		/*
-		 * prepend the "create view" part of the statement
+		 * move to the next qtree_or_node in the linked list
 		 */
-		gchar *create_view = g_strdup_printf("create view tv%.16" PRIxPTR " as ", (uintptr_t) query);
-		g_string_prepend(statement, create_view);
-		g_free(create_view);
-
-		dbg('f', LOG_INFO, "SQL: filetree query [%s]", statement->str);
-
-		/* create view */
-		tagsistant_query(statement->str, conn, NULL, NULL);
-		g_string_free(statement,TRUE);
 		query = query->next;
 	}
 
-	/* format view statement */
+	/*
+	 * PHASE 2.
+	 *
+	 * format the main statement which reads from the temporary
+	 * tables using UNION and ordering the files
+	 */
 	GString *view_statement = g_string_sized_new(10240);
+
+	// g_string_append(view_statement, "select q.inode, q.objectname from ("); // does not work
+
 	query = query_dup;
-	while (query != NULL) {
+	while (query) {
 		g_string_append_printf(view_statement, "select objectname, inode from tv%.16" PRIxPTR, (uintptr_t) query);
-
-		if (query->next != NULL) g_string_append(view_statement, " union ");
-
+		if (query->next) g_string_append(view_statement, " union ");
 		query = query->next;
 	}
 
-//	dbg('f', LOG_INFO, "SQL view query [%s]", view_statement->str);
+	// g_string_append(view_statement, ") q order by q.objectname"); // does not work
 
-	/* apply view statement */
+	/*
+	 * apply view statement
+	 */
 	GHashTable *file_hash = g_hash_table_new(g_str_hash, g_str_equal);
-
 	tagsistant_query(view_statement->str, conn, tagsistant_add_to_filetree, file_hash);
 
-	/* free the SQL statement */
+	/*
+	 * free the SQL statement
+	 */
 	g_string_free(view_statement, TRUE);
 
-	/* drop the views */
+	/*
+	 * PHASE 3.
+	 *
+	 * drop the temporary tables
+	 */
 	while (query_dup) {
-		tagsistant_query("drop view tv%.16" PRIxPTR, conn, NULL, NULL, (uintptr_t) query_dup);
+		tagsistant_query("drop table tv%.16" PRIxPTR, conn, NULL, NULL, (uintptr_t) query_dup);
 		query_dup = query_dup->next;
 	}
 
