@@ -50,7 +50,12 @@ int tagsistant_flush(const char *path, struct fuse_file_info *fi)
 			&do_deduplicate,
 			qtree->object_path);
 
-		if (do_deduplicate) deduplicate = g_strdup(path);
+		if (do_deduplicate) {
+			dbg('2', LOG_INFO, "Deduplicating %s", path);
+			deduplicate = g_strdup(path);
+		} else {
+			dbg('2', LOG_INFO, "Skipping deduplication for %s", path);
+		}
 	}
 
 	if (fi->fh) {

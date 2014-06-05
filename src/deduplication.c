@@ -118,12 +118,14 @@ gpointer tagsistant_deduplication_kernel(gpointer data)
 {
 	gchar *path = (gchar *) data;
 
+	dbg('2', LOG_INFO, "Deduplication request for %s", path);
+
 	/* create a qtree object just to extract the full_archive_path */
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 1);
 
 	if (qtree) {
 		int fd = open(qtree->full_archive_path, O_RDONLY|O_NOATIME);
-		tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
+		// tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
 
 		if (-1 != fd) {
 			dbg('2', LOG_INFO, "Running deduplication on %s", path);
@@ -147,7 +149,7 @@ gpointer tagsistant_deduplication_kernel(gpointer data)
 				g_free_null(buffer);
 
 				/* re-create the qtree object */
-				qtree = tagsistant_querytree_new(path, 0, 1, 1, 0);
+				// qtree = tagsistant_querytree_new(path, 0, 1, 1, 1);
 
 				if (qtree) {
 					/* save the string into the objects table */
@@ -351,7 +353,7 @@ void tagsistant_deduplication_init()
 #endif
 
 	/* fix missing checksums */
-	tagsistant_fix_checksums();
+	//tagsistant_fix_checksums();
 }
 
 /**
@@ -369,7 +371,8 @@ void tagsistant_deduplicate(gchar *path)
 	}
 	g_mutex_unlock(&tagsistant_deduplication_mutex);
 #else
-	g_async_queue_push(tagsistant_deduplication_queue, g_strdup(path));
+	// g_async_queue_push(tagsistant_deduplication_queue, g_strdup(path));
+	tagsistant_deduplication_kernel(g_strdup(path));
 #endif
 }
 
