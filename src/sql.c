@@ -202,7 +202,7 @@ void tagsistant_db_init()
 
 	/* initialize the regular expressions used to escape the SQL queries */
 	RX1 = g_regex_new("[\"']", 0, 0, NULL);
-	RX2 = g_regex_new("'", 0, 0, NULL);
+	RX2 = g_regex_new("\"", 0, 0, NULL);
 	RX3 = g_regex_new("<><>", 0, 0, NULL);
 }
 
@@ -541,10 +541,10 @@ int tagsistant_real_query(
 	}
 
 	/* prepend a backslash to all the single quotes inside the arguments */
-	gchar *escaped_statement_tmp = g_regex_replace_literal(RX2, statement, -1, 0, "\\'", 0, NULL);
+	gchar *escaped_statement_tmp = g_regex_replace_literal(RX2, statement, -1, 0, "\\\"", 0, NULL);
 
 	/* replace "<><>" with a single quote */
-	gchar *escaped_statement = g_regex_replace_literal(RX3, escaped_statement_tmp, -1, 0, "'", 0, NULL);
+	gchar *escaped_statement = g_regex_replace_literal(RX3, escaped_statement_tmp, -1, 0, "\"", 0, NULL);
 
 	/* log and do the query */
 	dbg('s', LOG_INFO, "SQL from %s:%d: [%s]", file, line, escaped_statement);
