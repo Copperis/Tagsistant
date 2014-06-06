@@ -21,9 +21,9 @@
 
 #include "tagsistant.h"
 
-#define TAGISTANT_USE_QUERY_MUTEX 0
+#define TAGSISTANT_USE_QUERY_MUTEX 0
 
-#if TAGISTANT_USE_QUERY_MUTEX
+#if TAGSISTANT_USE_QUERY_MUTEX
 // GMutex tagsistant_query_mutex;
 #endif
 
@@ -99,7 +99,7 @@ void tagsistant_db_init()
 	dbi_initialize(NULL);
 #endif
 
-#if TAGISTANT_USE_QUERY_MUTEX
+#if TAGSISTANT_USE_QUERY_MUTEX
 	g_mutex_init(&tagsistant_query_mutex);
 #endif
 
@@ -511,14 +511,14 @@ int tagsistant_real_query(
 		return(0);
 	}
 
-#if TAGISTANT_USE_QUERY_MUTEX
+#if TAGSISTANT_USE_QUERY_MUTEX
 	/* lock the connection mutex */
 	g_mutex_lock(&tagsistant_query_mutex);
 #endif
 
 	/* check if the connection is alive */
 	if (!dbi_conn_ping(dbi)	&& dbi_conn_connect(dbi) < 0) {
-#if TAGISTANT_USE_QUERY_MUTEX
+#if TAGSISTANT_USE_QUERY_MUTEX
 		g_mutex_unlock(&tagsistant_query_mutex);
 #endif
 		dbg('s', LOG_ERR, "ERROR! DBI Connection has gone!");
@@ -531,7 +531,7 @@ int tagsistant_real_query(
 	/* format the statement */
 	gchar *statement = g_strdup_vprintf(escaped_format, ap);
 	if (NULL == statement) {
-#if TAGISTANT_USE_QUERY_MUTEX
+#if TAGSISTANT_USE_QUERY_MUTEX
 		/* lock the connection mutex */
 		g_mutex_unlock(&tagsistant_query_mutex);
 #endif
@@ -577,7 +577,7 @@ int tagsistant_real_query(
 
 	}
 
-#if TAGISTANT_USE_QUERY_MUTEX
+#if TAGSISTANT_USE_QUERY_MUTEX
 	g_mutex_unlock(&tagsistant_query_mutex);
 #endif
 
