@@ -32,6 +32,7 @@ static struct EXTRACTOR_PluginList *plist;
 #endif
 
 static GRegex *tagsistant_rx_date;
+static GRegex *tagsistant_rx_cleaner;
 
 #ifndef errno
 #define errno
@@ -336,13 +337,18 @@ void tagsistant_keyword_matcher(
 	const gchar *value,
 	const tagsistant_querytree *qtree)
 {
-	/* if the keyword name matches the filter regular expression... */
+	/*
+	 * if the keyword name matches the filter regular expression
+	 */
 	if (g_regex_match(regex, keyword, 0, NULL)) {
 
-		/* ... build a tag which is "keyword_name:keyword_value" ... */
-		gchar *clean_keyword = g_strdup(keyword);
-		gchar *clean_value = g_strdup(value);
+		/*
+		 * build a tag which is "keyword_name:keyword_value"
+		 */
+		gchar *clean_keyword = g_regex_replace_literal(tagsistant_rx_cleaner, keyword, -1, 0, "-", 0, NULL);
+		gchar *clean_value = g_regex_replace_literal(tagsistant_rx_cleaner, value, -1, 0, "-", 0, NULL);
 
+#if 0
 		/* ... turn each slash and space in a dash */
 		gchar *tpointer = clean_keyword;
 		while (*tpointer) {
@@ -355,11 +361,16 @@ void tagsistant_keyword_matcher(
 			if (*tpointer == '/' || *tpointer == ' ') *tpointer = '-';
 			tpointer++;
 		}
+#endif
 
-		/* ... then tag the file ... */
+		/*
+		 * then tag the file
+		 */
 		tagsistant_sql_tag_object(qtree->dbi, namespace, clean_keyword, clean_value, qtree->inode);
 
-		/* ... and cleanup */
+		/*
+		 * and cleanup
+		 */
 		g_free_null(clean_keyword);
 		g_free_null(clean_value);
 	} else {
@@ -438,7 +449,8 @@ void tagsistant_plugin_tag_by_date(const tagsistant_querytree *qtree, const gcha
 }
 
 /**
- * Loads the plugins
+ * Loads the plugins and do other initialization steps
+ * like compiling recurring regular expressions
  */
 void tagsistant_plugin_loader()
 {
@@ -448,14 +460,24 @@ void tagsistant_plugin_loader()
 	plist = EXTRACTOR_plugin_add_defaults(EXTRACTOR_OPTION_DEFAULT_POLICY);
 #endif
 
-	/* init processor mutex */
+	/*
+	 * init processor mutex
+	 */
 	g_mutex_init(&tagsistant_processor_mutex);
 
-	/* init some useful regex */
+	/*
+	 * init some useful regex
+	 */
 	tagsistant_rx_date = g_regex_new(
 		"^([0-9][0-9][0-9][0-9]):([0-9][0-9]):([0-9][0-9]) ([0-9][0-9]):([0-9][0-9]):([0-9][0-9])$",
 		TAGSISTANT_RX_COMPILE_FLAGS, 0, NULL);
 
+	tagsistant_rx_cleaner = g_regex_new("[/ ]", 0, 0, NULL);
+
+	/*
+	 * get the plugin dir from the environment variable
+	 * TAGSISTANT_PLUGINS or from the default macro PLUGINS_DIR
+	 */
 	char *tagsistant_plugins = NULL;
 	if (getenv("TAGSISTANT_PLUGINS") != NULL) {
 		tagsistant_plugins = g_strdup(getenv("TAGSISTANT_PLUGINS"));
@@ -465,6 +487,9 @@ void tagsistant_plugin_loader()
 		if (!tagsistant.quiet) fprintf(stderr, " Using default plugin dir: %s\n", tagsistant_plugins);
 	}
 
+	/*
+	 * scan the filesystem for plugins
+	 */
 	struct stat st;
 	if (lstat(tagsistant_plugins, &st) == -1) {
 		if (!tagsistant.quiet)
@@ -473,7 +498,9 @@ void tagsistant_plugin_loader()
 		if (!tagsistant.quiet)
 			fprintf(stderr, " *** error opening directory %s: not a directory ***\n", tagsistant_plugins);
 	} else {
-		/* open directory and read contents */
+		/*
+		 * open directory and read contents
+		 */
 		DIR *p = opendir(tagsistant_plugins);
 		if (p == NULL) {
 			if (!tagsistant.quiet)
@@ -508,35 +535,45 @@ void tagsistant_plugin_loader()
 
 				char *pname = g_strdup_printf("%s/%s", tagsistant_plugins, de->d_name);
 
-				/* load the plugin */
+				/*
+				 * load the plugin
+				 */
 				plugin->handle = dlopen(pname, RTLD_NOW/* |RTLD_GLOBAL */);
 				if (plugin->handle == NULL) {
 					if (!tagsistant.quiet)
 						fprintf(stderr, " *** error dlopen()ing plugin %s: %s ***\n", de->d_name, dlerror());
 					g_free_null(plugin);
 				} else {
-					/* search for init function and call it */
+					/*
+					 * search for init function and call it
+					 */
 					int (*init_function)() = NULL;
 					init_function = dlsym(plugin->handle, "tagsistant_plugin_init");
-					if (init_function != NULL) {
+					if (init_function) {
 						// TODO valgrind says: check for leaks
 						int init_res = init_function();
 						if (!init_res) {
-							/* if init failed, ignore this plugin */
+							/*
+							 * if init failed, ignore this plugin
+							 */
 							dbg('p', LOG_ERR, " *** error calling plugin_init() on %s ***\n", de->d_name);
 							g_free_null(plugin);
 							continue;
 						}
 					}
 
-					/* search for MIME type string */
+					/*
+					 * search for MIME type string
+					 */
 					plugin->mime_type = dlsym(plugin->handle, "mime_type");
 					if (plugin->mime_type == NULL) {
 						if (!tagsistant.quiet)
 							fprintf(stderr, " *** error finding %s processor function: %s ***\n", de->d_name, dlerror());
 						g_free_null(plugin);
 					} else {
-						/* search for processor function */
+						/*
+						 * search for processor function
+						 */
 						plugin->processor = dlsym(plugin->handle, "tagsistant_processor");
 						if (plugin->processor == NULL) {
 							if (!tagsistant.quiet)
@@ -549,7 +586,9 @@ void tagsistant_plugin_loader()
 									fprintf(stderr, " *** error finding %s free function: %s (still registering the plugin) ***", de->d_name, dlerror());
 							}
 
-							/* add this plugin on queue head */
+							/*
+							 * add this plugin on queue head
+							 */
 							plugin->filename = g_strdup(de->d_name);
 							plugin->next = tagsistant.plugins;
 							tagsistant.plugins = plugin;

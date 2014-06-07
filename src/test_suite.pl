@@ -240,14 +240,17 @@ out_test("tag4");
 OUT:
 
 print "\n" x 10;
-print "*" x 10;
-print " RESULTS ";
-print "*" x 60;
-print "\n\nTests done! $tc test run - $tc_ok test succeeded - $tc_error test failed, summary follows:\n";
+print "*" x 70, "\n";
+print "* RESULTS: \n* \n";
+print "* performed tests: $tc\n";
+print "* succeded tests: $tc_ok\n";
+print "* failed tests: $tc_error\n* \n";
+print "* details on failed tests:\n" if $tc_error;
 
 print $error_stack;
 
-print "\n press [ENTER] to umount tagsistant...";
+print "*" x 70, "\n\n";
+print "press [ENTER] to umount tagsistant...";
 <STDIN>;
 
 EXITSUITE: stop_tagsistant();
@@ -263,7 +266,12 @@ exit();
 #
 sub run_tagsistant {
 	our ($MCMD);
-	print "Mounting tagsistant: $MCMD...\n";
+
+	sleep(1);
+
+	print "*" x 70, "\n";
+	print "* Mounting tagsistant: $MCMD...\n";
+
 	open(TS, "$MCMD|") or die("Can't start tagsistant ($MCMD)\n");
 	open(LOG, ">/tmp/tagsistant.log") or die("Can't open log file /tmp/tagsistant.log\n");
 
@@ -280,8 +288,6 @@ sub run_tagsistant {
 #
 sub start_tagsistant {
 	our ($FUSE_GROUP, $REPOSITORY, $MCMD, $TID);
-
-	print "Creating the testbed...\n";
 
 	#
 	# check if user is part of fuse group
@@ -306,7 +312,7 @@ sub start_tagsistant {
 	#
 	# wait until tagsistant is brought to life
 	#
-	sleep(2);
+	sleep(3);
 
 	#
 	# check if thread was properly started
@@ -314,7 +320,8 @@ sub start_tagsistant {
 	unless (defined $TID and $TID) {
 		die("Can't create tagsistant thread!\n");
 	}
-	print "Testbed running!\n";
+	print "*" x 70, "\n";
+	print "* Testbed running!\n";
 }
 
 sub stop_tagsistant {
@@ -427,12 +434,17 @@ sub out_test {
 sub setup_input_files {
 	my $how_much = shift();
 
-	system("dmesg | tail > /tmp/file1");
+	my $_ = `dmesg`;
 
-	for (my $i = 1; $i < $how_much; $i++) {
-		my $next = $i + 1;
-		system("md5sum /tmp/file$i > /tmp/file$next");
-		system("dmesg | tail >> /tmp/file$next");
+	for (my $i = 0; $i <= $how_much; $i++) {
+
+		open(my $fh, ">", "/tmp/file$i");
+		for (my $j = 0; $j < 10; $j++) {
+			print $fh $_;
+		}
+		close $fh;
+		
+		tr/A-Za-z/D-ZA-Cd-za-c/;
 	}
 }
 
@@ -441,6 +453,11 @@ sub setup_input_files {
 #
 sub start {
 	my $driver = undef;
+
+	print "*" x 70, "\n";
+	print "* \n";
+	print "* TAGSISTANT test suite\n";
+	print "* \n";
 	
 	#
 	# get C MACRO TAGSISTANT_INODE_DELIMITER
@@ -452,7 +469,7 @@ sub start {
 	if (defined $ARGV[0]) {
 		if ($ARGV[0] eq "--mysql") {
 			$driver = "mysql";
-			system("echo 'drop table objects; drop table tags; drop table tagging; drop table relations;' | mysql -u tagsistant_test --password='tagsistant_test' tagsistant_test_suite");
+			system("echo 'drop table objects; drop table tags; drop table tagging; drop table relations; drop table aliases;' | mysql -u tagsistant_test --password='tagsistant_test' tagsistant_test_suite");
 		} elsif (($ARGV[0] eq "--sqlite") || ($ARGV[0] eq "--sqlite3")) {
 			$driver = "sqlite3";
 		} else {
@@ -464,7 +481,8 @@ sub start {
 	
 	our $FUSE_GROUP = "fuse";
 	
-	print "Testing with $driver driver\n";
+	print "*" x 70, "\n";
+	print "* Testing with $driver driver\n";
 	
 	# mount command
 	my $BIN = "./tagsistant";
@@ -481,7 +499,7 @@ sub start {
 	}
 	$MCMD .= " $MPOINT 2>&1";
 
-	print $MCMD, "\n";
+	# print $MCMD, "\n";
 	
 	# umount command
 	my $FUSERMOUNT = `which fusermount` || die("No fusermount found!\n");
@@ -496,10 +514,18 @@ sub start {
 	our $output = undef;
 	our $error_stack = "";
 	
+	print "*" x 70, "\n";
+	print "* Setting up input files... ";
+
 	setup_input_files(20);
+
+	print "done!\n";
 	
+	print "*" x 70, "\n";
+	print "* Creating the testbed... done!\n";
+
 	start_tagsistant();
-	
+
 	our $testbed_ok = !test("ls -a $MP");
 	
 	unless ($testbed_ok) {
@@ -515,4 +541,9 @@ sub start {
 	}
 
 	out_test('^\.$', '^\.\.$');
+
+	print "*" x 70, "\n";
+	print "* Press [ENTER] to start...";
+
+	<STDIN>;
 }

@@ -120,7 +120,9 @@ gpointer tagsistant_deduplication_kernel(gpointer data)
 
 	// dbg('2', LOG_INFO, "Deduplication request for %s", path);
 
-	/* create a qtree object just to extract the full_archive_path */
+	/*
+	 * create a qtree object just to extract the full_archive_path
+	 */
 	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 1);
 
 	if (qtree) {
@@ -131,9 +133,9 @@ gpointer tagsistant_deduplication_kernel(gpointer data)
 			dbg('2', LOG_INFO, "Running deduplication on %s", path);
 
 			GChecksum *checksum = g_checksum_new(G_CHECKSUM_SHA1);
-			guchar *buffer = g_new0(guchar, 65535);
+			guchar buffer[65535];
 
-			if (checksum && buffer) {
+			if (checksum) {
 				/* feed the checksum object */
 				int length = 0;
 				do {
@@ -146,20 +148,22 @@ gpointer tagsistant_deduplication_kernel(gpointer data)
 
 				/* destroy the checksum object */
 				g_checksum_free(checksum);
-				g_free_null(buffer);
 
 				/* re-create the qtree object */
 				// qtree = tagsistant_querytree_new(path, 0, 1, 1, 1);
 
 				if (qtree) {
-					/* save the string into the objects table */
+					/*
+					 * save the string into the objects table
+					 */
 					tagsistant_query(
 						"update objects set checksum = '%s' where inode = %d",
 						qtree->dbi, NULL, NULL, hex, qtree->inode);
 	
-					/* look for duplicated objects */
+					/*
+					 * look for duplicated objects
+					 */
 					if (tagsistant_querytree_find_duplicates(qtree, hex)) {
-
 #if TAGSISTANT_ENABLE_AUTOTAGGING
 						/*
 						 * before destroying the qtree, we build the string
@@ -170,21 +174,16 @@ gpointer tagsistant_deduplication_kernel(gpointer data)
 							qtree->full_archive_path);
 
 						dbg('p', LOG_INFO, "Running autotagging on %s", qtree->object_path);
-#endif
-						tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
 
 						/*
 						 * the object is eligible for autotagging,
 						 * so we submit it into the autotagging queue
 						 */
-#if TAGSISTANT_ENABLE_AUTOTAGGING
-
 						g_async_queue_push(tagsistant_autotagging_queue, paths);
 #endif
-
-					} else {
-						tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
 					}
+
+					tagsistant_querytree_destroy(qtree, TAGSISTANT_COMMIT_TRANSACTION);
 				}
 
 				/* free the hex checksum string */
