@@ -33,13 +33,13 @@
 /***                                                                      ***/
 /****************************************************************************/
 
-#if TAGSISTANT_AUTOTAG_IN_MULTIPLE_THREADS
-	GMutex tagsistant_deduplication_mutex;
-	GHashTable *tagsistant_deduplication_table;
-#else
-	GAsyncQueue *tagsistant_deduplication_queue;
-	GAsyncQueue *tagsistant_autotagging_queue;
+/** deduplication queue */
+#if ! TAGSISTANT_INLINE_DEDUPLICATION
+GAsyncQueue *tagsistant_deduplication_queue;
 #endif
+
+/** autotagging queue */
+GAsyncQueue *tagsistant_autotagging_queue;
 
 #define TAGSISTANT_DO_AUTOTAGGING 1
 #define TAGSISTANT_DONT_DO_AUTOTAGGING 0
@@ -118,7 +118,7 @@ gpointer tagsistant_deduplication_kernel(gpointer data)
 {
 	gchar *path = (gchar *) data;
 
-	dbg('2', LOG_INFO, "Deduplication request for %s", path);
+	// dbg('2', LOG_INFO, "Deduplication request for %s", path);
 
 	/* create a qtree object just to extract the full_archive_path */
 	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 1);
@@ -195,16 +195,6 @@ gpointer tagsistant_deduplication_kernel(gpointer data)
 		close(fd);
 	}
 
-#if TAGSISTANT_AUTOTAG_IN_MULTIPLE_THREADS
-	/* remove the path from the deduplication table */
-	g_mutex_lock(&tagsistant_deduplication_mutex);
-	g_hash_table_remove(tagsistant_deduplication_table, path);
-	g_mutex_unlock(&tagsistant_deduplication_mutex);
-
-	/* exit deduplication thread */
-	g_thread_exit(NULL);
-#endif
-
 	return (NULL);
 }
 
@@ -240,7 +230,7 @@ gpointer tagsistant_autotagging_kernel(gpointer data)
 	return (NULL);
 }
 
-#if !TAGSISTANT_AUTOTAG_IN_MULTIPLE_THREADS
+#if ! TAGSISTANT_INLINE_DEDUPLICATION
 /**
  * This is the loop that calls the deduplication thread
  * when TAGSISTANT_AUTOTAG_IN_MULTIPLE_THREADS is 0
@@ -253,7 +243,12 @@ gpointer tagsistant_deduplication_loop(gpointer data) {
 		gchar *path = (gchar *) g_async_queue_pop(tagsistant_deduplication_queue);
 
 		/* process the path only if it's not null */
-		if (path && strlen(path)) tagsistant_deduplication_kernel(path);
+		if (path && strlen(path)) {
+			dbg('2', LOG_ERR, "Starting parallel deduplication of %s", path);
+			tagsistant_deduplication_kernel(path);
+		} else {
+			dbg('2', LOG_ERR, "NULL or zero-length path scheduled for deduplication");
+		}
 
 		/* throw away the path */
 		g_free_null(path);
@@ -261,6 +256,7 @@ gpointer tagsistant_deduplication_loop(gpointer data) {
 
 	return (NULL);
 }
+#endif
 
 /**
  * This is the loop that calls the autotagging thread
@@ -282,7 +278,6 @@ gpointer tagsistant_autotagging_loop(gpointer data) {
 
 	return (NULL);
 }
-#endif
 
 /**
  * Callback for tagsistant_fix_checksums()
@@ -306,8 +301,6 @@ int tagsistant_fix_checksums_callback(void *null_pointer, dbi_result result)
 
 	return (0);
 }
-
-GMutex tagsistant_connection_pool_lock;
 
 /**
  * called once() after starting to fix object entries lacking the checksum
@@ -333,16 +326,15 @@ void tagsistant_fix_checksums()
  */
 void tagsistant_deduplication_init()
 {
-#if TAGSISTANT_AUTOTAG_IN_MULTIPLE_THREADS
-	/* setup the hash table to avoid deduplicating the same file twice */
-	tagsistant_deduplication_table = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
-#else
+#if ! TAGSISTANT_INLINE_DEDUPLICATION
+
 	/* setup the deduplication queue */
 	tagsistant_deduplication_queue = g_async_queue_new_full(g_free);
 	g_async_queue_ref(tagsistant_deduplication_queue);
 
 	/* start the deduplication thread */
 	g_thread_new("Deduplication thread", tagsistant_deduplication_loop, NULL);
+#endif
 
 	/* setup the autotagging queue */
 	tagsistant_autotagging_queue = g_async_queue_new_full(g_free);
@@ -350,10 +342,9 @@ void tagsistant_deduplication_init()
 
 	/* start the autotagging thread */
 	g_thread_new("Autotagging thread", tagsistant_autotagging_loop, NULL);
-#endif
 
 	/* fix missing checksums */
-	//tagsistant_fix_checksums();
+	tagsistant_fix_checksums();
 }
 
 /**
@@ -363,80 +354,11 @@ void tagsistant_deduplication_init()
  */
 void tagsistant_deduplicate(gchar *path)
 {
-#if TAGSISTANT_AUTOTAG_IN_MULTIPLE_THREADS
-	g_mutex_lock(&tagsistant_deduplication_mutex);
-	if (!g_hash_table_contains(tagsistant_deduplication_table, path)) {
-		g_thread_new(path, tagsistant_deduplication_kernel, path);
-		g_hash_table_insert(tagsistant_deduplication_table, path, GINT_TO_POINTER(1));
-	}
-	g_mutex_unlock(&tagsistant_deduplication_mutex);
-#else
-	// g_async_queue_push(tagsistant_deduplication_queue, g_strdup(path));
+#if TAGSISTANT_INLINE_DEDUPLICATION
+	dbg('2', LOG_ERR, "Inline deduplication of %s", path);
 	tagsistant_deduplication_kernel(g_strdup(path));
+#else
+	dbg('2', LOG_ERR, "Scheduling deduplication of %s", path);
+	g_async_queue_push(tagsistant_deduplication_queue, g_strdup(path));
 #endif
 }
-
-#if 0
-/**
- * Deduplicates the object pointed by the querytree
- *
- * @param qtree the querytree object
- * @return true if autotagging is required, false otherwise
- */
-int tagsistant_querytree_deduplicate(tagsistant_querytree *qtree)
-{
-	dbg('2', LOG_INFO, "Running deduplication on %s", qtree->object_path);
-
-	/* guess if the object is a file or a symlink */
-	struct stat buf;
-	if ((-1 == lstat(qtree->full_archive_path, &buf)) || (!S_ISREG(buf.st_mode) && !S_ISLNK(buf.st_mode)))
-		return (TAGSISTANT_DONT_DO_AUTOTAGGING);
-
-	dbg('2', LOG_INFO, "Checksumming %s", qtree->full_archive_path);
-
-	/*
-	 * we'll return a 'do autotagging' condition even if
-	 * a problem arises in computing file checksum
-	 */
-	int do_autotagging = TAGSISTANT_DO_AUTOTAGGING;
-
-	/*
-	 * open the file and read its content to compute is checksum
-	 */
-	int fd = open(qtree->full_archive_path, O_RDONLY|O_NOATIME);
-	if (-1 != fd) {
-		GChecksum *checksum = g_checksum_new(G_CHECKSUM_SHA1);
-		guchar *buffer = g_new0(guchar, 65535);
-
-		if (checksum && buffer) {
-			/* feed the checksum object */
-			int length = 0;
-			do {
-				length = read(fd, buffer, 65535);
-				g_checksum_update(checksum, buffer, length);
-			} while (length);
-
-			/* get the hexadecimal checksum string */
-			gchar *hex = g_strdup(g_checksum_get_string(checksum));
-
-			/* destroy the checksum object */
-			g_checksum_free(checksum);
-			g_free_null(buffer);
-
-			/* save the string into the objects table */
-			tagsistant_query(
-				"update objects set checksum = '%s' where inode = %d",
-				qtree->dbi, NULL, NULL, hex, qtree->inode);
-
-			/* look for duplicated objects */
-			do_autotagging = tagsistant_querytree_find_duplicates(qtree, hex);
-
-			/* free the hex checksum string */
-			g_free_null(hex);
-		}
-		close(fd);
-	}
-
-	return (do_autotagging);
-}
-#endif

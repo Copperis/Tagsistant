@@ -265,7 +265,7 @@ int tagsistant_process(gchar *path, gchar *full_archive_path)
 	dbg('p', LOG_INFO, "Processing file %s", full_archive_path);
 
 	tagsistant_process_callback_context context;
-	memset(context.keywords, 0, TAGSISTANT_MAX_KEYWORDS * 2 * TAGSISTANT_MAX_KEYWORD_LENGTH);
+	memset(context.keywords, 0, TAGSISTANT_MAX_KEYWORDS * TAGSISTANT_MAX_KEYWORD_LENGTH * 2);
 	memset(context.mime_type, 0, 1024);
 	memset(context.generic_mime_type, 0, 1024);
 	context.current_keyword = 0;

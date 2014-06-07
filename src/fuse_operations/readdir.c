@@ -847,41 +847,46 @@ GHashTable *tagsistant_filetree_new(qtree_or_node *query, dbi_conn conn, int is_
 		 * for each ->negated linked node, subtract from the base table
 		 * the objects that do match this node
 		 */
-		qtree_and_node *negated = query->and_set->negated;
-		while (negated) {
-			GString *cross_tag = g_string_sized_new(51200);
-			g_string_append_printf(cross_tag,
-				"delete from tv%.16" PRIxPTR " where inode in ("
-				"select objects.inode from objects "
-					"join tagging on tagging.inode = objects.inode "
-					"join tags on tags.tag_id = tagging.tag_id "
-					"where ",
-				(uintptr_t) query);
+		next = query->and_set;
+		while (next) {
+			qtree_and_node *negated = next->negated;
+			while (negated) {
+				GString *cross_tag = g_string_sized_new(51200);
+				g_string_append_printf(cross_tag,
+					"delete from tv%.16" PRIxPTR " where inode in ("
+					"select objects.inode from objects "
+						"join tagging on tagging.inode = objects.inode "
+						"join tags on tags.tag_id = tagging.tag_id "
+						"where ",
+					(uintptr_t) query);
 
-			/*
-			 * add each qtree_and_node (main and ->related) to the query
-			 */
-			tagsistant_query_add_and_set(cross_tag, negated);
+				/*
+				 * add each qtree_and_node (main and ->related) to the query
+				 */
+				tagsistant_query_add_and_set(cross_tag, negated);
 
-			qtree_and_node *related = negated->related;
-			while (related) {
-				g_string_append(cross_tag, " or ");
-				tagsistant_query_add_and_set(cross_tag, related);
-				related = related->related;
+				qtree_and_node *related = negated->related;
+				while (related) {
+					g_string_append(cross_tag, " or ");
+					tagsistant_query_add_and_set(cross_tag, related);
+					related = related->related;
+				}
+
+				/*
+				 * close the subquery
+				 */
+				g_string_append(cross_tag, ")");
+
+				/*
+				 * apply the query and dispose the statement GString
+				 */
+				tagsistant_query(cross_tag->str, conn, NULL, NULL);
+				g_string_free(cross_tag, TRUE);
+
+				negated = negated->negated;
 			}
 
-			/*
-			 * close the subquery
-			 */
-			g_string_append(cross_tag, ")");
-
-			/*
-			 * apply the query and dispose the statement GString
-			 */
-			tagsistant_query(cross_tag->str, conn, NULL, NULL);
-			g_string_free(cross_tag, TRUE);
-
-			negated = negated->negated;
+			next = next->next;
 		}
 
 		/*
