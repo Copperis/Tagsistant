@@ -395,7 +395,7 @@ void tagsistant_create_schema()
 				"create table if not exists objects ("
 					"inode integer not null primary key autoincrement, "
 					"objectname text(255) not null, "
-					"last_autotag timestamp not null default 0, "
+					"last_autotag timestamp not null default current_timestamp, "
 					"checksum text(40) not null default '', "
 					"symlink text(1024) not null default '')",
 				dbi, NULL, NULL);
@@ -420,6 +420,20 @@ void tagsistant_create_schema()
 					"alias varchar(65) primary key not null, "
 					"query varchar(%d) not null)",
 				dbi, NULL, NULL, TAGSISTANT_ALIAS_MAX_LENGTH);
+
+			tagsistant_query(
+				"create table if not exists RDS_catalog ("
+					"rds_id integer primary key autoincrement not null, "
+					"created datetime not null default current_timestamp, "
+					"subquery varchar(1024) not null default '')",
+				dbi, NULL, NULL);
+
+			tagsistant_query(
+				"create table if not exists RDS ("
+					"rds_id integer not null, "
+					"inode integer not null, "
+					"objectname varchar(255) not null)",
+				dbi, NULL, NULL);
 
 			tagsistant_query("create index if not exists relations_index on relations (tag1_id, tag2_id)", dbi, NULL, NULL);
 			tagsistant_query("create index if not exists objectname_index on objects (objectname)", dbi, NULL, NULL);
@@ -468,6 +482,20 @@ void tagsistant_create_schema()
 					"alias varchar(65) primary key not null, "
 					"query varchar(%d) not null)",
 				dbi, NULL, NULL, TAGSISTANT_ALIAS_MAX_LENGTH);
+
+			tagsistant_query(
+				"create table if not exists RDS_catalog ("
+					"rds_id integer primary key not null auto_increment, "
+					"created datetime not null default now(), "
+					"subquery varchar(1024) not null default '')",
+				dbi, NULL, NULL);
+
+			tagsistant_query(
+				"create table if not exists RDS ("
+					"rds_id integer not null, "
+					"inode integer not null, "
+					"objectname varchar(255) not null)",
+				dbi, NULL, NULL);
 
 			tagsistant_query("create index relations_index on relations (tag1_id, tag2_id)", dbi, NULL, NULL);
 			tagsistant_query("create index objectname_index on objects (objectname)", dbi, NULL, NULL);

@@ -263,9 +263,6 @@ typedef struct querytree {
 	/** record if a transaction has been opened on this connection */
 	int transaction_started;
 
-	/** last time the cached copy of this querytree has been accessed */
-	gint64 last_access_microsecond;
-
 	/** do reasoning or not? */
 	int do_reasoning;
 
@@ -314,6 +311,7 @@ typedef struct {
 	(0 == g_strcmp0(relation, "excludes"))         \
 )
 
+#if 0
 /**
  * applies a function to all the ptree_and_node_t nodes of
  * a tagstistant_querytree_t structure. the function applied must be
@@ -341,6 +339,7 @@ typedef struct {
 		}\
 	}\
 }
+#endif
 
 /**
  * a pointer to a variadic function that is applied to each node in
@@ -398,6 +397,10 @@ extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_que
 #define 						tagsistant_reasoner(reasoning) tagsistant_reasoner_inner(reasoning, 1)
 extern int						tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int do_caching);
 extern void						tagsistant_invalidate_reasoning_cache(gchar *tag);
+
+// RDS functions
+extern GHashTable *				tagsistant_RDS_new(qtree_or_node *query, dbi_conn conn, int is_all_path);
+extern void 					tagsistant_RDS_destroy_value_list(gchar *key, GList *list, gpointer data);
 
 /**
  * ERROR MESSAGES
