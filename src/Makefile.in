@@ -74,7 +74,11 @@ am_tagsistant_OBJECTS = tagsistant-tagsistant.$(OBJEXT) \
 	fuse_operations/tagsistant-utime.$(OBJEXT) \
 	fuse_operations/tagsistant-write.$(OBJEXT) \
 	fuse_operations/tagsistant-flush.$(OBJEXT) \
-	fuse_operations/tagsistant-release.$(OBJEXT)
+	fuse_operations/tagsistant-release.$(OBJEXT) \
+	fuse_operations/tagsistant-setxattr.$(OBJEXT) \
+	fuse_operations/tagsistant-getxattr.$(OBJEXT) \
+	fuse_operations/tagsistant-listxattr.$(OBJEXT) \
+	fuse_operations/tagsistant-removexattr.$(OBJEXT)
 tagsistant_OBJECTS = $(am_tagsistant_OBJECTS)
 tagsistant_LDADD = $(LDADD)
 tagsistant_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
@@ -262,8 +266,8 @@ tagsistant_SOURCES = tagsistant.c\
 	plugin.c\
 	plugin.h\
 	deduplication.c\
-	buildnumber.h\
 	rds.c\
+	buildnumber.h\
 	fuse_operations/operations.h\
 	fuse_operations/access.c\
 	fuse_operations/chmod.c\
@@ -286,9 +290,13 @@ tagsistant_SOURCES = tagsistant.c\
 	fuse_operations/utime.c\
 	fuse_operations/write.c\
 	fuse_operations/flush.c\
-	fuse_operations/release.c
+	fuse_operations/release.c\
+	fuse_operations/setxattr.c\
+	fuse_operations/getxattr.c\
+	fuse_operations/listxattr.c\
+	fuse_operations/removexattr.c
 
-tagsistant_CFLAGS = -pg -D'PLUGINS_DIR="@libdir@/"' $(CFLAGS) `pkg-config --cflags glib-2.0`
+tagsistant_CFLAGS = -D'PLUGINS_DIR="@libdir@/"' $(CFLAGS) `pkg-config --cflags glib-2.0`
 tagsistant_LDFLAGS = -lfuse -ldl -rdynamic `pkg-config --libs glib-2.0` -lextractor
 all: all-recursive
 
@@ -439,6 +447,18 @@ fuse_operations/tagsistant-flush.$(OBJEXT):  \
 fuse_operations/tagsistant-release.$(OBJEXT):  \
 	fuse_operations/$(am__dirstamp) \
 	fuse_operations/$(DEPDIR)/$(am__dirstamp)
+fuse_operations/tagsistant-setxattr.$(OBJEXT):  \
+	fuse_operations/$(am__dirstamp) \
+	fuse_operations/$(DEPDIR)/$(am__dirstamp)
+fuse_operations/tagsistant-getxattr.$(OBJEXT):  \
+	fuse_operations/$(am__dirstamp) \
+	fuse_operations/$(DEPDIR)/$(am__dirstamp)
+fuse_operations/tagsistant-listxattr.$(OBJEXT):  \
+	fuse_operations/$(am__dirstamp) \
+	fuse_operations/$(DEPDIR)/$(am__dirstamp)
+fuse_operations/tagsistant-removexattr.$(OBJEXT):  \
+	fuse_operations/$(am__dirstamp) \
+	fuse_operations/$(DEPDIR)/$(am__dirstamp)
 tagsistant$(EXEEXT): $(tagsistant_OBJECTS) $(tagsistant_DEPENDENCIES) $(EXTRA_tagsistant_DEPENDENCIES) 
 	@rm -f tagsistant$(EXEEXT)
 	$(tagsistant_LINK) $(tagsistant_OBJECTS) $(tagsistant_LDADD) $(LIBS)
@@ -450,7 +470,9 @@ mostlyclean-compile:
 	-rm -f fuse_operations/tagsistant-chown.$(OBJEXT)
 	-rm -f fuse_operations/tagsistant-flush.$(OBJEXT)
 	-rm -f fuse_operations/tagsistant-getattr.$(OBJEXT)
+	-rm -f fuse_operations/tagsistant-getxattr.$(OBJEXT)
 	-rm -f fuse_operations/tagsistant-link.$(OBJEXT)
+	-rm -f fuse_operations/tagsistant-listxattr.$(OBJEXT)
 	-rm -f fuse_operations/tagsistant-mkdir.$(OBJEXT)
 	-rm -f fuse_operations/tagsistant-mknod.$(OBJEXT)
 	-rm -f fuse_operations/tagsistant-open.$(OBJEXT)
@@ -458,8 +480,10 @@ mostlyclean-compile:
 	-rm -f fuse_operations/tagsistant-readdir.$(OBJEXT)
 	-rm -f fuse_operations/tagsistant-readlink.$(OBJEXT)
 	-rm -f fuse_operations/tagsistant-release.$(OBJEXT)
+	-rm -f fuse_operations/tagsistant-removexattr.$(OBJEXT)
 	-rm -f fuse_operations/tagsistant-rename.$(OBJEXT)
 	-rm -f fuse_operations/tagsistant-rmdir.$(OBJEXT)
+	-rm -f fuse_operations/tagsistant-setxattr.$(OBJEXT)
 	-rm -f fuse_operations/tagsistant-statfs.$(OBJEXT)
 	-rm -f fuse_operations/tagsistant-statvfs.$(OBJEXT)
 	-rm -f fuse_operations/tagsistant-symlink.$(OBJEXT)
@@ -484,7 +508,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@fuse_operations/$(DEPDIR)/tagsistant-chown.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@fuse_operations/$(DEPDIR)/tagsistant-flush.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@fuse_operations/$(DEPDIR)/tagsistant-getattr.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@fuse_operations/$(DEPDIR)/tagsistant-getxattr.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@fuse_operations/$(DEPDIR)/tagsistant-link.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@fuse_operations/$(DEPDIR)/tagsistant-listxattr.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@fuse_operations/$(DEPDIR)/tagsistant-mkdir.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@fuse_operations/$(DEPDIR)/tagsistant-mknod.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@fuse_operations/$(DEPDIR)/tagsistant-open.Po@am__quote@
@@ -492,8 +518,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@fuse_operations/$(DEPDIR)/tagsistant-readdir.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@fuse_operations/$(DEPDIR)/tagsistant-readlink.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@fuse_operations/$(DEPDIR)/tagsistant-release.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@fuse_operations/$(DEPDIR)/tagsistant-removexattr.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@fuse_operations/$(DEPDIR)/tagsistant-rename.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@fuse_operations/$(DEPDIR)/tagsistant-rmdir.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@fuse_operations/$(DEPDIR)/tagsistant-setxattr.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@fuse_operations/$(DEPDIR)/tagsistant-statfs.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@fuse_operations/$(DEPDIR)/tagsistant-statvfs.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@fuse_operations/$(DEPDIR)/tagsistant-symlink.Po@am__quote@
@@ -945,6 +973,62 @@ fuse_operations/tagsistant-release.obj: fuse_operations/release.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fuse_operations/release.c' object='fuse_operations/tagsistant-release.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -c -o fuse_operations/tagsistant-release.obj `if test -f 'fuse_operations/release.c'; then $(CYGPATH_W) 'fuse_operations/release.c'; else $(CYGPATH_W) '$(srcdir)/fuse_operations/release.c'; fi`
+
+fuse_operations/tagsistant-setxattr.o: fuse_operations/setxattr.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -MT fuse_operations/tagsistant-setxattr.o -MD -MP -MF fuse_operations/$(DEPDIR)/tagsistant-setxattr.Tpo -c -o fuse_operations/tagsistant-setxattr.o `test -f 'fuse_operations/setxattr.c' || echo '$(srcdir)/'`fuse_operations/setxattr.c
+@am__fastdepCC_TRUE@	$(am__mv) fuse_operations/$(DEPDIR)/tagsistant-setxattr.Tpo fuse_operations/$(DEPDIR)/tagsistant-setxattr.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fuse_operations/setxattr.c' object='fuse_operations/tagsistant-setxattr.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -c -o fuse_operations/tagsistant-setxattr.o `test -f 'fuse_operations/setxattr.c' || echo '$(srcdir)/'`fuse_operations/setxattr.c
+
+fuse_operations/tagsistant-setxattr.obj: fuse_operations/setxattr.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -MT fuse_operations/tagsistant-setxattr.obj -MD -MP -MF fuse_operations/$(DEPDIR)/tagsistant-setxattr.Tpo -c -o fuse_operations/tagsistant-setxattr.obj `if test -f 'fuse_operations/setxattr.c'; then $(CYGPATH_W) 'fuse_operations/setxattr.c'; else $(CYGPATH_W) '$(srcdir)/fuse_operations/setxattr.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) fuse_operations/$(DEPDIR)/tagsistant-setxattr.Tpo fuse_operations/$(DEPDIR)/tagsistant-setxattr.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fuse_operations/setxattr.c' object='fuse_operations/tagsistant-setxattr.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -c -o fuse_operations/tagsistant-setxattr.obj `if test -f 'fuse_operations/setxattr.c'; then $(CYGPATH_W) 'fuse_operations/setxattr.c'; else $(CYGPATH_W) '$(srcdir)/fuse_operations/setxattr.c'; fi`
+
+fuse_operations/tagsistant-getxattr.o: fuse_operations/getxattr.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -MT fuse_operations/tagsistant-getxattr.o -MD -MP -MF fuse_operations/$(DEPDIR)/tagsistant-getxattr.Tpo -c -o fuse_operations/tagsistant-getxattr.o `test -f 'fuse_operations/getxattr.c' || echo '$(srcdir)/'`fuse_operations/getxattr.c
+@am__fastdepCC_TRUE@	$(am__mv) fuse_operations/$(DEPDIR)/tagsistant-getxattr.Tpo fuse_operations/$(DEPDIR)/tagsistant-getxattr.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fuse_operations/getxattr.c' object='fuse_operations/tagsistant-getxattr.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -c -o fuse_operations/tagsistant-getxattr.o `test -f 'fuse_operations/getxattr.c' || echo '$(srcdir)/'`fuse_operations/getxattr.c
+
+fuse_operations/tagsistant-getxattr.obj: fuse_operations/getxattr.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -MT fuse_operations/tagsistant-getxattr.obj -MD -MP -MF fuse_operations/$(DEPDIR)/tagsistant-getxattr.Tpo -c -o fuse_operations/tagsistant-getxattr.obj `if test -f 'fuse_operations/getxattr.c'; then $(CYGPATH_W) 'fuse_operations/getxattr.c'; else $(CYGPATH_W) '$(srcdir)/fuse_operations/getxattr.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) fuse_operations/$(DEPDIR)/tagsistant-getxattr.Tpo fuse_operations/$(DEPDIR)/tagsistant-getxattr.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fuse_operations/getxattr.c' object='fuse_operations/tagsistant-getxattr.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -c -o fuse_operations/tagsistant-getxattr.obj `if test -f 'fuse_operations/getxattr.c'; then $(CYGPATH_W) 'fuse_operations/getxattr.c'; else $(CYGPATH_W) '$(srcdir)/fuse_operations/getxattr.c'; fi`
+
+fuse_operations/tagsistant-listxattr.o: fuse_operations/listxattr.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -MT fuse_operations/tagsistant-listxattr.o -MD -MP -MF fuse_operations/$(DEPDIR)/tagsistant-listxattr.Tpo -c -o fuse_operations/tagsistant-listxattr.o `test -f 'fuse_operations/listxattr.c' || echo '$(srcdir)/'`fuse_operations/listxattr.c
+@am__fastdepCC_TRUE@	$(am__mv) fuse_operations/$(DEPDIR)/tagsistant-listxattr.Tpo fuse_operations/$(DEPDIR)/tagsistant-listxattr.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fuse_operations/listxattr.c' object='fuse_operations/tagsistant-listxattr.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -c -o fuse_operations/tagsistant-listxattr.o `test -f 'fuse_operations/listxattr.c' || echo '$(srcdir)/'`fuse_operations/listxattr.c
+
+fuse_operations/tagsistant-listxattr.obj: fuse_operations/listxattr.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -MT fuse_operations/tagsistant-listxattr.obj -MD -MP -MF fuse_operations/$(DEPDIR)/tagsistant-listxattr.Tpo -c -o fuse_operations/tagsistant-listxattr.obj `if test -f 'fuse_operations/listxattr.c'; then $(CYGPATH_W) 'fuse_operations/listxattr.c'; else $(CYGPATH_W) '$(srcdir)/fuse_operations/listxattr.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) fuse_operations/$(DEPDIR)/tagsistant-listxattr.Tpo fuse_operations/$(DEPDIR)/tagsistant-listxattr.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fuse_operations/listxattr.c' object='fuse_operations/tagsistant-listxattr.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -c -o fuse_operations/tagsistant-listxattr.obj `if test -f 'fuse_operations/listxattr.c'; then $(CYGPATH_W) 'fuse_operations/listxattr.c'; else $(CYGPATH_W) '$(srcdir)/fuse_operations/listxattr.c'; fi`
+
+fuse_operations/tagsistant-removexattr.o: fuse_operations/removexattr.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -MT fuse_operations/tagsistant-removexattr.o -MD -MP -MF fuse_operations/$(DEPDIR)/tagsistant-removexattr.Tpo -c -o fuse_operations/tagsistant-removexattr.o `test -f 'fuse_operations/removexattr.c' || echo '$(srcdir)/'`fuse_operations/removexattr.c
+@am__fastdepCC_TRUE@	$(am__mv) fuse_operations/$(DEPDIR)/tagsistant-removexattr.Tpo fuse_operations/$(DEPDIR)/tagsistant-removexattr.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fuse_operations/removexattr.c' object='fuse_operations/tagsistant-removexattr.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -c -o fuse_operations/tagsistant-removexattr.o `test -f 'fuse_operations/removexattr.c' || echo '$(srcdir)/'`fuse_operations/removexattr.c
+
+fuse_operations/tagsistant-removexattr.obj: fuse_operations/removexattr.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -MT fuse_operations/tagsistant-removexattr.obj -MD -MP -MF fuse_operations/$(DEPDIR)/tagsistant-removexattr.Tpo -c -o fuse_operations/tagsistant-removexattr.obj `if test -f 'fuse_operations/removexattr.c'; then $(CYGPATH_W) 'fuse_operations/removexattr.c'; else $(CYGPATH_W) '$(srcdir)/fuse_operations/removexattr.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) fuse_operations/$(DEPDIR)/tagsistant-removexattr.Tpo fuse_operations/$(DEPDIR)/tagsistant-removexattr.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fuse_operations/removexattr.c' object='fuse_operations/tagsistant-removexattr.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tagsistant_CFLAGS) $(CFLAGS) -c -o fuse_operations/tagsistant-removexattr.obj `if test -f 'fuse_operations/removexattr.c'; then $(CYGPATH_W) 'fuse_operations/removexattr.c'; else $(CYGPATH_W) '$(srcdir)/fuse_operations/removexattr.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo

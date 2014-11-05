@@ -20,6 +20,9 @@
    Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
 */
 
+/** Tagsistant codename of current release */
+#define TAGSISTANT_CODENAME "Berlin"
+
 /** Tagsistant plugin prefix */
 #define TAGSISTANT_PLUGIN_PREFIX "libtagsistant_"
 
@@ -60,7 +63,7 @@
 #define TAGSISTANT_TAG_GROUP_END "}"
 
 /** use an hash table to save previously processed querytrees */
-#define TAGSISTANT_ENABLE_QUERYTREE_CACHE 0
+#define TAGSISTANT_ENABLE_QUERYTREE_CACHE 1
 
 /** cache tag IDs? */
 #define TAGSISTANT_ENABLE_TAG_ID_CACHE 1
@@ -71,6 +74,9 @@
 /** cache reasoner queries? */
 #define TAGSISTANT_ENABLE_REASONER_CACHE 0
 
+/** enable filehandle caching between open(), read(), write() and release() calls */
+#define TAGSISTANT_ENABLE_FILE_HANDLE_CACHE 1
+
 /** enable the autotagging plugin stack? */
 #define TAGSISTANT_ENABLE_AUTOTAGGING 1
 
@@ -79,9 +85,6 @@
 
 /** enable filehandle caching between open(), read(), write() and release() calls */
 #define TAGSISTANT_ENABLE_FILE_HANDLE_CACHING 1
-
-/** enable verbose logging, useful during debugging only */
-#define TAGSISTANT_VERBOSE_LOGGING 0
 
 /** the maximum length of the buffer used to store dynamic /stats files */
 #define TAGSISTANT_STATS_BUFFER 2048
@@ -98,9 +101,13 @@
 /** the default suffix appended to files to get their tags */
 #define TAGSISTANT_DEFAULT_TAGS_SUFFIX ".tags"
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
+/** the number of tuples (rows) allowed in the rds table before the GC kicks in */
+#define TAGSISTANT_GC_TUPLES 1000000
+
+/** the number of RDS (reusable data sets) allowed in the rds table before the GC kicks in */
+#define TAGSISTANT_GC_RDS 50000
+
+#include "config.h"
 
 #ifndef VERSION
 #define VERSION 0
@@ -158,7 +165,7 @@
 #include <inttypes.h>
 #include <stdint.h>
 
-#ifdef HAVE_SETXATTR
+#if HAVE_SYS_XATTR_H
 #include <sys/xattr.h>
 #endif
 
@@ -199,6 +206,7 @@ struct tagsistant {
 	gboolean	debug;			/**< debug profile */
 	gchar		*debug_flags;	/**< debug flags as a string */
 	gchar 		dbg[128];		/**< debug flags */
+
 	gboolean	foreground;		/**< run in foreground */
 	gboolean	singlethread;	/**< single thread? */
 	gboolean	readonly;		/**< mount filesystem readonly */
@@ -206,7 +214,13 @@ struct tagsistant {
 	gboolean	quiet;			/**< don't log anything, even errors */
 	gboolean	show_config;	/**< show whole configuration */
 	gboolean	show_help;		/**< show the help screen */
+	gboolean	open_permission;/**< use relaxed permissions (777) on tags and other meta-directories */
+	gboolean	enable_xattr;	/**< enable extended attributes (needed for POSIX ACL) */
+	gboolean	multi_symlink;	/**< allow multiple symlinks with the same name but different targets */
+
 	gchar		*tags_suffix;	/**< the suffix to be added to filenames to list their tags */
+	gchar		*namespace_suffix; /**< the suffix that distinguishes namespaces */
+	gchar		*triple_tag_regex; /**< namespace suffix detector regexp */
 
 	gchar		*progname;		/**< tagsistant */
 	gchar		*mountpoint;	/**< no clue? */
@@ -309,6 +323,8 @@ extern int tagsistant_inner_create_and_tag_object(tagsistant_querytree *qtree, i
 extern gboolean tagsistant_is_tags_list_file(tagsistant_querytree *qtree);
 extern gchar *tagsistant_string_tags_list_suffix(tagsistant_querytree *qtree);
 
+extern void tagsistant_fix_archive();
+
 /**
  * invalidate object checksum
  *
@@ -322,6 +338,7 @@ extern gchar *tagsistant_string_tags_list_suffix(tagsistant_querytree *qtree);
 extern GKeyFile *tagsistant_ini;
 extern void tagsistant_manage_repository_ini();
 extern gchar *tagsistant_get_ini_entry(gchar *section, gchar *key);
+extern gchar **tagsistant_get_ini_entry_list(gchar *section, gchar *key);
 
 extern GHashTable *tagsistant_checksummers;
 extern int tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *hex);
@@ -332,10 +349,19 @@ extern int tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gch
 #define O_NOATIME	01000000
 #endif
 
-#if TAGSISTANT_ENABLE_FILE_HANDLE_CACHING
+#if TAGSISTANT_ENABLE_FILE_HANDLE_CACHE
 #	define tagsistant_set_file_handle(fi, fh_value) fi->fh = (unsigned long) fh_value
 #	define tagsistant_get_file_handle(fi, fh_variable) fh_variable = (long) fi->fh
 #else
 #	define tagsistant_set_file_handle(fi, fh_value) ()
 #	define tagsistant_get_file_handle(fi, fh_variable) ()
 #endif
+
+extern gchar *tagsistant_get_file_tags(tagsistant_querytree *qtree);
+
+extern GHashTable *tagsistant_rds_new(tagsistant_querytree *qtree, int is_all_path);
+extern void tagsistant_rds_destroy_value_list(gchar *key, GList *list, gpointer data);
+extern void tagsistant_delete_rds_involved(tagsistant_querytree *qtree);
+extern gchar *tagsistant_materialize_rds(tagsistant_querytree *qtree);
+extern gchar *tagsistant_get_rds_id(tagsistant_querytree *qtree, int *materialized);
+extern gchar *tagsistant_get_rds_checksum(tagsistant_querytree *qtree);

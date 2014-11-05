@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 # AC_PREREQ(2.65)
-AC_INIT([tagsistant],[0.9],[tx0@strumentiresistenti.org])
+AC_INIT([tagsistant],[0.8.1],[tx0@strumentiresistenti.org])
 # AC_CANONICAL_TARGET
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 AC_COPYRIGHT([tagsistant is (C) Tx0 <tx0@strumentiresistenti.org>])
@@ -25,7 +25,7 @@ LT_INIT
 # Checks for header files.
 AC_HEADER_DIRENT
 AC_HEADER_STDC
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h netinet/in.h stddef.h stdlib.h string.h sys/socket.h sys/statfs.h sys/statvfs.h sys/vfs.h syslog.h unistd.h utime.h])
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h netinet/in.h stddef.h stdlib.h string.h sys/socket.h sys/statfs.h sys/statvfs.h sys/vfs.h syslog.h unistd.h utime.h sys/xattr.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -103,7 +103,8 @@ AC_CHECK_LIB([extractor],[EXTRACTOR_loadDefaultLibraries],[use_libextractor='0.5
 		echo "libextractor is a universal metadata extractor. Tagsistant uses it"
 		echo "to autotag your files."
 		echo "More info at http://http://www.gnu.org/software/libextractor"
-	])])
+	])
+])
 
 echo $host .. $target
 case $host in

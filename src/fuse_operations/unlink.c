@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- fuse_operations/unlink.c
-   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@ int tagsistant_unlink(const char *path)
 	TAGSISTANT_START("UNLINK on %s", path);
 
 	// build querytree
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1, 0, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) TAGSISTANT_ABORT_OPERATION(ENOENT);
@@ -80,6 +80,10 @@ int tagsistant_unlink(const char *path)
 			 */
 			tagsistant_invalidate_and_set_cache_entries(qtree);
 #endif
+
+
+			// clean the RDS library
+			tagsistant_delete_rds_involved(qtree);
 		}
 
 		// unlink the object on disk
@@ -87,8 +91,6 @@ int tagsistant_unlink(const char *path)
 			unlink_path = qtree->full_archive_path;
 			res = unlink(unlink_path);
 			tagsistant_errno = errno;
-
-			tagsistant_RDS_invalidate(qtree);
 		}
 	} else
 

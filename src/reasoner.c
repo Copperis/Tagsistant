@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- reasoner.c
-   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
 
    Transform paths into queries and apply queries to file sets to
    grep files matching with queries.
@@ -149,6 +149,7 @@ static int tagsistant_add_reasoned_tag(tagsistant_tag *T, tagsistant_reasoning *
 	reasoned->value = g_strdup(T->value);
 	reasoned->tag_id = T->tag_id;
 	reasoned->negate = reasoning->negate;
+	reasoned->operator = TAGSISTANT_EQUAL_TO;
 
 	/* append the reasoned tag */
 	if (reasoning->negate) {
@@ -170,7 +171,7 @@ static int tagsistant_add_reasoned_tag(tagsistant_tag *T, tagsistant_reasoning *
 }
 
 /**
- * SQL callback. Add new tag derived from reasoning to a ptree_and_node_t structure.
+ * SQL callback. Add new tag derived from reasoning to a qtree_and_node_t structure.
  *
  * @param _reasoning pointer to be casted to reasoning_t* structure
  * @param result dbi_result pointer
@@ -190,7 +191,7 @@ static int tagsistant_add_reasoned_tag_callback(void *_reasoning, dbi_result res
 	tagsistant_return_integer(&T->tag_id, result);
 	const gchar *tag_or_namespace = dbi_result_get_string_idx(result, 2);
 
-	if (g_regex_match_simple(TAGSISTANT_DEFAULT_TRIPLE_TAG_REGEX, tag_or_namespace, 0, 0)) {
+	if (g_regex_match_simple(tagsistant.triple_tag_regex, tag_or_namespace, 0, 0)) {
 		strcpy(T->namespace, tag_or_namespace);
 		strcpy(T->key, dbi_result_get_string_idx(result, 3));
 		strcpy(T->value, dbi_result_get_string_idx(result, 4));
@@ -211,7 +212,7 @@ static int tagsistant_add_reasoned_tag_callback(void *_reasoning, dbi_result res
 }
 
 /**
- * Search and add related tags to a ptree_and_node_t,
+ * Search and add related tags to a qtree_and_node_t,
  * enabling tagsistant_build_filetree to later add more criteria to SQL
  * statements to retrieve files
  *
@@ -271,11 +272,11 @@ int tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int do_caching)
 		tagsistant_query(
 			"select tag_id, tagname, `key`, value from tags "
 				"join relations on tags.tag_id = relations.tag2_id "
-				"where tag1_id = %d and relation in ('includes', 'is_equivalent') "
+				"where tag1_id = %d and relation in (\"includes\", \"is_equivalent\") "
 			"union "
 			"select tag_id, tagname, `key`, value from tags "
 				"join relations on tags.tag_id = relations.tag1_id "
-				"where tag2_id = %d and relation = 'is_equivalent' ",
+				"where tag2_id = %d and relation = \"is_equivalent\" ",
 			reasoning->conn,
 			tagsistant_add_reasoned_tag_callback,
 			reasoning,
@@ -289,7 +290,7 @@ int tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int do_caching)
 		tagsistant_query(
 			"select tag_id, tagname, `key`, value from tags "
 				"join relations on tags.tag_id = relations.tag2_id "
-				"where tag1_id = %d and relation = 'excludes'",
+				"where tag1_id = %d and relation = \"excludes\"",
 			reasoning->conn,
 			tagsistant_add_reasoned_tag_callback,
 			reasoning,
@@ -345,5 +346,5 @@ void tagsistant_invalidate_reasoning_cache(gchar *tag)
 	g_hash_table_remove(tagsistant_reasoner_cache, tag);
 #else
 	(void) tag;
-#endif
+#endif // TAGSISTANT_ENABLE_REASONER_CACHE
 }

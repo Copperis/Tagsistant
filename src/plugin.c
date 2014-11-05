@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- plugin.c
-   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
 
    Tagsistant (tagfs) plugin support
 
@@ -43,6 +43,14 @@ static GRegex *tagsistant_rx_cleaner;
  */
 GMutex tagsistant_processor_mutex;
 
+/**
+ * run the processor function of the passed plugin
+ *
+ * @param plugin the plugin to apply
+ * @param qtree the querytree object to be scanned by the plugin
+ * @param keywords the set of keywords pre-extracted by libextractor
+ * @return
+ */
 int tagsistant_run_processor(
 	tagsistant_plugin_t *plugin,
 	tagsistant_querytree *qtree,
@@ -104,6 +112,11 @@ int tagsistant_process(gchar *path, gchar *full_archive_path)
 	extracted_keywords = EXTRACTOR_removeDuplicateKeywords (extracted_keywords, 0);
 
 	/*
+	 * create the querytree object from the path
+	 */
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1, 0);
+
+	/*
 	 *  loop through the keywords and feed the keyword buffer
 	 */
 	EXTRACTOR_KeywordList *keyword_pointer = extracted_keywords;
@@ -118,24 +131,15 @@ int tagsistant_process(gchar *path, gchar *full_archive_path)
 			mime_type = g_strdup(keyword_pointer->keyword);
 		}
 
-#if 0
-		/* tag by date */
-		const gchar *date = tagsistant_plugin_get_keyword_value("date", keywords);
-		if (date) tagsistant_plugin_tag_by_date(qtree, date);
-#endif
-
 		keyword_pointer = keyword_pointer->next;
 		c++;
 	}
 
 	/*
-	 * If no mime type has been found just return
+	 * If non mime type has been found, set the most generic available:
+	 * application/octet-stream.
 	 */
-	if (!mime_type) {
-		/* lock processor mutex */
-		g_mutex_unlock(&tagsistant_processor_mutex);
-		return(res);
-	}
+	if (!mime_type) mime_type = g_strdup("application/octet-stream");
 
 	/*
 	 * guess the generic MIME type
@@ -146,12 +150,6 @@ int tagsistant_process(gchar *path, gchar *full_archive_path)
 		slash++; *slash = '*';
 		slash++; *slash = '\0';
 	}
-
-	/*
-	 * recreate the querytree object just before using it to tag the object
-	 */
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1, 0, 0);
-	if (!qtree) goto STOP_CHAIN_TAGGING;
 
 	/*
 	 *  apply plugins starting from the most matching first (like: image/jpeg)
@@ -208,11 +206,14 @@ STOP_CHAIN_TAGGING:
 
 #else
 
+#define TAGSISTANT_MIME_TYPE_FIELD_LENGTH 1024
+
 typedef struct {
 	tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS];
 	int current_keyword;
-	gchar mime_type[1024];
-	gchar generic_mime_type[1024];
+	gchar mime_type[TAGSISTANT_MIME_TYPE_FIELD_LENGTH];
+	gchar generic_mime_type[TAGSISTANT_MIME_TYPE_FIELD_LENGTH];
+	tagsistant_querytree *qtree;
 } tagsistant_process_callback_context;
 
 static int tagsistant_process_callback(
@@ -236,11 +237,11 @@ static int tagsistant_process_callback(
 
 	/* save the mime type */
 	if (EXTRACTOR_METATYPE_MIMETYPE == type) {
-		memset(context->mime_type, 0, 1024);
+		memset(context->mime_type, 0, TAGSISTANT_MIME_TYPE_FIELD_LENGTH);
 		memcpy(context->mime_type, data, data_len);
 
 		/* guess the generic MIME type */
-		memset(context->generic_mime_type, 0, 1024);
+		memset(context->generic_mime_type, 0, TAGSISTANT_MIME_TYPE_FIELD_LENGTH);
 		memcpy(context->generic_mime_type, data, data_len);
 
 		gchar *slash = index(context->generic_mime_type, '/');
@@ -267,20 +268,28 @@ int tagsistant_process(gchar *path, gchar *full_archive_path)
 
 	tagsistant_process_callback_context context;
 	memset(context.keywords, 0, TAGSISTANT_MAX_KEYWORDS * TAGSISTANT_MAX_KEYWORD_LENGTH * 2);
-	memset(context.mime_type, 0, 1024);
-	memset(context.generic_mime_type, 0, 1024);
+	memset(context.mime_type, 0, TAGSISTANT_MIME_TYPE_FIELD_LENGTH);
+	memset(context.generic_mime_type, 0, TAGSISTANT_MIME_TYPE_FIELD_LENGTH);
 	context.current_keyword = 0;
-
-	/*
-	 * Extract the keywords
-	 */
-	EXTRACTOR_extract(plist, full_archive_path, NULL, 0, tagsistant_process_callback, (void *) &context);
 
 	/*
 	 * recreate the querytree object just before using it to tag the object
 	 */
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1, 0);
 	if (!qtree) goto STOP_CHAIN_TAGGING;
+
+	/*
+	 * Extract the keywords
+	 */
+	context.qtree = qtree;
+	EXTRACTOR_extract(plist, full_archive_path, NULL, 0, tagsistant_process_callback, (void *) &context);
+
+	/*
+	 * If no mime type has been found, set the most generic available:
+	 * application/octet-stream.
+	 */
+	gchar default_mimetype[] = "application/octet-stream";
+	if (!strlen(context.mime_type)) strcpy(context.mime_type, default_mimetype);
 
 	/*
 	 *  apply plugins starting from the most matching first (like: image/jpeg)
@@ -434,7 +443,7 @@ const gchar *tagsistant_plugin_get_keyword_value(gchar *keyword, tagsistant_keyw
 void tagsistant_plugin_tag_by_date(const tagsistant_querytree *qtree, const gchar *date)
 {
 	GMatchInfo *match_info;
-	GError *error;
+	GError *error = NULL;
 
 	if (g_regex_match_full(tagsistant_rx_date, date, -1, 0, 0, &match_info, &error)) {
 		tagsistant_sql_tag_object(qtree->dbi, "time:", "year",   g_match_info_fetch(match_info, 1), qtree->inode);
@@ -470,7 +479,7 @@ void tagsistant_plugin_loader()
 	 */
 	tagsistant_rx_date = g_regex_new(
 		"^([0-9][0-9][0-9][0-9]):([0-9][0-9]):([0-9][0-9]) ([0-9][0-9]):([0-9][0-9]):([0-9][0-9])$",
-		TAGSISTANT_RX_COMPILE_FLAGS, 0, NULL);
+		0, 0, NULL);
 
 	tagsistant_rx_cleaner = g_regex_new("[/ ]", 0, 0, NULL);
 

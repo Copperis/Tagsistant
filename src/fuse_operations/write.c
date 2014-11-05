@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- fuse_operations/write.c
-   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -35,7 +35,7 @@ int tagsistant_write(const char *path, const char *buf, size_t size, off_t offse
 
 	TAGSISTANT_START("WRITE on %s [size: %lu offset: %lu]", path, (unsigned long) size, (long unsigned int) offset);
 
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 1, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 1);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree))

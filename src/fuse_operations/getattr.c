@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- fuse_operations/getattr.c
-   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -44,7 +44,11 @@ int tagsistant_valid_relation(tagsistant_querytree *qtree, tagsistant_inode tag_
 			related_tag_id,
 			related_tag_id,
 			tag_id);
-	} else if ((g_strcmp0(qtree->relation, "includes") == 0) || (g_strcmp0(qtree->relation, "excludes") == 0)) {
+	} else if (
+		(g_strcmp0(qtree->relation, "includes") == 0) ||
+		(g_strcmp0(qtree->relation, "excludes") == 0) ||
+		(g_strcmp0(qtree->relation, "requires") == 0)
+	) {
 		tagsistant_query(
 			"select 1 from relations "
 				"where relation = '%s' and "
@@ -59,6 +63,10 @@ int tagsistant_valid_relation(tagsistant_querytree *qtree, tagsistant_inode tag_
 
 	return (relation_is_valid);
 }
+
+#define _RELAXED_PERMISSIONS S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IWGRP|S_IXGRP|S_IROTH|S_IWOTH|S_IXOTH
+#define _STRICT_PERMISSIONS  S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH
+#define _PERMISSIONS         (tagsistant.open_permission ? _RELAXED_PERMISSIONS : _STRICT_PERMISSIONS)
 
 /**
  * lstat equivalent
@@ -75,7 +83,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	TAGSISTANT_START("GETATTR on %s", path);
 
 	// build querytree
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 0, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree))
@@ -99,22 +107,12 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 	// -- object on disk --
 	else if (QTREE_POINTS_TO_OBJECT(qtree)) {
-		if (is_all_path(qtree->full_path)) {
-			lstat_path = qtree->full_archive_path;
-		} else if (tagsistant_is_tags_list_file(qtree)) {
+		if (tagsistant_is_tags_list_file(qtree)) {
 			lstat_path = tagsistant.tags;
 		} else {
-			/*
-			 * look for the object inode
-			 */
-			qtree->inode = tagsistant_querytree_check_tagging_consistency(qtree);
+			tagsistant_querytree_check_tagging_consistency(qtree);
 
-			/*
-			 * if found, set the querytree object as existing and proceed,
-			 * otherwise return ENOENT
-			 */
-			if (qtree->inode) {
-				qtree->exists = 1;
+			if (qtree->full_archive_path && qtree->exists) {
 				lstat_path = qtree->full_archive_path;
 			} else {
 				TAGSISTANT_ABORT_OPERATION(ENOENT);
@@ -203,31 +201,37 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	tagsistant_errno = errno;
 
 	// post-processing output
-	if (QTREE_IS_STORE(qtree)) {
+	if (qtree->error_message && g_regex_match_simple("@/error$", path, G_REGEX_EXTENDED, 0)) {
+		stbuf->st_size = strlen(qtree->error_message);
+		stbuf->st_mode = S_IFREG|S_IRUSR|S_IRGRP|S_IROTH;
+		stbuf->st_nlink = 1;
+	} else if (QTREE_IS_STORE(qtree)) {
 		if (qtree->error_message) {
 			// OK
 		} else if (qtree->points_to_object) {
 			if (tagsistant_is_tags_list_file(qtree)) {
-				stbuf->st_size = 1024 * 1024;
+				gchar *tags_list = tagsistant_get_file_tags(qtree);
+				stbuf->st_size = strlen(tags_list);
 			}
 		} else if (NULL == qtree->last_tag) {
-			// OK
+			stbuf->st_mode = S_IFDIR|_PERMISSIONS;
 		} else if (g_strcmp0(qtree->last_tag, "ALL") == 0) {
-			// OK
+			stbuf->st_mode = S_IFDIR|_PERMISSIONS;
 		} else if ((g_strcmp0(qtree->last_tag, TAGSISTANT_ANDSET_DELIMITER) == 0) ||
 			(g_strcmp0(qtree->last_tag, TAGSISTANT_NEGATE_NEXT_TAG) == 0)) {
 
 			// path ends by '+' or by '!'
 			stbuf->st_ino += 1;
-			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
 			stbuf->st_nlink = 1;
+			// stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
+			stbuf->st_mode = S_IFDIR|_PERMISSIONS;
 
 		} else if ((g_strcmp0(qtree->last_tag, TAGSISTANT_QUERY_DELIMITER) == 0) ||
 			(g_strcmp0(qtree->last_tag, TAGSISTANT_QUERY_DELIMITER_NO_REASONING) == 0)) {
 
 			// path ends by TAGSISTANT_QUERY_DELIMITER (with or without reasoning)
 			stbuf->st_ino += 2;
-			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
+			stbuf->st_mode = S_IFDIR|_PERMISSIONS;
 			stbuf->st_nlink = 1;
 
 		} else if ((g_strcmp0(qtree->last_tag, TAGSISTANT_TAG_GROUP_BEGIN) == 0) ||
@@ -235,7 +239,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 			// path ends by TAGSISTANT_QUERY_DELIMITER (with or without reasoning)
 			stbuf->st_ino += 3;
-			stbuf->st_mode = S_IFDIR|S_IRUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
+			stbuf->st_mode = S_IFDIR|_PERMISSIONS;
 			stbuf->st_nlink = 3;
 
 		} else if (g_regex_match_simple("^" TAGSISTANT_ALIAS_IDENTIFIER, qtree->last_tag, 0, 0)) {
@@ -244,6 +248,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 			if (!exists) {
 				TAGSISTANT_ABORT_OPERATION(ENOENT);
 			}
+			stbuf->st_mode = S_IFDIR|_PERMISSIONS;
 
 		} else {
 
@@ -253,9 +258,11 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 			} else {
 				tag_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->last_tag, NULL, NULL);
 			}
+
 			if (tag_id) {
 				// each directory holds 3 inodes: itself/, itself/+, itself/@
 				stbuf->st_ino = tag_id * 3;
+				stbuf->st_mode = S_IFDIR|_PERMISSIONS;
 			} else if (qtree->namespace) {
 				switch (qtree->operator) {
 					case TAGSISTANT_GREATER_THAN:
@@ -273,15 +280,29 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 			}
 
 		}
-	} else if (QTREE_IS_ALIAS(qtree) && qtree->alias) {
+	} else if (QTREE_IS_ALIAS(qtree)) {
 
-		stbuf->st_size = tagsistant_sql_alias_get_length(qtree->dbi, qtree->alias);
+		if (qtree->alias) {
+			stbuf->st_size = tagsistant_sql_alias_get_length(qtree->dbi, qtree->alias);
+			stbuf->st_mode = tagsistant.open_permission ?
+				S_IFREG|S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IWOTH|S_IROTH :
+				S_IFREG|S_IRUSR|S_IWUSR;
+		} else {
+			stbuf->st_mode = S_IFDIR|_PERMISSIONS;
+		}
 
 	} else if (QTREE_IS_STATS(qtree)) {
 
 		stbuf->st_size = TAGSISTANT_STATS_BUFFER;
+		if (g_regex_match_simple("^/stats/(connections|cached_queries|configuration|objects|relations|tags)$", path, 0, 0)) {
+			stbuf->st_mode = tagsistant.open_permission ? S_IFREG|S_IRUSR|S_IRGRP|S_IROTH : S_IFREG|S_IRUSR;
+		} else {
+			stbuf->st_mode = S_IFDIR|_PERMISSIONS;
+		}
 
 	} else if (QTREE_IS_TAGS(qtree)) {
+		stbuf->st_mode = S_IFDIR|_PERMISSIONS;
+
 		gchar *tagname = qtree->first_tag ? qtree->first_tag : qtree->namespace;
 		if (tagname) {
 			if (qtree->second_tag) TAGSISTANT_ABORT_OPERATION(ENOENT);
@@ -296,7 +317,11 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 
 	} else if (QTREE_IS_RELATIONS(qtree)) {
 
-		// mangle inode for relations and stats
+		stbuf->st_mode = S_IFDIR|_PERMISSIONS;
+
+	} else if (QTREE_IS_ARCHIVE(qtree)) {
+
+		stbuf->st_mode |= _PERMISSIONS;
 
 	}
 

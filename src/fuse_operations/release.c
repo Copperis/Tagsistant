@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- fuse_operations/open.c
-   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -34,7 +34,7 @@ int tagsistant_release(const char *path, struct fuse_file_info *fi)
 	TAGSISTANT_START("RELEASE on %s", path);
 
 	// build querytree
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 0, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree))

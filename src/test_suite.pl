@@ -186,11 +186,13 @@ test("stat $MP/store/time:/year/lt/3000/@/*___file8");
 # relations: the includes/ and is_equivalent/ relations
 #
 test("mkdir $MP/relations/tag1/is_equivalent/tag2");
+test("stat $MP/relations/tag1/is_equivalent/tag2");
 test("mkdir $MP/relations/tag2/includes/tag3");
+test("stat $MP/relations/tag2/includes/tag3");
 test("stat $MP/store/tag1/@/truncate2");
 test("stat $MP/store/tag1/@@/truncate2", 1);
-test("ls $MP/relations/tag1/@@/");
-test("ls $MP/relations/tag1/@/*___file1");
+test("ls $MP/store/tag1/@@/");
+test("ls $MP/store/tag1/@/*___file1");
 test("stat $MP/store/tag2/@/3___file1");
 test("stat $MP/store/tag2/@@/3___file1", 1);
 test("stat $MP/store/tag1/@/3___file1");
@@ -489,6 +491,7 @@ sub start {
 	my $MPOINT = "/tmp/tagsistant_test_suite";
 	our $MP = $MPOINT;
 	our $REPOSITORY = "$ENV{HOME}/.tagsistant_test_suite";
+	$REPOSITORY = "/tmp/tagsistant_test_suite_repository";
 	our $MCMD = "$BIN -s -d --debug=s -v --repository=$REPOSITORY ";
 	if ($driver eq "mysql") {
 		$MCMD .= "--db=mysql:localhost:tagsistant_test_suite:tagsistant_test:tagsistant_test";
@@ -500,7 +503,7 @@ sub start {
 	$MCMD .= " $MPOINT 2>&1";
 
 	# print $MCMD, "\n";
-	
+
 	# umount command
 	my $FUSERMOUNT = `which fusermount` || die("No fusermount found!\n");
 	chomp $FUSERMOUNT;
@@ -527,7 +530,7 @@ sub start {
 	start_tagsistant();
 
 	our $testbed_ok = !test("ls -a $MP");
-	
+
 	unless ($testbed_ok) {
 		print "Testbed not ok!\n";
 		goto EXITSUITE;

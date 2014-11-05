@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- fuse_operations/utime.c
-   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@ int tagsistant_utime(const char *path, struct utimbuf *buf)
 
 	TAGSISTANT_START("UTIME on %s", path);
 
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 1, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 1);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) TAGSISTANT_ABORT_OPERATION(ENOENT);

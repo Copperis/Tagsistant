@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- fuse_operations/rmdir.c
-   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -44,7 +44,7 @@ int tagsistant_rmdir(const char *path)
 
 	TAGSISTANT_START("RMDIR on %s", path);
 
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1, 0, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -92,14 +92,16 @@ int tagsistant_rmdir(const char *path)
 			}
 		}
 
-		// do a real rmdir
+		// do a real mkdir
 		if (do_rmdir) {
 			rmdir_path = qtree->full_archive_path;
 			res = rmdir(rmdir_path);
 			tagsistant_errno = errno;
 
-			tagsistant_RDS_invalidate(qtree);
 		}
+
+		// clean the RDS library
+		tagsistant_delete_rds_involved(qtree);
 	}
 
 	// -- relations --
@@ -107,10 +109,27 @@ int tagsistant_rmdir(const char *path)
 		// rmdir can be used only on third level
 		// since first level is all available tags
 		// and second level is all available relations
-		if (qtree->second_tag) {
-			int tag1_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->first_tag, NULL, NULL);
-			int tag2_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->second_tag, NULL, NULL);
-			if (tag1_id && tag2_id && IS_VALID_RELATION(qtree->relation)) {
+		if (qtree->second_tag || qtree->related_namespace) {
+			tagsistant_inode tag1_id = 0, tag2_id = 0;
+
+			if (qtree->first_tag)
+				tag1_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->first_tag, NULL, NULL);
+			else
+				tag1_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->namespace, qtree->key, qtree->value);
+
+			if (qtree->second_tag)
+				tag2_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->second_tag, NULL, NULL);
+			else
+				tag2_id = tagsistant_sql_get_tag_id(qtree->dbi, qtree->related_namespace, qtree->related_key, qtree->related_value);
+
+			/*
+			 * check tags and the relation
+			 */
+			if (!(tag1_id && tag2_id && IS_VALID_RELATION(qtree->relation))) {
+				TAGSISTANT_ABORT_OPERATION(EFAULT);
+			}
+
+			if (qtree->second_tag || (qtree->related_namespace && qtree->related_key && qtree->related_value)) {
 				tagsistant_query(
 					"delete from relations where tag1_id = '%d' and tag2_id = '%d' and relation = '%s'",
 					qtree->dbi, NULL, NULL, tag1_id, tag2_id, qtree->relation);
@@ -123,9 +142,8 @@ int tagsistant_rmdir(const char *path)
 				tagsistant_invalidate_reasoning_cache(qtree->first_tag);
 				tagsistant_invalidate_reasoning_cache(qtree->second_tag);
 
-				tagsistant_RDS_invalidate(qtree);
-			} else {
-				TAGSISTANT_ABORT_OPERATION(EFAULT);
+				// clean the RDS library
+				tagsistant_delete_rds_involved(qtree);
 			}
 		} else {
 			TAGSISTANT_ABORT_OPERATION(EROFS);
@@ -151,7 +169,6 @@ int tagsistant_rmdir(const char *path)
 		tagsistant_invalidate_querytree_cache(qtree);
 #endif
 
-		tagsistant_RDS_invalidate(qtree);
 	}
 
 	// -- archive --

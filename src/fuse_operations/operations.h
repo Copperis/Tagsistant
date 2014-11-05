@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- fuse_operations/operations.h
-   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -40,6 +40,10 @@ extern int tagsistant_read(const char *path, char *buf, size_t size, off_t offse
 extern int tagsistant_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi);
 extern int tagsistant_flush(const char *path, struct fuse_file_info *fi);
 extern int tagsistant_release(const char *path, struct fuse_file_info *fi);
+extern int tagsistant_getxattr(const char *path, const char *name, char *value, size_t size);
+extern int tagsistant_setxattr(const char *path, const char *name, const char *value, size_t size, int flags);
+extern int tagsistant_listxattr(const char *path, char *list, size_t size);
+extern int tagsistant_removexattr(const char *path, const char *name);
 
 #define tagsistant_internal_open(qtree, flags, res, internal_errno) {\
 	if ((!qtree) || (!qtree->full_archive_path)) {\

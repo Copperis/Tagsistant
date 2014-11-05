@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- utils.c
-   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
 
    Tagsistant (tagfs) mount binary written using FUSE userspace library.
 
@@ -304,7 +304,8 @@ void tagsistant_save_repository_ini(GKeyFile *kf)
  * provided command line arguments and than saves back the
  * merge of both in repository.ini
  */
-void tagsistant_manage_repository_ini() {
+void tagsistant_manage_repository_ini()
+{
 	// read the repository.ini file from disk
 	tagsistant_ini = tagsistant_parse_repository_ini();
 
@@ -344,4 +345,128 @@ void tagsistant_manage_repository_ini() {
 
 	// save and free the GKeyFile object
 	tagsistant_save_repository_ini(tagsistant_ini);
+}
+
+/**
+ * Transform flat archives into hierarchical archives
+ */
+void tagsistant_fix_archive()
+{
+	DIR *dir = opendir(tagsistant.archive);
+	if (!dir) return;
+
+	/*
+	 * scan the archive directory
+	 */
+	struct dirent *dirent;
+	while ((dirent = readdir(dir)) != NULL) {
+
+		/*
+		 * for each file call lstat() to check if it's a regular file
+		 */
+		gchar *filename = g_strdup_printf("%s/%s", tagsistant.archive, dirent->d_name);
+		struct stat st;
+		int res = lstat(filename, &st);
+
+		/*
+		 * if it's a file...
+		 */
+		if ((0 == res) && (S_ISREG(st.st_mode))) {
+			GMatchInfo *match_info;
+			GRegex *rx = g_regex_new("([0-9]+)" TAGSISTANT_INODE_DELIMITER, 0, 0, NULL);
+
+			/*
+			 * look for a trailing inode...
+			 */
+			g_regex_match(rx, dirent->d_name, 0, &match_info);
+			if (g_match_info_matches (match_info)) {
+
+				/*
+				 * extract its inode string...
+				 */
+				gchar *inode_string = g_match_info_fetch (match_info, 1);
+				tagsistant_inode inode = atoi(inode_string);
+				g_free(inode_string);
+
+				/*
+				 * compute the reverse inode and the the directory tree
+				 */
+				gchar *tree = tagsistant_get_reversed_inode_tree(inode);
+				gchar *full_tree = g_strdup_printf("%s/%s", tagsistant.archive, tree);
+				int res = mkdir(full_tree, 0755);
+
+				if (0 != res && EEXIST != errno) {
+					dbg('b', LOG_ERR,  "Error creating directory %s", full_tree);
+				} else {
+					/*
+					 * move the file inside the directory
+					 */
+					gchar *new_name = g_strdup_printf("%s/%s/%s", tagsistant.archive, tree, dirent->d_name);
+					rename(filename, new_name);
+					g_free(new_name);
+				}
+
+				g_free(tree);
+				g_free(full_tree);
+			}
+			g_match_info_free (match_info);
+			g_regex_unref(rx);
+		}
+
+		g_free(filename);
+	}
+
+	closedir(dir);
+}
+
+int tagsistant_read_file_tags(void *tagsbuffer, dbi_result result)
+{
+	GString *buffer = (GString *) tagsbuffer;
+
+	const gchar *next_tag = dbi_result_get_string_idx(result, 1);
+
+	if (g_regex_match_simple(tagsistant.triple_tag_regex, next_tag, 0, 0)) {
+		g_string_append_printf(buffer, "%s%s=%s\n",
+			next_tag,
+			dbi_result_get_string_idx(result, 2),
+			dbi_result_get_string_idx(result, 3));
+	} else {
+		g_string_append_printf(buffer, "%s\n", next_tag);
+	}
+
+	return (1);
+}
+
+gchar *tagsistant_get_file_tags(tagsistant_querytree *qtree)
+{
+	/* strip the suffix from the path */
+	gchar *stripped_path = tagsistant_string_tags_list_suffix(qtree);
+	
+	/* create a new one on the stripped path */
+	tagsistant_querytree *stripped_qtree = tagsistant_querytree_new(stripped_path, 0, 0, 1, 1);
+	
+	/* free the stripped path */
+	g_free(stripped_path);
+	
+	if (!stripped_qtree->inode) return (NULL);
+	
+	/* allocate a buffer GString and fill it with the tags bound to the file */
+	GString *tagsbuffer = g_string_sized_new(1024);
+	
+	tagsistant_query(
+		"select tagname, `key`, value from tags "
+			"join tagging on tagging.tag_id = tags.tag_id "
+			"where tagging.inode = %d",
+		stripped_qtree->dbi,
+		tagsistant_read_file_tags,
+		(void *) tagsbuffer,
+		stripped_qtree->inode);
+	
+	gchar *tags_list = tagsbuffer->str;
+
+	/* free the GString but keep the buffer */
+	g_string_free(tagsbuffer, 0);
+	tagsistant_querytree_destroy(stripped_qtree, TAGSISTANT_ROLLBACK_TRANSACTION);
+
+	return (tags_list);
 }

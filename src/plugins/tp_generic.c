@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- tp_generic.c
-   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
 
    Tagsistant generic plugin which makes decisions on file MIME types.
 
@@ -38,7 +38,12 @@ int tagsistant_plugin_init()
 /* exported processor function */
 int tagsistant_processor(tagsistant_querytree *qtree, tagsistant_keyword keywords[TAGSISTANT_MAX_KEYWORDS])
 {
-	tagsistant_plugin_iterator(qtree, "autotagging:", keywords, rx);
+	tagsistant_plugin_iterator(qtree, "file:", keywords, rx);
+
+	/* tag by date */
+	const gchar *date = tagsistant_plugin_get_keyword_value("creation date", keywords);
+	if (date) tagsistant_plugin_tag_by_date(qtree, date);
+
 	return(TP_OK);
 }
 

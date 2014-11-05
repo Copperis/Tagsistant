@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- fuse_operations/mknod.c
-   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -34,7 +34,7 @@ int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 	TAGSISTANT_START("MKNOD on %s [mode: %u rdev: %u]", path, mode, (unsigned int) rdev);
 
 	// build querytree
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1, 0, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree))
@@ -52,17 +52,16 @@ int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 
 		if (QTREE_IS_TAGGABLE(qtree)) {
 			res = tagsistant_force_create_and_tag_object(qtree, &tagsistant_errno);
-			qtree->inode = res;
 		}
 
 		if (qtree->inode) {
-#if TAGSISTANT_VERBOSE_LOGGING
 			dbg('F', LOG_INFO, "NEW object on disk: mknod(%s) [inode: %d]", qtree->full_archive_path, qtree->inode);
-#endif
+
 			res = mknod(qtree->full_archive_path, mode|S_IWUSR, rdev);
 			tagsistant_errno = errno;
 
-			tagsistant_RDS_invalidate(qtree);
+			// clean the RDS library
+			tagsistant_delete_rds_involved(qtree);
 		}
 	} else
 

@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- deduplication.c
-   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
 
    Tagsistant (tagfs) mount binary written using FUSE userspace library.
 
@@ -57,6 +57,16 @@ int tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *hex
 	tagsistant_inode main_inode = 0;
 
 	/*
+	 * check if this file is a directory
+	 */
+	struct stat st;
+	int result = lstat(qtree->full_archive_path, &st);
+	if (0 == result && S_ISDIR(st.st_mode)) {
+		dbg('2', LOG_INFO, "%s is a directory, skipping deduplication and autotagging", qtree->full_archive_path);
+		return (TAGSISTANT_DONT_DO_AUTOTAGGING);
+	}
+
+	/*
 	 * get the first inode matching the checksum
 	 */
 	tagsistant_query(
@@ -80,22 +90,36 @@ int tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *hex
 
 	dbg('2', LOG_INFO, "Deduplicating %s: %d -> %d", qtree->full_archive_path, qtree->inode, main_inode);
 
-	/* first move all the tags of qtree->inode to main_inode */
-	tagsistant_query(
-		"update tagging set inode = %d where inode = %d",
-		qtree->dbi,	NULL, NULL,	main_inode,	qtree->inode);
+	/*
+	 * first move all the tags of qtree->inode to main_inode
+	 */
+	if (TAGSISTANT_DBI_SQLITE_BACKEND == tagsistant.sql_database_driver) {
+		tagsistant_query(
+			"update or ignore tagging set inode = %d where inode = %d",
+			qtree->dbi,	NULL, NULL,	main_inode,	qtree->inode);
+	} else if (TAGSISTANT_DBI_MYSQL_BACKEND == tagsistant.sql_database_driver) {
+		tagsistant_query(
+			"update ignore tagging set inode = %d where inode = %d",
+			qtree->dbi,	NULL, NULL,	main_inode,	qtree->inode);
+	}
 
-	/* then delete records left because of duplicates in key(inode, tag_id) in the tagging table */
+	/*
+	 * then delete records left because of duplicates in key(inode, tag_id) in the tagging table
+	 */
 	tagsistant_query(
 		"delete from tagging where inode = %d",
 		qtree->dbi,	NULL, NULL,	qtree->inode);
 
-	/* unlink the removable inode */
+	/*
+	 * unlink the removable inode
+	 */
 	tagsistant_query(
 		"delete from objects where inode = %d",
 		qtree->dbi, NULL, NULL,	qtree->inode);
 
-	/* and finally delete it from the archive directory */
+	/*
+	 * and finally delete it from the archive directory
+	 */
 	qtree->schedule_for_unlink = 1;
 
 #if TAGSISTANT_ENABLE_AND_SET_CACHE
@@ -123,7 +147,7 @@ gpointer tagsistant_deduplication_kernel(gpointer data)
 	/*
 	 * create a qtree object just to extract the full_archive_path
 	 */
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 1, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 1);
 
 	if (qtree) {
 		int fd = open(qtree->full_archive_path, O_RDONLY|O_NOATIME);
@@ -314,7 +338,7 @@ void tagsistant_fix_checksums()
 	 * to simplify the callback function
 	 */
 	tagsistant_query(
-		"select cast(inode as varchar(12)), objectname from objects where checksum = ''",
+		"select cast(inode as char(12)), objectname from objects where checksum = '' and (symlink = '' or symlink is null)",
 		dbi, tagsistant_fix_checksums_callback, NULL);
 
 	tagsistant_db_connection_release(dbi, 1);

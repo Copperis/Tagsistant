@@ -14,8 +14,8 @@ tagsistant_SOURCES = tagsistant.c\
 	plugin.c\
 	plugin.h\
 	deduplication.c\
-	buildnumber.h\
 	rds.c\
+	buildnumber.h\
 	fuse_operations/operations.h\
 	fuse_operations/access.c\
 	fuse_operations/chmod.c\
@@ -38,7 +38,11 @@ tagsistant_SOURCES = tagsistant.c\
 	fuse_operations/utime.c\
 	fuse_operations/write.c\
 	fuse_operations/flush.c\
-	fuse_operations/release.c
+	fuse_operations/release.c\
+	fuse_operations/setxattr.c\
+	fuse_operations/getxattr.c\
+	fuse_operations/listxattr.c\
+	fuse_operations/removexattr.c
 
-tagsistant_CFLAGS = -pg -D'PLUGINS_DIR="@libdir@/"' $(CFLAGS) `pkg-config --cflags glib-2.0`
+tagsistant_CFLAGS = -D'PLUGINS_DIR="@libdir@/"' $(CFLAGS) `pkg-config --cflags glib-2.0`
 tagsistant_LDFLAGS = -lfuse -ldl -rdynamic `pkg-config --libs glib-2.0` -lextractor

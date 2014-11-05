@@ -1,3 +1,25 @@
+0.8.1:
+  - Implemented the 'required' relation. If a tag M is required by S
+    then the S tag is shown only if the M tag has been already included
+    by the last OR branch of the query, like in:
+
+      store/M/
+      store/P/Q/+/M/
+
+    but will not be shown in:
+
+      store/P/
+      store/P/+/Q/
+
+    The goal of this relation is to organize the tags in a hierarchical
+    structure to keep the root directory clean. It somehow complement the
+    function of namespaces.
+
+  - Support for POSIX ACL on objects stored inside the store/ dir
+
+  - Goes in the background before calling fuse_main(), which prevents
+    the autotagging thread from being properly scheduled
+
 0.8:
   - Triple tags (a.k.a. machine tags) first implementation!
 
@@ -131,6 +153,17 @@
   - Error reporting system: when a query is syntactically wrong,
     Tagsistant list only one file called "error" which contains a
     useful error message
+  
+  - Davide Eynard spotted an error on reading established relations.
+    Fixed by replacing double quotes with single quotes on a SQL query
+    inside readdir()
+
+  - Implemented a read check on /etc/fuse.conf to grant the used is
+    member of the fuse group. Thanks again to Davide Eynard for pointing
+    me on this.
+
+  - Autofix the archive/ structure from the old flat structure to the new
+    hierarchical structure based on reversed inodes.
 
 0.7:
   - libextractor integration. Tagging plugins have been converted to

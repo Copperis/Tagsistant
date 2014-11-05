@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- path_resolution.h
-   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
 
    Tagsistant (tagfs) mount binary written using FUSE userspace library.
    Header file
@@ -32,18 +32,28 @@ enum {
 	TAGSISTANT_UNDEFINED_OPERATOR
 } tagsistant_query_operators;
 
+/**
+ * Triple tag operators strings
+ */
 #define TAGSISTANT_EQUALS_TO_OPERATOR    "eq"
 #define TAGSISTANT_CONTAINS_OPERATOR     "inc"
 #define TAGSISTANT_GREATER_THAN_OPERATOR "gt"
 #define TAGSISTANT_SMALLER_THAN_OPERATOR "lt"
 
-/* the regex used to check relations in the relations/ queries */
-#define TAGSISTANT_RELATION_PATTERN "^includes|excludes|is_equivalent$"
+/**
+ * the regex used to check relations in the relations/ queries
+ */
+#define TAGSISTANT_RELATION_PATTERN "^includes|excludes|is_equivalent|requires$"
 
 /**
- * defines an AND token in a query path
+ * guess if a relation is admitted or not
  */
-typedef struct ptree_and_node {
+#define IS_VALID_RELATION(relation) g_regex_match_simple(TAGSISTANT_RELATION_PATTERN, relation, G_REGEX_EXTENDED, 0)
+
+/**
+ * defines a token in a query path
+ */
+typedef struct qtree_and_node {
 	/** this tag should not match? */
 	int negate;
 
@@ -64,24 +74,24 @@ typedef struct ptree_and_node {
 	char *value;
 
 	/** list of all related tags **/
-	struct ptree_and_node *related;
+	struct qtree_and_node *related;
 
 	/** list of all negated tags **/
-	struct ptree_and_node *negated;
+	struct qtree_and_node *negated;
 
 	/** next AND token */
-	struct ptree_and_node *next;
+	struct qtree_and_node *next;
 } qtree_and_node;
 
 /**
  * define an OR section in a query path
  */
-typedef struct ptree_or_node {
+typedef struct qtree_or_node {
 	/** the next OR section */
-	struct ptree_or_node *next;
+	struct qtree_or_node *next;
 
 	/** the list of AND tokens */
-	struct ptree_and_node *and_set;
+	struct qtree_and_node *and_set;
 } qtree_or_node;
 
 /*
@@ -161,8 +171,8 @@ extern gchar *tagsistant_querytree_types[QTYPE_TOTAL];
 
 /**
  * define the querytree structure
- * that holds a tree of ptree_or_node_t
- * and ptree_and_node_t and a string
+ * that holds a tree of qtree_or_node_t
+ * and qtree_and_node_t and a string
  * containing the file part of the path.
  */
 typedef struct querytree {
@@ -191,8 +201,10 @@ typedef struct querytree {
 	/** which kind of path is this? see tagsistant_query_type */
 	int type;
 
-	/** the query points to an object on disk? */
-	/** true if its an archive/ query or a complete tags/ query */
+	/**
+	 * the query points to an object on disk?
+	 * it's true if it's an archive/ query or a complete store/ query
+	 */
 	int points_to_object;
 
 	/** the object path pointed to is taggable? (one element path) */
@@ -243,9 +255,16 @@ typedef struct querytree {
 	/** the triple tag value **/
 	gchar *value;
 
+	/** the related riple tag namespace */
 	gchar *related_namespace;
+
+	/** the related triple tag key */
 	gchar *related_key;
+
+	/** the related triple tag operator */
 	int    related_operator;
+
+	/** the related triple tag value */
 	gchar *related_value;
 
 	/** the relation in a relations/ query */
@@ -263,6 +282,9 @@ typedef struct querytree {
 	/** record if a transaction has been opened on this connection */
 	int transaction_started;
 
+	/** last time the cached copy of this querytree has been accessed */
+	GTimeSpan last_access_microsecond;
+
 	/** do reasoning or not? */
 	int do_reasoning;
 
@@ -276,12 +298,6 @@ typedef struct querytree {
 	 * if the query is wrong, this field will hold am error message
 	 */
 	gchar *error_message;
-
-	/**
-	 * the RDS fingerprint is used to load data from RDS
-	 * it's returned by tagsistant_RDS_prepare
-	 */
-	gchar *RDS_fingerprint;
 
 } tagsistant_querytree;
 
@@ -307,19 +323,9 @@ typedef struct {
 	int negate;
 } tagsistant_reasoning;
 
-/**
- * evaluates true if string "relation" matches at least
- * one of available relations
- */
-#define IS_VALID_RELATION(relation) (\
-	(0 == g_strcmp0(relation, "is_equivalent")) || \
-	(0 == g_strcmp0(relation, "includes"))      || \
-	(0 == g_strcmp0(relation, "excludes"))         \
-)
-
 #if 0
 /**
- * applies a function to all the ptree_and_node_t nodes of
+ * applies a function to all the qtree_and_node_t nodes of
  * a tagstistant_querytree_t structure. the function applied must be
  * declared as:
  *
@@ -380,10 +386,7 @@ extern void tagsistant_querytree_traverse(
 extern void						tagsistant_path_resolution_init();
 extern void						tagsistant_reasoner_init();
 
-extern tagsistant_querytree *	tagsistant_querytree_new(const char *path, int assign_inode,
-									int start_transaction, int provide_connection,
-									int disable_reasoner, int rebuild_expired_RDS);
-
+extern tagsistant_querytree *	tagsistant_querytree_new(const char *path, int assign_inode, int start_transaction, int provide_connection, int disable_reasoner);
 extern void 					tagsistant_querytree_destroy(tagsistant_querytree *qtree, guint commit_transaction);
 
 extern void						tagsistant_querytree_set_object_path(tagsistant_querytree *qtree, char *new_object_path);
@@ -401,29 +404,21 @@ extern void						tagsistant_invalidate_and_set_cache_entries(tagsistant_querytre
 // inode functions
 extern tagsistant_inode			tagsistant_inode_extract_from_path(const gchar *path);
 extern tagsistant_inode			tagsistant_inode_extract_from_querytree(tagsistant_querytree *qtree);
+extern gchar *					tagsistant_get_reversed_inode_tree(tagsistant_inode inode);
 
 // reasoner functions
 #define 						tagsistant_reasoner(reasoning) tagsistant_reasoner_inner(reasoning, 1)
 extern int						tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int do_caching);
 extern void						tagsistant_invalidate_reasoning_cache(gchar *tag);
 
-// RDS functions
-extern gchar *					tagsistant_RDS_prepare(qtree_or_node *query, dbi_conn conn,
-									int is_all_path, int rebuild_expired_RDS);
-extern GHashTable *				tagsistant_RDS_load(gchar *RDS_fingerprint, dbi_conn conn);
-extern tagsistant_inode			tagsistant_RDS_contains_object(tagsistant_querytree *qtree);
-extern void						tagsistant_RDS_invalidate(tagsistant_querytree *qtree);
-extern void 					tagsistant_RDS_destroy_value_list(gchar *key, GList *list, gpointer data);
-#define 						tagsistant_RDS_destroy_value g_free_null
-#if 0
-extern void						tagsistant_RDS_expand(tagsistant_querytree *qtree);
-#endif
-
 /**
  * ERROR MESSAGES
  **/
 #define TAGSISTANT_ERROR_MALFORMED_QUERY \
 	"Syntax error: your query is malformed\n"
+
+#define TAGSISTANT_ERROR_NULL_QUERY \
+	"Syntax error: null query. Specify at least one tag between store/ and @/ or @@/."
 
 #define TAGSISTANT_ERROR_NESTED_TAG_GROUP \
 	"Syntax error: nested tag group. Close all tag groups before opening another.\n"

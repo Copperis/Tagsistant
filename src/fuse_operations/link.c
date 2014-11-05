@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- fuse_operations/link.c
-   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -41,8 +41,8 @@ int tagsistant_link(const char *from, const char *to)
 		// dbg(LOG_INFO, "%s is internal to %s, trimmed to %s", from, tagsistant.mountpoint, _from);
 	}
 
-	tagsistant_querytree *from_qtree = tagsistant_querytree_new(_from, 0, 1, 0, 0, 0);
-	tagsistant_querytree *to_qtree = tagsistant_querytree_new(to, 0, 0, 1, 0, 0);
+	tagsistant_querytree *from_qtree = tagsistant_querytree_new(_from, 0, 1, 0, 0);
+	tagsistant_querytree *to_qtree = tagsistant_querytree_new(to, 0, 0, 1, 0);
 
 	from_qtree->is_external = (from == _from) ? 1 : 0;
 
@@ -66,8 +66,6 @@ int tagsistant_link(const char *from, const char *to)
 			dbg('F', LOG_INFO, "LINK : Creating %s", to_qtree->object_path);
 			res = tagsistant_force_create_and_tag_object(to_qtree, &tagsistant_errno);
 			if (-1 == res) goto TAGSISTANT_EXIT_OPERATION;
-
-			tagsistant_RDS_invalidate(to_qtree);
 		} else
 
 		// nothing to do about tags

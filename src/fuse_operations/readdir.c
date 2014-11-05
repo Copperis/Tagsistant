@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- fuse_operations/readdir.c
-   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -43,7 +43,7 @@ static int tagsistant_add_entry_to_dir(void *filler_ptr, dbi_result result)
 	const char *dir = dbi_result_get_string_idx(result, 1);
 
 	/* this must be the last value, just exit */
-	if (!dir) return(0);
+	if (dir == NULL) return(0);
 
 	/*
 	 * zero-length values can be returned while listing triple tags
@@ -160,6 +160,52 @@ int is_inside_tag_group(gchar *path)
 }
 
 /**
+ * Joins the tags from the last qtree_or_node branch into a string
+ * to be used for "requires" relation checking
+ *
+ * @param qtree the tagsistant_querytree object holding the tree
+ * @return a string with all tag IDs joined by commas
+ */
+gchar *tagsistant_qtree_list_tags_in_last_or_node(tagsistant_querytree *qtree)
+{
+	GString *tags_list = g_string_new("");
+
+	/*
+	 * reach the last qtree_or_node in the tree
+	 */
+	qtree_or_node *or_ptr = qtree->tree;
+	while (or_ptr->next) or_ptr = or_ptr->next;
+
+	/*
+	 * loop through the qtree_and_nodes and their related
+	 */
+	qtree_and_node *and_ptr = or_ptr->and_set;
+	while (and_ptr) {
+		g_string_append_printf(tags_list, "%d, ", and_ptr->tag_id);
+		qtree_and_node *related = and_ptr->related;
+		while (related) {
+			g_string_append_printf(tags_list, "%d, ", related->tag_id);
+			related = related->next;
+		}
+		and_ptr = and_ptr->next;
+	}
+
+	/*
+	 * free the GString object saving the compiled string
+	 */
+	gchar *string = tags_list->str;
+	g_string_free(tags_list, FALSE);
+
+	/*
+	 * remove the last comma in the list and return
+	 */
+	gchar *last_comma = rindex(string, ',');
+	if (last_comma)	*last_comma = '\0';
+
+	return (string);
+}
+
+/**
  * Read the content of the store/ directory
  *
  * @param qtree the tagsistant_querytree object
@@ -171,12 +217,12 @@ int is_inside_tag_group(gchar *path)
  * @return always 0
  */
 int tagsistant_readdir_on_store(
-		tagsistant_querytree *qtree,
-		const char *path,
-		void *buf,
-		fuse_fill_dir_t filler,
-		off_t offset,
-		int *tagsistant_errno)
+	tagsistant_querytree *qtree,
+	const char *path,
+	void *buf,
+	fuse_fill_dir_t filler,
+	off_t offset,
+	int *tagsistant_errno)
 {
 	(void) offset;
 
@@ -211,15 +257,11 @@ int tagsistant_readdir_on_store(
 			/* report a file with the error message */
 			filler(buf, "error", NULL, 0);
 		} else {
-			/*
-			 * build the RDS, load it and add its files to the buffer
-			 */
-			if (qtree->RDS_fingerprint) {
-				GHashTable *hash_table = tagsistant_RDS_load(qtree->RDS_fingerprint, qtree->dbi);
-				g_hash_table_foreach(hash_table, (GHFunc) tagsistant_readdir_on_store_filler, ufs);
-				g_hash_table_foreach(hash_table, (GHFunc) tagsistant_RDS_destroy_value_list, NULL);
-				g_hash_table_destroy(hash_table);
-			}
+			/* build the filetree */
+			GHashTable *hash_table = tagsistant_rds_new(qtree, is_all_path);
+			g_hash_table_foreach(hash_table, (GHFunc) tagsistant_readdir_on_store_filler, ufs);
+			g_hash_table_foreach(hash_table, (GHFunc) tagsistant_rds_destroy_value_list, NULL);
+			g_hash_table_destroy(hash_table);
 		}
 	} else {
 
@@ -240,23 +282,85 @@ int tagsistant_readdir_on_store(
 
 		if (is_all_path) {
 			// OK
+
 		} else if (qtree->value) {
 			filler(buf, "ALL", NULL, 0);
-			tagsistant_query("select distinct tagname from tags", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
+			// tagsistant_query("select distinct tagname from tags", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
+
+			gchar *tags_list = tagsistant_qtree_list_tags_in_last_or_node(qtree);
+
+			if (strlen(tags_list)) {
+				tagsistant_query(
+					"select distinct a.tagname from tags a "
+						"left outer join relations r on r.tag1_id = a.tag_id and r.relation = 'requires' "
+						"left outer join tags b on b.tag_id = r.tag2_id "
+						"where b.tag_id in (%s) or b.tagname is null",
+					qtree->dbi,
+					tagsistant_add_entry_to_dir,
+					ufs,
+					tags_list);
+			} else {
+				tagsistant_query(
+					"select distinct a.tagname from tags a "
+						"left outer join relations r on r.tag1_id = a.tag_id and r.relation = 'requires' "
+						"left outer join tags b on b.tag_id = r.tag2_id "
+						"where b.tagname is null",
+					qtree->dbi,
+					tagsistant_add_entry_to_dir,
+					ufs);
+			}
+
+			g_free(tags_list);
+
 			ufs->is_alias = 1;
 			tagsistant_query("select alias from aliases", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
+
 		} else if (qtree->operator) {
-			tagsistant_query("select distinct value from tags where tagname = '%s' and `key` = '%s'", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace, qtree->key);
+			tagsistant_query(
+				"select distinct value from tags where tagname = \"%s\" and `key` = \"%s\"",
+				qtree->dbi, tagsistant_add_entry_to_dir, ufs,
+				qtree->namespace, qtree->key);
+
 		} else if (qtree->key) {
 			filler(buf, TAGSISTANT_EQUALS_TO_OPERATOR, NULL, 0);
 			filler(buf, TAGSISTANT_CONTAINS_OPERATOR, NULL, 0);
 			filler(buf, TAGSISTANT_GREATER_THAN_OPERATOR, NULL, 0);
 			filler(buf, TAGSISTANT_SMALLER_THAN_OPERATOR, NULL, 0);
+
 		} else if (qtree->namespace) {
-			tagsistant_query("select distinct `key` from tags where tagname = '%s'", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace);
+			tagsistant_query(
+				"select distinct `key` from tags where tagname = \"%s\"",
+				qtree->dbi, tagsistant_add_entry_to_dir, ufs,
+				qtree->namespace);
+
 		} else {
 			filler(buf, "ALL", NULL, 0);
-			tagsistant_query("select distinct tagname from tags", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
+
+			gchar *tags_list = tagsistant_qtree_list_tags_in_last_or_node(qtree);
+
+			if (strlen(tags_list)) {
+				tagsistant_query(
+					"select distinct a.tagname from tags a "
+						"left outer join relations r on r.tag1_id = a.tag_id and r.relation = 'requires' "
+						"left outer join tags b on b.tag_id = r.tag2_id "
+						"where b.tag_id in (%s) or b.tagname is null",
+					qtree->dbi,
+					tagsistant_add_entry_to_dir,
+					ufs,
+					tags_list);
+			} else {
+				tagsistant_query(
+					"select distinct a.tagname from tags a "
+						"left outer join relations r on r.tag1_id = a.tag_id and r.relation = 'requires' "
+						"left outer join tags b on b.tag_id = r.tag2_id "
+						"where b.tagname is null",
+					qtree->dbi,
+					tagsistant_add_entry_to_dir,
+					ufs);
+			}
+
+			g_free(tags_list);
+
 			ufs->is_alias = 1;
 			tagsistant_query("select alias from aliases", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
 		}
@@ -271,11 +375,11 @@ int tagsistant_readdir_on_store(
  * complete query on the store/ directory
  */
 int tagsistant_readdir_on_object(
-		tagsistant_querytree *qtree,
-		const char *path,
-		void *buf,
-		fuse_fill_dir_t filler,
-		int *tagsistant_errno)
+	tagsistant_querytree *qtree,
+	const char *path,
+	void *buf,
+	fuse_fill_dir_t filler,
+	int *tagsistant_errno)
 {
 	(void) path;
 
@@ -305,11 +409,11 @@ int tagsistant_readdir_on_object(
  * Read the content of the relations/ directory
  */
 int tagsistant_readdir_on_relations(
-		tagsistant_querytree *qtree,
-		const char *path,
-		void *buf,
-		fuse_fill_dir_t filler,
-		int *tagsistant_errno)
+	tagsistant_querytree *qtree,
+	const char *path,
+	void *buf,
+	fuse_fill_dir_t filler,
+	int *tagsistant_errno)
 {
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
@@ -343,7 +447,7 @@ int tagsistant_readdir_on_relations(
 			"select distinct tags2.value from tags as tags2 "
 				"join relations on tags2.tag_id = relations.tag2_id "
 				"join tags as tags1 on tags1.tag_id = relations.tag1_id "
-				"where %s and %s and relation = '%s'",
+				"where %s and %s and relation = \"%s\"",
 			qtree->dbi,
 			tagsistant_add_entry_to_dir,
 			ufs,
@@ -364,7 +468,7 @@ int tagsistant_readdir_on_relations(
 			"select distinct tags2.key from tags as tags2 "
 				"join relations on tags2.tag_id = relations.tag2_id "
 				"join tags as tags1 on tags1.tag_id = relations.tag1_id "
-				"where %s and %s and relation = '%s'",
+				"where %s and %s and relation = \"%s\"",
 			qtree->dbi,
 			tagsistant_add_entry_to_dir,
 			ufs,
@@ -383,7 +487,7 @@ int tagsistant_readdir_on_relations(
 			"select distinct tags2.tagname from tags as tags2 "
 				"join relations on relations.tag2_id = tags2.tag_id "
 				"join tags as tags1 on tags1.tag_id = relations.tag1_id "
-				"where %s and relation = '%s'",
+				"where %s and relation = \"%s\"",
 			qtree->dbi,
 			tagsistant_add_entry_to_dir,
 			ufs,
@@ -396,12 +500,13 @@ int tagsistant_readdir_on_relations(
 		filler(buf, "excludes", NULL, 0);
 		filler(buf, "includes", NULL, 0);
 		filler(buf, "is_equivalent", NULL, 0);
+		filler(buf, "requires", NULL, 0);
 
 	} else if (qtree->key) {
 
 		tagsistant_query(
 			"select distinct value from tags "
-				"where tagname = '%s' and `key` = '%s'",
+				"where tagname = \"%s\" and `key` = \"%s\"",
 			qtree->dbi,
 			tagsistant_add_entry_to_dir,
 			ufs,
@@ -412,7 +517,7 @@ int tagsistant_readdir_on_relations(
 
 		tagsistant_query(
 			"select distinct `key` from tags "
-				"where tagname = '%s'",
+				"where tagname = \"%s\"",
 			qtree->dbi,
 			tagsistant_add_entry_to_dir,
 			ufs,
@@ -440,11 +545,11 @@ int tagsistant_readdir_on_relations(
  * Read the content of the tags/ directory
  */
 int tagsistant_readdir_on_tags(
-		tagsistant_querytree *qtree,
-		const char *path,
-		void *buf,
-		fuse_fill_dir_t filler,
-		int *tagsistant_errno)
+	tagsistant_querytree *qtree,
+	const char *path,
+	void *buf,
+	fuse_fill_dir_t filler,
+	int *tagsistant_errno)
 {
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
@@ -466,9 +571,9 @@ int tagsistant_readdir_on_tags(
 	} else if (qtree->value) {
 		// nothing
 	} else if (qtree->key) {
-		tagsistant_query("select distinct value from tags where tagname = '%s' and `key` = '%s'", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace, qtree->key);
+		tagsistant_query("select distinct value from tags where tagname = \"%s\" and `key` = \"%s\"", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace, qtree->key);
 	} else if (qtree->namespace) {
-		tagsistant_query("select distinct `key` from tags where tagname = '%s'", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace);
+		tagsistant_query("select distinct `key` from tags where tagname = \"%s\"", qtree->dbi, tagsistant_add_entry_to_dir, ufs, qtree->namespace);
 	} else {
 		// list all tags
 		tagsistant_query("select distinct tagname from tags", qtree->dbi, tagsistant_add_entry_to_dir, ufs);
@@ -482,11 +587,11 @@ int tagsistant_readdir_on_tags(
  * Read the content of the stats/ directory
  */
 int tagsistant_readdir_on_stats(
-		tagsistant_querytree *qtree,
-		const char *path,
-		void *buf,
-		fuse_fill_dir_t filler,
-		int *tagsistant_errno)
+	tagsistant_querytree *qtree,
+	const char *path,
+	void *buf,
+	fuse_fill_dir_t filler,
+	int *tagsistant_errno)
 {
 	(void) path;
 	(void) qtree;
@@ -512,11 +617,11 @@ int tagsistant_readdir_on_stats(
  * Read the content of the alias/ directory
  */
 int tagsistant_readdir_on_alias(
-		tagsistant_querytree *qtree,
-		const char *path,
-		void *buf,
-		fuse_fill_dir_t filler,
-		int *tagsistant_errno)
+	tagsistant_querytree *qtree,
+	const char *path,
+	void *buf,
+	fuse_fill_dir_t filler,
+	int *tagsistant_errno)
 {
 	(void) path;
 	(void) qtree;
@@ -570,7 +675,7 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 	TAGSISTANT_START("READDIR on %s", path);
 
 	// build querytree
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 0, 1);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -620,4 +725,3 @@ TAGSISTANT_EXIT_OPERATION:
 		return (0);
 	}
 }
-

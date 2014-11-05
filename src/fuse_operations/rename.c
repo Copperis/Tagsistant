@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- fuse_operations/rename.c
-   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -34,11 +34,11 @@ int tagsistant_rename(const char *from, const char *to)
 
 	tagsistant_querytree *from_qtree = NULL, *to_qtree = NULL;
 
-	from_qtree = tagsistant_querytree_new(from, 0, 1, 1, 0, 0);
+	from_qtree = tagsistant_querytree_new(from, 0, 1, 1, 0);
 	if (!from_qtree) TAGSISTANT_ABORT_OPERATION(ENOMEM);
 	tagsistant_querytree_check_tagging_consistency(from_qtree);
 
-	to_qtree = tagsistant_querytree_new(to, 0, 0, 0, 0, 0);
+	to_qtree = tagsistant_querytree_new(to, 0, 0, 0, 0);
 	if (!to_qtree) TAGSISTANT_ABORT_OPERATION(ENOMEM);
 	tagsistant_querytree_check_tagging_consistency(to_qtree);
 
@@ -86,7 +86,9 @@ int tagsistant_rename(const char *from, const char *to)
 			tagsistant_invalidate_and_set_cache_entries(from_qtree);
 #endif
 
-			tagsistant_RDS_invalidate(to_qtree);
+			// clean the RDS library
+			tagsistant_delete_rds_involved(from_qtree);
+			tagsistant_delete_rds_involved(to_qtree);
 		} else {
 			TAGSISTANT_ABORT_OPERATION(EXDEV);
 		}
@@ -121,6 +123,10 @@ int tagsistant_rename(const char *from, const char *to)
 		} else {
 			tagsistant_remove_tag_from_cache(from_qtree->last_tag, NULL, NULL);
 		}
+
+		// clean the RDS library
+		tagsistant_delete_rds_involved(from_qtree);
+		tagsistant_delete_rds_involved(to_qtree);
 	} else
 
 	// -- tags --
