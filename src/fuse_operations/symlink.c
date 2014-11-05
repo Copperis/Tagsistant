@@ -25,7 +25,7 @@ int tagsistant_symlink(const char *from, const char *to)
 
 	TAGSISTANT_START("SYMLINK %s to %s", from, to);
 
-	tagsistant_querytree *to_qtree = tagsistant_querytree_new(to, 0, 1, 1, 0);
+	tagsistant_querytree *to_qtree = tagsistant_querytree_new(to, 0, 1, 1, 0, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(to_qtree)) TAGSISTANT_ABORT_OPERATION(ENOENT);
@@ -65,6 +65,8 @@ int tagsistant_symlink(const char *from, const char *to)
 				dbg('F', LOG_INFO, "SYMLINK : Creating %s", to_qtree->object_path);
 				res = tagsistant_force_create_and_tag_object(to_qtree, &tagsistant_errno);
 				if (-1 == res) goto TAGSISTANT_EXIT_OPERATION;
+
+				tagsistant_RDS_invalidate(to_qtree);
 
 				// 2.2. save the target path for future checks
 				tagsistant_query(

@@ -75,7 +75,7 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 	TAGSISTANT_START("GETATTR on %s", path);
 
 	// build querytree
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 0, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree))
@@ -104,9 +104,17 @@ int tagsistant_getattr(const char *path, struct stat *stbuf)
 		} else if (tagsistant_is_tags_list_file(qtree)) {
 			lstat_path = tagsistant.tags;
 		} else {
-			tagsistant_querytree_check_tagging_consistency(qtree);
+			/*
+			 * look for the object inode
+			 */
+			qtree->inode = tagsistant_querytree_check_tagging_consistency(qtree);
 
-			if (qtree->full_archive_path && qtree->exists) {
+			/*
+			 * if found, set the querytree object as existing and proceed,
+			 * otherwise return ENOENT
+			 */
+			if (qtree->inode) {
+				qtree->exists = 1;
 				lstat_path = qtree->full_archive_path;
 			} else {
 				TAGSISTANT_ABORT_OPERATION(ENOENT);

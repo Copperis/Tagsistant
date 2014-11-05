@@ -277,6 +277,12 @@ typedef struct querytree {
 	 */
 	gchar *error_message;
 
+	/**
+	 * the RDS fingerprint is used to load data from RDS
+	 * it's returned by tagsistant_RDS_prepare
+	 */
+	gchar *RDS_fingerprint;
+
 } tagsistant_querytree;
 
 /**
@@ -374,7 +380,10 @@ extern void tagsistant_querytree_traverse(
 extern void						tagsistant_path_resolution_init();
 extern void						tagsistant_reasoner_init();
 
-extern tagsistant_querytree *	tagsistant_querytree_new(const char *path, int assign_inode, int start_transaction, int provide_connection, int disable_reasoner);
+extern tagsistant_querytree *	tagsistant_querytree_new(const char *path, int assign_inode,
+									int start_transaction, int provide_connection,
+									int disable_reasoner, int rebuild_expired_RDS);
+
 extern void 					tagsistant_querytree_destroy(tagsistant_querytree *qtree, guint commit_transaction);
 
 extern void						tagsistant_querytree_set_object_path(tagsistant_querytree *qtree, char *new_object_path);
@@ -399,8 +408,16 @@ extern int						tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int d
 extern void						tagsistant_invalidate_reasoning_cache(gchar *tag);
 
 // RDS functions
-extern GHashTable *				tagsistant_RDS_new(qtree_or_node *query, dbi_conn conn, int is_all_path);
+extern gchar *					tagsistant_RDS_prepare(qtree_or_node *query, dbi_conn conn,
+									int is_all_path, int rebuild_expired_RDS);
+extern GHashTable *				tagsistant_RDS_load(gchar *RDS_fingerprint, dbi_conn conn);
+extern tagsistant_inode			tagsistant_RDS_contains_object(tagsistant_querytree *qtree);
+extern void						tagsistant_RDS_invalidate(tagsistant_querytree *qtree);
 extern void 					tagsistant_RDS_destroy_value_list(gchar *key, GList *list, gpointer data);
+#define 						tagsistant_RDS_destroy_value g_free_null
+#if 0
+extern void						tagsistant_RDS_expand(tagsistant_querytree *qtree);
+#endif
 
 /**
  * ERROR MESSAGES

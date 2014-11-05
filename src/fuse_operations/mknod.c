@@ -34,7 +34,7 @@ int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 	TAGSISTANT_START("MKNOD on %s [mode: %u rdev: %u]", path, mode, (unsigned int) rdev);
 
 	// build querytree
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1, 0, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree))
@@ -52,6 +52,7 @@ int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 
 		if (QTREE_IS_TAGGABLE(qtree)) {
 			res = tagsistant_force_create_and_tag_object(qtree, &tagsistant_errno);
+			qtree->inode = res;
 		}
 
 		if (qtree->inode) {
@@ -60,6 +61,8 @@ int tagsistant_mknod(const char *path, mode_t mode, dev_t rdev)
 #endif
 			res = mknod(qtree->full_archive_path, mode|S_IWUSR, rdev);
 			tagsistant_errno = errno;
+
+			tagsistant_RDS_invalidate(qtree);
 		}
 	} else
 

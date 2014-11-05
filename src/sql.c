@@ -425,7 +425,8 @@ void tagsistant_create_schema()
 				"create table if not exists RDS_catalog ("
 					"rds_id integer primary key autoincrement not null, "
 					"created datetime not null default current_timestamp, "
-					"subquery varchar(1024) not null default '')",
+					"subquery varchar(1024) not null default '', "
+					"expired integer not null default 0)",
 				dbi, NULL, NULL);
 
 			tagsistant_query(
@@ -487,7 +488,8 @@ void tagsistant_create_schema()
 				"create table if not exists RDS_catalog ("
 					"rds_id integer primary key not null auto_increment, "
 					"created datetime not null default now(), "
-					"subquery varchar(1024) not null default '')",
+					"subquery varchar(1024) not null default '', "
+					"expired integer not null default 0)",
 				dbi, NULL, NULL);
 
 			tagsistant_query(

@@ -34,11 +34,11 @@ int tagsistant_rename(const char *from, const char *to)
 
 	tagsistant_querytree *from_qtree = NULL, *to_qtree = NULL;
 
-	from_qtree = tagsistant_querytree_new(from, 0, 1, 1, 0);
+	from_qtree = tagsistant_querytree_new(from, 0, 1, 1, 0, 0);
 	if (!from_qtree) TAGSISTANT_ABORT_OPERATION(ENOMEM);
 	tagsistant_querytree_check_tagging_consistency(from_qtree);
 
-	to_qtree = tagsistant_querytree_new(to, 0, 0, 0, 0);
+	to_qtree = tagsistant_querytree_new(to, 0, 0, 0, 0, 0);
 	if (!to_qtree) TAGSISTANT_ABORT_OPERATION(ENOMEM);
 	tagsistant_querytree_check_tagging_consistency(to_qtree);
 
@@ -86,6 +86,7 @@ int tagsistant_rename(const char *from, const char *to)
 			tagsistant_invalidate_and_set_cache_entries(from_qtree);
 #endif
 
+			tagsistant_RDS_invalidate(to_qtree);
 		} else {
 			TAGSISTANT_ABORT_OPERATION(EXDEV);
 		}

@@ -422,16 +422,29 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
 	qtree->exists = 0;
 	tagsistant_inode inode = 0;
 
-	// 0. no object path means no need to check for inner consistency
-	if (!qtree->object_path)
-		return (0);
+	/*
+	 *  no object path means no need to check for inner consistency
+	 */
+	if (!qtree->object_path) return (0);
 
+	/*
+	 * if the object path is zero-length, set the query as existing
+	 * and return
+	 */
 	if (strlen(qtree->object_path) == 0) {
 		qtree->exists = 1;
 		return (1);
 	}
 
-	// 1. get the object path first element
+	/*
+	 * first try to lookup the object in the available RDS
+	 */
+	qtree->inode = tagsistant_RDS_contains_object(qtree);
+	if (qtree->inode) return (qtree->inode);
+
+	/*
+	 * get the object path first element
+	 */
 	gchar *object_first_element = g_strdup(qtree->object_path);
 	gchar *first_slash = g_strstr_len(object_first_element, strlen(object_first_element), G_DIR_SEPARATOR_S);
 	if (first_slash) {
@@ -440,17 +453,46 @@ int tagsistant_querytree_check_tagging_consistency(tagsistant_querytree *qtree)
 		qtree->is_taggable = 1;
 	}
 
-	// 2. use the object_first_element to guess if its tagged in the provided set of tags
-	qtree_or_node *or_tmp = qtree->tree;
-	while (or_tmp) {
-		inode = tagsistant_guess_inode_from_and_set(or_tmp->and_set, qtree->dbi, object_first_element);
+	/*
+	 * load the inode
+	 */
+	tagsistant_query(
+		"select inode from RDS where objectname = '%s' and rds_id in (%s)",
+		qtree->dbi,
+		tagsistant_return_integer,
+		&inode,
+		object_first_element,
+		qtree->RDS_fingerprint);
 
-		if (inode) {
-			qtree->exists = 1;
-			break;
+	if (inode) {
+
+		qtree->inode = inode;
+		qtree->exists = 1;
+
+	} else {
+
+		qtree_or_node *or_tmp = qtree->tree;
+		while (or_tmp) {
+			inode = tagsistant_guess_inode_from_and_set(or_tmp->and_set, qtree->dbi, object_first_element);
+
+			if (inode) {
+				qtree->inode = inode;
+				qtree->exists = 1;
+				break;
+			}
+
+			or_tmp = or_tmp->next;
 		}
 
-		or_tmp = or_tmp->next;
+		if (!qtree->exists) {
+			tagsistant_query(
+				"update RDS_catalog set expired = 1 where rds_id in (%s)",
+				qtree->dbi,
+				NULL,
+				NULL,
+				qtree->RDS_fingerprint);
+		}
+
 	}
 
 	g_free_null(object_first_element);
@@ -524,7 +566,8 @@ int tagsistant_querytree_parse_store (
 	tagsistant_querytree *qtree,
 	const char *path,
 	gchar ***token_ptr,
-	int disable_reasoner)
+	int disable_reasoner,
+	int rebuild_expired_RDS)
 {
 	unsigned int orcount = 0, andcount = 0;
 
@@ -748,10 +791,17 @@ int tagsistant_querytree_parse_store (
 		__SLIDE_TOKEN;
 	}
 
-	// if last token is TAGSISTANT_QUERY_DELIMITER_CHAR,
-	// move the pointer one element forward
+	/*
+	 * if last token is TAGSISTANT_QUERY_DELIMITER_CHAR,
+	 * move the pointer one element forward
+	 */
 	if (__TOKEN && (TAGSISTANT_QUERY_DELIMITER_CHAR == *__TOKEN))
 		__SLIDE_TOKEN;
+
+	/*
+	 * build the RDS
+	 */
+	qtree->RDS_fingerprint = tagsistant_RDS_prepare(qtree->tree, qtree->dbi, 0, rebuild_expired_RDS);
 
 	return (1);
 }
@@ -1331,7 +1381,8 @@ tagsistant_querytree *tagsistant_querytree_new(
 	int assign_inode,
 	int start_transaction,
 	int provide_connection,
-	int disable_reasoner)
+	int disable_reasoner,
+	int rebuild_expired_RDS)
 {
 	(void) assign_inode;
 
@@ -1416,7 +1467,7 @@ tagsistant_querytree *tagsistant_querytree_new(
 
 	/* do selective parsing of the query */
 	if (QTREE_IS_STORE(qtree)) {
-		if (!tagsistant_querytree_parse_store(qtree, path, &token_ptr, disable_reasoner)) goto RETURN;
+		if (!tagsistant_querytree_parse_store(qtree, path, &token_ptr, disable_reasoner, rebuild_expired_RDS)) goto RETURN;
 	} else if (QTREE_IS_TAGS(qtree)) {
 		if (!tagsistant_querytree_parse_tags(qtree, &token_ptr)) goto RETURN;
 	} else if (QTREE_IS_RELATIONS(qtree)) {
@@ -1470,11 +1521,14 @@ tagsistant_querytree *tagsistant_querytree_new(
 		// we just need to check if an object with *token_ptr objectname and
 		// a matching or_node->and_set->tag named tag is listed
 		if (!qtree->inode) {
+#if 0
 			qtree_or_node *or_tmp = qtree->tree;
 			while (or_tmp && !qtree->inode && strlen(qtree->object_path)) {
 				qtree->inode = tagsistant_guess_inode_from_and_set(or_tmp->and_set, qtree->dbi, *token_ptr);
 				or_tmp = or_tmp->next;
 			}
+#endif
+			tagsistant_querytree_check_tagging_consistency(qtree);
 		} else {
 			/*
 			 * replace the inode and the separator with a blank string,
@@ -1660,6 +1714,7 @@ void tagsistant_querytree_destroy(tagsistant_querytree *qtree, guint commit_tran
 	g_free_null(qtree->archive_path);
 	g_free_null(qtree->full_archive_path);
 	g_free_null(qtree->error_message);
+	g_free_null(qtree->RDS_fingerprint);
 
 	if (QTREE_IS_STORE(qtree)) {
 		qtree_or_node *node = qtree->tree;

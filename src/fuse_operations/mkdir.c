@@ -34,7 +34,7 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 	TAGSISTANT_START("MKDIR on %s [mode: %d]", path, mode);
 
 	// build querytree
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1, 0, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -51,6 +51,7 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 			// and tag it with all the tags in the qtree
 			res = tagsistant_force_create_and_tag_object(qtree, &tagsistant_errno);
 			if (-1 == res) goto TAGSISTANT_EXIT_OPERATION;
+			qtree->inode = res;
 		}
 
 		// do a real mkdir
@@ -130,6 +131,8 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 
 				tagsistant_invalidate_reasoning_cache(qtree->first_tag ? qtree->first_tag : qtree->namespace);
 				tagsistant_invalidate_reasoning_cache(qtree->second_tag ? qtree->second_tag : qtree->related_namespace);
+
+				tagsistant_RDS_invalidate(qtree);
 			}
 		} else {
 			TAGSISTANT_ABORT_OPERATION(EROFS);

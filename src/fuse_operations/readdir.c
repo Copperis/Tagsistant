@@ -30,11 +30,6 @@ struct tagsistant_use_filler_struct {
 	int is_alias;					/**< set to 1 if entries are aliases and must be prefixed with the alias identifier (=) */
 };
 
-// filetree functions
-GHashTable *tagsistant_RDS_new(qtree_or_node *query, dbi_conn conn, int is_all_path);
-void tagsistant_RDS_destroy_value_list(gchar *key, GList *list_p, gpointer data);
-#define tagsistant_RDS_destroy_value g_free_null
-
 /**
  * SQL callback. Add dir entries to libfuse buffer.
  *
@@ -48,7 +43,7 @@ static int tagsistant_add_entry_to_dir(void *filler_ptr, dbi_result result)
 	const char *dir = dbi_result_get_string_idx(result, 1);
 
 	/* this must be the last value, just exit */
-	if (dir == NULL) return(0);
+	if (!dir) return(0);
 
 	/*
 	 * zero-length values can be returned while listing triple tags
@@ -216,11 +211,15 @@ int tagsistant_readdir_on_store(
 			/* report a file with the error message */
 			filler(buf, "error", NULL, 0);
 		} else {
-			/* build the filetree */
-			GHashTable *hash_table = tagsistant_RDS_new(qtree->tree, qtree->dbi, is_all_path);
-			g_hash_table_foreach(hash_table, (GHFunc) tagsistant_readdir_on_store_filler, ufs);
-			g_hash_table_foreach(hash_table, (GHFunc) tagsistant_RDS_destroy_value_list, NULL);
-			g_hash_table_destroy(hash_table);
+			/*
+			 * build the RDS, load it and add its files to the buffer
+			 */
+			if (qtree->RDS_fingerprint) {
+				GHashTable *hash_table = tagsistant_RDS_load(qtree->RDS_fingerprint, qtree->dbi);
+				g_hash_table_foreach(hash_table, (GHFunc) tagsistant_readdir_on_store_filler, ufs);
+				g_hash_table_foreach(hash_table, (GHFunc) tagsistant_RDS_destroy_value_list, NULL);
+				g_hash_table_destroy(hash_table);
+			}
 		}
 	} else {
 
@@ -571,7 +570,7 @@ int tagsistant_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_
 	TAGSISTANT_START("READDIR on %s", path);
 
 	// build querytree
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 0, 1, 0, 1);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {

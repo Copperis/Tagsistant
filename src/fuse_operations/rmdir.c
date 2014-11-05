@@ -44,7 +44,7 @@ int tagsistant_rmdir(const char *path)
 
 	TAGSISTANT_START("RMDIR on %s", path);
 
-	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1, 0);
+	tagsistant_querytree *qtree = tagsistant_querytree_new(path, 0, 1, 1, 0, 0);
 
 	// -- malformed --
 	if (QTREE_IS_MALFORMED(qtree)) {
@@ -92,12 +92,13 @@ int tagsistant_rmdir(const char *path)
 			}
 		}
 
-		// do a real mkdir
+		// do a real rmdir
 		if (do_rmdir) {
 			rmdir_path = qtree->full_archive_path;
 			res = rmdir(rmdir_path);
 			tagsistant_errno = errno;
 
+			tagsistant_RDS_invalidate(qtree);
 		}
 	}
 
@@ -121,6 +122,8 @@ int tagsistant_rmdir(const char *path)
 
 				tagsistant_invalidate_reasoning_cache(qtree->first_tag);
 				tagsistant_invalidate_reasoning_cache(qtree->second_tag);
+
+				tagsistant_RDS_invalidate(qtree);
 			} else {
 				TAGSISTANT_ABORT_OPERATION(EFAULT);
 			}
@@ -148,6 +151,7 @@ int tagsistant_rmdir(const char *path)
 		tagsistant_invalidate_querytree_cache(qtree);
 #endif
 
+		tagsistant_RDS_invalidate(qtree);
 	}
 
 	// -- archive --
