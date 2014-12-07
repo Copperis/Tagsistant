@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- fuse_operations/mkdir.c
-   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -56,9 +56,6 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 		// do a real mkdir
 		res = mkdir(qtree->full_archive_path, mode);
 		tagsistant_errno = errno;
-
-		// clean the RDS library
-		tagsistant_delete_rds_involved(qtree);
 	}
 
 	// -- tags --
@@ -133,9 +130,6 @@ int tagsistant_mkdir(const char *path, mode_t mode)
 
 				tagsistant_invalidate_reasoning_cache(qtree->first_tag ? qtree->first_tag : qtree->namespace);
 				tagsistant_invalidate_reasoning_cache(qtree->second_tag ? qtree->second_tag : qtree->related_namespace);
-
-				// clean the RDS library
-				tagsistant_delete_rds_involved(qtree);
 			}
 		} else {
 			TAGSISTANT_ABORT_OPERATION(EROFS);

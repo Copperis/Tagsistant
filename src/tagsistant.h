@@ -101,12 +101,6 @@
 /** the default suffix appended to files to get their tags */
 #define TAGSISTANT_DEFAULT_TAGS_SUFFIX ".tags"
 
-/** the number of tuples (rows) allowed in the rds table before the GC kicks in */
-#define TAGSISTANT_GC_TUPLES 1000000
-
-/** the number of RDS (reusable data sets) allowed in the rds table before the GC kicks in */
-#define TAGSISTANT_GC_RDS 50000
-
 #include "config.h"
 
 #ifndef VERSION
@@ -206,7 +200,6 @@ struct tagsistant {
 	gboolean	debug;			/**< debug profile */
 	gchar		*debug_flags;	/**< debug flags as a string */
 	gchar 		dbg[128];		/**< debug flags */
-
 	gboolean	foreground;		/**< run in foreground */
 	gboolean	singlethread;	/**< single thread? */
 	gboolean	readonly;		/**< mount filesystem readonly */
@@ -216,8 +209,6 @@ struct tagsistant {
 	gboolean	show_help;		/**< show the help screen */
 	gboolean	open_permission;/**< use relaxed permissions (777) on tags and other meta-directories */
 	gboolean	enable_xattr;	/**< enable extended attributes (needed for POSIX ACL) */
-	gboolean	multi_symlink;	/**< allow multiple symlinks with the same name but different targets */
-
 	gchar		*tags_suffix;	/**< the suffix to be added to filenames to list their tags */
 	gchar		*namespace_suffix; /**< the suffix that distinguishes namespaces */
 	gchar		*triple_tag_regex; /**< namespace suffix detector regexp */
@@ -338,7 +329,6 @@ extern void tagsistant_fix_archive();
 extern GKeyFile *tagsistant_ini;
 extern void tagsistant_manage_repository_ini();
 extern gchar *tagsistant_get_ini_entry(gchar *section, gchar *key);
-extern gchar **tagsistant_get_ini_entry_list(gchar *section, gchar *key);
 
 extern GHashTable *tagsistant_checksummers;
 extern int tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gchar *hex);
@@ -358,10 +348,3 @@ extern int tagsistant_querytree_find_duplicates(tagsistant_querytree *qtree, gch
 #endif
 
 extern gchar *tagsistant_get_file_tags(tagsistant_querytree *qtree);
-
-extern GHashTable *tagsistant_rds_new(tagsistant_querytree *qtree, int is_all_path);
-extern void tagsistant_rds_destroy_value_list(gchar *key, GList *list, gpointer data);
-extern void tagsistant_delete_rds_involved(tagsistant_querytree *qtree);
-extern gchar *tagsistant_materialize_rds(tagsistant_querytree *qtree);
-extern gchar *tagsistant_get_rds_id(tagsistant_querytree *qtree, int *materialized);
-extern gchar *tagsistant_get_rds_checksum(tagsistant_querytree *qtree);

@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- fuse_operations/rename.c
-   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -86,9 +86,6 @@ int tagsistant_rename(const char *from, const char *to)
 			tagsistant_invalidate_and_set_cache_entries(from_qtree);
 #endif
 
-			// clean the RDS library
-			tagsistant_delete_rds_involved(from_qtree);
-			tagsistant_delete_rds_involved(to_qtree);
 		} else {
 			TAGSISTANT_ABORT_OPERATION(EXDEV);
 		}
@@ -123,10 +120,6 @@ int tagsistant_rename(const char *from, const char *to)
 		} else {
 			tagsistant_remove_tag_from_cache(from_qtree->last_tag, NULL, NULL);
 		}
-
-		// clean the RDS library
-		tagsistant_delete_rds_involved(from_qtree);
-		tagsistant_delete_rds_involved(to_qtree);
 	} else
 
 	// -- tags --

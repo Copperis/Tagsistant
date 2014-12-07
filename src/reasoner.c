@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- reasoner.c
-   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
 
    Transform paths into queries and apply queries to file sets to
    grep files matching with queries.
@@ -272,11 +272,11 @@ int tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int do_caching)
 		tagsistant_query(
 			"select tag_id, tagname, `key`, value from tags "
 				"join relations on tags.tag_id = relations.tag2_id "
-				"where tag1_id = %d and relation in (\"includes\", \"is_equivalent\") "
+				"where tag1_id = %d and relation in ('includes', 'is_equivalent') "
 			"union "
 			"select tag_id, tagname, `key`, value from tags "
 				"join relations on tags.tag_id = relations.tag1_id "
-				"where tag2_id = %d and relation = \"is_equivalent\" ",
+				"where tag2_id = %d and relation = 'is_equivalent' ",
 			reasoning->conn,
 			tagsistant_add_reasoned_tag_callback,
 			reasoning,
@@ -290,7 +290,7 @@ int tagsistant_reasoner_inner(tagsistant_reasoning *reasoning, int do_caching)
 		tagsistant_query(
 			"select tag_id, tagname, `key`, value from tags "
 				"join relations on tags.tag_id = relations.tag2_id "
-				"where tag1_id = %d and relation = \"excludes\"",
+				"where tag1_id = %d and relation = 'excludes'",
 			reasoning->conn,
 			tagsistant_add_reasoned_tag_callback,
 			reasoning,

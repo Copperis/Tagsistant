@@ -1,6 +1,6 @@
 /*
    Tagsistant (tagfs) -- fuse_operations/unlink.c
-   Copyright (C) 2006-2014 Tx0 <tx0@strumentiresistenti.org>
+   Copyright (C) 2006-2013 Tx0 <tx0@strumentiresistenti.org>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -80,10 +80,6 @@ int tagsistant_unlink(const char *path)
 			 */
 			tagsistant_invalidate_and_set_cache_entries(qtree);
 #endif
-
-
-			// clean the RDS library
-			tagsistant_delete_rds_involved(qtree);
 		}
 
 		// unlink the object on disk

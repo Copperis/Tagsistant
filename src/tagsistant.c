@@ -143,10 +143,8 @@ void tagsistant_usage(gchar *progname, int verbose)
 		"    -f                       run in foreground\n"
 		"    -s                       run single threaded\n"
 		"    --open-permission, -P    relax metadirectories permissions to 0777 \n"
-		"    --multi-symlink, -m      create multiple symlink with the same name if\n"
-		"                               their targets differ \n"
 		"    --tags-suffix=string     set the string to be appended to list a path tags \n"
-		"                               (defaults to .tags)\n"
+		"                             (default .tags)\n"
 		"    --show-config, -p        print the content of the repository.ini file\n"
 		"    --namespace-suffix, -n   the namespace suffix (defaults to ':')\n"
 #if HAVE_SYS_XATTR_H
@@ -181,7 +179,7 @@ void cleanup(int s)
 }
 
 /**
- * Return an entry from the repository.ini file
+ * Return and entry from the repository.ini file
  *
  * @param section the INI section
  * @param key the INI key
@@ -190,27 +188,6 @@ void cleanup(int s)
 gchar *tagsistant_get_ini_entry(gchar *section, gchar *key) {
 	if (!tagsistant_ini) return (NULL);
 	return (g_key_file_get_value(tagsistant_ini, section, key, NULL));
-}
-
-/**
- * Return all the values of an entry from the repository.ini file.
- * Values must be separated by ';'
- *
- * @param section the INI section
- * @param key the INI key
- * @return the values as an array of strings that must be freed with g_strfreev()
- */
-gchar **tagsistant_get_ini_entry_list(gchar *section, gchar *key) {
-	if (!tagsistant_ini) return(NULL);
-	gsize values = 0;
-	GError *error = NULL;
-	gchar **result = g_key_file_get_string_list(tagsistant_ini, section, key, &values, &error);
-	if (error) {
-		dbg('b', LOG_ERR, "Error reading %s key from %s group: %s", key, section, error->message);
-		return (NULL);
-	}
-	dbg('b', LOG_INFO, "Key %s of section %s contains %lu values", key, section, values);
-	return (result);
 }
 
 extern void tagsistant_show_config();
@@ -233,7 +210,6 @@ static GOptionEntry tagsistant_options[] =
   { "open-permission", 'P', 0,	G_OPTION_ARG_NONE,				&tagsistant.open_permission,	"Set relaxed permission in multiuser environments", NULL },
   { "namespace-suffix", 'n', 0, G_OPTION_ARG_STRING,			&tagsistant.namespace_suffix,	"The namespace suffix (defaults to ':')", NULL },
   { "fuse-opt", 'o', 0, 		G_OPTION_ARG_STRING_ARRAY, 		&tagsistant.fuse_opts, 			"Pass options to FUSE", "allow_other, allow_root, ..." },
-  { "multi-symlink", 'm', 0,	G_OPTION_ARG_NONE,				&tagsistant.multi_symlink,		"Allow multiple symlink with the same name but different targets", NULL },
 #if HAVE_SYS_XATTR_H
   { "enable-xattr", 'x', 0,		G_OPTION_ARG_NONE,				&tagsistant.enable_xattr,		"Enable extended attribute support (required for POSIX ACL)", NULL },
 #endif
